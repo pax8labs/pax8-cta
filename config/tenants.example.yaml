@@ -1,0 +1,193 @@
+# Copilot Studio Deployer - Tenant Configuration v2.0
+# Copy this file to tenants.yaml and fill in your values
+
+# Configuration version
+version: "2.0"
+
+# Partner Tenant Configuration
+# This is your MSP's Azure AD tenant where the app registration lives
+partner:
+  tenantId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Your partner tenant ID
+  clientId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # App registration client ID
+  # Note: Client secret should be set via PARTNER_CLIENT_SECRET environment variable
+
+# Source Environment
+# This is where your Copilot Studio agents are developed
+source:
+  tenantId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Can be same as partner tenant
+  environmentUrl: "https://your-org-dev.crm.dynamics.com"
+  # Connection references in source environment (for mapping)
+  connectionReferences:
+    - logicalName: "cr_sharepoint_connection"
+      connectionId: "shared-sharepoint-xxxxxxxx"
+      description: "SharePoint connection for document storage"
+    - logicalName: "cr_outlook_connection"
+      connectionId: "shared-office365-xxxxxxxx"
+      description: "Outlook connection for email"
+
+# Customer Tenants
+tenants:
+  # Example: Enterprise customer with full configuration
+  - name: "Contoso Corporation"
+    tenantId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    environmentUrl: "https://contoso.crm.dynamics.com"
+    tags:
+      - enterprise
+      - priority
+      - wave1
+    enabled: true
+
+    # Connection mappings (map source to target connections)
+    connectionMappings:
+      - sourceLogicalName: "cr_sharepoint_connection"
+        targetConnectionId: "shared-sharepoint-contoso-xxx"
+      - sourceLogicalName: "cr_outlook_connection"
+        targetConnectionId: "shared-office365-contoso-xxx"
+
+    # Environment-specific variables
+    environmentVariables:
+      - schemaName: "cr_SupportEmail"
+        value: "support@contoso.com"
+        type: "String"
+      - schemaName: "cr_MaxRetries"
+        value: 5
+        type: "Number"
+
+    # Health check configuration
+    healthCheck:
+      enabled: true
+      timeout: "30s"
+      retries: 3
+
+    # Tenant-specific rollback settings
+    rollback:
+      enabled: true
+      keepVersions: 5
+
+  # Example: SMB customer with minimal configuration
+  - name: "Fabrikam Inc"
+    tenantId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    environmentUrl: "https://fabrikam.crm.dynamics.com"
+    tags:
+      - smb
+      - wave2
+    enabled: true
+    connectionMappings:
+      - sourceLogicalName: "cr_sharepoint_connection"
+        targetConnectionId: "shared-sharepoint-fabrikam-xxx"
+
+  # Example: Disabled customer (won't receive deployments)
+  - name: "Northwind Traders"
+    tenantId: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    environmentUrl: "https://northwind.crm.dynamics.com"
+    tags:
+      - smb
+    enabled: false  # This tenant is disabled
+
+# Global Settings
+settings:
+  # Default connection mappings (applied to all tenants, can be overridden)
+  defaultConnectionMappings:
+    - sourceLogicalName: "cr_dataverse_connection"
+      targetConnectionId: "current-environment"
+      description: "Default Dataverse connection"
+
+  # Default environment variables
+  defaultEnvironmentVariables:
+    - schemaName: "cr_Environment"
+      value: "Production"
+      type: "String"
+
+  # Deployment Waves - deploy in stages
+  waves:
+    - name: "Pilot"
+      order: 1
+      tenants:
+        - wave1
+        - priority
+      maxParallel: 2
+      waitAfterCompletion: "5m"
+      continueOnFailure: false
+
+    - name: "Main Rollout"
+      order: 2
+      tenants:
+        - wave2
+      maxParallel: 10
+      continueOnFailure: true
+
+    - name: "SMB Tenants"
+      order: 3
+      tenants:
+        - smb
+      maxParallel: 20
+
+  # Rollback settings
+  rollback:
+    enabled: true
+    keepVersions: 3
+    autoRollbackOnFailure: false
+    rollbackTimeout: "10m"
+
+  # Webhook notifications
+  webhooks:
+    - url: "https://your-webhook.example.com/deployments"
+      events:
+        - deployment.started
+        - deployment.completed
+        - deployment.failed
+        - wave.completed
+        - tenant.failed
+      headers:
+        X-API-Key: "${WEBHOOK_API_KEY}"
+      secret: "${WEBHOOK_SECRET}"
+      retries: 3
+
+  # Scheduled deployments
+  schedule:
+    cron: "0 2 * * 6"  # Every Saturday at 2 AM
+    timezone: "America/New_York"
+    maintenanceWindow:
+      start: "02:00"
+      end: "06:00"
+      daysOfWeek: [0, 6]  # Sunday and Saturday
+
+  # Approval workflow
+  approval:
+    required: false
+    approvers:
+      - admin@yourcompany.com
+    minApprovals: 1
+    timeout: "24h"
+    autoApproveForTags:
+      - pilot
+      - test
+
+  # Rate limiting
+  rateLimit:
+    maxConcurrent: 5
+    delayBetweenTenants: "1s"
+    maxRequestsPerMinute: 60
+
+  # Retry settings
+  retry:
+    maxAttempts: 3
+    initialDelay: "5s"
+    maxDelay: "5m"
+    backoffMultiplier: 2
+
+  # Logging
+  logging:
+    level: "info"
+    includeTimestamps: true
+    format: "text"
+
+# Tips:
+# - Use tags to group tenants for targeted deployments (e.g., --tag enterprise)
+# - Set enabled: false to temporarily exclude a tenant from deployments
+# - The environment URL must be the Dataverse organization URL
+# - Ensure GDAP relationship is active with Power Platform Administrator role
+# - Connection mappings link source connection refs to target connections
+# - Waves allow staged rollouts with health checks between phases
+# - Webhooks notify external systems of deployment status
+# - Schedule deployments during maintenance windows for minimal disruption

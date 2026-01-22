@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Config with secrets (keep example)
+config/tenants.yaml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Solutions (exported files)
+solutions/*.zip
+
+# Rollback snapshots
+snapshots/
+
+# Next.js
+.next/
+out/
+
+# Test coverage
+coverage/

@@ -1,0 +1,27 @@
+{
+  "name": "@csd/cli",
+  "version": "0.1.0",
+  "description": "CLI for Copilot Studio multi-tenant deployment",
+  "type": "module",
+  "bin": {
+    "csd": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@csd/core": "workspace:*",
+    "@csd/worker": "workspace:*",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "ora": "^8.0.1",
+    "cli-table3": "^0.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

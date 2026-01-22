@@ -1,0 +1,23 @@
+{
+  "name": "copilot-studio-deployer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant Copilot Studio deployment automation for MSPs",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "cli": "pnpm --filter @csd/cli start",
+    "web": "pnpm --filter @csd/web dev",
+    "worker": "pnpm --filter @csd/worker start"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

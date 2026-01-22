@@ -1,0 +1,21 @@
+{
+  "name": "@csd/worker",
+  "version": "0.1.0",
+  "description": "Background job processor for Copilot Studio deployments",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@csd/core": "workspace:*",
+    "bullmq": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
