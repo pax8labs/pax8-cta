@@ -1,0 +1,120 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run linter
+        run: pnpm lint || echo "Linting not configured yet"
+        continue-on-error: true
+
+      - name: Type check
+        run: |
+          cd packages/web
+          pnpm tsc --noEmit
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          CI: true
+
+      - name: Build
+        run: pnpm build
+        env:
+          DEMO_MODE: true
+
+      - name: Check bundle size
+        run: |
+          cd packages/web
+          if [ -d ".next" ]; then
+            echo "Build size:"
+            du -sh .next
+          fi
+
+  security-check:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run security audit
+        run: pnpm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Check for secrets
+        run: |
+          if grep -r "demo-client-secret\|demo-secret-for-local-testing" packages/web/src 2>/dev/null; then
+            echo "⚠️ WARNING: Found hardcoded demo secrets in source code"
+            echo "This should be removed before production (see issue #11)"
+          fi
+
+  pr-size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          FILES_CHANGED=$(git diff --name-only origin/main...HEAD | wc -l)
+          LINES_CHANGED=$(git diff --shortstat origin/main...HEAD | grep -oE '[0-9]+ insertions|[0-9]+ deletions' | grep -oE '[0-9]+' | paste -sd+ | bc)
+
+          echo "Files changed: $FILES_CHANGED"
+          echo "Lines changed: $LINES_CHANGED"
+
+          if [ "$FILES_CHANGED" -gt 50 ]; then
+            echo "⚠️ Large PR: Consider breaking into smaller PRs"
+          fi
+
+          if [ "$LINES_CHANGED" -gt 1000 ]; then
+            echo "⚠️ Very large PR: Reviewers may need extra time"
+          fi

@@ -1,0 +1,183 @@
+name: Release CLI Binaries
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: bun-darwin-arm64
+            name: agentsync-macos-arm64
+          - os: macos-latest
+            target: bun-darwin-x64
+            name: agentsync-macos-x64
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            name: agentsync-linux-x64
+          - os: ubuntu-latest
+            target: bun-linux-arm64
+            name: agentsync-linux-arm64
+          - os: ubuntu-latest
+            target: bun-windows-x64
+            name: agentsync-windows-x64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: packages/cli
+
+      - name: Build binary
+        run: |
+          mkdir -p dist/binaries
+          bun build --compile --target=${{ matrix.target }} ./src/index.ts --outfile ${{ matrix.name }}
+        working-directory: packages/cli
+
+      - name: Generate checksums
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            shasum -a 256 ${{ matrix.name }} > ${{ matrix.name }}.sha256
+          else
+            sha256sum ${{ matrix.name }} > ${{ matrix.name }}.sha256
+          fi
+        working-directory: packages/cli
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            packages/cli/${{ matrix.name }}
+            packages/cli/${{ matrix.name }}.sha256
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find artifacts -type f -name 'agentsync-*' -exec cp {} release/ \;
+          ls -lh release/
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#cli-}
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Release Notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          # AgentSync CLI ${{ steps.version.outputs.version }}
+
+          Standalone binary releases for the AgentSync CLI.
+
+          ## Installation
+
+          ### macOS
+          ```bash
+          # Apple Silicon (M1/M2/M3)
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-macos-arm64 -o agentsync
+          chmod +x agentsync
+          sudo mv agentsync /usr/local/bin/
+
+          # Intel
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-macos-x64 -o agentsync
+          chmod +x agentsync
+          sudo mv agentsync /usr/local/bin/
+          ```
+
+          ### Linux
+          ```bash
+          # x64
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-linux-x64 -o agentsync
+          chmod +x agentsync
+          sudo mv agentsync /usr/local/bin/
+
+          # ARM64
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-linux-arm64 -o agentsync
+          chmod +x agentsync
+          sudo mv agentsync /usr/local/bin/
+          ```
+
+          ### Windows
+          Download [agentsync-windows-x64.exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-windows-x64.exe) and add to your PATH.
+
+          ## Verify Installation
+          ```bash
+          agentsync --version
+          agentsync --help
+          ```
+
+          ## Usage
+          ```bash
+          # Deploy agents to all tenants
+          agentsync ship --all --solution ./myagent.zip
+
+          # Deploy to specific tenants by tag
+          agentsync ship --tag production --solution ./myagent.zip
+
+          # Track deployment status
+          agentsync track --shipment <deployment-id>
+
+          # List tenants
+          agentsync fleet list
+
+          # Get help
+          agentsync --help
+          agentsync ship --help
+          ```
+
+          ## Checksums
+          SHA256 checksums are provided for each binary. Verify with:
+          ```bash
+          sha256sum -c agentsync-*.sha256
+          ```
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: AgentSync CLI ${{ steps.version.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            release/agentsync-*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

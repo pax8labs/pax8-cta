@@ -1,0 +1,319 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { Command } from "commander";
+import chalk from "chalk";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { spawn } from "node:child_process";
+
+const CONFIG_DIR = join(homedir(), ".agentsync");
+const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
+
+// Demo script - sequence of commands to showcase CLI capabilities
+const DEMO_SCRIPT = [
+  {
+    comment: "Welcome to AgentSync! Let's explore the CLI.",
+    delay: 2000,
+  },
+  {
+    comment: "First, let's see our tenants:",
+    command: "tenants list",
+    delay: 3000,
+  },
+  {
+    comment: "We can filter tenants by tags:",
+    command: "tenants list --tag enterprise",
+    delay: 3000,
+  },
+  {
+    comment: "Let's inspect a specific tenant:",
+    command: "tenants show Contoso --agents --health",
+    delay: 4000,
+  },
+  {
+    comment: "Now let's check our available agents:",
+    command: "agents list",
+    delay: 3000,
+  },
+  {
+    comment: "View details of a specific agent:",
+    command: "agents show CustomerServiceAgent --tenants",
+    delay: 4000,
+  },
+  {
+    comment: "Check recent deployments:",
+    command: "deployments list --limit 5",
+    delay: 3000,
+  },
+  {
+    comment: "Filter to see only failed deployments:",
+    command: "deployments list --status failed --limit 3",
+    delay: 3000,
+  },
+  {
+    comment: "View details of a specific deployment:",
+    command: "deployments show demo-hist-001",
+    delay: 4000,
+  },
+  {
+    comment: "Analyze deployment risk before shipping:",
+    command: "analyze --solution ./CustomerServiceAgent.zip --tag enterprise",
+    delay: 5000,
+  },
+  {
+    comment: "That's the AgentSync CLI! Type 'agentsync --help' for all commands.",
+    delay: 2000,
+  },
+];
+
+interface DemoStep {
+  comment?: string;
+  command?: string;
+  delay: number;
+}
+
+interface CliConfig {
+  demoMode?: boolean;
+}
+
+function loadCliConfig(): CliConfig {
+  if (!existsSync(CONFIG_FILE)) {
+    return {};
+  }
+  try {
+    return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+export function saveCliConfig(config: CliConfig): void {
+  if (!existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
+export const demoCommand = new Command("demo")
+  .description("Toggle demo mode for testing without credentials")
+  .argument("[action]", "on, off, or status (default: toggle)")
+  .action(async (action?: string) => {
+    const config = loadCliConfig();
+    const currentMode = config.demoMode ?? false;
+
+    if (!action || action === "toggle") {
+      // Toggle mode
+      const newMode = !currentMode;
+      config.demoMode = newMode;
+      saveCliConfig(config);
+
+      if (newMode) {
+        console.log(chalk.green("✓ Demo mode enabled"));
+        console.log();
+        console.log(chalk.gray("  You can now use all commands without credentials."));
+        console.log(chalk.gray("  Mock data will be used for demonstrations."));
+        console.log();
+        console.log(chalk.cyan("  Try:"), "agentsync tenants list");
+      } else {
+        console.log(chalk.yellow("✓ Demo mode disabled"));
+        console.log();
+        console.log(chalk.gray("  Real credentials required for operations."));
+        console.log(chalk.gray("  Configure with: agentsync init"));
+      }
+    } else if (action === "on" || action === "enable") {
+      config.demoMode = true;
+      saveCliConfig(config);
+      console.log(chalk.green("✓ Demo mode enabled"));
+    } else if (action === "off" || action === "disable") {
+      config.demoMode = false;
+      saveCliConfig(config);
+      console.log(chalk.yellow("✓ Demo mode disabled"));
+    } else if (action === "status") {
+      if (currentMode) {
+        console.log(chalk.green("Demo mode: ENABLED"));
+        console.log(chalk.gray("  Commands will use mock data"));
+        console.log();
+        console.log(chalk.cyan("  Disable with:"), "agentsync demo off");
+      } else {
+        console.log(chalk.gray("Demo mode: DISABLED"));
+        console.log(chalk.gray("  Commands will use real credentials"));
+        console.log();
+        console.log(chalk.cyan("  Enable with:"), "agentsync demo on");
+      }
+    } else {
+      console.error(chalk.red(`Unknown action: ${action}`));
+      console.log(chalk.gray("Valid actions: on, off, status, toggle"));
+      process.exit(1);
+    }
+  });
+
+// Export helper to check if demo mode is enabled
+export function isDemoModeEnabled(): boolean {
+  // Check environment variable first (for backward compatibility)
+  if (process.env.DEMO_MODE === "true") {
+    return true;
+  }
+
+  // Check stored config
+  const config = loadCliConfig();
+  return config.demoMode ?? false;
+}
+
+// ============================================================================
+// Auto-demo subcommand
+// ============================================================================
+
+demoCommand
+  .command("auto")
+  .alias("run")
+  .description("Run an automated demo showcasing CLI capabilities")
+  .option("-s, --speed <multiplier>", "Speed multiplier (0.5 = slower, 2 = faster)", "1")
+  .option("--no-typing", "Disable typing animation")
+  .option("--step", "Step-through mode (press Enter between commands)")
+  .action(async (options) => {
+    // Ensure demo mode is enabled
+    const config = loadCliConfig();
+    const wasEnabled = config.demoMode ?? false;
+    if (!wasEnabled) {
+      config.demoMode = true;
+      saveCliConfig(config);
+    }
+
+    const speedMultiplier = parseFloat(options.speed) || 1;
+    const useTyping = options.typing !== false;
+    const stepMode = options.step === true;
+
+    console.clear();
+    console.log();
+    console.log(chalk.cyan.bold("  ╔═══════════════════════════════════════════════════════════╗"));
+    console.log(chalk.cyan.bold("  ║") + chalk.white.bold("           AgentSync CLI - Interactive Demo              ") + chalk.cyan.bold("║"));
+    console.log(chalk.cyan.bold("  ╚═══════════════════════════════════════════════════════════╝"));
+    console.log();
+    console.log(chalk.gray("  Press Ctrl+C at any time to exit"));
+    console.log();
+
+    // Handle graceful exit
+    let shouldExit = false;
+    const exitHandler = () => {
+      shouldExit = true;
+      console.log();
+      console.log(chalk.yellow("\n  Demo interrupted. Goodbye!"));
+      process.exit(0);
+    };
+    process.on("SIGINT", exitHandler);
+
+    try {
+      for (const step of DEMO_SCRIPT as DemoStep[]) {
+        if (shouldExit) break;
+
+        // Show comment
+        if (step.comment) {
+          console.log();
+          console.log(chalk.yellow(`  💡 ${step.comment}`));
+          console.log();
+        }
+
+        // Execute command
+        if (step.command) {
+          // Show the command with typing animation
+          const prompt = chalk.cyan("  $ agentsync ");
+          if (useTyping) {
+            await typeText(prompt + chalk.white(step.command), speedMultiplier);
+          } else {
+            process.stdout.write(prompt + chalk.white(step.command));
+          }
+          console.log();
+          console.log();
+
+          // Execute the command
+          await runCommand(step.command);
+          console.log();
+        }
+
+        // Step mode - wait for Enter
+        if (stepMode && step.command) {
+          console.log(chalk.gray("  Press Enter to continue..."));
+          await waitForEnter();
+        } else {
+          // Normal delay between steps
+          await sleep(step.delay / speedMultiplier);
+        }
+      }
+
+      console.log();
+      console.log(chalk.green.bold("  ✓ Demo complete!"));
+      console.log();
+      console.log(chalk.gray("  Demo mode is still enabled. Disable with: agentsync demo off"));
+      console.log();
+    } finally {
+      process.removeListener("SIGINT", exitHandler);
+    }
+  });
+
+/**
+ * Type text with animation effect
+ */
+async function typeText(text: string, speedMultiplier: number): Promise<void> {
+  const baseDelay = 30 / speedMultiplier;
+  for (const char of text) {
+    process.stdout.write(char);
+    await sleep(baseDelay + Math.random() * 20);
+  }
+}
+
+/**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Wait for user to press Enter
+ */
+async function waitForEnter(): Promise<void> {
+  return new Promise(resolve => {
+    const onData = () => {
+      process.stdin.removeListener("data", onData);
+      process.stdin.setRawMode?.(false);
+      resolve();
+    };
+    process.stdin.setRawMode?.(true);
+    process.stdin.resume();
+    process.stdin.once("data", onData);
+  });
+}
+
+/**
+ * Run a CLI command and capture output
+ */
+async function runCommand(command: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const args = command.split(" ");
+    const proc = spawn(process.execPath, [process.argv[1], ...args], {
+      stdio: ["ignore", "inherit", "inherit"],
+      env: {
+        ...process.env,
+        DEMO_MODE: "true",
+      },
+    });
+
+    proc.on("close", () => resolve());
+    proc.on("error", reject);
+  });
+}

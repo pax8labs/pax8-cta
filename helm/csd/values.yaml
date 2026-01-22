@@ -1,0 +1,175 @@
+# Default values for AgentSync
+
+# Global settings
+global:
+  imageRegistry: ghcr.io
+  imagePullSecrets: []
+
+# Web dashboard
+web:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: your-org/agentsync
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    hosts:
+      - host: agentsync.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Environment variables
+  env:
+    NEXTAUTH_URL: ""
+    # NEXTAUTH_SECRET should be set via secrets
+
+# Worker
+worker:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: your-org/agentsync
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+  # Concurrency settings
+  concurrency: 5
+  rateLimitMax: 10
+  rateLimitDuration: 60000
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Persistent volume for snapshots
+  persistence:
+    enabled: true
+    storageClass: ""
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
+# Redis (using Bitnami chart)
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""  # Set in secrets
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# External Redis (if redis.enabled is false)
+externalRedis:
+  host: ""
+  port: 6379
+  password: ""
+
+# Azure AD authentication
+azureAd:
+  tenantId: ""
+  clientId: ""
+  # clientSecret should be set via secrets
+
+# Azure Key Vault
+keyVault:
+  enabled: false
+  vaultUrl: ""
+
+# Database (PostgreSQL)
+database:
+  enabled: false
+  # If using external database
+  host: ""
+  port: 5432
+  name: agentsync
+  user: agentsync
+  # password should be set via secrets
+
+# Secrets
+secrets:
+  # Create secrets in your cluster before installing
+  existingSecret: ""
+  # Or specify values (not recommended for production)
+  azureAdClientSecret: ""
+  partnerClientSecret: ""
+  nextAuthSecret: ""
+  redisPassword: ""
+  databasePassword: ""
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1001
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+
+# Network policies
+networkPolicy:
+  enabled: false

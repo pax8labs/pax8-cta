@@ -1,0 +1,216 @@
+# AgentSync Sandbox Tenant Configuration
+# Copy this file to tenants.sandbox.yaml and fill in your test tenant values
+# This configuration is for TESTING ONLY - do not use production tenants
+
+version: "2.0"
+
+# Partner Tenant Configuration (Your MSP Sandbox)
+partner:
+  tenantId: "your-sandbox-tenant-id"  # Your sandbox Azure AD tenant ID
+  clientId: "your-sandbox-app-registration-id"  # App registration client ID
+  # Note: Client secret should be set via PARTNER_CLIENT_SECRET environment variable
+
+# Source Environment (Development/Warehouse)
+# This is where your test Copilot Studio agents are developed
+source:
+  tenantId: "your-sandbox-tenant-id"  # Can be same as partner tenant
+  environmentUrl: "https://agentsync-dev-source.crm.dynamics.com"
+
+  # Connection references in source environment (for mapping)
+  connectionReferences:
+    - logicalName: "cr_sharepoint_connection"
+      connectionId: "shared-sharepoint-source-xxx"
+      description: "SharePoint connection for document storage"
+    - logicalName: "cr_outlook_connection"
+      connectionId: "shared-office365-source-xxx"
+      description: "Outlook connection for email"
+
+# Customer Test Tenants
+tenants:
+  # ===========================================
+  # Test Tenant 1: Contoso Sandbox
+  # Purpose: Happy path testing - successful deployments
+  # ===========================================
+  - name: "Contoso Sandbox"
+    tenantId: "contoso-test-tenant-id-here"
+    environmentUrl: "https://contoso-sandbox.crm.dynamics.com"
+    tags:
+      - sandbox
+      - enterprise
+      - wave1
+    enabled: true
+
+    # Connection mappings (map source to target connections)
+    connectionMappings:
+      - sourceLogicalName: "cr_sharepoint_connection"
+        targetConnectionId: "shared-sharepoint-contoso-xxx"
+      - sourceLogicalName: "cr_outlook_connection"
+        targetConnectionId: "shared-office365-contoso-xxx"
+
+    # Environment-specific variables
+    environmentVariables:
+      - schemaName: "cr_SupportEmail"
+        value: "test-support@contoso-sandbox.com"
+        type: "String"
+      - schemaName: "cr_MaxRetries"
+        value: 3
+        type: "Number"
+      - schemaName: "cr_EnableDebugMode"
+        value: true
+        type: "Boolean"
+
+    # Health check configuration
+    healthCheck:
+      enabled: true
+      timeout: "30s"
+      retries: 3
+
+    # Rollback settings
+    rollback:
+      enabled: true
+      keepVersions: 3
+
+  # ===========================================
+  # Test Tenant 2: Fabrikam Sandbox
+  # Purpose: Failure testing - missing dependencies, errors
+  # ===========================================
+  - name: "Fabrikam Sandbox"
+    tenantId: "fabrikam-test-tenant-id-here"
+    environmentUrl: "https://fabrikam-sandbox.crm.dynamics.com"
+    tags:
+      - sandbox
+      - smb
+      - wave2
+    enabled: true
+
+    # Intentionally missing connection mappings for error testing
+    # This will cause deployment failures when connections are required
+    connectionMappings: []
+
+    # Minimal environment variables
+    environmentVariables:
+      - schemaName: "cr_SupportEmail"
+        value: "test-support@fabrikam-sandbox.com"
+        type: "String"
+
+    healthCheck:
+      enabled: true
+      timeout: "20s"
+
+  # ===========================================
+  # Test Tenant 3: Adventure Works Sandbox
+  # Purpose: Disabled tenant scenarios, concurrency testing
+  # ===========================================
+  - name: "Adventure Works Sandbox"
+    tenantId: "adventureworks-test-tenant-id-here"
+    environmentUrl: "https://adventureworks-sandbox.crm.dynamics.com"
+    tags:
+      - sandbox
+      - test
+    enabled: false  # Disabled by default for testing disabled scenarios
+
+    connectionMappings:
+      - sourceLogicalName: "cr_sharepoint_connection"
+        targetConnectionId: "shared-sharepoint-adventureworks-xxx"
+
+# Global Settings (Optimized for Sandbox)
+settings:
+  # Default connection mappings (applied to all tenants unless overridden)
+  defaultConnectionMappings:
+    - sourceLogicalName: "cr_dataverse_connection"
+      targetConnectionId: "current-environment"
+      description: "Default Dataverse connection"
+
+  # Default environment variables
+  defaultEnvironmentVariables:
+    - schemaName: "cr_Environment"
+      value: "Sandbox"
+      type: "String"
+    - schemaName: "cr_TestMode"
+      value: true
+      type: "Boolean"
+
+  # Deployment Waves - staged rollout for testing
+  waves:
+    - name: "Wave 1 - Enterprise"
+      order: 1
+      tenants:
+        - wave1
+      maxParallel: 1  # Deploy one at a time for careful testing
+      waitAfterCompletion: "30s"
+      continueOnFailure: false  # Stop on failure for wave1
+
+    - name: "Wave 2 - SMB"
+      order: 2
+      tenants:
+        - wave2
+      maxParallel: 2
+      waitAfterCompletion: "10s"
+      continueOnFailure: true  # Continue despite failures
+
+  # Rollback settings (sandbox)
+  rollback:
+    enabled: true
+    keepVersions: 3  # Keep fewer versions in sandbox
+    autoRollbackOnFailure: false
+    rollbackTimeout: "5m"
+
+  # Rate limiting (lower for sandbox to reduce load)
+  rateLimit:
+    maxConcurrent: 2  # Fewer concurrent deployments
+    delayBetweenTenants: "500ms"  # Faster than production
+    maxRequestsPerMinute: 30  # Lower than production
+
+  # Retry settings (fewer attempts for faster failure feedback)
+  retry:
+    maxAttempts: 2  # Fewer retries in sandbox
+    initialDelay: "2s"
+    maxDelay: "30s"
+    backoffMultiplier: 2
+
+  # Approval workflow (disabled for automated testing)
+  approval:
+    required: false
+    minApprovals: 1
+    timeout: "1h"
+    autoApproveForTags:
+      - sandbox
+      - test
+
+  # Webhooks (optional - for testing webhook notifications)
+  webhooks: []
+    # - url: "https://webhook.site/your-unique-url"  # Use webhook.site for testing
+    #   events:
+    #     - deployment.completed
+    #     - deployment.failed
+    #   headers:
+    #     X-Test-Header: "sandbox"
+    #   retries: 2
+
+  # Logging
+  logging:
+    level: "debug"  # Verbose logging for troubleshooting
+    includeTimestamps: true
+    format: "text"
+
+# ===========================================
+# Setup Instructions
+# ===========================================
+# 1. Create 3-4 Power Platform environments (1 source + 3 targets)
+# 2. Create connections in each environment (SharePoint, Outlook, etc.)
+# 3. Copy this file to config/tenants.sandbox.yaml
+# 4. Replace all placeholder IDs with your actual tenant/environment IDs
+# 5. Update connection IDs after creating connections in Power Platform
+# 6. Deploy a minimal test agent to the source environment
+# 7. Export the agent as a managed solution
+# 8. Test deployment using: pnpm cli deploy --config ./config/tenants.sandbox.yaml
+
+# ===========================================
+# Tips for Sandbox Configuration
+# ===========================================
+# - Use tags to group tenants for targeted testing (e.g., --tag wave1)
+# - Set enabled: false on a tenant to test disabled scenarios
+# - Leave connectionMappings empty on Fabrikam to test failure handling
+# - Keep solutions small (< 1MB) for faster test cycles
+# - Use verbose logging (debug) to troubleshoot issues
+# - Run deployments manually first before automating in CI/CD

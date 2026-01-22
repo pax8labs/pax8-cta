@@ -1,0 +1,164 @@
+# Default values for agentsync
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Web application settings
+web:
+  replicaCount: 2
+  image:
+    repository: pax8labs/agentsync-web
+    tag: ""  # Defaults to Chart appVersion
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    hosts:
+      - host: agentsync.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: agentsync-tls
+        hosts:
+          - agentsync.example.com
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  env:
+    NEXTAUTH_URL: "https://agentsync.example.com"
+    # NEXTAUTH_SECRET should be provided via secret
+    # AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID via secret
+
+# Worker settings
+worker:
+  replicaCount: 2
+  image:
+    repository: pax8labs/agentsync-worker
+    tag: ""  # Defaults to Chart appVersion
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+  env:
+    WORKER_CONCURRENCY: "5"
+    ENABLE_SCHEDULER: "true"
+
+# Redis settings (if using bundled Redis)
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""  # Set via secret or use existingSecret
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# External Redis (if not using bundled)
+externalRedis:
+  host: ""
+  port: 6379
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: "redis-password"
+
+# Secrets configuration
+secrets:
+  # Create secrets from values (for testing only - use external secrets in production)
+  create: false
+
+  nextauthSecret: ""
+
+  azure:
+    clientId: ""
+    clientSecret: ""
+    tenantId: ""
+
+  partner:
+    clientSecret: ""
+
+# ConfigMap for tenant configuration
+config:
+  # Mount external configmap with tenant config
+  existingConfigMap: ""
+  # Or create from inline values
+  tenants: {}
+
+# Persistent volume for solutions and snapshots
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteMany
+  size: 10Gi
+  annotations: {}
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policies
+networkPolicy:
+  enabled: false

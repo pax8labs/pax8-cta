@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Config with secrets (keep example)
+config/tenants.yaml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Solutions (exported files)
+solutions/*.zip
+packages/web/solutions/
+
+# Rollback snapshots
+snapshots/
+
+# CLI binaries (local builds)
+packages/cli/agentsync
+packages/cli/config/
+
+# Next.js
+.next/
+out/
+
+# Test coverage
+coverage/
+
+# Demo mode data
+.demo-*.json
+.agentsync-settings.json
+
+# SQLite database
+data/
+
+# Playwright
+playwright-report/
+test-results/

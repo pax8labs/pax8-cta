@@ -1,0 +1,39 @@
+{
+  "name": "@agentsync/core",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Core logic for AgentSync - sync and track agent deployments",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@azure/identity": "4.2.0",
+    "@azure/msal-node": "2.6.0",
+    "better-sqlite3": "12.6.2",
+    "node-fetch": "3.3.2",
+    "yaml": "2.3.4",
+    "zod": "3.22.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "20.11.0",
+    "typescript": "5.3.3",
+    "vitest": "1.6.1"
+  }
+}

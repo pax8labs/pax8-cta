@@ -1,0 +1,22 @@
+apiVersion: v2
+name: agentsync
+description: AgentSync - Sync your agents across all your tenants
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - agentsync
+  - copilot-studio
+  - power-platform
+  - deployment
+  - msp
+  - automation
+maintainers:
+  - name: MSP Team
+sources:
+  - https://github.com/your-org/agentsync
+dependencies:
+  - name: redis
+    version: "18.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "pnpm install && pnpm build",
+  "outputDirectory": "packages/web/.next",
+  "installCommand": "pnpm install",
+  "rootDirectory": "packages/web",
+  "functions": {
+    "packages/web/src/app/api/deployments/process/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}

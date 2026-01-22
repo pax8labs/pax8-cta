@@ -1,0 +1,45 @@
+name: MCP Server Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'packages/mcp-server/**'
+      - '.github/workflows/test-mcp.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'packages/mcp-server/**'
+      - '.github/workflows/test-mcp.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run MCP Server Tests
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        working-directory: packages/mcp-server
+        run: npm ci
+      
+      - name: Run tests
+        working-directory: packages/mcp-server
+        run: npm test
+      
+      - name: Build
+        working-directory: packages/mcp-server
+        run: npm run build

@@ -1,0 +1,45 @@
+{
+  "name": "@agentsync/cli",
+  "version": "0.1.0",
+  "description": "AgentSync CLI - sync agents to your tenant fleet from the command line",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "agentsync": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "eslint src/",
+    "build:binary": "bun build --compile ./src/index.ts --outfile agentsync",
+    "build:macos-arm64": "bun build --compile --target=bun-darwin-arm64 ./src/index.ts --outfile dist/binaries/agentsync-macos-arm64",
+    "build:macos-x64": "bun build --compile --target=bun-darwin-x64 ./src/index.ts --outfile dist/binaries/agentsync-macos-x64",
+    "build:linux-x64": "bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist/binaries/agentsync-linux-x64",
+    "build:linux-arm64": "bun build --compile --target=bun-linux-arm64 ./src/index.ts --outfile dist/binaries/agentsync-linux-arm64",
+    "build:windows-x64": "bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist/binaries/agentsync-windows-x64.exe",
+    "build:all": "mkdir -p dist/binaries && npm run build:macos-arm64 && npm run build:macos-x64 && npm run build:linux-x64 && npm run build:linux-arm64 && npm run build:windows-x64",
+    "clean": "rm -rf dist agentsync"
+  },
+  "dependencies": {
+    "@agentsync/core": "workspace:*",
+    "@agentsync/worker": "workspace:*",
+    "chalk": "5.3.0",
+    "cli-table3": "0.6.3",
+    "commander": "12.0.0",
+    "conf": "15.1.0",
+    "ora": "8.0.1",
+    "posthog-node": "5.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.0",
+    "@vitest/coverage-v8": "1.6.1",
+    "@vitest/ui": "4.0.18",
+    "typescript": "5.3.3",
+    "vitest": "1.6.1"
+  }
+}
