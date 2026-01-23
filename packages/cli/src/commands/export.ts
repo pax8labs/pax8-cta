@@ -8,25 +8,26 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from "@csd/core";
+} from "@agentcrate/core";
 
-export const exportCommand = new Command("export")
-  .description("Export a Copilot Studio solution from the source environment")
-  .requiredOption("-s, --solution <name>", "Solution unique name to export")
-  .option("-o, --output <path>", "Output directory for the solution zip", "./solutions")
-  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
-  .option("--unmanaged", "Export as unmanaged solution (default: managed)")
+export const exportCommand = new Command("pack")
+  .alias("export") // backwards compatibility
+  .description("Pack a Copilot Studio solution into a crate for shipping")
+  .requiredOption("-s, --solution <name>", "Solution unique name to pack")
+  .option("-o, --output <path>", "Output warehouse for the crate", "./crates")
+  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("--unmanaged", "Pack as unmanaged solution (default: managed)")
   .action(async (options) => {
-    const spinner = ora("Loading configuration...").start();
+    const spinner = ora("Loading manifest...").start();
 
     try {
       // Load config
       const configPath = resolve(options.config);
       const config = await loadConfig(configPath);
-      spinner.succeed("Configuration loaded");
+      spinner.succeed("Manifest loaded");
 
       // Get client secret
-      spinner.start("Authenticating...");
+      spinner.start("Authenticating with warehouse...");
       const clientSecret = getClientSecret();
 
       const tokenManager = new TokenManager({
@@ -41,7 +42,7 @@ export const exportCommand = new Command("export")
       });
 
       const solutionOps = new SolutionOperations(dataverseClient);
-      spinner.succeed("Authenticated to source environment");
+      spinner.succeed("Connected to source warehouse");
 
       // Build output path
       const managed = !options.unmanaged;
@@ -51,28 +52,28 @@ export const exportCommand = new Command("export")
       const outputPath = `${outputDir}/${options.solution}_${timestamp}_${suffix}.zip`;
 
       // Export solution
-      spinner.start(`Exporting solution '${options.solution}'...`);
+      spinner.start(`Packing solution '${options.solution}' into crate...`);
       const metadata = await solutionOps.exportSolution(options.solution, {
         managed,
         outputPath,
       });
 
       spinner.succeed(
-        `Solution exported: ${chalk.green(metadata.friendlyName)} v${metadata.version}`
+        `Crate packed: ${chalk.green(metadata.friendlyName)} v${metadata.version}`
       );
 
       console.log();
-      console.log(chalk.bold("Solution Details:"));
-      console.log(`  Name:     ${metadata.friendlyName}`);
+      console.log(chalk.bold("Crate Contents:"));
+      console.log(`  Agent:    ${metadata.friendlyName}`);
       console.log(`  Version:  ${metadata.version}`);
       console.log(`  Type:     ${managed ? "Managed" : "Unmanaged"}`);
-      console.log(`  File:     ${chalk.cyan(outputPath)}`);
+      console.log(`  Crate:    ${chalk.cyan(outputPath)}`);
       console.log();
       console.log(
-        chalk.gray(`Use 'csd deploy --solution ${outputPath}' to deploy to tenants`)
+        chalk.gray(`Use 'agentcrate ship --crate ${outputPath}' to ship to your fleet`)
       );
     } catch (error) {
-      spinner.fail(chalk.red("Export failed"));
+      spinner.fail(chalk.red("Packing failed"));
       console.error(
         chalk.red(error instanceof Error ? error.message : String(error))
       );

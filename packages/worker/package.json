@@ -1,7 +1,7 @@
 {
-  "name": "@csd/worker",
+  "name": "@agentcrate/worker",
   "version": "0.1.0",
-  "description": "Background job processor for Copilot Studio deployments",
+  "description": "AgentCrate Dockworker - handles the heavy lifting of shipping agents to tenants",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@csd/core": "workspace:*",
+    "@agentcrate/core": "workspace:*",
     "bullmq": "^5.1.0"
   },
   "devDependencies": {

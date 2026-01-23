@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import useSWR from 'swr'
-import { TenantDeploymentResult } from '@csd/core'
+import { TenantDeploymentResult } from '@agentcrate/core'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 

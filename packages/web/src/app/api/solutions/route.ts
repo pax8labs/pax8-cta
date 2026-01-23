@@ -7,7 +7,7 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from '@csd/core'
+} from '@agentcrate/core'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 

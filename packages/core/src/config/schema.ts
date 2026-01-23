@@ -179,6 +179,9 @@ export const GlobalSettingsSchema = z.object({
   // Global rollback settings
   rollback: RollbackSettingsSchema.optional(),
 
+  // Global health check settings
+  healthCheck: HealthCheckSchema.optional(),
+
   // Webhook notifications
   webhooks: z.array(WebhookSchema).optional(),
 
@@ -221,6 +224,7 @@ export const ConfigSchema = z.object({
   source: SourceConfigSchema,
   tenants: z.array(TenantConfigSchema),
   settings: GlobalSettingsSchema.optional(),
+  webhooks: z.array(WebhookSchema).optional(),
 });
 
 // ============================================================================

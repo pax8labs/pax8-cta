@@ -10,11 +10,15 @@ import { tenantsCommand } from "./commands/tenants.js";
 const program = new Command();
 
 program
-  .name("csd")
-  .description("Copilot Studio Deployer - Multi-tenant deployment automation for MSPs")
+  .name("agentcrate")
+  .description("AgentCrate - Crate up your agents and ship them to all your tenants")
   .version("0.1.0");
 
-// Register commands
+// Register commands with shipping theme
+// pack = export (pack up a solution into a crate)
+// ship = deploy (ship crates to destinations)
+// track = status (track your shipments)
+// fleet = tenants (manage your fleet of destinations)
 program.addCommand(exportCommand);
 program.addCommand(importCommand);
 program.addCommand(deployCommand);

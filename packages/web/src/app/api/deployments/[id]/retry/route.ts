@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { resolve } from 'path'
-import { loadConfig } from '@csd/core'
-import { DeploymentQueueManager } from '@csd/worker'
+import { loadConfig } from '@agentcrate/core'
+import { DeploymentQueueManager } from '@agentcrate/worker'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'

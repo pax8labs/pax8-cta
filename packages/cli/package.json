@@ -1,10 +1,10 @@
 {
-  "name": "@csd/cli",
+  "name": "@agentcrate/cli",
   "version": "0.1.0",
-  "description": "CLI for Copilot Studio multi-tenant deployment",
+  "description": "AgentCrate CLI - ship agents to your tenant fleet from the command line",
   "type": "module",
   "bin": {
-    "csd": "./dist/index.js"
+    "agentcrate": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -13,8 +13,8 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@csd/core": "workspace:*",
-    "@csd/worker": "workspace:*",
+    "@agentcrate/core": "workspace:*",
+    "@agentcrate/worker": "workspace:*",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "ora": "^8.0.1",

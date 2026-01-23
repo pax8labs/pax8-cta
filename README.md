@@ -1,15 +1,15 @@
-# Copilot Studio Deployer
+# AgentCrate
 
-Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer tenants using GDAP (Granular Delegated Admin Privileges).
+Crate up your agents and ship them to all your tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges).
 
 ## Features
 
 ### Core Capabilities
-- **Multi-tenant deployment** - Deploy to 200+ tenants in parallel with rate limiting
+- **Multi-tenant shipping** - Ship crates to 200+ destinations in parallel with rate limiting
 - **GDAP authentication** - Secure cross-tenant access using Microsoft's delegated admin model
-- **CLI and Web UI** - Choose your preferred interface
-- **Job queue system** - Reliable deployments with retry logic and progress tracking
-- **Tag-based targeting** - Deploy to tenant groups (e.g., "enterprise", "pilot")
+- **CLI and Control Tower** - Choose your preferred interface
+- **Job queue system** - Reliable shipments with retry logic and progress tracking
+- **Tag-based targeting** - Ship to fleet groups (e.g., "enterprise", "pilot")
 
 ### Advanced Features (v2.0)
 - **Connection Reference Mapping** - Automatically map connection references to target connections
@@ -26,16 +26,15 @@ Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   CLI / Web     │────▶│   Job Queue     │────▶│    Worker(s)    │
-│   Interface     │     │   (Redis)       │     │                 │
+│   CLI / Control │────▶│   Dock Queue    │────▶│    Dockworker   │
+│   Tower (Web)   │     │   (Redis)       │     │    (Worker)     │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
                                                          │
                               ┌──────────────────────────┼──────────────────────────┐
                               │                          │                          │
                               ▼                          ▼                          ▼
                     ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-                    │  Customer       │       │  Customer       │       │  Customer       │
-                    │  Tenant A       │       │  Tenant B       │       │  Tenant C       │
+                    │  Destination A  │       │  Destination B  │       │  Destination C  │
                     │  (Dataverse)    │       │  (Dataverse)    │       │  (Dataverse)    │
                     └─────────────────┘       └─────────────────┘       └─────────────────┘
 ```
@@ -71,7 +70,7 @@ In each customer's Dataverse environment, create an Application User:
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd copilot-studio-deployer
+cd agentcrate
 
 # Configure
 cp config/tenants.example.yaml config/tenants.yaml
@@ -97,10 +96,10 @@ docker run -d -p 6379:6379 redis:7-alpine
 # Set environment variables
 export PARTNER_CLIENT_SECRET="your-secret"
 
-# Start worker (in one terminal)
+# Start dockworker (in one terminal)
 pnpm worker
 
-# Start web dashboard (in another terminal)
+# Start Control Tower (in another terminal)
 pnpm web
 ```
 
@@ -129,7 +128,7 @@ tenants:
 
 ### Connection Reference Mapping
 
-Map source connection references to target connections for each tenant:
+Map source connection references to target connections for each destination:
 
 ```yaml
 tenants:
@@ -161,7 +160,7 @@ tenants:
 
 ### Deployment Waves
 
-Deploy in stages with health checks between waves:
+Ship in stages with health checks between waves:
 
 ```yaml
 settings:
@@ -252,94 +251,94 @@ settings:
 
 ## CLI Usage
 
-### Export a Solution
+### Pack a Solution (Export)
 
 ```bash
-# Export as managed (default)
-csd export --solution "CustomerServiceAgent" --output ./solutions/
+# Pack as managed (default)
+agentcrate pack --solution "CustomerServiceAgent" --output ./crates/
 
-# Export as unmanaged
-csd export --solution "CustomerServiceAgent" --output ./solutions/ --unmanaged
+# Pack as unmanaged
+agentcrate pack --solution "CustomerServiceAgent" --output ./crates/ --unmanaged
 ```
 
-### Deploy to Tenants
+### Ship to Destinations (Deploy)
 
 ```bash
-# Deploy to all enabled tenants
-csd deploy --solution ./solutions/CustomerServiceAgent_managed.zip --all
+# Ship to all enabled destinations
+agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --all
 
-# Deploy to tenants with specific tags
-csd deploy --solution ./solutions/CustomerServiceAgent_managed.zip --tag enterprise
+# Ship to destinations with specific tags
+agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --tag enterprise
 
-# Deploy to multiple tag groups
-csd deploy --solution ./solutions/CustomerServiceAgent_managed.zip --tag enterprise --tag pilot
+# Ship to multiple tag groups
+agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --tag enterprise --tag pilot
 
-# Dry run (see what would be deployed)
-csd deploy --solution ./solutions/CustomerServiceAgent_managed.zip --all --dry-run
+# Dry run (see what would be shipped)
+agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --all --dry-run
 ```
 
-### Check Deployment Status
+### Track Shipment Status
 
 ```bash
 # One-time status check
-csd status --deployment <deployment-id>
+agentcrate track --shipment <shipment-id>
 
 # Watch for updates
-csd status --deployment <deployment-id> --watch
+agentcrate track --shipment <shipment-id> --watch
 ```
 
-### Manage Tenants
+### Manage Fleet (Tenants)
 
 ```bash
-# List all tenants
-csd tenants list
+# List all destinations in your fleet
+agentcrate fleet list
 
 # Filter by tag
-csd tenants list --tag enterprise
+agentcrate fleet list --tag enterprise
 
 # Validate GDAP access
-csd tenants validate
+agentcrate fleet validate
 ```
 
-### Import to Single Tenant (Testing)
+### Deliver to Single Destination (Testing)
 
 ```bash
-csd import --solution ./solutions/CustomerServiceAgent_managed.zip --tenant <tenant-id>
+agentcrate deliver --solution ./crates/CustomerServiceAgent_managed.zip --tenant <tenant-id>
 ```
 
-## Web Dashboard
+## Control Tower (Web Dashboard)
 
 Access at `http://localhost:3001`
 
-- **Dashboard** - Overview stats and recent deployments
-- **Solutions** - Browse and export solutions from your source environment
-- **Tenants** - View configured tenants
-- **Deployments** - List all deployments with real-time status
-- **New Deployment** - Upload solution and select target tenants
-- **Deployment Detail** - View per-tenant progress, retry failed, or cancel pending
+- **Dashboard** - Overview stats and recent shipments
+- **Solutions** - Browse and pack solutions from your source environment (warehouse)
+- **Fleet** - View configured destinations
+- **Shipments** - List all deployments with real-time status
+- **New Shipment** - Upload crate and select target destinations
+- **Shipment Detail** - View per-destination progress, retry failed, or cancel pending
 
 ## Project Structure
 
 ```
-copilot-studio-deployer/
+agentcrate/
 ├── packages/
-│   ├── core/           # Shared business logic
+│   ├── core/           # Core warehouse logic
 │   │   └── src/
 │   │       ├── auth/         # GDAP + token management
 │   │       ├── config/       # YAML config schema (v2.0)
-│   │       ├── dataverse/    # Solution export/import + connection refs
+│   │       ├── dataverse/    # Solution pack/ship + connection refs
 │   │       └── services/     # Rollback, health checks, webhooks, waves
 │   │
 │   ├── cli/            # Command-line interface
 │   │   └── src/commands/
 │   │
-│   ├── worker/         # BullMQ job processor
+│   ├── worker/         # Dockworker (BullMQ job processor)
 │   │
-│   └── web/            # Next.js dashboard
+│   └── web/            # Control Tower (Next.js dashboard)
 │
 ├── config/
-│   └── tenants.yaml    # Your tenant configuration
-├── solutions/          # Exported solution files
+│   └── tenants.yaml    # Your fleet configuration
+├── crates/             # Packed solution files
 ├── snapshots/          # Rollback snapshots
 ├── docker-compose.yml
 └── Dockerfile
@@ -357,17 +356,17 @@ copilot-studio-deployer/
 
 - Verify GDAP relationship is approved in Partner Center
 - Check that the relationship includes Power Platform Administrator role
-- Run `csd tenants validate` to check all tenants
+- Run `agentcrate fleet validate` to check all destinations
 
 ### "Import failed: missing dependencies"
 
 - Ensure all solution dependencies are installed in the target environment
-- Check that the solution was exported with "Add required objects"
+- Check that the solution was packed with "Add required objects"
 
 ### "Rate limited"
 
 - Reduce `WORKER_CONCURRENCY` in environment variables
-- The worker automatically retries with exponential backoff
+- The dockworker automatically retries with exponential backoff
 
 ### "Connection reference not found"
 
@@ -377,19 +376,19 @@ copilot-studio-deployer/
 
 ## API Reference
 
-### REST Endpoints (Web)
+### REST Endpoints (Control Tower)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/stats` | GET | Dashboard statistics |
-| `/api/tenants` | GET | List all tenants |
-| `/api/solutions` | GET | List solutions from source environment |
-| `/api/solutions/export` | POST | Export a solution to file |
-| `/api/deployments` | GET | List deployments |
-| `/api/deployments/[id]` | GET | Deployment details |
-| `/api/deployments/create` | POST | Create new deployment |
-| `/api/deployments/[id]/retry` | POST | Retry failed tenant deployments |
-| `/api/deployments/[id]/cancel` | POST | Cancel pending deployments |
+| `/api/tenants` | GET | List all fleet destinations |
+| `/api/solutions` | GET | List solutions from warehouse |
+| `/api/solutions/export` | POST | Pack a solution to crate |
+| `/api/deployments` | GET | List shipments |
+| `/api/deployments/[id]` | GET | Shipment details |
+| `/api/deployments/create` | POST | Create new shipment |
+| `/api/deployments/[id]/retry` | POST | Retry failed destination deliveries |
+| `/api/deployments/[id]/cancel` | POST | Cancel pending deliveries |
 
 ## Known Limitations
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
-import { loadConfig } from '@csd/core'
+import { loadConfig } from '@agentcrate/core'
 import { resolve } from 'path'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'

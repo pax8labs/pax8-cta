@@ -1,16 +1,27 @@
 {
-  "name": "copilot-studio-deployer",
+  "name": "agentcrate",
   "version": "0.1.0",
   "private": true,
-  "description": "Multi-tenant Copilot Studio deployment automation for MSPs",
+  "description": "Crate up your Copilot Studio agents and ship them to all your tenants",
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
     "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "cli": "pnpm --filter @csd/cli start",
-    "web": "pnpm --filter @csd/web dev",
-    "worker": "pnpm --filter @csd/worker start"
+    "test:coverage": "pnpm -r test -- --coverage",
+    "test:e2e": "pnpm --filter @agentcrate/web test:e2e",
+    "cli": "pnpm --filter @agentcrate/cli start",
+    "web": "pnpm --filter @agentcrate/web dev",
+    "worker": "pnpm --filter @agentcrate/worker start",
+    "docker:build": "docker build -t agentcrate:latest .",
+    "docker:build:web": "docker build --target web -t agentcrate-web:latest .",
+    "docker:build:worker": "docker build --target worker -t agentcrate-worker:latest .",
+    "docker:build:cli": "docker build --target cli -t agentcrate-cli:latest .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "db:migrate": "echo 'Run: psql $DATABASE_URL < packages/core/src/db/schema.sql'",
+    "clean": "pnpm -r exec rm -rf dist .next node_modules/.cache"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

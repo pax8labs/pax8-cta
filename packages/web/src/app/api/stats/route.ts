@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { loadConfig } from '@csd/core'
-import { DeploymentQueueManager } from '@csd/worker'
+import { loadConfig } from '@agentcrate/core'
+import { DeploymentQueueManager } from '@agentcrate/worker'
 import { resolve } from 'path'
 
 export const dynamic = 'force-dynamic'

@@ -4,11 +4,11 @@ import { Webhook } from '../config/schema.js';
 
 describe('WebhookService', () => {
   let webhookService: WebhookService;
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: ReturnType<typeof vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>>;
 
   beforeEach(() => {
     fetchMock = vi.fn();
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
     webhookService = new WebhookService();
   });
 

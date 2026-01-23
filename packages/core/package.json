@@ -1,7 +1,7 @@
 {
-  "name": "@csd/core",
+  "name": "@agentcrate/core",
   "version": "0.1.0",
-  "description": "Core business logic for Copilot Studio Deployer",
+  "description": "Core warehouse logic for AgentCrate - pack, ship, and track agent deployments",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

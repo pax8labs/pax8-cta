@@ -4,3 +4,6 @@ export * from "./webhook.js";
 export * from "./waves.js";
 export * from "./scheduler.js";
 export * from "./solution-diff.js";
+export * from "./audit-log.js";
+export * from "./logger.js";
+export * from "./secrets.js";

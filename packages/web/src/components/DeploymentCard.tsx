@@ -1,4 +1,4 @@
-import { DeploymentJob } from '@csd/core'
+import { DeploymentJob } from '@agentcrate/core'
 
 interface DeploymentCardProps {
   deployment: DeploymentJob

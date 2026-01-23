@@ -2,33 +2,40 @@ import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
-import { DeploymentQueueManager } from "@csd/worker";
+import { DeploymentQueueManager } from "@agentcrate/worker";
 
-export const statusCommand = new Command("status")
-  .description("Check the status of a deployment")
-  .requiredOption("-d, --deployment <id>", "Deployment ID to check")
+export const statusCommand = new Command("track")
+  .alias("status") // backwards compatibility
+  .description("Track the status of a shipment")
+  .option("-d, --deployment <id>", "Deployment ID to track")
+  .option("-s, --shipment <id>", "Shipment tracking number (alias for --deployment)")
   .option(
     "--redis <url>",
-    "Redis URL for job queue",
+    "Redis URL for shipping dock",
     "redis://localhost:6379"
   )
   .option("-w, --watch", "Watch for status changes")
   .option("--interval <ms>", "Watch interval in milliseconds", "5000")
   .action(async (options) => {
-    const spinner = ora("Connecting to job queue...").start();
+    const trackingId = options.shipment || options.deployment;
+
+    if (!trackingId) {
+      console.error(chalk.red("Must specify --shipment or --deployment tracking number"));
+      process.exit(1);
+    }
+
+    const spinner = ora("Connecting to shipping dock...").start();
 
     try {
       const queueManager = new DeploymentQueueManager(options.redis);
-      spinner.succeed("Connected to job queue");
+      spinner.succeed("Connected to shipping dock");
 
       const displayStatus = async () => {
-        const deployment = await queueManager.getDeploymentStatus(
-          options.deployment
-        );
+        const shipment = await queueManager.getDeploymentStatus(trackingId);
 
-        if (!deployment) {
+        if (!shipment) {
           console.log(
-            chalk.yellow(`Deployment '${options.deployment}' not found`)
+            chalk.yellow(`Shipment '${trackingId}' not found`)
           );
           return false;
         }
@@ -40,32 +47,32 @@ export const statusCommand = new Command("status")
 
         // Display overall status
         console.log();
-        console.log(chalk.bold("Deployment Status"));
+        console.log(chalk.bold("📦 Shipment Tracking"));
         console.log("─".repeat(50));
-        console.log(`  ID:        ${deployment.id}`);
-        console.log(`  Solution:  ${deployment.solutionName}`);
-        console.log(`  Status:    ${formatStatus(deployment.status)}`);
+        console.log(`  Tracking #:  ${shipment.id}`);
+        console.log(`  Cargo:       ${shipment.solutionName}`);
+        console.log(`  Status:      ${formatStatus(shipment.status)}`);
         console.log(
-          `  Progress:  ${deployment.completedTenants}/${deployment.totalTenants} completed`
+          `  Delivered:   ${shipment.completedTenants}/${shipment.totalTenants} destinations`
         );
-        if (deployment.failedTenants > 0) {
+        if (shipment.failedTenants > 0) {
           console.log(
-            `  Failed:    ${chalk.red(deployment.failedTenants.toString())}`
+            `  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`
           );
         }
         console.log();
 
-        // Display tenant results
+        // Display destination results
         const table = new Table({
-          head: ["Tenant", "Status", "Duration", "Error"],
+          head: ["Destination", "Status", "Transit Time", "Issue"],
           style: { head: ["cyan"] },
           colWidths: [25, 15, 12, 40],
           wordWrap: true,
         });
 
-        deployment.tenantResults
+        shipment.tenantResults
           .sort((a, b) => {
-            // Sort: in_progress first, then pending, then completed/failed
+            // Sort: in transit first, then pending, then delivered/failed
             const order: Record<string, number> = {
               in_progress: 0,
               pending: 1,
@@ -105,31 +112,31 @@ export const statusCommand = new Command("status")
           );
         }
 
-        // Return true if deployment is still in progress
+        // Return true if shipment is still in transit
         return (
-          deployment.status === "pending" ||
-          deployment.status === "in_progress"
+          shipment.status === "pending" ||
+          shipment.status === "in_progress"
         );
       };
 
       if (options.watch) {
         // Watch mode
-        let isRunning = await displayStatus();
-        while (isRunning) {
+        let isInTransit = await displayStatus();
+        while (isInTransit) {
           await new Promise((resolve) =>
             setTimeout(resolve, parseInt(options.interval, 10))
           );
-          isRunning = await displayStatus();
+          isInTransit = await displayStatus();
         }
         console.log();
-        console.log(chalk.green("Deployment completed."));
+        console.log(chalk.green("📬 All deliveries complete."));
       } else {
         await displayStatus();
       }
 
       await queueManager.close();
     } catch (error) {
-      spinner.fail(chalk.red("Failed to get status"));
+      spinner.fail(chalk.red("Failed to track shipment"));
       console.error(
         chalk.red(error instanceof Error ? error.message : String(error))
       );
@@ -140,27 +147,27 @@ export const statusCommand = new Command("status")
 function formatStatus(status: string): string {
   switch (status) {
     case "completed":
-      return chalk.green("✓ Completed");
+      return chalk.green("✓ Delivered");
     case "failed":
       return chalk.red("✗ Failed");
     case "in_progress":
-      return chalk.yellow("⟳ In Progress");
+      return chalk.yellow("🚚 In Transit");
     case "pending":
-      return chalk.gray("○ Pending");
+      return chalk.gray("○ Queued");
     case "scheduled":
       return chalk.cyan("◷ Scheduled");
     case "awaiting_approval":
-      return chalk.magenta("⊙ Awaiting Approval");
+      return chalk.magenta("⊙ Awaiting Clearance");
     case "approved":
-      return chalk.green("✓ Approved");
+      return chalk.green("✓ Cleared");
     case "rejected":
       return chalk.red("✗ Rejected");
     case "cancelled":
       return chalk.gray("⊘ Cancelled");
     case "rolling_back":
-      return chalk.yellow("↩ Rolling Back");
+      return chalk.yellow("↩ Returning");
     case "rolled_back":
-      return chalk.blue("↩ Rolled Back");
+      return chalk.blue("↩ Returned");
     default:
       return status;
   }

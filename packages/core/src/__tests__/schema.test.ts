@@ -4,7 +4,6 @@ import {
   getEffectiveConnectionMappings,
   getEffectiveEnvironmentVariables,
   getEffectiveRollbackSettings,
-  ConfigSchema,
   TenantConfigSchema,
 } from '../config/schema.js';
 
@@ -196,6 +195,7 @@ describe('getEffectiveRollbackSettings', () => {
           enabled: true,
           keepVersions: 5,
           autoRollbackOnFailure: false,
+          rollbackTimeout: '10m',
         },
       },
     };

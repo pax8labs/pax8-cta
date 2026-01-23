@@ -1,0 +1,32 @@
+[Unit]
+Description=Copilot Studio Deployer - Web Dashboard
+Documentation=https://github.com/your-org/copilot-studio-deployer
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+Type=simple
+User=csd
+Group=csd
+WorkingDirectory=/opt/copilot-studio-deployer/packages/web
+ExecStart=/usr/bin/node /opt/copilot-studio-deployer/node_modules/.bin/next start -p 3001
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=csd-web
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=3001
+EnvironmentFile=/etc/csd/environment
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/copilot-studio-deployer/logs
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -4,7 +4,8 @@ import {
   DeploymentJob,
   DeploymentStatus,
   TenantDeploymentResult,
-} from "@csd/core";
+  Config,
+} from "@agentcrate/core";
 
 export const DEPLOYMENT_QUEUE_NAME = "deployments";
 export const TENANT_DEPLOYMENT_QUEUE_NAME = "tenant-deployments";
@@ -19,7 +20,9 @@ export interface DeploymentJobData {
   tenants: TenantConfig[];
   partnerTenantId: string;
   partnerClientId: string;
-  // Client secret comes from environment variable
+  waveNumber?: number;
+  waveName?: string;
+  config?: Config;
 }
 
 /**
@@ -28,9 +31,13 @@ export interface DeploymentJobData {
 export interface TenantDeploymentJobData {
   deploymentId: string;
   solutionPath: string;
+  solutionName?: string;
   tenant: TenantConfig;
   partnerTenantId: string;
   partnerClientId: string;
+  waveNumber?: number;
+  waveName?: string;
+  config?: Config;
 }
 
 /**
@@ -42,6 +49,7 @@ export interface TenantDeploymentJobResult {
   success: boolean;
   error?: string;
   importJobId?: string;
+  durationMs?: number;
 }
 
 /**
@@ -125,16 +133,26 @@ export class DeploymentQueueManager {
     solutionPath: string,
     tenants: TenantConfig[],
     partnerTenantId: string,
-    partnerClientId: string
+    partnerClientId: string,
+    options?: {
+      solutionName?: string;
+      waveNumber?: number;
+      waveName?: string;
+      config?: Config;
+    }
   ): Promise<void> {
     const jobs = tenants.map((tenant) => ({
       name: "tenant-deployment",
       data: {
         deploymentId,
         solutionPath,
+        solutionName: options?.solutionName,
         tenant,
         partnerTenantId,
         partnerClientId,
+        waveNumber: options?.waveNumber,
+        waveName: options?.waveName,
+        config: options?.config,
       } as TenantDeploymentJobData,
       opts: {
         jobId: `${deploymentId}-${tenant.tenantId}`,
@@ -142,6 +160,55 @@ export class DeploymentQueueManager {
     }));
 
     await this.tenantDeploymentQueue.addBulk(jobs);
+  }
+
+  /**
+   * Add deployments for a wave-based execution plan
+   */
+  async addWaveDeployments(
+    deploymentId: string,
+    solutionPath: string,
+    solutionName: string,
+    waves: Array<{
+      name: string;
+      tenants: TenantConfig[];
+      order: number;
+      delayMs?: number;
+    }>,
+    partnerTenantId: string,
+    partnerClientId: string,
+    config?: Config
+  ): Promise<void> {
+    // Add jobs for each wave with appropriate delays
+    let accumulatedDelay = 0;
+
+    for (const wave of waves) {
+      const jobs = wave.tenants.map((tenant) => ({
+        name: "tenant-deployment",
+        data: {
+          deploymentId,
+          solutionPath,
+          solutionName,
+          tenant,
+          partnerTenantId,
+          partnerClientId,
+          waveNumber: wave.order,
+          waveName: wave.name,
+          config,
+        } as TenantDeploymentJobData,
+        opts: {
+          jobId: `${deploymentId}-${tenant.tenantId}`,
+          delay: accumulatedDelay,
+        },
+      }));
+
+      await this.tenantDeploymentQueue.addBulk(jobs);
+
+      // Add wave delay if specified
+      if (wave.delayMs) {
+        accumulatedDelay += wave.delayMs;
+      }
+    }
   }
 
   /**
@@ -177,6 +244,8 @@ export class DeploymentQueueManager {
           status = "failed";
         } else if (state === "active") {
           status = "in_progress";
+        } else if (state === "delayed") {
+          status = "scheduled";
         }
 
         return {
@@ -195,6 +264,9 @@ export class DeploymentQueueManager {
               : job.returnvalue?.error,
           solutionImportJobId: job.returnvalue?.importJobId,
           attemptNumber: job.attemptsMade + 1,
+          durationMs: job.returnvalue?.durationMs,
+          waveNumber: job.data.waveNumber,
+          waveName: job.data.waveName,
         };
       })
     );
@@ -211,6 +283,8 @@ export class DeploymentQueueManager {
       overallStatus = failedCount > 0 ? "failed" : "completed";
     } else if (tenantResults.some((r) => r.status === "in_progress")) {
       overallStatus = "in_progress";
+    } else if (tenantResults.some((r) => r.status === "scheduled")) {
+      overallStatus = "scheduled";
     }
 
     // Get the first job to extract common metadata
@@ -219,7 +293,7 @@ export class DeploymentQueueManager {
     return {
       id: deploymentId,
       solutionPath: firstJob.data.solutionPath,
-      solutionName: firstJob.data.solutionPath.split("/").pop() || "",
+      solutionName: firstJob.data.solutionName || firstJob.data.solutionPath.split("/").pop() || "",
       status: overallStatus,
       createdAt: new Date(firstJob.timestamp).toISOString(),
       updatedAt: new Date().toISOString(),
@@ -228,6 +302,47 @@ export class DeploymentQueueManager {
       completedTenants: completedCount,
       failedTenants: failedCount,
     };
+  }
+
+  /**
+   * Cancel a deployment (remove pending jobs)
+   */
+  async cancelDeployment(deploymentId: string): Promise<number> {
+    const jobs = await this.tenantDeploymentQueue.getJobs([
+      "waiting",
+      "delayed",
+    ]);
+
+    const deploymentJobs = jobs.filter(
+      (job) => job.data.deploymentId === deploymentId
+    );
+
+    let cancelledCount = 0;
+    for (const job of deploymentJobs) {
+      await job.remove();
+      cancelledCount++;
+    }
+
+    return cancelledCount;
+  }
+
+  /**
+   * Retry failed jobs for a deployment
+   */
+  async retryFailedJobs(deploymentId: string): Promise<number> {
+    const jobs = await this.tenantDeploymentQueue.getJobs(["failed"]);
+
+    const failedJobs = jobs.filter(
+      (job) => job.data.deploymentId === deploymentId
+    );
+
+    let retriedCount = 0;
+    for (const job of failedJobs) {
+      await job.retry();
+      retriedCount++;
+    }
+
+    return retriedCount;
   }
 
   /**
@@ -249,6 +364,27 @@ export class DeploymentQueueManager {
    */
   getConnectionOptions(): RedisOptions {
     return this.connectionOptions;
+  }
+
+  /**
+   * Get queue statistics
+   */
+  async getQueueStats(): Promise<{
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+  }> {
+    const [waiting, active, completed, failed, delayed] = await Promise.all([
+      this.tenantDeploymentQueue.getWaitingCount(),
+      this.tenantDeploymentQueue.getActiveCount(),
+      this.tenantDeploymentQueue.getCompletedCount(),
+      this.tenantDeploymentQueue.getFailedCount(),
+      this.tenantDeploymentQueue.getDelayedCount(),
+    ]);
+
+    return { waiting, active, completed, failed, delayed };
   }
 
   /**
