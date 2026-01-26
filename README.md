@@ -2,6 +2,53 @@
 
 Crate up your agents and ship them to all your tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges).
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fpax8labs%2Fagentcrate&env=PARTNER_TENANT_ID,PARTNER_CLIENT_ID,PARTNER_CLIENT_SECRET,SOURCE_TENANT_ID,SOURCE_ENVIRONMENT_URL&envDescription=Azure%20AD%20and%20Dataverse%20credentials%20for%20GDAP%20authentication&project-name=agentcrate&repository-name=agentcrate)
+
+---
+
+## 🚀 Try It in 5 Minutes (No Install Required)
+
+**Already have GDAP set up with your customers?** You're 90% there.
+
+### Option A: One-Click Cloud Deploy (Easiest)
+
+1. Click the **"Deploy with Vercel"** button above
+2. Sign in with GitHub
+3. Fill in your Azure AD credentials when prompted:
+   - `PARTNER_TENANT_ID` - Your MSP's tenant ID
+   - `PARTNER_CLIENT_ID` - Your app registration client ID
+   - `PARTNER_CLIENT_SECRET` - Your app registration secret
+   - `SOURCE_TENANT_ID` - Where your master agent lives
+   - `SOURCE_ENVIRONMENT_URL` - e.g., `https://yourdev.crm.dynamics.com`
+4. Click Deploy → Your Control Tower is live in ~2 minutes
+
+### Option B: Run Locally (5 commands)
+
+```bash
+git clone https://github.com/pax8labs/agentcrate.git
+cd agentcrate
+npm install -g pnpm           # Skip if you have pnpm
+pnpm install && pnpm build
+cp .env.example .env          # Then edit with your credentials
+pnpm web                      # Opens Control Tower at localhost:3001
+```
+
+> **Note:** Local mode runs without Redis using an in-memory queue. Great for testing with a few tenants. For 50+ tenants, use Docker or Vercel.
+
+---
+
+## 📋 What You'll Need
+
+| Requirement | Who Sets This Up | You Probably Have It If... |
+|-------------|------------------|---------------------------|
+| GDAP relationships | You (MSP admin) | You manage customers in Partner Center |
+| Azure AD App Registration | You or your IT team | You've done SSO or API integrations |
+| Power Platform Admin role | Customer approval | Customers approved your GDAP request |
+
+**Don't have GDAP yet?** See [Prerequisites](#prerequisites) below for step-by-step setup.
+
+---
+
 ## Features
 
 ### Core Capabilities
@@ -65,11 +112,25 @@ In each customer's Dataverse environment, create an Application User:
 
 ## Installation
 
-### Option 1: Docker (Recommended)
+Choose the option that matches your comfort level:
+
+| Option | Best For | Technical Skill |
+|--------|----------|-----------------|
+| [Vercel (Cloud)](#option-1-vercel-cloud---easiest) | IT admins, quick setup | ⭐ Beginner |
+| [Docker](#option-2-docker---recommended-for-scale) | Self-hosted, 50+ tenants | ⭐⭐ Intermediate |
+| [Local Development](#option-3-local-development) | Developers, customization | ⭐⭐⭐ Advanced |
+
+### Option 1: Vercel (Cloud) - Easiest
+
+No servers to manage. Click the button at the top of this README, fill in your credentials, done.
+
+**Limitations:** Processing happens on-demand (no background worker). Best for <50 tenants.
+
+### Option 2: Docker - Recommended for Scale
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/pax8labs/agentcrate.git
 cd agentcrate
 
 # Configure
@@ -77,11 +138,15 @@ cp config/tenants.example.yaml config/tenants.yaml
 cp .env.example .env
 # Edit both files with your values
 
-# Start services
+# Start services (web dashboard + worker + Redis)
 docker-compose up -d
 ```
 
-### Option 2: Local Development
+Access Control Tower at `http://localhost:3001`
+
+### Option 3: Local Development
+
+For developers who want to customize or contribute:
 
 ```bash
 # Install dependencies
