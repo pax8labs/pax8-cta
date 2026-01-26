@@ -24,7 +24,7 @@ Deploy to **Vercel** - a free cloud hosting platform (like Azure App Service, bu
    - `SOURCE_ENVIRONMENT_URL` - e.g., `https://yourdev.crm.dynamics.com`
 4. Click Deploy → Your Control Tower is live in ~2 minutes
 
-**Production-ready?** Yes for small fleets. For 50+ tenants or scheduled deployments, use [Docker](#option-2-docker---recommended-for-scale) on your own server or Azure.
+**Production-ready?** Yes for small fleets. For batch deployments to your entire fleet or scheduled overnight rollouts, use [Docker](#option-2-docker---recommended-for-scale) instead (Vercel has a 10-second timeout per request on free tier).
 
 ### Option B: Run Locally (5 commands)
 
@@ -37,7 +37,7 @@ cp .env.example .env          # Then edit with your credentials
 pnpm web                      # Opens Control Tower at localhost:3001
 ```
 
-> **Note:** Local mode runs without Redis using an in-memory queue. Great for testing with a few tenants. For 50+ tenants, use Docker or Vercel.
+> **Note:** Local mode runs without Redis using an in-memory queue. Great for testing. For production use, deploy to Vercel or Docker.
 
 ---
 
@@ -121,14 +121,14 @@ Choose the option that matches your comfort level:
 | Option | Best For | Technical Skill |
 |--------|----------|-----------------|
 | [Vercel (Cloud)](#option-1-vercel-cloud---easiest) | IT admins, quick setup | ⭐ Beginner |
-| [Docker](#option-2-docker---recommended-for-scale) | Self-hosted, 50+ tenants | ⭐⭐ Intermediate |
+| [Docker](#option-2-docker---recommended-for-scale) | Self-hosted, bulk deployments | ⭐⭐ Intermediate |
 | [Local Development](#option-3-local-development) | Developers, customization | ⭐⭐⭐ Advanced |
 
 ### Option 1: Vercel (Cloud) - Easiest
 
 No servers to manage. Click the button at the top of this README, fill in your credentials, done.
 
-**Limitations:** Processing happens on-demand (no background worker). Best for <50 tenants.
+**Limitations:** Vercel runs each deployment during the web request (no background worker). Works great for deploying to a few tenants at a time. For bulk "deploy to all 200 tenants overnight" scenarios, use Docker—it has a dedicated worker that processes deployments in parallel.
 
 ### Option 2: Docker - Recommended for Scale
 
