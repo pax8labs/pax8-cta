@@ -85,10 +85,12 @@ pnpm web                      # Opens Control Tower at localhost:3001
                               │                          │                          │
                               ▼                          ▼                          ▼
                     ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-                    │  Destination A  │       │  Destination B  │       │  Destination C  │
-                    │  (Dataverse)    │       │  (Dataverse)    │       │  (Dataverse)    │
+                    │   Customer A    │       │   Customer B    │       │   Customer C    │
+                    │   (Tenant)      │       │   (Tenant)      │       │   (Tenant)      │
                     └─────────────────┘       └─────────────────┘       └─────────────────┘
 ```
+
+> **How it works:** Copilot Studio agents live in Microsoft Dataverse (the database behind Power Platform). AgentCrate uses the Dataverse API to export your agent as a "solution" from your dev environment, then imports it into each customer's environment via GDAP.
 
 ## Prerequisites
 
