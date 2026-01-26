@@ -12,8 +12,10 @@ Crate up your agents and ship them to all your tenants! Multi-tenant Copilot Stu
 
 ### Option A: One-Click Cloud Deploy (Easiest)
 
+Deploy to **Vercel** - a free cloud hosting platform (like Azure App Service, but simpler). Good for testing or small-scale production (<50 tenants).
+
 1. Click the **"Deploy with Vercel"** button above
-2. Sign in with GitHub
+2. Sign in with GitHub (create a free account if needed)
 3. Fill in your Azure AD credentials when prompted:
    - `PARTNER_TENANT_ID` - Your MSP's tenant ID
    - `PARTNER_CLIENT_ID` - Your app registration client ID
@@ -21,6 +23,8 @@ Crate up your agents and ship them to all your tenants! Multi-tenant Copilot Stu
    - `SOURCE_TENANT_ID` - Where your master agent lives
    - `SOURCE_ENVIRONMENT_URL` - e.g., `https://yourdev.crm.dynamics.com`
 4. Click Deploy → Your Control Tower is live in ~2 minutes
+
+**Production-ready?** Yes for small fleets. For 50+ tenants or scheduled deployments, use [Docker](#option-2-docker---recommended-for-scale) on your own server or Azure.
 
 ### Option B: Run Locally (5 commands)
 
