@@ -2,7 +2,7 @@
 
 Crate up your agents and ship them to all your tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fpax8labs%2Fagentcrate&env=PARTNER_CLIENT_SECRET&envDescription=Your%20Azure%20AD%20app%20registration%20client%20secret&project-name=agentcrate&repository-name=agentcrate)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fpax8labs%2Fagentcrate&env=PARTNER_TENANT_ID,PARTNER_CLIENT_ID,PARTNER_CLIENT_SECRET,SOURCE_TENANT_ID,SOURCE_ENVIRONMENT_URL&envDescription=Azure%20AD%20and%20source%20environment%20configuration&project-name=agentcrate&repository-name=agentcrate)
 
 ---
 
@@ -16,9 +16,17 @@ Deploy to **Vercel** - a free cloud hosting platform (like Azure App Service, bu
 
 1. Click the **"Deploy with Vercel"** button above
 2. Sign in with GitHub (create a free account if needed)
-3. Enter your `PARTNER_CLIENT_SECRET` (your Azure AD app registration secret)
+3. Fill in your credentials when prompted:
+   - `PARTNER_TENANT_ID` - Your MSP's tenant ID
+   - `PARTNER_CLIENT_ID` - Your app registration client ID
+   - `PARTNER_CLIENT_SECRET` - Your app registration secret
+   - `SOURCE_TENANT_ID` - Where your master agent lives
+   - `SOURCE_ENVIRONMENT_URL` - e.g., `https://yourdev.crm.dynamics.com`
 4. Click Deploy → Your Control Tower is live in ~2 minutes
-5. Edit `config/tenants.yaml` in your forked repo to configure your tenants (see [Configuration](#configuration))
+
+To add customer tenants, either:
+- Set `TENANTS_JSON` env var with a JSON array of tenants, OR
+- Edit `config/tenants.yaml` in your forked repo (see [Configuration](#configuration))
 
 **Production-ready?** Yes for small fleets. For batch deployments to your entire fleet or scheduled overnight rollouts, use [Docker](#option-2-docker---recommended-for-scale) instead (Vercel has a 10-second timeout per request on free tier).
 
@@ -67,11 +75,9 @@ pnpm web                      # Opens Control Tower at localhost:3001
 - **Rollback Capability** - Create snapshots before deployment, rollback on failure
 - **Health Checks** - Validate tenant environments before and after deployment
 - **Webhook Notifications** - Real-time notifications to external systems (Slack, Teams, etc.)
-
-### Planned Features
-- **Scheduled Deployments** - Cron-based scheduling with maintenance windows *(coming soon)*
-- **Approval Workflows** - Require approvals before deployment proceeds *(coming soon)*
-- **Solution Diff & Preview** - Compare solutions before deployment *(coming soon)*
+- **Scheduled Deployments** - Cron-based scheduling with maintenance windows
+- **Approval Workflows** - Require approvals before deployment proceeds
+- **Solution Diff & Preview** - Compare solutions before deployment
 
 ## Architecture
 
@@ -465,11 +471,15 @@ agentcrate/
 | `/api/tenants` | GET | List all fleet destinations |
 | `/api/solutions` | GET | List solutions from warehouse |
 | `/api/solutions/export` | POST | Pack a solution to crate |
+| `/api/solutions/diff` | POST | Preview deployment diff for a tenant |
 | `/api/deployments` | GET | List shipments |
 | `/api/deployments/[id]` | GET | Shipment details |
 | `/api/deployments/create` | POST | Create new shipment |
 | `/api/deployments/[id]/retry` | POST | Retry failed destination deliveries |
 | `/api/deployments/[id]/cancel` | POST | Cancel pending deliveries |
+| `/api/deployments/[id]/approve` | GET | Get approval status |
+| `/api/deployments/[id]/approve` | POST | Approve or reject a deployment |
+| `/api/schedules` | GET | Get scheduled deployment info |
 
 ## Known Limitations
 
