@@ -75,6 +75,17 @@ pnpm web                      # Opens Control Tower at localhost:3001
 
 ## Architecture
 
+**Vercel / Serverless (simple):**
+```
+┌─────────────────┐                          ┌─────────────────┐
+│  Control Tower  │─────────────────────────▶│   Customer A    │
+│     (Web)       │───────────┐              └─────────────────┘
+└─────────────────┘           │              ┌─────────────────┐
+                              └─────────────▶│   Customer B    │
+                                             └─────────────────┘
+```
+
+**Docker / Self-hosted (scales to 200+ tenants):**
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   CLI / Control │────▶│   Dock Queue    │────▶│    Dockworker   │
@@ -86,7 +97,6 @@ pnpm web                      # Opens Control Tower at localhost:3001
                               ▼                          ▼                          ▼
                     ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
                     │   Customer A    │       │   Customer B    │       │   Customer C    │
-                    │   (Tenant)      │       │   (Tenant)      │       │   (Tenant)      │
                     └─────────────────┘       └─────────────────┘       └─────────────────┘
 ```
 
