@@ -37,7 +37,9 @@ cp .env.example .env          # Then edit with your credentials
 pnpm web                      # Opens Control Tower at localhost:3001
 ```
 
-> **Note:** Local mode runs without Redis using an in-memory queue. Great for testing. For production use, deploy to Vercel or Docker.
+> **Note:** Local mode runs without Redis using an in-memory queue. Great for testing.
+
+**Need to deploy to 50+ tenants at once?** Skip to [Docker Setup](#option-2-docker---recommended-for-scale) for production-scale deployments with parallel processing.
 
 ---
 
