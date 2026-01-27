@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { SessionProvider } from '@/components/SessionProvider'
 import { UserMenu } from '@/components/UserMenu'
+import Image from 'next/image'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -24,24 +25,20 @@ export default function RootLayout({
             <nav className="bg-white shadow-sm border-b">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
-                  <div className="flex items-center gap-3">
-                    <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="100" height="100" rx="20" fill="#0D1117"/>
-                      <path d="M25 35L50 20L75 35V65L50 80L25 65V35Z" stroke="#00D4AA" strokeWidth="3" fill="none"/>
-                      <circle cx="50" cy="50" r="12" fill="#00D4AA"/>
-                      <circle cx="50" cy="25" r="5" fill="#00D4AA"/>
-                      <circle cx="25" cy="62" r="5" fill="#00D4AA"/>
-                      <circle cx="75" cy="62" r="5" fill="#00D4AA"/>
-                    </svg>
-                    <div className="flex flex-col">
-                      <span className="text-lg font-semibold text-gray-900 leading-tight">
-                        AgentSync
-                      </span>
-                      <span className="text-[10px] text-gray-400 tracking-wider uppercase">
-                        Powered by Labs
-                      </span>
-                    </div>
-                  </div>
+                  <a href="/" className="flex items-center gap-3">
+                    <Image
+                      src="/pax8labs-logo.svg"
+                      alt="Pax8 Labs"
+                      width={100}
+                      height={30}
+                      className="h-7 w-auto"
+                      priority
+                    />
+                    <div className="border-l border-gray-300 h-6" />
+                    <span className="text-lg font-semibold text-gray-900">
+                      AgentSync
+                    </span>
+                  </a>
                   <div className="flex items-center space-x-4">
                     <a
                       href="/"
