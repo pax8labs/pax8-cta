@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@agentcrate/core', '@agentcrate/worker'],
+  transpilePackages: ['@agentsync/core', '@agentsync/worker'],
 }
 
 module.exports = nextConfig

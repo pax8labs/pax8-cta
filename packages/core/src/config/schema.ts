@@ -282,6 +282,16 @@ export const TenantDeploymentResultSchema = z.object({
 
 export type TenantDeploymentResult = z.infer<typeof TenantDeploymentResultSchema>;
 
+export const DeploymentTriggerSchema = z.enum([
+  "manual",
+  "scheduled",
+  "webhook",
+  "api",
+  "cli",
+]);
+
+export type DeploymentTrigger = z.infer<typeof DeploymentTriggerSchema>;
+
 export const DeploymentJobSchema = z.object({
   id: z.string(),
   solutionPath: z.string(),
@@ -307,6 +317,9 @@ export const DeploymentJobSchema = z.object({
   })).optional(),
   rollbackFromDeploymentId: z.string().optional(),
   canRollback: z.boolean().optional(),
+  // New fields for enhanced visibility
+  triggeredBy: DeploymentTriggerSchema.optional(),
+  durationMs: z.number().int().nonnegative().optional(),
 });
 
 export type DeploymentJob = z.infer<typeof DeploymentJobSchema>;

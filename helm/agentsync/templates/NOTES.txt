@@ -1,0 +1,41 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named: {{ .Release.Name }}
+
+To access the AgentSync web dashboard:
+
+{{- if .Values.web.ingress.enabled }}
+1. The application is available at:
+{{- range .Values.web.ingress.hosts }}
+   https://{{ .host }}
+{{- end }}
+{{- else if contains "NodePort" .Values.web.service.type }}
+1. Get the application URL by running:
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "agentsync.fullname" . }}-web)
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.web.service.type }}
+1. Get the application URL by running:
+   NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+   kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "agentsync.fullname" . }}-web
+{{- else if contains "ClusterIP" .Values.web.service.type }}
+1. Forward the port to access the application:
+   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "agentsync.fullname" . }}-web {{ .Values.web.service.port }}:{{ .Values.web.service.port }}
+   Then visit: http://localhost:{{ .Values.web.service.port }}
+{{- end }}
+
+2. Check the status of the deployments:
+   kubectl --namespace {{ .Release.Namespace }} get pods -l "app.kubernetes.io/instance={{ .Release.Name }}"
+
+3. View worker logs:
+   kubectl --namespace {{ .Release.Namespace }} logs -l "app.kubernetes.io/component=worker,app.kubernetes.io/instance={{ .Release.Name }}" -f
+
+4. View web app logs:
+   kubectl --namespace {{ .Release.Namespace }} logs -l "app.kubernetes.io/component=web,app.kubernetes.io/instance={{ .Release.Name }}" -f
+
+IMPORTANT:
+- Make sure to configure your Azure AD credentials in a Kubernetes secret
+- Update the tenant configuration in the ConfigMap or provide your own
+- Review the README for GDAP setup requirements
+
+For more information, visit: {{ .Chart.Home }}

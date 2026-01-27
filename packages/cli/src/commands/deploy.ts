@@ -8,8 +8,8 @@ import {
   getClientSecret,
   filterTenantsByTags,
   TenantConfig,
-} from "@agentcrate/core";
-import { DeploymentQueueManager } from "@agentcrate/worker";
+} from "@agentsync/core";
+import { DeploymentQueueManager } from "@agentsync/worker";
 
 export const deployCommand = new Command("ship")
   .alias("deploy") // backwards compatibility
@@ -113,7 +113,7 @@ export const deployCommand = new Command("ship")
       console.log();
       console.log(
         chalk.gray(
-          `Use 'agentcrate track --shipment ${shipmentId}' to track progress`
+          `Use 'agentsync track --shipment ${shipmentId}' to track progress`
         )
       );
       console.log();

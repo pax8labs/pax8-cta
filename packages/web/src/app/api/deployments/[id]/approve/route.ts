@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { loadConfig } from '@agentcrate/core'
+import { loadConfig } from '@agentsync/core'
 import { resolve } from 'path'
 
 export const dynamic = 'force-dynamic'

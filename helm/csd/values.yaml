@@ -1,4 +1,4 @@
-# Default values for AgentCrate
+# Default values for AgentSync
 
 # Global settings
 global:
@@ -11,7 +11,7 @@ web:
   replicaCount: 2
 
   image:
-    repository: your-org/agentcrate
+    repository: your-org/agentsync
     tag: latest
     pullPolicy: IfNotPresent
 
@@ -24,7 +24,7 @@ web:
     className: nginx
     annotations: {}
     hosts:
-      - host: agentcrate.example.com
+      - host: agentsync.example.com
         paths:
           - path: /
             pathType: Prefix
@@ -59,7 +59,7 @@ worker:
   replicaCount: 2
 
   image:
-    repository: your-org/agentcrate
+    repository: your-org/agentsync
     tag: latest
     pullPolicy: IfNotPresent
 
@@ -129,8 +129,8 @@ database:
   # If using external database
   host: ""
   port: 5432
-  name: agentcrate
-  user: agentcrate
+  name: agentsync
+  user: agentsync
   # password should be set via secrets
 
 # Secrets

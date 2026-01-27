@@ -8,7 +8,9 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from '@agentcrate/core'
+  isDemoMode,
+  DEMO_SOLUTIONS,
+} from '@agentsync/core'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const SOLUTIONS_DIR = process.env.SOLUTIONS_DIR || './solutions'
@@ -23,6 +25,34 @@ export async function POST(request: NextRequest) {
         { error: 'Solution name is required' },
         { status: 400 }
       )
+    }
+
+    // In demo mode, return a mock export result
+    if (isDemoMode()) {
+      const demoSolution = DEMO_SOLUTIONS.find(s => s.uniqueName === solutionName)
+      if (!demoSolution) {
+        return NextResponse.json(
+          { error: `Solution "${solutionName}" not found` },
+          { status: 404 }
+        )
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      const suffix = managed ? 'managed' : 'unmanaged'
+      const mockPath = `./solutions/${solutionName}_${timestamp}_${suffix}.zip`
+
+      return NextResponse.json({
+        success: true,
+        demoMode: true,
+        outputPath: mockPath,
+        message: 'Demo mode: Solution would be exported to ' + mockPath,
+        solution: {
+          uniqueName: demoSolution.uniqueName,
+          friendlyName: demoSolution.friendlyName,
+          version: demoSolution.version,
+          isManaged: managed,
+        },
+      })
     }
 
     // Load config

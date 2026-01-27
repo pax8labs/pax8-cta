@@ -9,7 +9,7 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from "@agentcrate/core";
+} from "@agentsync/core";
 
 export const importCommand = new Command("deliver")
   .alias("import") // backwards compatibility

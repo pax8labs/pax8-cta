@@ -7,7 +7,10 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from '@agentcrate/core'
+  isDemoMode,
+  DEMO_SOLUTIONS,
+  DEMO_CONFIG,
+} from '@agentsync/core'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 
@@ -16,6 +19,23 @@ const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
  */
 export async function GET() {
   try {
+    // Use demo data if DEMO_MODE is enabled
+    if (isDemoMode()) {
+      return NextResponse.json({
+        demoMode: true,
+        sourceEnvironment: DEMO_CONFIG.source.environmentUrl,
+        solutions: DEMO_SOLUTIONS.map((s, i) => ({
+          id: `demo-solution-${i}`,
+          uniqueName: s.uniqueName,
+          friendlyName: s.friendlyName,
+          version: s.version,
+          isManaged: s.isManaged,
+          publisherName: s.publisherName,
+          description: s.description,
+        })),
+      })
+    }
+
     // Load config
     const config = await loadConfig(resolve(CONFIG_PATH))
 
@@ -59,6 +79,7 @@ export async function GET() {
     )
 
     return NextResponse.json({
+      demoMode: false,
       sourceEnvironment: config.source.environmentUrl,
       solutions: filteredSolutions.map((s) => ({
         id: s.solutionid,

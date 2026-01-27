@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { loadConfig } from '@agentcrate/core'
-import { DeploymentQueueManager } from '@agentcrate/worker'
+import { loadConfig, isDemoMode, DEMO_CONFIG } from '@agentsync/core'
+import { DeploymentQueueManager } from '@agentsync/worker'
 import { resolve } from 'path'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +10,23 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 export async function GET() {
   try {
+    // Use demo data if DEMO_MODE is enabled
+    if (isDemoMode()) {
+      const totalTenants = DEMO_CONFIG.tenants.length
+      const enabledTenants = DEMO_CONFIG.tenants.filter(t => t.enabled !== false).length
+
+      return NextResponse.json({
+        demoMode: true,
+        totalTenants,
+        enabledTenants,
+        activeDeployments: 1,
+        completedToday: 3,
+        failedToday: 0,
+        scheduledDeployments: 2,
+        pendingApprovals: 1,
+      })
+    }
+
     // Load tenant count from config
     let totalTenants = 0
     try {
@@ -64,13 +81,18 @@ export async function GET() {
       }
     }
 
+    // Get scheduled deployments count
+    const scheduledDeployments = (await queueManager.listScheduledDeployments()).length
+
     await queueManager.close()
 
     return NextResponse.json({
+      demoMode: false,
       totalTenants,
       activeDeployments,
       completedToday,
       failedToday,
+      scheduledDeployments,
     })
   } catch (error) {
     console.error('Stats error:', error)

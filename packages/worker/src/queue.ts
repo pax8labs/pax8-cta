@@ -5,10 +5,13 @@ import {
   DeploymentStatus,
   TenantDeploymentResult,
   Config,
-} from "@agentcrate/core";
+  Schedule,
+  SchedulerService,
+} from "@agentsync/core";
 
 export const DEPLOYMENT_QUEUE_NAME = "deployments";
 export const TENANT_DEPLOYMENT_QUEUE_NAME = "tenant-deployments";
+export const SCHEDULED_DEPLOYMENT_QUEUE_NAME = "scheduled-deployments";
 
 /**
  * Job data for a full deployment (to multiple tenants)
@@ -53,6 +56,31 @@ export interface TenantDeploymentJobResult {
 }
 
 /**
+ * Job data for a scheduled deployment trigger
+ * This is what BullMQ repeatable jobs use to trigger deployments on schedule
+ */
+export interface ScheduledDeploymentJobData {
+  scheduleId: string;
+  scheduleName: string;
+  solutionPath: string;
+  solutionName: string;
+  tenantIds: string[]; // Which tenants to deploy to
+  tags?: string[]; // Or deploy to tenants matching these tags
+  config: Config;
+}
+
+/**
+ * Result of a scheduled deployment trigger
+ */
+export interface ScheduledDeploymentJobResult {
+  scheduleId: string;
+  deploymentId: string;
+  tenantCount: number;
+  triggeredAt: string;
+  withinMaintenanceWindow: boolean;
+}
+
+/**
  * Parse Redis URL into connection options
  */
 function parseRedisUrl(url: string): RedisOptions {
@@ -72,10 +100,13 @@ export class DeploymentQueueManager {
   private connectionOptions: RedisOptions;
   private deploymentQueue: Queue<DeploymentJobData>;
   private tenantDeploymentQueue: Queue<TenantDeploymentJobData, TenantDeploymentJobResult>;
+  private scheduledDeploymentQueue: Queue<ScheduledDeploymentJobData, ScheduledDeploymentJobResult>;
   private queueEvents: QueueEvents;
+  private schedulerService: SchedulerService;
 
   constructor(redisUrl: string = "redis://localhost:6379") {
     this.connectionOptions = parseRedisUrl(redisUrl);
+    this.schedulerService = new SchedulerService();
 
     this.deploymentQueue = new Queue(DEPLOYMENT_QUEUE_NAME, {
       connection: this.connectionOptions,
@@ -95,6 +126,20 @@ export class DeploymentQueueManager {
         },
         removeOnFail: {
           age: 7 * 24 * 3600, // Keep failed jobs for 7 days
+        },
+      },
+    });
+
+    this.scheduledDeploymentQueue = new Queue(SCHEDULED_DEPLOYMENT_QUEUE_NAME, {
+      connection: this.connectionOptions,
+      defaultJobOptions: {
+        attempts: 1, // Scheduled triggers should not retry automatically
+        removeOnComplete: {
+          age: 7 * 24 * 3600, // Keep completed for 7 days
+          count: 100,
+        },
+        removeOnFail: {
+          age: 30 * 24 * 3600, // Keep failed for 30 days
         },
       },
     });
@@ -388,11 +433,179 @@ export class DeploymentQueueManager {
   }
 
   /**
+   * Register a scheduled deployment using BullMQ's repeatable jobs
+   * This uses cron patterns to automatically trigger deployments
+   */
+  async registerScheduledDeployment(
+    scheduleId: string,
+    scheduleName: string,
+    schedule: Schedule,
+    solutionPath: string,
+    solutionName: string,
+    config: Config,
+    options?: {
+      tenantIds?: string[];
+      tags?: string[];
+    }
+  ): Promise<void> {
+    if (!schedule.cron) {
+      throw new Error(`Schedule ${scheduleId} has no cron expression`);
+    }
+
+    // Validate the cron expression
+    const validation = this.schedulerService.validateCron(schedule.cron);
+    if (!validation.valid) {
+      throw new Error(`Invalid cron expression for schedule ${scheduleId}: ${validation.error}`);
+    }
+
+    const jobData: ScheduledDeploymentJobData = {
+      scheduleId,
+      scheduleName,
+      solutionPath,
+      solutionName,
+      tenantIds: options?.tenantIds || [],
+      tags: options?.tags,
+      config,
+    };
+
+    // Remove any existing repeatable job with this schedule ID
+    await this.removeScheduledDeployment(scheduleId);
+
+    // Add the repeatable job with BullMQ's built-in cron support
+    await this.scheduledDeploymentQueue.add(
+      "scheduled-deployment",
+      jobData,
+      {
+        repeat: {
+          pattern: schedule.cron,
+          tz: schedule.timezone || "UTC",
+        },
+        jobId: scheduleId,
+      }
+    );
+
+    console.log(
+      `Registered scheduled deployment: ${scheduleName} (${scheduleId}) - ${this.schedulerService.describeCron(schedule.cron)} (${schedule.timezone || "UTC"})`
+    );
+  }
+
+  /**
+   * Register multiple scheduled deployments from config
+   */
+  async registerScheduledDeploymentsFromConfig(
+    config: Config,
+    solutionPath: string,
+    solutionName: string
+  ): Promise<{ registered: number; errors: string[] }> {
+    const errors: string[] = [];
+    let registered = 0;
+
+    // Check for global schedule
+    if (config.settings?.schedule?.cron) {
+      try {
+        await this.registerScheduledDeployment(
+          "global-schedule",
+          "Global Scheduled Deployment",
+          config.settings.schedule,
+          solutionPath,
+          solutionName,
+          config,
+          { tenantIds: config.tenants.filter(t => t.enabled !== false).map(t => t.tenantId) }
+        );
+        registered++;
+      } catch (error) {
+        errors.push(`Global schedule: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    // Check for tenant-specific schedules
+    for (const tenant of config.tenants) {
+      if (tenant.schedule?.cron && tenant.enabled !== false) {
+        try {
+          await this.registerScheduledDeployment(
+            `tenant-${tenant.tenantId}`,
+            `Scheduled Deployment for ${tenant.name}`,
+            tenant.schedule,
+            solutionPath,
+            solutionName,
+            config,
+            { tenantIds: [tenant.tenantId] }
+          );
+          registered++;
+        } catch (error) {
+          errors.push(`Tenant ${tenant.name}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+
+    return { registered, errors };
+  }
+
+  /**
+   * Remove a scheduled deployment
+   */
+  async removeScheduledDeployment(scheduleId: string): Promise<boolean> {
+    const repeatableJobs = await this.scheduledDeploymentQueue.getRepeatableJobs();
+    const job = repeatableJobs.find(j => j.id === scheduleId || j.key.includes(scheduleId));
+
+    if (job) {
+      await this.scheduledDeploymentQueue.removeRepeatableByKey(job.key);
+      console.log(`Removed scheduled deployment: ${scheduleId}`);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Remove all scheduled deployments
+   */
+  async removeAllScheduledDeployments(): Promise<number> {
+    const repeatableJobs = await this.scheduledDeploymentQueue.getRepeatableJobs();
+
+    for (const job of repeatableJobs) {
+      await this.scheduledDeploymentQueue.removeRepeatableByKey(job.key);
+    }
+
+    console.log(`Removed ${repeatableJobs.length} scheduled deployments`);
+    return repeatableJobs.length;
+  }
+
+  /**
+   * List all registered scheduled deployments
+   */
+  async listScheduledDeployments(): Promise<Array<{
+    id: string;
+    name: string;
+    cron: string;
+    timezone: string;
+    nextRun: Date | null;
+  }>> {
+    const repeatableJobs = await this.scheduledDeploymentQueue.getRepeatableJobs();
+
+    return repeatableJobs.map(job => ({
+      id: job.id || job.key,
+      name: job.name,
+      cron: job.pattern || "",
+      timezone: job.tz || "UTC",
+      nextRun: job.next ? new Date(job.next) : null,
+    }));
+  }
+
+  /**
+   * Get the scheduled deployment queue for creating workers
+   */
+  getScheduledDeploymentQueue(): Queue<ScheduledDeploymentJobData, ScheduledDeploymentJobResult> {
+    return this.scheduledDeploymentQueue;
+  }
+
+  /**
    * Close all connections
    */
   async close(): Promise<void> {
     await this.deploymentQueue.close();
     await this.tenantDeploymentQueue.close();
+    await this.scheduledDeploymentQueue.close();
     await this.queueEvents.close();
   }
 }

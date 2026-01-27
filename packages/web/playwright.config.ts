@@ -20,6 +20,10 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
   ],
   webServer: {
     command: 'pnpm run build && pnpm run start',
@@ -27,7 +31,8 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
     env: {
-      NEXTAUTH_SECRET: 'test-secret',
+      DEMO_MODE: 'true',
+      NEXTAUTH_SECRET: 'test-secret-for-e2e-testing',
       NEXTAUTH_URL: 'http://localhost:3001',
     },
   },

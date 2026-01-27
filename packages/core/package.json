@@ -1,7 +1,7 @@
 {
-  "name": "@agentcrate/core",
+  "name": "@agentsync/core",
   "version": "0.1.0",
-  "description": "Core warehouse logic for AgentCrate - pack, ship, and track agent deployments",
+  "description": "Core logic for AgentSync - sync and track agent deployments",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import useSWR from 'swr'
-import { TenantDeploymentResult } from '@agentcrate/core'
+import { TenantDeploymentResult } from '@agentsync/core'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -161,7 +161,35 @@ export default function DeploymentDetailPage() {
 
       {/* Progress Overview */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Progress</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium text-gray-900">Progress</h2>
+          {/* Status Summary */}
+          {deployment.status === 'completed' && deployment.failedTenants === 0 && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              All tenants deployed successfully
+            </span>
+          )}
+          {deployment.status === 'completed' && deployment.failedTenants > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-700">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Completed with {deployment.failedTenants} failure{deployment.failedTenants !== 1 ? 's' : ''}
+            </span>
+          )}
+          {deployment.status === 'in_progress' && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Deployment in progress...
+            </span>
+          )}
+        </div>
 
         <div className="grid grid-cols-4 gap-4 mb-4">
           <div className="text-center">
@@ -174,7 +202,7 @@ export default function DeploymentDetailPage() {
             <p className="text-3xl font-bold text-green-600">
               {deployment.completedTenants}
             </p>
-            <p className="text-sm text-gray-500">Completed</p>
+            <p className="text-sm text-gray-500">Succeeded</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-red-600">
@@ -183,7 +211,7 @@ export default function DeploymentDetailPage() {
             <p className="text-sm text-gray-500">Failed</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold text-yellow-600">
+            <p className="text-3xl font-bold text-blue-600">
               {deployment.totalTenants -
                 deployment.completedTenants -
                 deployment.failedTenants}
@@ -192,15 +220,26 @@ export default function DeploymentDetailPage() {
           </div>
         </div>
 
-        <div className="w-full bg-gray-200 rounded-full h-4">
-          <div
-            className={`h-4 rounded-full transition-all ${
-              deployment.failedTenants > 0 ? 'bg-yellow-500' : 'bg-green-500'
-            }`}
-            style={{ width: `${progress}%` }}
-          />
+        {/* Segmented Progress Bar */}
+        <div className="w-full bg-gray-200 rounded-full h-4 flex overflow-hidden">
+          {deployment.completedTenants > 0 && (
+            <div
+              className="h-4 bg-green-500 transition-all"
+              style={{ width: `${(deployment.completedTenants / deployment.totalTenants) * 100}%` }}
+            />
+          )}
+          {deployment.failedTenants > 0 && (
+            <div
+              className="h-4 bg-red-500 transition-all"
+              style={{ width: `${(deployment.failedTenants / deployment.totalTenants) * 100}%` }}
+            />
+          )}
         </div>
-        <p className="text-sm text-gray-500 mt-2 text-center">{progress}% complete</p>
+        <div className="flex justify-between mt-2 text-xs text-gray-500">
+          <span>{deployment.completedTenants} succeeded</span>
+          {deployment.failedTenants > 0 && <span className="text-red-600">{deployment.failedTenants} failed</span>}
+          <span>{deployment.totalTenants - deployment.completedTenants - deployment.failedTenants} pending</span>
+        </div>
       </div>
 
       {/* Tenant Results */}

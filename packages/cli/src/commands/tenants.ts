@@ -7,7 +7,7 @@ import {
   loadConfig,
   getClientSecret,
   GdapClient,
-} from "@agentcrate/core";
+} from "@agentsync/core";
 
 export const tenantsCommand = new Command("fleet")
   .alias("tenants") // backwards compatibility

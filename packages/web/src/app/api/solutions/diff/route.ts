@@ -5,7 +5,7 @@ import {
   GdapClient,
   DataverseClient,
   SolutionDiffService
-} from '@agentcrate/core'
+} from '@agentsync/core'
 import { resolve } from 'path'
 
 export const dynamic = 'force-dynamic'

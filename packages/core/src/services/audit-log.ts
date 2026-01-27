@@ -16,7 +16,10 @@ export type AuditAction =
   | 'config.changed'
   | 'user.login'
   | 'user.logout'
-  | 'api.access';
+  | 'api.access'
+  | 'scheduled.deployment.triggered'
+  | 'scheduled.deployment.registered'
+  | 'scheduled.deployment.removed';
 
 export interface AuditLogEntry {
   id: string;

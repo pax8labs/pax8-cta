@@ -8,7 +8,7 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from "@agentcrate/core";
+} from "@agentsync/core";
 
 export const exportCommand = new Command("pack")
   .alias("export") // backwards compatibility
@@ -70,7 +70,7 @@ export const exportCommand = new Command("pack")
       console.log(`  Crate:    ${chalk.cyan(outputPath)}`);
       console.log();
       console.log(
-        chalk.gray(`Use 'agentcrate ship --crate ${outputPath}' to ship to your fleet`)
+        chalk.gray(`Use 'agentsync ship --crate ${outputPath}' to ship to your fleet`)
       );
     } catch (error) {
       spinner.fail(chalk.red("Packing failed"));

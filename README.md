@@ -1,8 +1,8 @@
-# AgentCrate
+# AgentSync
 
 Crate up your agents and ship them to all your tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges).
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fpax8labs%2Fagentcrate&env=PARTNER_TENANT_ID,PARTNER_CLIENT_ID,PARTNER_CLIENT_SECRET,SOURCE_TENANT_ID,SOURCE_ENVIRONMENT_URL&envDescription=Azure%20AD%20and%20source%20environment%20configuration&project-name=agentcrate&repository-name=agentcrate)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fpax8labs%2Fagentsync&env=PARTNER_TENANT_ID,PARTNER_CLIENT_ID,PARTNER_CLIENT_SECRET,SOURCE_TENANT_ID,SOURCE_ENVIRONMENT_URL&envDescription=Azure%20AD%20and%20source%20environment%20configuration&project-name=agentsync&repository-name=agentsync)
 
 ---
 
@@ -33,8 +33,8 @@ To add customer tenants, either:
 ### Option B: Run Locally (5 commands)
 
 ```bash
-git clone https://github.com/pax8labs/agentcrate.git
-cd agentcrate
+git clone https://github.com/pax8labs/agentsync.git
+cd agentsync
 npm install -g pnpm           # Skip if you have pnpm
 pnpm install && pnpm build
 cp .env.example .env          # Then edit with your credentials
@@ -106,7 +106,7 @@ pnpm web                      # Opens Control Tower at localhost:3001
                     └─────────────────┘       └─────────────────┘       └─────────────────┘
 ```
 
-> **How it works:** Copilot Studio agents live in Microsoft Dataverse (the database behind Power Platform). AgentCrate uses the Dataverse API to export your agent as a "solution" from your dev environment, then imports it into each customer's environment via GDAP.
+> **How it works:** Copilot Studio agents live in Microsoft Dataverse (the database behind Power Platform). AgentSync uses the Dataverse API to export your agent as a "solution" from your dev environment, then imports it into each customer's environment via GDAP.
 
 ## Prerequisites
 
@@ -152,8 +152,8 @@ No servers to manage. Click the button at the top of this README, fill in your c
 
 ```bash
 # Clone the repository
-git clone https://github.com/pax8labs/agentcrate.git
-cd agentcrate
+git clone https://github.com/pax8labs/agentsync.git
+cd agentsync
 
 # Configure
 cp config/tenants.example.yaml config/tenants.yaml
@@ -342,55 +342,55 @@ settings:
 
 ```bash
 # Pack as managed (default)
-agentcrate pack --solution "CustomerServiceAgent" --output ./crates/
+agentsync pack --solution "CustomerServiceAgent" --output ./crates/
 
 # Pack as unmanaged
-agentcrate pack --solution "CustomerServiceAgent" --output ./crates/ --unmanaged
+agentsync pack --solution "CustomerServiceAgent" --output ./crates/ --unmanaged
 ```
 
 ### Ship to Destinations (Deploy)
 
 ```bash
 # Ship to all enabled destinations
-agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --all
+agentsync ship --solution ./crates/CustomerServiceAgent_managed.zip --all
 
 # Ship to destinations with specific tags
-agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --tag enterprise
+agentsync ship --solution ./crates/CustomerServiceAgent_managed.zip --tag enterprise
 
 # Ship to multiple tag groups
-agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --tag enterprise --tag pilot
+agentsync ship --solution ./crates/CustomerServiceAgent_managed.zip --tag enterprise --tag pilot
 
 # Dry run (see what would be shipped)
-agentcrate ship --solution ./crates/CustomerServiceAgent_managed.zip --all --dry-run
+agentsync ship --solution ./crates/CustomerServiceAgent_managed.zip --all --dry-run
 ```
 
 ### Track Shipment Status
 
 ```bash
 # One-time status check
-agentcrate track --shipment <shipment-id>
+agentsync track --shipment <shipment-id>
 
 # Watch for updates
-agentcrate track --shipment <shipment-id> --watch
+agentsync track --shipment <shipment-id> --watch
 ```
 
 ### Manage Fleet (Tenants)
 
 ```bash
 # List all destinations in your fleet
-agentcrate fleet list
+agentsync fleet list
 
 # Filter by tag
-agentcrate fleet list --tag enterprise
+agentsync fleet list --tag enterprise
 
 # Validate GDAP access
-agentcrate fleet validate
+agentsync fleet validate
 ```
 
 ### Deliver to Single Destination (Testing)
 
 ```bash
-agentcrate deliver --solution ./crates/CustomerServiceAgent_managed.zip --tenant <tenant-id>
+agentsync deliver --solution ./crates/CustomerServiceAgent_managed.zip --tenant <tenant-id>
 ```
 
 ## Control Tower (Web Dashboard)
@@ -407,7 +407,7 @@ Access at `http://localhost:3001`
 ## Project Structure
 
 ```
-agentcrate/
+agentsync/
 ├── packages/
 │   ├── core/           # Core warehouse logic
 │   │   └── src/
@@ -443,7 +443,7 @@ agentcrate/
 
 - Verify GDAP relationship is approved in Partner Center
 - Check that the relationship includes Power Platform Administrator role
-- Run `agentcrate fleet validate` to check all destinations
+- Run `agentsync fleet validate` to check all destinations
 
 ### "Import failed: missing dependencies"
 

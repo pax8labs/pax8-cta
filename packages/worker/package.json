@@ -1,7 +1,7 @@
 {
-  "name": "@agentcrate/worker",
+  "name": "@agentsync/worker",
   "version": "0.1.0",
-  "description": "AgentCrate Dockworker - handles the heavy lifting of shipping agents to tenants",
+  "description": "AgentSync Worker - handles syncing agents to tenants",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@agentcrate/core": "workspace:*",
+    "@agentsync/core": "workspace:*",
     "bullmq": "^5.1.0"
   },
   "devDependencies": {

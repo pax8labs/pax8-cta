@@ -9,7 +9,7 @@ import {
   getEffectiveConnectionMappings,
   getEffectiveEnvironmentVariables,
   TenantConfig,
-} from '@agentcrate/core';
+} from '@agentsync/core';
 
 /**
  * In-process deployment endpoint for simple/serverless deployments

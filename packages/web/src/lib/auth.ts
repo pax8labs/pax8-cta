@@ -1,5 +1,9 @@
 import { NextAuthOptions } from 'next-auth';
 import AzureADProvider from 'next-auth/providers/azure-ad';
+import CredentialsProvider from 'next-auth/providers/credentials';
+
+// Check if demo mode is enabled
+const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1';
 
 declare module 'next-auth' {
   interface Session {
@@ -19,19 +23,35 @@ declare module 'next-auth' {
   }
 }
 
+// Demo mode provider that auto-authenticates
+const demoProvider = CredentialsProvider({
+  id: 'demo',
+  name: 'Demo Mode',
+  credentials: {},
+  async authorize() {
+    return {
+      id: 'demo-user',
+      name: 'Demo User',
+      email: 'demo@agentsync.local',
+      roles: ['Admin'],
+    };
+  },
+});
+
+// Production Azure AD provider
+const azureProvider = AzureADProvider({
+  clientId: process.env.AZURE_AD_CLIENT_ID || 'demo-client-id',
+  clientSecret: process.env.AZURE_AD_CLIENT_SECRET || 'demo-client-secret',
+  tenantId: process.env.AZURE_AD_TENANT_ID || 'demo-tenant-id',
+  authorization: {
+    params: {
+      scope: 'openid email profile User.Read',
+    },
+  },
+});
+
 export const authOptions: NextAuthOptions = {
-  providers: [
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
-      authorization: {
-        params: {
-          scope: 'openid email profile User.Read',
-        },
-      },
-    }),
-  ],
+  providers: isDemoMode ? [demoProvider] : [azureProvider],
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account) {
@@ -58,7 +78,7 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 8 * 60 * 60, // 8 hours
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || (isDemoMode ? 'demo-secret-for-local-testing-only' : undefined),
 };
 
 // Role-based access control helper

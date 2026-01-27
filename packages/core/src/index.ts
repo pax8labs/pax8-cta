@@ -12,3 +12,6 @@ export * from "./services/index.js";
 
 // Queue (in-memory alternative to Redis)
 export * from "./queue/index.js";
+
+// Mock/Demo data
+export * from "./mock/demo-data.js";

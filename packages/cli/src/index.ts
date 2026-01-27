@@ -6,12 +6,13 @@ import { importCommand } from "./commands/import.js";
 import { deployCommand } from "./commands/deploy.js";
 import { statusCommand } from "./commands/status.js";
 import { tenantsCommand } from "./commands/tenants.js";
+import { resolveUrlCommand } from "./commands/resolve-url.js";
 
 const program = new Command();
 
 program
-  .name("agentcrate")
-  .description("AgentCrate - Crate up your agents and ship them to all your tenants")
+  .name("agentsync")
+  .description("AgentSync - Sync your agents to all your tenants")
   .version("0.1.0");
 
 // Register commands with shipping theme
@@ -19,10 +20,12 @@ program
 // ship = deploy (ship crates to destinations)
 // track = status (track your shipments)
 // fleet = tenants (manage your fleet of destinations)
+// resolve-url = resolve M365 agent URL to solution
 program.addCommand(exportCommand);
 program.addCommand(importCommand);
 program.addCommand(deployCommand);
 program.addCommand(statusCommand);
 program.addCommand(tenantsCommand);
+program.addCommand(resolveUrlCommand);
 
 program.parse();

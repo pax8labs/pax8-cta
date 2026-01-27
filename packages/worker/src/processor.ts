@@ -1,4 +1,5 @@
 import { Worker, Job, RedisOptions } from "bullmq";
+import { randomUUID } from "node:crypto";
 import {
   TokenManager,
   DataverseClient,
@@ -15,11 +16,16 @@ import {
   workerLogger,
   timedOperation,
   getAuditLog,
-} from "@agentcrate/core";
+  SchedulerService,
+} from "@agentsync/core";
 import {
   TENANT_DEPLOYMENT_QUEUE_NAME,
+  SCHEDULED_DEPLOYMENT_QUEUE_NAME,
   TenantDeploymentJobData,
   TenantDeploymentJobResult,
+  ScheduledDeploymentJobData,
+  ScheduledDeploymentJobResult,
+  DeploymentQueueManager,
 } from "./queue.js";
 
 const logger = workerLogger;
@@ -492,6 +498,162 @@ async function processTenantDeployment(
       durationMs,
     };
   }
+}
+
+/**
+ * Creates a worker that processes scheduled deployment triggers
+ * When a schedule fires, this worker queues the actual tenant deployment jobs
+ */
+export function createScheduledDeploymentWorker(
+  options: ProcessorOptions & { queueManager?: DeploymentQueueManager } = {}
+): Worker<ScheduledDeploymentJobData, ScheduledDeploymentJobResult> {
+  const {
+    redisUrl = "redis://localhost:6379",
+    queueManager,
+  } = options;
+
+  const connectionOptions = parseRedisUrl(redisUrl);
+  const schedulerService = new SchedulerService();
+
+  // Create or use provided queue manager for adding tenant jobs
+  const deploymentQueueManager = queueManager || new DeploymentQueueManager(redisUrl);
+
+  const worker = new Worker<ScheduledDeploymentJobData, ScheduledDeploymentJobResult>(
+    SCHEDULED_DEPLOYMENT_QUEUE_NAME,
+    async (job: Job<ScheduledDeploymentJobData>) => {
+      const { scheduleId, scheduleName, solutionPath, solutionName, tenantIds, tags, config } = job.data;
+      const triggeredAt = new Date().toISOString();
+
+      logger.info(`Scheduled deployment triggered`, {
+        scheduleId,
+        scheduleName,
+        solutionName,
+      });
+
+      // Check maintenance window if configured
+      const schedule = config.settings?.schedule;
+      let withinMaintenanceWindow = true;
+
+      if (schedule?.maintenanceWindow) {
+        withinMaintenanceWindow = schedulerService.isWithinMaintenanceWindow(schedule);
+
+        if (!withinMaintenanceWindow) {
+          logger.warn(`Scheduled deployment triggered outside maintenance window, skipping`, {
+            scheduleId,
+            scheduleName,
+          });
+
+          return {
+            scheduleId,
+            deploymentId: "",
+            tenantCount: 0,
+            triggeredAt,
+            withinMaintenanceWindow: false,
+          };
+        }
+      }
+
+      // Determine which tenants to deploy to
+      let tenantsToDeployTo = config.tenants.filter(t => t.enabled !== false);
+
+      if (tenantIds && tenantIds.length > 0) {
+        // Deploy to specific tenants
+        tenantsToDeployTo = tenantsToDeployTo.filter(t => tenantIds.includes(t.tenantId));
+      } else if (tags && tags.length > 0) {
+        // Deploy to tenants matching tags
+        tenantsToDeployTo = tenantsToDeployTo.filter(t =>
+          t.tags?.some(tag => tags.includes(tag))
+        );
+      }
+
+      if (tenantsToDeployTo.length === 0) {
+        logger.warn(`No tenants matched for scheduled deployment`, {
+          scheduleId,
+          scheduleName,
+          tenantIds,
+          tags,
+        });
+
+        return {
+          scheduleId,
+          deploymentId: "",
+          tenantCount: 0,
+          triggeredAt,
+          withinMaintenanceWindow: true,
+        };
+      }
+
+      // Generate a deployment ID for this scheduled run
+      const deploymentId = `sched-${scheduleId}-${randomUUID().slice(0, 8)}`;
+
+      logger.info(`Queuing deployment jobs for scheduled deployment`, {
+        scheduleId,
+        deploymentId,
+        tenantCount: tenantsToDeployTo.length,
+      });
+
+      // Queue the tenant deployment jobs
+      await deploymentQueueManager.addTenantDeploymentsBulk(
+        deploymentId,
+        solutionPath,
+        tenantsToDeployTo,
+        config.partner.tenantId,
+        config.partner.clientId,
+        {
+          solutionName,
+          config,
+        }
+      );
+
+      // Log to audit
+      await auditLog.log('scheduled.deployment.triggered', {
+        userId: 'scheduler',
+        resourceType: 'schedule',
+        resourceId: scheduleId,
+        resourceName: scheduleName,
+        success: true,
+        details: {
+          deploymentId,
+          solutionPath,
+          solutionName,
+          tenantCount: tenantsToDeployTo.length,
+          tenantIds: tenantsToDeployTo.map(t => t.tenantId),
+        },
+      });
+
+      return {
+        scheduleId,
+        deploymentId,
+        tenantCount: tenantsToDeployTo.length,
+        triggeredAt,
+        withinMaintenanceWindow: true,
+      };
+    },
+    {
+      connection: connectionOptions,
+      concurrency: 1, // Only process one schedule trigger at a time
+    }
+  );
+
+  worker.on("completed", (job) => {
+    logger.info(`Scheduled deployment trigger completed`, {
+      scheduleId: job.data.scheduleId,
+      deploymentId: job.returnvalue?.deploymentId,
+      tenantCount: job.returnvalue?.tenantCount,
+    });
+  });
+
+  worker.on("failed", (job, error) => {
+    logger.error(`Scheduled deployment trigger failed`, error, {
+      scheduleId: job?.data.scheduleId,
+    });
+  });
+
+  worker.on("error", (error) => {
+    logger.error(`Scheduled deployment worker error`, error);
+  });
+
+  return worker;
 }
 
 /**

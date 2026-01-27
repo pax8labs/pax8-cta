@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { writeFile, mkdir } from 'fs/promises'
 import { resolve, join } from 'path'
-import { loadConfig, TenantConfig } from '@agentcrate/core'
-import { DeploymentQueueManager } from '@agentcrate/worker'
+import { loadConfig, TenantConfig, isDemoMode, DEMO_CONFIG, DEMO_TENANTS, generateMockDeployment } from '@agentsync/core'
+import { DeploymentQueueManager } from '@agentsync/worker'
+import { demoDeployments } from '@/lib/demo-store'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
@@ -41,6 +42,51 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid tenant IDs format' },
         { status: 400 }
       )
+    }
+
+    // Demo mode: create a mock deployment
+    if (isDemoMode()) {
+      const deploymentId = `demo-${Date.now().toString(36)}`
+
+      // Filter to requested tenants
+      const targetTenants = DEMO_TENANTS.filter(
+        t => t.enabled && tenantIds.includes(t.tenantId)
+      )
+
+      // Extract solution name from filename
+      const solutionName = solutionFile.name.replace(/_\d+_\d+_\d+.*\.zip$/, '').replace(/_/g, '')
+
+      // Create mock deployment
+      const deployment = generateMockDeployment({
+        id: deploymentId,
+        solutionName: solutionName || 'DemoAgent',
+        solutionPath: `./solutions/${solutionFile.name}`,
+        status: 'in_progress',
+        totalTenants: targetTenants.length,
+        completedTenants: 0,
+        failedTenants: 0,
+        createdAt: new Date().toISOString(),
+        tenantResults: targetTenants.map(t => ({
+          tenantId: t.tenantId,
+          tenantName: t.name,
+          status: 'pending' as const,
+          attemptNumber: 1,
+        })),
+      })
+
+      // Store for later retrieval
+      demoDeployments.set(deploymentId, deployment)
+
+      // Simulate deployment progress
+      simulateDemoDeployment(deploymentId, targetTenants)
+
+      return NextResponse.json({
+        deploymentId,
+        demoMode: true,
+        solutionPath: `./solutions/${solutionFile.name}`,
+        tenantCount: targetTenants.length,
+        message: 'Demo deployment created - watch the progress!',
+      })
     }
 
     // Load config to get tenant details and partner info
@@ -97,3 +143,41 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// Simulate deployment progress for demo mode
+async function simulateDemoDeployment(deploymentId: string, tenants: TenantConfig[]) {
+  const deployment = demoDeployments.get(deploymentId)
+  if (!deployment) return
+
+  // Simulate each tenant completing one by one
+  for (let i = 0; i < tenants.length; i++) {
+    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000)) // 2-5 second delay
+
+    const result = deployment.tenantResults[i]
+    if (result) {
+      result.status = Math.random() > 0.1 ? 'completed' : 'failed' // 90% success rate
+      result.startedAt = new Date(Date.now() - 2000).toISOString()
+      result.completedAt = new Date().toISOString()
+      if (result.status === 'failed') {
+        result.error = 'Simulated failure for demo purposes'
+        deployment.failedTenants++
+      } else {
+        deployment.completedTenants++
+      }
+    }
+
+    // Update overall status - deployment is 'completed' when all tenants are processed
+    // The failedTenants count indicates how many had errors
+    if (deployment.completedTenants + deployment.failedTenants >= deployment.totalTenants) {
+      deployment.status = 'completed'
+    }
+
+    deployment.updatedAt = new Date().toISOString()
+    demoDeployments.set(deploymentId, deployment)
+  }
+
+  deployment.status = 'completed'
+  deployment.updatedAt = new Date().toISOString()
+  demoDeployments.set(deploymentId, deployment)
+}
+

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
-import { DeploymentQueueManager } from '@agentcrate/worker'
+import { DeploymentQueueManager } from '@agentsync/worker'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 

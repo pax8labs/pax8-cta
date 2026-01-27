@@ -38,3 +38,10 @@ out/
 
 # Test coverage
 coverage/
+
+# Demo mode data
+.demo-custom-agents.json
+
+# Playwright
+playwright-report/
+test-results/

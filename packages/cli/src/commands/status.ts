@@ -2,7 +2,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
-import { DeploymentQueueManager } from "@agentcrate/worker";
+import { DeploymentQueueManager } from "@agentsync/worker";
 
 export const statusCommand = new Command("track")
   .alias("status") // backwards compatibility

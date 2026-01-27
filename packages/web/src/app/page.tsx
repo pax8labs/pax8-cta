@@ -17,6 +17,8 @@ export default function Dashboard() {
     { refreshInterval: 5000 }
   )
 
+  const deployments = recentDeployments?.deployments ?? []
+
   return (
     <div>
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
@@ -27,21 +29,25 @@ export default function Dashboard() {
           title="Total Tenants"
           value={stats?.totalTenants ?? '-'}
           color="blue"
+          href="/tenants"
         />
         <StatsCard
           title="Active Deployments"
           value={stats?.activeDeployments ?? '-'}
           color="yellow"
+          href="/deployments?status=in_progress"
         />
         <StatsCard
           title="Completed Today"
           value={stats?.completedToday ?? '-'}
           color="green"
+          href="/deployments?period=today"
         />
         <StatsCard
           title="Failed Today"
           value={stats?.failedToday ?? '-'}
           color="red"
+          href="/deployments?status=failed"
         />
       </div>
 
@@ -57,10 +63,10 @@ export default function Dashboard() {
             <p className="p-4 text-red-600">Failed to load deployments</p>
           ) : !recentDeployments ? (
             <p className="p-4 text-gray-500">Loading...</p>
-          ) : recentDeployments.length === 0 ? (
+          ) : deployments.length === 0 ? (
             <p className="p-4 text-gray-500">No deployments yet</p>
           ) : (
-            recentDeployments.map((deployment: any) => (
+            deployments.map((deployment: any) => (
               <DeploymentCard key={deployment.id} deployment={deployment} />
             ))
           )}

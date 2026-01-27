@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers all deployment options for AgentCrate, from simple single-machine setups to production-grade cloud deployments.
+This guide covers all deployment options for AgentSync, from simple single-machine setups to production-grade cloud deployments.
 
 ## Quick Start (Choose Your Path)
 
@@ -50,13 +50,13 @@ cp .env.example .env
 # Ubuntu: sudo systemctl start redis
 
 # Run web dashboard (Terminal 1)
-pnpm --filter @agentcrate/web dev
+pnpm --filter @agentsync/web dev
 
 # Run worker (Terminal 2)
-pnpm --filter @agentcrate/worker dev
+pnpm --filter @agentsync/worker dev
 
 # Or use CLI directly
-pnpm --filter @agentcrate/cli start -- tenants list
+pnpm --filter @agentsync/cli start -- tenants list
 ```
 
 ---
@@ -124,15 +124,15 @@ sudo cp deploy/systemd/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # Enable and start services
-sudo systemctl enable agentcrate-web agentcrate-worker
-sudo systemctl start agentcrate-web agentcrate-worker
+sudo systemctl enable agentsync-web agentsync-worker
+sudo systemctl start agentsync-web agentsync-worker
 
 # Check status
-sudo systemctl status agentcrate-web agentcrate-worker
+sudo systemctl status agentsync-web agentsync-worker
 
 # View logs
-journalctl -u agentcrate-web -f
-journalctl -u agentcrate-worker -f
+journalctl -u agentsync-web -f
+journalctl -u agentsync-worker -f
 ```
 
 ---
@@ -273,7 +273,7 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 # Install Redis (or use external)
 helm install redis bitnami/redis
 
-# Install AgentCrate
+# Install AgentSync
 helm install csd ./helm/csd \
   --set redis.url=redis://redis-master:6379 \
   --set secrets.partnerClientSecret=$PARTNER_CLIENT_SECRET \
@@ -353,7 +353,7 @@ For local development without Redis, the web app can process deployments directl
 ### Worker not processing jobs
 
 1. Check Redis connection
-2. Verify worker is running: `pm2 status` or `systemctl status agentcrate-worker`
+2. Verify worker is running: `pm2 status` or `systemctl status agentsync-worker`
 3. Check worker logs for errors
 
 ---

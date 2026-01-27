@@ -1,7 +1,7 @@
 {
-  "name": "@agentcrate/web",
+  "name": "@agentsync/web",
   "version": "0.1.0",
-  "description": "AgentCrate Control Tower - web dashboard for managing your shipping operations",
+  "description": "AgentSync Control Tower - web dashboard for managing your sync operations",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
@@ -12,25 +12,26 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@agentcrate/core": "workspace:*",
-    "@agentcrate/worker": "workspace:*",
+    "@agentsync/core": "workspace:*",
+    "@agentsync/worker": "workspace:*",
+    "ioredis": "^5.3.2",
+    "jszip": "^3.10.1",
     "next": "^14.1.0",
     "next-auth": "^4.24.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "ioredis": "^5.3.2",
     "swr": "^2.2.4",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.41.0",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
-    "@playwright/test": "^1.41.0",
-    "typescript": "^5.3.3",
-    "tailwindcss": "^3.4.1",
-    "postcss": "^8.4.33",
     "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
     "vitest": "^1.2.0"
   }
 }

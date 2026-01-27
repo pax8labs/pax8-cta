@@ -1,12 +1,12 @@
 #!/bin/bash
 # Local development setup without Docker
 #
-# This script sets up the AgentCrate for local development
+# This script sets up the AgentSync for local development
 # without requiring Docker. It installs Redis via your system package manager.
 
 set -e
 
-echo "=== AgentCrate - Local Setup ==="
+echo "=== AgentSync - Local Setup ==="
 echo ""
 
 # Detect OS
@@ -140,12 +140,12 @@ echo "2. Create config/tenants.yaml with your tenant configuration"
 echo "3. Run the development servers:"
 echo ""
 echo "   # Terminal 1: Start the web dashboard"
-echo "   pnpm --filter @agentcrate/web dev"
+echo "   pnpm --filter @agentsync/web dev"
 echo ""
 echo "   # Terminal 2: Start the worker"
-echo "   pnpm --filter @agentcrate/worker dev"
+echo "   pnpm --filter @agentsync/worker dev"
 echo ""
 echo "   # Or use the CLI directly"
-echo "   pnpm --filter @agentcrate/cli start -- tenants list"
+echo "   pnpm --filter @agentsync/cli start -- tenants list"
 echo ""
 echo "For production, see deploy/ folder for PM2, systemd, or Azure options."
