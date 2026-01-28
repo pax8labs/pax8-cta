@@ -7,3 +7,4 @@ export * from "./solution-diff.js";
 export * from "./audit-log.js";
 export * from "./logger.js";
 export * from "./secrets.js";
+export * from "./deployment-progress.js";

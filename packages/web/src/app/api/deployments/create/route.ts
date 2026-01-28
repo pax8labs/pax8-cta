@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { writeFile, mkdir } from 'fs/promises'
 import { resolve, join } from 'path'
-import { loadConfig, TenantConfig, isDemoMode, DEMO_CONFIG, DEMO_TENANTS, generateMockDeployment } from '@agentsync/core'
+import { loadConfig, TenantConfig, isDemoMode, DEMO_TENANTS, generateMockDeployment } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { demoDeployments } from '@/lib/demo-store'
 
@@ -75,10 +75,9 @@ export async function POST(request: NextRequest) {
       })
 
       // Store for later retrieval
+      // Note: The SSE endpoint at /api/deployments/[id]/progress handles
+      // detailed step-by-step progress simulation when the deployment page is viewed
       demoDeployments.set(deploymentId, deployment)
-
-      // Simulate deployment progress
-      simulateDemoDeployment(deploymentId, targetTenants)
 
       return NextResponse.json({
         deploymentId,
@@ -142,42 +141,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-// Simulate deployment progress for demo mode
-async function simulateDemoDeployment(deploymentId: string, tenants: TenantConfig[]) {
-  const deployment = demoDeployments.get(deploymentId)
-  if (!deployment) return
-
-  // Simulate each tenant completing one by one
-  for (let i = 0; i < tenants.length; i++) {
-    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000)) // 2-5 second delay
-
-    const result = deployment.tenantResults[i]
-    if (result) {
-      result.status = Math.random() > 0.1 ? 'completed' : 'failed' // 90% success rate
-      result.startedAt = new Date(Date.now() - 2000).toISOString()
-      result.completedAt = new Date().toISOString()
-      if (result.status === 'failed') {
-        result.error = 'Simulated failure for demo purposes'
-        deployment.failedTenants++
-      } else {
-        deployment.completedTenants++
-      }
-    }
-
-    // Update overall status - deployment is 'completed' when all tenants are processed
-    // The failedTenants count indicates how many had errors
-    if (deployment.completedTenants + deployment.failedTenants >= deployment.totalTenants) {
-      deployment.status = 'completed'
-    }
-
-    deployment.updatedAt = new Date().toISOString()
-    demoDeployments.set(deploymentId, deployment)
-  }
-
-  deployment.status = 'completed'
-  deployment.updatedAt = new Date().toISOString()
-  demoDeployments.set(deploymentId, deployment)
 }
 

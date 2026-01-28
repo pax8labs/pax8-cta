@@ -237,4 +237,147 @@ test.describe('Deployments', () => {
       expect([200, 400, 403]).toContain(response.status());
     });
   });
+
+  test.describe('Deployment Progress SSE', () => {
+    test('progress endpoint only shows tenants selected for deployment', async ({ request }) => {
+      // First, get the list of available tenants
+      const tenantsResponse = await request.get('/api/tenants');
+      const tenantsData = await tenantsResponse.json();
+      const enabledTenants = tenantsData.tenants.filter((t: { enabled: boolean }) => t.enabled);
+
+      // Select only the first tenant (not all)
+      const selectedTenant = enabledTenants[0];
+
+      // Create a deployment with only one tenant
+      const formData = new FormData();
+      const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP magic bytes
+      const blob = new Blob([mockZipContent], { type: 'application/zip' });
+      formData.append('solution', blob, 'TestAgent_1_0_0.zip');
+      formData.append('tenantIds', JSON.stringify([selectedTenant.tenantId]));
+
+      const createResponse = await request.post('/api/deployments/create', {
+        multipart: {
+          solution: {
+            name: 'TestAgent_1_0_0.zip',
+            mimeType: 'application/zip',
+            buffer: Buffer.from(mockZipContent),
+          },
+          tenantIds: JSON.stringify([selectedTenant.tenantId]),
+        },
+      });
+
+      expect(createResponse.status()).toBe(200);
+      const createData = await createResponse.json();
+      expect(createData.deploymentId).toBeDefined();
+      expect(createData.tenantCount).toBe(1);
+
+      // Verify the deployment was stored with only the selected tenant
+      const deploymentResponse = await request.get(`/api/deployments/${createData.deploymentId}`);
+      expect(deploymentResponse.status()).toBe(200);
+
+      const deploymentData = await deploymentResponse.json();
+      expect(deploymentData.tenantResults).toBeDefined();
+      expect(deploymentData.tenantResults.length).toBe(1);
+      expect(deploymentData.tenantResults[0].tenantId).toBe(selectedTenant.tenantId);
+    });
+
+    test('progress endpoint returns error for non-existent deployment', async ({ request }) => {
+      const response = await request.get('/api/deployments/non-existent-deployment-id/progress', {
+        timeout: 5000,
+      });
+
+      expect(response.status()).toBe(200); // SSE returns 200 with error in stream
+      const contentType = response.headers()['content-type'];
+      expect(contentType).toContain('text/event-stream');
+
+      // The stream should contain an error event
+      const text = await response.text();
+      expect(text).toContain('error');
+      expect(text).toContain('not found');
+    });
+
+    test('deployment creation with multiple tenants stores all selected', async ({ request }) => {
+      // Get tenants
+      const tenantsResponse = await request.get('/api/tenants');
+      const tenantsData = await tenantsResponse.json();
+      const enabledTenants = tenantsData.tenants.filter((t: { enabled: boolean }) => t.enabled);
+
+      // Select first two tenants
+      const selectedTenants = enabledTenants.slice(0, 2);
+      const selectedIds = selectedTenants.map((t: { tenantId: string }) => t.tenantId);
+
+      // Create deployment
+      const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+
+      const createResponse = await request.post('/api/deployments/create', {
+        multipart: {
+          solution: {
+            name: 'MultiTenantAgent_1_0_0.zip',
+            mimeType: 'application/zip',
+            buffer: Buffer.from(mockZipContent),
+          },
+          tenantIds: JSON.stringify(selectedIds),
+        },
+      });
+
+      expect(createResponse.status()).toBe(200);
+      const createData = await createResponse.json();
+      expect(createData.tenantCount).toBe(2);
+
+      // Verify deployment has exactly 2 tenants
+      const deploymentResponse = await request.get(`/api/deployments/${createData.deploymentId}`);
+      const deploymentData = await deploymentResponse.json();
+
+      expect(deploymentData.tenantResults.length).toBe(2);
+      const resultIds = deploymentData.tenantResults.map((r: { tenantId: string }) => r.tenantId);
+      expect(resultIds).toContain(selectedIds[0]);
+      expect(resultIds).toContain(selectedIds[1]);
+    });
+
+    test('deployment does not include unselected tenants', async ({ request }) => {
+      // Get tenants
+      const tenantsResponse = await request.get('/api/tenants');
+      const tenantsData = await tenantsResponse.json();
+      const enabledTenants = tenantsData.tenants.filter((t: { enabled: boolean }) => t.enabled);
+
+      // Must have at least 3 tenants for this test
+      if (enabledTenants.length < 3) {
+        test.skip();
+        return;
+      }
+
+      // Select only the first tenant, explicitly NOT selecting others
+      const selectedTenant = enabledTenants[0];
+      const unselectedTenants = enabledTenants.slice(1);
+
+      const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+
+      const createResponse = await request.post('/api/deployments/create', {
+        multipart: {
+          solution: {
+            name: 'SingleTenantAgent_1_0_0.zip',
+            mimeType: 'application/zip',
+            buffer: Buffer.from(mockZipContent),
+          },
+          tenantIds: JSON.stringify([selectedTenant.tenantId]),
+        },
+      });
+
+      expect(createResponse.status()).toBe(200);
+      const createData = await createResponse.json();
+
+      // Verify deployment
+      const deploymentResponse = await request.get(`/api/deployments/${createData.deploymentId}`);
+      const deploymentData = await deploymentResponse.json();
+
+      // Should only have 1 tenant
+      expect(deploymentData.tenantResults.length).toBe(1);
+
+      // Should NOT contain any of the unselected tenants
+      const resultIds = deploymentData.tenantResults.map((r: { tenantId: string }) => r.tenantId);
+      for (const unselected of unselectedTenants) {
+        expect(resultIds).not.toContain(unselected.tenantId);
+      }
+    });
+  });
 });
