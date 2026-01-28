@@ -1,6 +1,6 @@
 # AgentSync
 
-Crate up your agents and ship them to all your tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges).
+Take your CoPilot agents and ship them to your clients' tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges).
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fpax8labs%2Fagentsync&env=PARTNER_TENANT_ID,PARTNER_CLIENT_ID,PARTNER_CLIENT_SECRET,SOURCE_TENANT_ID,SOURCE_ENVIRONMENT_URL&envDescription=Azure%20AD%20and%20source%20environment%20configuration&project-name=agentsync&repository-name=agentsync)
 
