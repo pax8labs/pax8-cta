@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
           description: `Imported from M365 URL`,
           publisherName: "Imported",
           isManaged: result.solution.isManaged,
+          status: 'active',
           createdAt: new Date().toISOString(),
         };
         demoCustomAgents.set(result.solution.uniqueName, newAgent);

@@ -12,7 +12,7 @@ import {
   SSE_HEARTBEAT_INTERVAL_MS,
   SSE_TIMEOUT_MS,
 } from '@agentsync/core'
-import { demoDeployments, demoDeploymentsV2, demoBatches, resolveDeployment } from '@/lib/demo-store'
+import { demoDeployments, demoDeploymentsV2, demoBatches, resolveDeployment, demoDeployedAgents, DeployedAgent } from '@/lib/demo-store'
 import { DeploymentQueueManager } from '@agentsync/worker'
 
 export const dynamic = 'force-dynamic'
@@ -436,6 +436,32 @@ async function processTenant(
 
     // Update v2 store only if not cancelled
     updateV2DeploymentStatus(deploymentId, tenant.tenantId, 'completed')
+
+    // Update demoDeployedAgents to track which agents are on which tenants
+    // This is what the /api/agents endpoint reads to show deployment counts
+    const solutionName = deploymentFinal.solutionName
+    const solutionVersion = deploymentFinal.solutionVersion || '1.0.0'
+    const existingAgents = demoDeployedAgents.get(tenant.tenantId) || []
+
+    // Check if this agent is already deployed (update version) or add new
+    const existingIndex = existingAgents.findIndex(a => a.solutionName === solutionName)
+    const deployedAgent: DeployedAgent = {
+      solutionName,
+      version: solutionVersion,
+      deployedAt: completeTime,
+      deploymentId,
+      status: 'active',
+    }
+
+    if (existingIndex >= 0) {
+      // Update existing deployment
+      existingAgents[existingIndex] = deployedAgent
+    } else {
+      // Add new deployment
+      existingAgents.push(deployedAgent)
+    }
+
+    demoDeployedAgents.set(tenant.tenantId, existingAgents)
   }
 }
 

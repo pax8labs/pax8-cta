@@ -421,6 +421,7 @@ export async function POST(request: NextRequest) {
       description: metadata.description,
       publisherName: metadata.publisherName,
       isManaged: metadata.isManaged,
+      status: 'active',
       createdAt: new Date().toISOString(),
       urlTemplates: urlTemplates || undefined,
       solutionBase64,
@@ -431,6 +432,7 @@ export async function POST(request: NextRequest) {
       // Update existing agent
       const existing = demoCustomAgents.get(metadata.uniqueName)!;
       newAgent.createdAt = existing.createdAt; // Preserve original creation date
+      newAgent.status = existing.status; // Preserve existing status
     }
 
     demoCustomAgents.set(metadata.uniqueName, newAgent);

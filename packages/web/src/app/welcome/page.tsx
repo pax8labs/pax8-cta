@@ -1,15 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import useSWR from 'swr'
 import Link from 'next/link'
-import { DeploymentCard } from '@/components/DeploymentCard'
-import { StatsCard } from '@/components/StatsCard'
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
-// Onboarding component for new users
-function OnboardingWelcome({ onDismiss }: { onDismiss?: () => void }) {
+export default function WelcomePage() {
   return (
     <div className="max-w-3xl mx-auto py-12">
       {/* Welcome header */}
@@ -110,7 +103,6 @@ function OnboardingWelcome({ onDismiss }: { onDismiss?: () => void }) {
       <div className="flex justify-center gap-4">
         <Link
           href="/agents"
-          onClick={onDismiss}
           className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -120,156 +112,26 @@ function OnboardingWelcome({ onDismiss }: { onDismiss?: () => void }) {
         </Link>
         <Link
           href="/deployments/new"
-          onClick={onDismiss}
           className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-700 font-medium rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors"
         >
           Try with Demo Agents
         </Link>
       </div>
 
-      {/* Back to dashboard link (only when manually triggered) */}
-      {onDismiss && (
-        <div className="text-center mt-6">
-          <button
-            onClick={onDismiss}
-            className="text-sm text-slate-500 hover:text-slate-700"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      )}
+      {/* Back to dashboard */}
+      <div className="text-center mt-6">
+        <Link
+          href="/"
+          className="text-sm text-slate-500 hover:text-slate-700"
+        >
+          Back to Dashboard
+        </Link>
+      </div>
 
       {/* Demo mode note */}
       <p className="text-center text-xs text-slate-400 mt-6">
         Running in demo mode with sample tenants. Connect to real tenants in settings.
       </p>
-    </div>
-  )
-}
-
-export default function Dashboard() {
-  const [showHelp, setShowHelp] = useState(false)
-
-  const { data: stats, error: statsError } = useSWR('/api/stats', fetcher, {
-    refreshInterval: 5000,
-  })
-
-  const { data: recentDeployments, error: deploymentsError } = useSWR(
-    '/api/deployments?limit=5',
-    fetcher,
-    { refreshInterval: 5000 }
-  )
-
-  const { data: agentsData } = useSWR('/api/agents', fetcher)
-
-  const deployments = recentDeployments?.deployments ?? []
-
-  // Check if user has any custom agents (indicates they've actually used the app)
-  const hasCustomAgents = agentsData?.agents?.some((a: any) => a.isCustom) ?? false
-
-  // Check if there are any real (non-demo-hist) deployments
-  const hasRealDeployments = deployments.some((d: any) => !d.id?.startsWith('demo-hist-'))
-
-  // Show onboarding automatically if no custom agents and no real deployments
-  const isNewUser = !hasCustomAgents && !hasRealDeployments && !statsError && !deploymentsError
-
-  // Show onboarding if new user OR manually triggered
-  if (isNewUser || showHelp) {
-    return <OnboardingWelcome onDismiss={isNewUser ? undefined : () => setShowHelp(false)} />
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <button
-          onClick={() => setShowHelp(true)}
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Getting started
-        </button>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <StatsCard
-          title="Total Tenants"
-          value={stats?.totalTenants ?? '-'}
-          color="blue"
-          href="/tenants"
-        />
-        <StatsCard
-          title="Active Deployments"
-          value={stats?.activeDeployments ?? '-'}
-          color="yellow"
-          href="/deployments?filter=active"
-        />
-        <StatsCard
-          title="Completed Today"
-          value={stats?.completedToday ?? '-'}
-          color="green"
-          href="/deployments?period=today"
-        />
-        <StatsCard
-          title="Failed Today"
-          value={stats?.failedToday ?? '-'}
-          color="red"
-          href="/deployments?filter=issues"
-        />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mb-8">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <a
-            href="/agents/new"
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-4 text-center transition-colors"
-          >
-            <span className="text-2xl block mb-2">+</span>
-            <span className="font-medium">New Agent</span>
-          </a>
-          <a
-            href="/deployments/new"
-            className="bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg p-4 text-center transition-colors"
-          >
-            <span className="text-2xl block mb-2">+</span>
-            <span className="font-medium">New Deployment</span>
-          </a>
-          <a
-            href="/tenants"
-            className="bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg p-4 text-center transition-colors"
-          >
-            <span className="text-2xl block mb-2">&#9881;</span>
-            <span className="font-medium">Manage Tenants</span>
-          </a>
-        </div>
-      </div>
-
-      {/* Recent Deployments */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:px-6 border-b">
-          <h2 className="text-lg font-medium text-gray-900">
-            Recent Deployments
-          </h2>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {deploymentsError ? (
-            <p className="p-4 text-red-600">Failed to load deployments</p>
-          ) : !recentDeployments ? (
-            <p className="p-4 text-gray-500">Loading...</p>
-          ) : deployments.length === 0 ? (
-            <p className="p-4 text-gray-500">No deployments yet</p>
-          ) : (
-            deployments.map((deployment: any) => (
-              <DeploymentCard key={deployment.id} deployment={deployment} />
-            ))
-          )}
-        </div>
-      </div>
     </div>
   )
 }

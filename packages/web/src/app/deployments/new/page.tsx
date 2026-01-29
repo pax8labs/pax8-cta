@@ -33,6 +33,8 @@ interface AgentUrlTemplates {
   confirmedAt?: string
 }
 
+type AgentStatus = 'active' | 'deprecated' | 'archived'
+
 interface Agent {
   id: string
   uniqueName: string
@@ -41,6 +43,7 @@ interface Agent {
   description: string
   publisherName: string
   isManaged: boolean
+  status?: AgentStatus
   deployedTenants: DeployedTenant[]
   totalDeployments: number
   urlTemplates?: AgentUrlTemplates
@@ -179,11 +182,33 @@ function UrlMappingInputs({
   }, [override.sharepoint, override.dynamicsCrm, override.onmicrosoft])
 
   // Update parent state with full domain (prefix + suffix)
+  // Also sync the tenant prefix to other fields for consistency
   const updateParent = (field: keyof TenantUrlOverride, prefix: string, suffix: string) => {
     const fullDomain = `${prefix}${suffix}`
     setUrlOverrides(prev => {
       const current = prev[tenantId] || generateTenantUrls(tenant)
-      return { ...prev, [tenantId]: { ...current, [field]: fullDomain } }
+      // Update the specific field
+      const updated = { ...current, [field]: fullDomain, tenant: prefix }
+      // Also update other fields to use the same tenant prefix for consistency
+      // This ensures all dependencies use the same tenant identifier
+      if (field === 'sharepoint') {
+        updated.dynamicsCrm = `${prefix}${dynamicsCrmSuffix}`
+        updated.onmicrosoft = `${prefix}${onmicrosoftSuffix}`
+        // Update local state for other fields too
+        setLocalDynamicsCrm(prefix)
+        setLocalOnmicrosoft(prefix)
+      } else if (field === 'dynamicsCrm') {
+        updated.sharepoint = `${prefix}${sharepointSuffix}`
+        updated.onmicrosoft = `${prefix}${onmicrosoftSuffix}`
+        setLocalSharepoint(prefix)
+        setLocalOnmicrosoft(prefix)
+      } else if (field === 'onmicrosoft') {
+        updated.sharepoint = `${prefix}${sharepointSuffix}`
+        updated.dynamicsCrm = `${prefix}${dynamicsCrmSuffix}`
+        setLocalSharepoint(prefix)
+        setLocalDynamicsCrm(prefix)
+      }
+      return { ...prev, [tenantId]: updated }
     })
   }
 
@@ -268,7 +293,8 @@ function NewDeploymentContent() {
   useEffect(() => {
     if (preSelectedAgentId && agentsData?.agents && !selectedAgent) {
       const agent = agentsData.agents.find((a: Agent) => a.id === preSelectedAgentId)
-      if (agent) {
+      // Only pre-select if agent is active (not deprecated or archived)
+      if (agent && (agent.status || 'active') === 'active') {
         setSelectedAgent(agent)
       }
     }
@@ -299,9 +325,11 @@ function NewDeploymentContent() {
 
   // Filter agents by search query
   const filteredAgents = useMemo(() => {
-    if (!agentSearch.trim()) return agents
+    // First filter out archived and deprecated agents - they can't be deployed
+    const deployableAgents = agents.filter((a: Agent) => (a.status || 'active') === 'active')
+    if (!agentSearch.trim()) return deployableAgents
     const query = agentSearch.toLowerCase()
-    return agents.filter((a: Agent) =>
+    return deployableAgents.filter((a: Agent) =>
       a.friendlyName.toLowerCase().includes(query) ||
       a.uniqueName.toLowerCase().includes(query) ||
       a.description?.toLowerCase().includes(query) ||
@@ -354,6 +382,10 @@ function NewDeploymentContent() {
   }, [tenants, tenantSearch])
 
   const handleSelectAgent = (agent: Agent) => {
+    // Block selecting deprecated/archived agents
+    if ((agent.status || 'active') !== 'active') {
+      return
+    }
     setSelectedAgent(agent)
     // Clear tenant selection when changing agent
     setSelectedTenants([])
@@ -440,9 +472,28 @@ function NewDeploymentContent() {
       formData.append('tenantIds', JSON.stringify(selectedTenants))
 
       // Include URL overrides if agent has URL templates
-      if (hasUrlTemplates && Object.keys(urlOverrides).length > 0) {
-        console.log('[Deploy] Including URL overrides:', Object.keys(urlOverrides))
-        formData.append('urlOverrides', JSON.stringify(urlOverrides))
+      // Only include the URL types that the agent actually needs
+      if (hasUrlTemplates && Object.keys(urlOverrides).length > 0 && selectedAgent?.urlTemplates?.templates) {
+        // Determine which URL types are needed based on agent's templates
+        const neededTypes = new Set<string>()
+        selectedAgent.urlTemplates.templates.forEach(t => {
+          if (t.type === 'sharepoint') neededTypes.add('sharepoint')
+          else if (t.type === 'dynamics_crm') neededTypes.add('dynamicsCrm')
+          else if (t.type === 'onmicrosoft') neededTypes.add('onmicrosoft')
+        })
+
+        // Filter URL overrides to only include needed types
+        const filteredOverrides: Record<string, Partial<TenantUrlOverride>> = {}
+        for (const [tenantId, override] of Object.entries(urlOverrides)) {
+          const filtered: Partial<TenantUrlOverride> = { tenant: override.tenant }
+          if (neededTypes.has('sharepoint')) filtered.sharepoint = override.sharepoint
+          if (neededTypes.has('dynamicsCrm')) filtered.dynamicsCrm = override.dynamicsCrm
+          if (neededTypes.has('onmicrosoft')) filtered.onmicrosoft = override.onmicrosoft
+          filteredOverrides[tenantId] = filtered
+        }
+
+        console.log('[Deploy] Including URL overrides (filtered):', Object.keys(filteredOverrides))
+        formData.append('urlOverrides', JSON.stringify(filteredOverrides))
       }
 
       console.log('[Deploy] Creating deployment...')

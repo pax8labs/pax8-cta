@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { isDemoMode, DEMO_SOLUTIONS } from '@agentsync/core'
-import { demoDeployedAgents, initializeDemoAgents, demoCustomAgents, DeployedAgent, CustomAgent } from '@/lib/demo-store'
+import { demoDeployedAgents, initializeDemoAgents, demoCustomAgents, demoAgentStatus, DeployedAgent, CustomAgent, AgentStatus } from '@/lib/demo-store'
 
 /**
  * Get all agents with their deployment information
@@ -61,6 +61,7 @@ export async function GET() {
         publisherName: solution.publisherName,
         isManaged: solution.isManaged,
         isCustom: false,
+        status: demoAgentStatus.get(solution.uniqueName) || 'active',
         category: solution.category,
         capabilities: solution.capabilities,
         tags: solution.tags || [],
@@ -84,6 +85,7 @@ export async function GET() {
         publisherName: agent.publisherName,
         isManaged: agent.isManaged,
         isCustom: true,
+        status: agent.status || 'active',
         urlTemplates: agent.urlTemplates,
         hasSolutionStored: !!agent.solutionBase64,
         deployedTenants: agentDeployments.get(agent.friendlyName) || [],
@@ -96,11 +98,74 @@ export async function GET() {
       })
     }
 
-    // Real mode - would fetch from Dataverse
+    // Real mode - fetch solutions from source environment or discovered tenants
+    const sourceEnvUrl = process.env.SOURCE_ENVIRONMENT_URL
+    const partnerTenantId = process.env.PARTNER_TENANT_ID
+    const partnerClientId = process.env.PARTNER_CLIENT_ID
+    const partnerClientSecret = process.env.PARTNER_CLIENT_SECRET
+
+    // If source environment is configured, fetch agents from there
+    if (sourceEnvUrl && partnerTenantId && partnerClientId && partnerClientSecret) {
+      const { TenantDiscoveryService, DataverseClient, TokenManager } = await import('@agentsync/core')
+
+      const tokenManager = new TokenManager({
+        tenantId: partnerTenantId,
+        clientId: partnerClientId,
+        clientSecret: partnerClientSecret,
+      })
+
+      const dataverseClient = new DataverseClient({
+        environmentUrl: sourceEnvUrl,
+        tokenManager,
+      })
+
+      try {
+        const solutions = await dataverseClient.querySolutions()
+
+        // Filter to likely agent solutions (heuristic: contains 'bot', 'agent', 'copilot', or is managed)
+        const agentSolutions = solutions.filter(s =>
+          s.ismanaged ||
+          s.friendlyname.toLowerCase().includes('agent') ||
+          s.friendlyname.toLowerCase().includes('bot') ||
+          s.friendlyname.toLowerCase().includes('copilot')
+        )
+
+        return NextResponse.json({
+          demoMode: false,
+          discoveryMode: true,
+          sourceEnvironment: sourceEnvUrl,
+          agents: agentSolutions.map(sol => ({
+            id: sol.solutionid,
+            uniqueName: sol.uniquename,
+            friendlyName: sol.friendlyname,
+            version: sol.version,
+            isManaged: sol.ismanaged,
+            publisherName: sol.publisherid?.friendlyname || 'Unknown',
+            isCustom: false,
+            status: 'active',
+            // No deployment tracking in discovery mode yet
+            deployedTenants: [],
+            totalDeployments: 0,
+          })),
+        })
+      } catch (error) {
+        console.error('Failed to fetch solutions from source environment:', error)
+        return NextResponse.json({
+          demoMode: false,
+          discoveryMode: true,
+          agents: [],
+          error: 'Failed to connect to source environment',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    }
+
+    // No configuration - return empty with guidance
     return NextResponse.json({
       demoMode: false,
+      discoveryMode: false,
       agents: [],
-      message: 'Real agent discovery not yet implemented',
+      message: 'Configure SOURCE_ENVIRONMENT_URL and partner credentials to discover agents',
     })
   } catch (error) {
     console.error('Agents error:', error)
@@ -145,6 +210,7 @@ export async function POST(request: NextRequest) {
       description: description || undefined,
       publisherName: publisherName || 'Custom',
       isManaged: true,
+      status: 'active',
       createdAt: new Date().toISOString(),
     }
 

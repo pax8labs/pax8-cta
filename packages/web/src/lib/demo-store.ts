@@ -40,6 +40,9 @@ export interface AgentUrlTemplates {
   confirmedAt?: string
 }
 
+// Agent lifecycle status
+export type AgentStatus = 'active' | 'deprecated' | 'archived'
+
 export interface CustomAgent {
   id: string
   uniqueName: string
@@ -49,6 +52,8 @@ export interface CustomAgent {
   publisherName?: string
   isManaged: boolean
   createdAt: string
+  // Agent lifecycle status
+  status: AgentStatus
   // URL templating data for multi-tenant deployment
   urlTemplates?: AgentUrlTemplates
   // Original solution stored as base64 for deploy-time modification
@@ -270,7 +275,53 @@ export const demoBatches = {
 // ============================================================================
 
 // Demo deployed agents per tenant
-export const demoDeployedAgents = new Map<string, DeployedAgent[]>()
+// Persisted to file for consistency across server restarts
+const DEPLOYED_AGENTS_FILE = join(process.cwd(), '.demo-deployed-agents.json')
+const _demoDeployedAgents = new Map<string, DeployedAgent[]>()
+
+function loadDeployedAgents() {
+  try {
+    if (existsSync(DEPLOYED_AGENTS_FILE)) {
+      const data = JSON.parse(readFileSync(DEPLOYED_AGENTS_FILE, 'utf-8'))
+      for (const [tenantId, agents] of Object.entries(data)) {
+        _demoDeployedAgents.set(tenantId, agents as DeployedAgent[])
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load deployed agents from file:', err)
+  }
+}
+
+function saveDeployedAgents() {
+  try {
+    const data = Object.fromEntries(_demoDeployedAgents)
+    writeFileSync(DEPLOYED_AGENTS_FILE, JSON.stringify(data, null, 2))
+  } catch (err) {
+    console.warn('Failed to save deployed agents to file:', err)
+  }
+}
+
+loadDeployedAgents()
+
+// Proxy the map to auto-persist on changes
+export const demoDeployedAgents = {
+  get: (key: string) => _demoDeployedAgents.get(key),
+  set: (key: string, value: DeployedAgent[]) => {
+    _demoDeployedAgents.set(key, value)
+    saveDeployedAgents()
+    return demoDeployedAgents
+  },
+  delete: (key: string) => {
+    const result = _demoDeployedAgents.delete(key)
+    saveDeployedAgents()
+    return result
+  },
+  has: (key: string) => _demoDeployedAgents.has(key),
+  get size() { return _demoDeployedAgents.size },
+  forEach: (callback: (agents: DeployedAgent[], tenantId: string) => void) => {
+    _demoDeployedAgents.forEach(callback)
+  },
+}
 
 // Demo tenant status (enabled/disabled overrides)
 // Persisted to file for consistency across server restarts
@@ -330,6 +381,52 @@ export const demoTags = new Set<string>([
 
 // Demo tenant tags
 export const demoTenantTags = new Map<string, string[]>()
+
+// ============================================================================
+// Agent Status Store (for tracking status of both built-in and custom agents)
+// ============================================================================
+const AGENT_STATUS_FILE = join(process.cwd(), '.demo-agent-status.json')
+const _demoAgentStatus = new Map<string, AgentStatus>()
+
+function loadAgentStatus() {
+  try {
+    if (existsSync(AGENT_STATUS_FILE)) {
+      const data = JSON.parse(readFileSync(AGENT_STATUS_FILE, 'utf-8'))
+      for (const [agentId, status] of Object.entries(data)) {
+        _demoAgentStatus.set(agentId, status as AgentStatus)
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load agent status from file:', err)
+  }
+}
+
+function saveAgentStatus() {
+  try {
+    const data = Object.fromEntries(_demoAgentStatus)
+    writeFileSync(AGENT_STATUS_FILE, JSON.stringify(data, null, 2))
+  } catch (err) {
+    console.warn('Failed to save agent status to file:', err)
+  }
+}
+
+loadAgentStatus()
+
+export const demoAgentStatus = {
+  get: (key: string) => _demoAgentStatus.get(key),
+  set: (key: string, value: AgentStatus) => {
+    _demoAgentStatus.set(key, value)
+    saveAgentStatus()
+    return demoAgentStatus
+  },
+  delete: (key: string) => {
+    const result = _demoAgentStatus.delete(key)
+    saveAgentStatus()
+    return result
+  },
+  has: (key: string) => _demoAgentStatus.has(key),
+  get size() { return _demoAgentStatus.size },
+}
 
 // ============================================================================
 // Helper: Resolve Historical Demo Deployments

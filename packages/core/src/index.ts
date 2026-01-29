@@ -13,6 +13,9 @@ export * from "./auth/index.js";
 // Dataverse
 export * from "./dataverse/index.js";
 
+// Power Platform Admin
+export * from "./powerplatform/index.js";
+
 // Services
 export * from "./services/index.js";
 

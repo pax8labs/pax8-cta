@@ -28,6 +28,8 @@ interface EnvironmentVariable {
   defaultValue?: string
 }
 
+type AgentStatus = 'active' | 'deprecated' | 'archived'
+
 interface Agent {
   id: string
   uniqueName: string
@@ -35,6 +37,7 @@ interface Agent {
   version: string
   isManaged: boolean
   isCustom?: boolean
+  status: AgentStatus
   description?: string
   publisherName?: string
   category?: string
@@ -78,6 +81,9 @@ export default function SolutionsPage() {
   const [editingTagsAgentId, setEditingTagsAgentId] = useState<string | null>(null)
   const [editTagsInput, setEditTagsInput] = useState('')
   const [savingTags, setSavingTags] = useState(false)
+  const [changingStatusAgentId, setChangingStatusAgentId] = useState<string | null>(null)
+  const [showStatusConfirm, setShowStatusConfirm] = useState<{ agentId: string; newStatus: AgentStatus } | null>(null)
+  const [viewMode, setViewMode] = useState<'active' | 'archived'>('active')
   // File upload state
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadingFile, setUploadingFile] = useState(false)
@@ -96,19 +102,32 @@ export default function SolutionsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  // Filter agents by search
+  // Filter agents by search and view mode
   const filteredAgents = useMemo(() => {
     const agents: Agent[] = data?.agents || []
-    if (!searchQuery) return agents
+    // First filter by view mode (active/deprecated vs archived)
+    const byStatus = agents.filter(agent => {
+      const status = agent.status || 'active'
+      if (viewMode === 'archived') return status === 'archived'
+      return status !== 'archived' // active view shows both active and deprecated
+    })
+    // Then filter by search
+    if (!searchQuery) return byStatus
     const query = searchQuery.toLowerCase()
-    return agents.filter(agent =>
+    return byStatus.filter(agent =>
       agent.friendlyName.toLowerCase().includes(query) ||
       agent.uniqueName.toLowerCase().includes(query) ||
       agent.description?.toLowerCase().includes(query) ||
       agent.category?.toLowerCase().includes(query) ||
       agent.publisherName?.toLowerCase().includes(query)
     )
-  }, [data?.agents, searchQuery])
+  }, [data?.agents, searchQuery, viewMode])
+
+  // Count archived agents for the tab badge
+  const archivedCount = useMemo(() => {
+    const agents: Agent[] = data?.agents || []
+    return agents.filter(a => (a.status || 'active') === 'archived').length
+  }, [data?.agents])
 
   const handleDeploy = (agent: Agent) => {
     router.push(`/deployments/new?agent=${agent.id}`)
@@ -205,6 +224,31 @@ export default function SolutionsPage() {
     }
   }
 
+  const handleChangeStatus = async (agentId: string, newStatus: AgentStatus) => {
+    setChangingStatusAgentId(agentId)
+    try {
+      const response = await fetch(`/api/agents/${agentId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update agent status')
+      }
+      mutate()
+      setShowStatusConfirm(null)
+      if (selectedAgent?.id === agentId) {
+        setSelectedAgent(null)
+      }
+    } catch (err) {
+      console.error('Change status error:', err)
+      alert(err instanceof Error ? err.message : 'Failed to update agent status')
+    } finally {
+      setChangingStatusAgentId(null)
+    }
+  }
+
   // Calculate stats for an agent
   const getAgentStats = (agent: Agent) => {
     const tenants = agent.deployedTenants || []
@@ -230,8 +274,40 @@ export default function SolutionsPage() {
         </button>
       </div>
 
-      {/* Search and source info */}
+      {/* View tabs and search */}
       <div className="flex items-center gap-4">
+        {/* View toggle */}
+        <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setViewMode('active')}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+              viewMode === 'active'
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setViewMode('archived')}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              viewMode === 'archived'
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Archived
+            {archivedCount > 0 && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                viewMode === 'archived' ? 'bg-slate-700' : 'bg-slate-200'
+              }`}>
+                {archivedCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Search */}
         <div className="flex-1 relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -300,6 +376,12 @@ export default function SolutionsPage() {
                         <h3 className="font-medium text-slate-900">{agent.friendlyName}</h3>
                         <span className="text-xs text-slate-400 tabular-nums">v{agent.version}</span>
                         {agent.isCustom && <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">custom</span>}
+                        {(agent.status || 'active') === 'deprecated' && (
+                          <span className="text-xs text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">deprecated</span>
+                        )}
+                        {(agent.status || 'active') === 'archived' && (
+                          <span className="text-xs text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">archived</span>
+                        )}
                         {agent.category && <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{agent.category}</span>}
                       </div>
                       {agent.description && (
@@ -349,15 +431,21 @@ export default function SolutionsPage() {
                             tenants
                           </button>
                         )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeploy(agent)
-                          }}
-                          className="px-3 py-1 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded font-medium"
-                        >
-                          Deploy
-                        </button>
+                        {(agent.status || 'active') === 'active' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeploy(agent)
+                            }}
+                            className="px-3 py-1 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded font-medium"
+                          >
+                            Deploy
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1 text-xs text-slate-400 bg-slate-100 rounded">
+                            {agent.status === 'deprecated' ? 'Deprecated' : 'Archived'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -485,6 +573,94 @@ export default function SolutionsPage() {
                         <p className="text-xs text-slate-600 whitespace-pre-wrap">{agent.changelog}</p>
                       </div>
                     )}
+
+                    {/* Agent lifecycle actions */}
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      {showStatusConfirm?.agentId === agent.id ? (
+                        <div className="space-y-2">
+                          {showStatusConfirm.newStatus === 'archived' && agent.totalDeployments > 0 && (
+                            <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                              <strong>Note:</strong> This agent is deployed to {agent.totalDeployments} tenant{agent.totalDeployments !== 1 ? 's' : ''}.
+                              Archiving will automatically uninstall it from all tenants.
+                            </div>
+                          )}
+                          {showStatusConfirm.newStatus === 'deprecated' && (
+                            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                              Deprecating will prevent new deployments but keep existing installations.
+                            </div>
+                          )}
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-700">
+                              {showStatusConfirm.newStatus === 'archived' && 'Archive this agent?'}
+                              {showStatusConfirm.newStatus === 'deprecated' && 'Deprecate this agent?'}
+                              {showStatusConfirm.newStatus === 'active' && 'Restore this agent?'}
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleChangeStatus(agent.id, showStatusConfirm.newStatus) }}
+                              disabled={changingStatusAgentId === agent.id}
+                              className={`px-3 py-1 text-xs text-white rounded disabled:opacity-50 ${
+                                showStatusConfirm.newStatus === 'archived' ? 'bg-slate-600 hover:bg-slate-700' :
+                                showStatusConfirm.newStatus === 'deprecated' ? 'bg-amber-600 hover:bg-amber-700' :
+                                'bg-emerald-600 hover:bg-emerald-700'
+                              }`}
+                            >
+                              {changingStatusAgentId === agent.id ? 'Updating...' : 'Confirm'}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShowStatusConfirm(null) }}
+                              className="px-3 py-1 text-xs text-slate-600 hover:text-slate-900"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          {(agent.status || 'active') === 'active' && (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'deprecated' }) }}
+                                className="text-xs text-amber-600 hover:text-amber-700"
+                              >
+                                Deprecate
+                              </button>
+                              <span className="text-slate-300">|</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'archived' }) }}
+                                className="text-xs text-slate-500 hover:text-slate-700"
+                              >
+                                Archive
+                              </button>
+                            </>
+                          )}
+                          {(agent.status || 'active') === 'deprecated' && (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'active' }) }}
+                                className="text-xs text-emerald-600 hover:text-emerald-700"
+                              >
+                                Restore to Active
+                              </button>
+                              <span className="text-slate-300">|</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'archived' }) }}
+                                className="text-xs text-slate-500 hover:text-slate-700"
+                              >
+                                Archive
+                              </button>
+                            </>
+                          )}
+                          {(agent.status || 'active') === 'archived' && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'active' }) }}
+                              className="text-xs text-emerald-600 hover:text-emerald-700"
+                            >
+                              Restore to Active
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
