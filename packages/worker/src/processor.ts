@@ -1,4 +1,4 @@
-import { Worker, Job, RedisOptions } from "bullmq";
+import { Worker, Job } from "bullmq";
 import { randomUUID } from "node:crypto";
 import {
   TokenManager,
@@ -17,6 +17,13 @@ import {
   timedOperation,
   getAuditLog,
   SchedulerService,
+  SOLUTION_IMPORT_POLL_INTERVAL_MS,
+  SOLUTION_IMPORT_TIMEOUT_MS,
+  parseRedisUrl,
+  DEFAULT_REDIS_URL,
+  DEFAULT_WORKER_CONCURRENCY,
+  DEFAULT_RATE_LIMIT_MAX,
+  DEFAULT_RATE_LIMIT_DURATION_MS,
 } from "@agentsync/core";
 import {
   TENANT_DEPLOYMENT_QUEUE_NAME,
@@ -37,19 +44,6 @@ export interface ProcessorOptions {
   rateLimitMax?: number;
   rateLimitDuration?: number;
   config?: Config;
-}
-
-/**
- * Parse Redis URL into connection options
- */
-function parseRedisUrl(url: string): RedisOptions {
-  const parsed = new URL(url);
-  return {
-    host: parsed.hostname,
-    port: parseInt(parsed.port || "6379", 10),
-    password: parsed.password || undefined,
-    maxRetriesPerRequest: null,
-  };
 }
 
 // Services shared across jobs
@@ -90,10 +84,10 @@ export function createTenantDeploymentWorker(
   options: ProcessorOptions = {}
 ): Worker<TenantDeploymentJobData, TenantDeploymentJobResult> {
   const {
-    redisUrl = "redis://localhost:6379",
-    concurrency = 5,
-    rateLimitMax = 10,
-    rateLimitDuration = 60000,
+    redisUrl = DEFAULT_REDIS_URL,
+    concurrency = DEFAULT_WORKER_CONCURRENCY,
+    rateLimitMax = DEFAULT_RATE_LIMIT_MAX,
+    rateLimitDuration = DEFAULT_RATE_LIMIT_DURATION_MS,
     config,
   } = options;
 
@@ -141,7 +135,43 @@ export function createTenantDeploymentWorker(
 }
 
 /**
- * Process a single tenant deployment with v2.0 features
+ * Process a single tenant deployment with full v2.0 feature support
+ *
+ * This is the core deployment logic that handles the entire lifecycle of
+ * deploying a Power Platform solution to a single tenant. It orchestrates:
+ *
+ * 1. **Pre-deployment Health Check** - Verifies the tenant environment is healthy
+ *    before attempting deployment (if configured)
+ *
+ * 2. **Rollback Snapshot** - Creates a snapshot of the current solution state
+ *    that can be used for rollback if deployment fails (if rollback is enabled)
+ *
+ * 3. **Solution Import** - Imports the solution ZIP file into the target
+ *    Dataverse environment using async import with progress polling
+ *
+ * 4. **Connection References** - Configures connection references to point
+ *    to the correct connections in the target tenant
+ *
+ * 5. **Environment Variables** - Sets environment variable values specific
+ *    to the target tenant
+ *
+ * 6. **Post-deployment Health Check** - Verifies the deployment was successful
+ *    and the solution is functioning correctly
+ *
+ * 7. **Auto-rollback** - If the deployment fails and auto-rollback is enabled,
+ *    automatically restores the previous solution version
+ *
+ * @param job - BullMQ job containing tenant deployment data
+ * @returns Result object with success status, timing, and any error details
+ *
+ * @example
+ * ```ts
+ * // This function is typically called by the BullMQ worker
+ * const result = await processTenantDeployment(job);
+ * if (result.success) {
+ *   console.log(`Deployed to ${result.tenantName} in ${result.durationMs}ms`);
+ * }
+ * ```
  */
 async function processTenantDeployment(
   job: Job<TenantDeploymentJobData>
@@ -276,8 +306,8 @@ async function processTenantDeployment(
 
     // Wait for import to complete
     const result = await solutionOps.waitForImport(importJobId, {
-      pollIntervalMs: 5000,
-      timeoutMs: 300000,
+      pollIntervalMs: SOLUTION_IMPORT_POLL_INTERVAL_MS,
+      timeoutMs: SOLUTION_IMPORT_TIMEOUT_MS,
       onProgress: async (progress) => {
         const jobProgress = 30 + Math.floor(progress * 0.4);
         await job.updateProgress(jobProgress);
@@ -508,7 +538,7 @@ export function createScheduledDeploymentWorker(
   options: ProcessorOptions & { queueManager?: DeploymentQueueManager } = {}
 ): Worker<ScheduledDeploymentJobData, ScheduledDeploymentJobResult> {
   const {
-    redisUrl = "redis://localhost:6379",
+    redisUrl = DEFAULT_REDIS_URL,
     queueManager,
   } = options;
 

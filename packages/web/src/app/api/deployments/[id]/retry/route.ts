@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { resolve } from 'path'
-import { loadConfig, isDemoMode, generateMockDeployment } from '@agentsync/core'
+import { loadConfig, isDemoMode } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
-import { demoDeployments } from '@/lib/demo-store'
+import { demoDeployments, resolveDeployment } from '@/lib/demo-store'
+import { serverTrackDeployment, serverTrackError } from '@/lib/posthog-server'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
@@ -18,36 +19,31 @@ export async function POST(
   try {
     // Demo mode handling
     if (isDemoMode()) {
-      // Check if deployment exists in store, or generate mock for legacy IDs
-      let deployment = demoDeployments.get(params.id)
+      // Resolve deployment from store or generate for historical demo IDs
+      const deployment = resolveDeployment(params.id)
 
       if (!deployment) {
-        // Generate mock deployment for historical/sample deployment IDs
-        const isInProgress = params.id.includes('progress')
-        const isFailed = params.id.includes('fail')
-        deployment = generateMockDeployment({
-          id: params.id,
-          status: isInProgress ? 'in_progress' : isFailed ? 'failed' : 'completed',
-        })
-        // Store it so progress endpoint can find it
-        demoDeployments.set(params.id, deployment)
+        return NextResponse.json(
+          { error: 'Deployment not found' },
+          { status: 404 }
+        )
       }
 
-      // Find failed tenants
-      const failedTenants = deployment.tenantResults.filter(
-        (r) => r.status === 'failed'
+      // Find failed or cancelled tenants
+      const retryableTenants = deployment.tenantResults.filter(
+        (r) => r.status === 'failed' || r.status === 'cancelled'
       )
 
-      if (failedTenants.length === 0) {
+      if (retryableTenants.length === 0) {
         return NextResponse.json(
-          { error: 'No failed tenants to retry' },
+          { error: 'No failed or cancelled tenants to retry' },
           { status: 400 }
         )
       }
 
-      // Reset failed tenants to pending and update deployment status
+      // Reset failed/cancelled tenants to pending and update deployment status
       for (const result of deployment.tenantResults) {
-        if (result.status === 'failed') {
+        if (result.status === 'failed' || result.status === 'cancelled') {
           result.status = 'pending'
           result.error = undefined
           result.startedAt = undefined
@@ -58,16 +54,27 @@ export async function POST(
 
       // Reset deployment status to in_progress
       deployment.status = 'in_progress'
-      deployment.failedTenants = 0
+      // Recalculate counts after resetting failed tenants to pending
+      deployment.completedTenants = deployment.tenantResults.filter(t => t.status === 'completed').length
+      deployment.failedTenants = deployment.tenantResults.filter(t => t.status === 'failed').length
+      deployment.completedAt = undefined // Clear completion time so SSE knows to process
       deployment.updatedAt = new Date().toISOString()
 
       // Update the stored deployment
       demoDeployments.set(params.id, deployment)
 
+      // Track retry event
+      serverTrackDeployment('deployment_retried', {
+        deploymentId: params.id,
+        solutionName: deployment.solutionName,
+        tenantCount: retryableTenants.length,
+        status: 'in_progress',
+      })
+
       return NextResponse.json({
         demoMode: true,
-        message: `Retrying ${failedTenants.length} failed tenant(s)`,
-        retriedTenants: failedTenants.map((t) => t.tenantName),
+        message: `Retrying ${retryableTenants.length} tenant(s)`,
+        retriedTenants: retryableTenants.map((t) => t.tenantName),
         deploymentId: params.id,
       })
     }
@@ -85,15 +92,15 @@ export async function POST(
       )
     }
 
-    // Find failed tenants
-    const failedTenants = deployment.tenantResults.filter(
-      (r) => r.status === 'failed'
+    // Find failed or cancelled tenants
+    const retryableTenants = deployment.tenantResults.filter(
+      (r) => r.status === 'failed' || r.status === 'cancelled'
     )
 
-    if (failedTenants.length === 0) {
+    if (retryableTenants.length === 0) {
       await queueManager.close()
       return NextResponse.json(
-        { error: 'No failed tenants to retry' },
+        { error: 'No failed or cancelled tenants to retry' },
         { status: 400 }
       )
     }
@@ -102,7 +109,7 @@ export async function POST(
     const config = await loadConfig(resolve(CONFIG_PATH))
 
     const tenantsToRetry = config.tenants.filter((t) =>
-      failedTenants.some((f) => f.tenantId === t.tenantId)
+      retryableTenants.some((f) => f.tenantId === t.tenantId)
     )
 
     // Create new jobs for failed tenants
@@ -116,12 +123,26 @@ export async function POST(
 
     await queueManager.close()
 
+    // Track retry event
+    serverTrackDeployment('deployment_retried', {
+      deploymentId: params.id,
+      tenantCount: tenantsToRetry.length,
+      status: 'in_progress',
+    })
+
     return NextResponse.json({
       message: `Retrying ${tenantsToRetry.length} failed tenant(s)`,
       retriedTenants: tenantsToRetry.map((t) => t.name),
     })
   } catch (error) {
     console.error('Retry deployment error:', error)
+
+    // Track the error
+    serverTrackError(error instanceof Error ? error : String(error), {
+      endpoint: `/api/deployments/${params.id}/retry`,
+      method: 'POST',
+    })
+
     return NextResponse.json(
       { error: 'Failed to retry deployment' },
       { status: 500 }

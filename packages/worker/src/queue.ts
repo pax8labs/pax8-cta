@@ -7,7 +7,21 @@ import {
   Config,
   Schedule,
   SchedulerService,
+  workerLogger,
+  JOB_RETRY_INITIAL_DELAY_MS,
+  COMPLETED_JOB_RETENTION_MS,
+  COMPLETED_JOB_MAX_COUNT,
+  FAILED_JOB_RETENTION_MS,
+  SCHEDULED_JOB_RETENTION_MS,
+  SCHEDULED_JOB_MAX_COUNT,
+  SCHEDULED_FAILED_JOB_RETENTION_MS,
+  DEFAULT_JOB_ATTEMPTS,
+  ONE_SECOND_MS,
+  parseRedisUrl as parseRedisUrlShared,
+  DEFAULT_REDIS_URL,
 } from "@agentsync/core";
+
+const logger = workerLogger;
 
 export const DEPLOYMENT_QUEUE_NAME = "deployments";
 export const TENANT_DEPLOYMENT_QUEUE_NAME = "tenant-deployments";
@@ -81,19 +95,6 @@ export interface ScheduledDeploymentJobResult {
 }
 
 /**
- * Parse Redis URL into connection options
- */
-function parseRedisUrl(url: string): RedisOptions {
-  const parsed = new URL(url);
-  return {
-    host: parsed.hostname,
-    port: parseInt(parsed.port || "6379", 10),
-    password: parsed.password || undefined,
-    maxRetriesPerRequest: null,
-  };
-}
-
-/**
  * Creates and manages deployment queues
  */
 export class DeploymentQueueManager {
@@ -104,8 +105,8 @@ export class DeploymentQueueManager {
   private queueEvents: QueueEvents;
   private schedulerService: SchedulerService;
 
-  constructor(redisUrl: string = "redis://localhost:6379") {
-    this.connectionOptions = parseRedisUrl(redisUrl);
+  constructor(redisUrl: string = DEFAULT_REDIS_URL) {
+    this.connectionOptions = parseRedisUrlShared(redisUrl);
     this.schedulerService = new SchedulerService();
 
     this.deploymentQueue = new Queue(DEPLOYMENT_QUEUE_NAME, {
@@ -115,17 +116,17 @@ export class DeploymentQueueManager {
     this.tenantDeploymentQueue = new Queue(TENANT_DEPLOYMENT_QUEUE_NAME, {
       connection: this.connectionOptions,
       defaultJobOptions: {
-        attempts: 3,
+        attempts: DEFAULT_JOB_ATTEMPTS,
         backoff: {
           type: "exponential",
-          delay: 10000, // Start with 10 seconds
+          delay: JOB_RETRY_INITIAL_DELAY_MS,
         },
         removeOnComplete: {
-          age: 24 * 3600, // Keep completed jobs for 24 hours
-          count: 1000,
+          age: COMPLETED_JOB_RETENTION_MS / ONE_SECOND_MS, // BullMQ uses seconds
+          count: COMPLETED_JOB_MAX_COUNT,
         },
         removeOnFail: {
-          age: 7 * 24 * 3600, // Keep failed jobs for 7 days
+          age: FAILED_JOB_RETENTION_MS / ONE_SECOND_MS,
         },
       },
     });
@@ -135,11 +136,11 @@ export class DeploymentQueueManager {
       defaultJobOptions: {
         attempts: 1, // Scheduled triggers should not retry automatically
         removeOnComplete: {
-          age: 7 * 24 * 3600, // Keep completed for 7 days
-          count: 100,
+          age: SCHEDULED_JOB_RETENTION_MS / ONE_SECOND_MS,
+          count: SCHEDULED_JOB_MAX_COUNT,
         },
         removeOnFail: {
-          age: 30 * 24 * 3600, // Keep failed for 30 days
+          age: SCHEDULED_FAILED_JOB_RETENTION_MS / ONE_SECOND_MS,
         },
       },
     });
@@ -484,9 +485,13 @@ export class DeploymentQueueManager {
       }
     );
 
-    console.log(
-      `Registered scheduled deployment: ${scheduleName} (${scheduleId}) - ${this.schedulerService.describeCron(schedule.cron)} (${schedule.timezone || "UTC"})`
-    );
+    logger.info("Registered scheduled deployment", {
+      scheduleName,
+      scheduleId,
+      cron: schedule.cron,
+      description: this.schedulerService.describeCron(schedule.cron),
+      timezone: schedule.timezone || "UTC",
+    });
   }
 
   /**
@@ -550,7 +555,7 @@ export class DeploymentQueueManager {
 
     if (job) {
       await this.scheduledDeploymentQueue.removeRepeatableByKey(job.key);
-      console.log(`Removed scheduled deployment: ${scheduleId}`);
+      logger.info("Removed scheduled deployment", { scheduleId });
       return true;
     }
 
@@ -567,7 +572,7 @@ export class DeploymentQueueManager {
       await this.scheduledDeploymentQueue.removeRepeatableByKey(job.key);
     }
 
-    console.log(`Removed ${repeatableJobs.length} scheduled deployments`);
+    logger.info("Removed all scheduled deployments", { count: repeatableJobs.length });
     return repeatableJobs.length;
   }
 

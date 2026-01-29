@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { writeFile, mkdir } from 'fs/promises'
 import { resolve, join } from 'path'
-import { loadConfig, TenantConfig, isDemoMode, DEMO_TENANTS, generateMockDeployment } from '@agentsync/core'
+import { loadConfig, TenantConfig, isDemoMode, DEMO_TENANTS, Deployment, DeploymentBatch } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
-import { demoDeployments } from '@/lib/demo-store'
+import { demoDeployments, demoDeploymentsV2, demoBatches } from '@/lib/demo-store'
+import { serverTrackDeployment, serverTrackError } from '@/lib/posthog-server'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
@@ -15,6 +16,17 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const solutionFile = formData.get('solution') as File | null
     const tenantIdsJson = formData.get('tenantIds') as string | null
+    const urlOverridesJson = formData.get('urlOverrides') as string | null
+
+    // Parse URL overrides if provided (for agents with URL templates)
+    let urlOverrides: Record<string, { tenant: string; sharepoint: string; dynamicsCrm: string; onmicrosoft: string }> | undefined
+    if (urlOverridesJson) {
+      try {
+        urlOverrides = JSON.parse(urlOverridesJson)
+      } catch {
+        // Invalid JSON, ignore
+      }
+    }
 
     // Validate inputs
     if (!solutionFile) {
@@ -44,9 +56,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Demo mode: create a mock deployment
+    // Demo mode: create deployments using the new v2 model
     if (isDemoMode()) {
-      const deploymentId = `demo-${Date.now().toString(36)}`
+      const batchId = `batch-${Date.now().toString(36)}`
 
       // Filter to requested tenants
       const targetTenants = DEMO_TENANTS.filter(
@@ -54,35 +66,94 @@ export async function POST(request: NextRequest) {
       )
 
       // Extract solution name from filename
-      const solutionName = solutionFile.name.replace(/_\d+_\d+_\d+.*\.zip$/, '').replace(/_/g, '')
+      // Remove _managed.zip or _unmanaged.zip suffix, then version suffix like _1_0_0_0
+      const solutionName = solutionFile.name
+        .replace(/_(managed|unmanaged)\.zip$/i, '')  // Remove _managed.zip or _unmanaged.zip
+        .replace(/\.zip$/i, '')                       // Remove plain .zip if present
+        .replace(/_\d+(_\d+)*$/i, '')                 // Remove version suffix (e.g., _1_0_0_0)
 
-      // Create mock deployment
-      const deployment = generateMockDeployment({
-        id: deploymentId,
+      const now = new Date().toISOString()
+      const solutionPath = `./solutions/${solutionFile.name}`
+
+      // Create atomic deployments (one per tenant)
+      const deployments: Deployment[] = targetTenants.map((t, index) => ({
+        id: `${batchId}-${index}`,
+        batchId,
         solutionName: solutionName || 'DemoAgent',
-        solutionPath: `./solutions/${solutionFile.name}`,
+        solutionVersion: '1.0.0',
+        solutionPath,
+        tenantId: t.tenantId,
+        tenantName: t.name,
+        environmentUrl: t.environmentUrl,
+        status: 'pending' as const,
+        createdAt: now,
+        updatedAt: now,
+        attemptNumber: 1,
+        triggeredBy: 'manual' as const,
+        // Include URL overrides if provided for this tenant
+        ...(urlOverrides?.[t.tenantId] ? { urlOverride: urlOverrides[t.tenantId] } : {}),
+      }))
+
+      // Create the batch
+      const batch: DeploymentBatch = {
+        id: batchId,
+        solutionName: solutionName || 'DemoAgent',
+        solutionVersion: '1.0.0',
+        solutionPath,
         status: 'in_progress',
+        totalDeployments: deployments.length,
+        completedDeployments: 0,
+        failedDeployments: 0,
+        createdAt: now,
+        updatedAt: now,
+        startedAt: now,
+        triggeredBy: 'manual',
+      }
+
+      // Store v2 data
+      for (const deployment of deployments) {
+        demoDeploymentsV2.set(deployment.id, deployment)
+      }
+      demoBatches.set(batchId, batch)
+
+      // Also create legacy DeploymentJob for backward compatibility with existing UI
+      const legacyDeployment = {
+        id: batchId,
+        solutionName: solutionName || 'DemoAgent',
+        solutionPath,
+        solutionVersion: '1.0.0',
+        status: 'in_progress' as const,
         totalTenants: targetTenants.length,
         completedTenants: 0,
         failedTenants: 0,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
+        startedAt: now,
+        triggeredBy: 'manual' as const,
         tenantResults: targetTenants.map(t => ({
           tenantId: t.tenantId,
           tenantName: t.name,
           status: 'pending' as const,
           attemptNumber: 1,
+          // Include URL override for dependency display in logs
+          ...(urlOverrides?.[t.tenantId] ? { urlOverride: urlOverrides[t.tenantId] } : {}),
         })),
+      }
+      demoDeployments.set(batchId, legacyDeployment)
+
+      // Track deployment creation
+      serverTrackDeployment('deployment_created', {
+        deploymentId: batchId,
+        solutionName: solutionName || 'DemoAgent',
+        tenantCount: targetTenants.length,
+        status: 'in_progress',
       })
 
-      // Store for later retrieval
-      // Note: The SSE endpoint at /api/deployments/[id]/progress handles
-      // detailed step-by-step progress simulation when the deployment page is viewed
-      demoDeployments.set(deploymentId, deployment)
-
       return NextResponse.json({
-        deploymentId,
+        deploymentId: batchId, // Return batchId as deploymentId for backward compatibility
+        batchId, // Also return batchId explicitly for v2 clients
         demoMode: true,
-        solutionPath: `./solutions/${solutionFile.name}`,
+        solutionPath,
         tenantCount: targetTenants.length,
         message: 'Demo deployment created - watch the progress!',
       })
@@ -128,6 +199,14 @@ export async function POST(request: NextRequest) {
 
     await queueManager.close()
 
+    // Track deployment creation
+    serverTrackDeployment('deployment_created', {
+      deploymentId,
+      solutionName: solutionFile.name,
+      tenantCount: targetTenants.length,
+      status: 'in_progress',
+    })
+
     return NextResponse.json({
       deploymentId,
       solutionPath,
@@ -136,6 +215,13 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Create deployment error:', error)
+
+    // Track the error
+    serverTrackError(error instanceof Error ? error : String(error), {
+      endpoint: '/api/deployments/create',
+      method: 'POST',
+    })
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create deployment' },
       { status: 500 }

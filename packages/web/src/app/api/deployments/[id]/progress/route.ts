@@ -5,11 +5,19 @@ import {
   DEPLOYMENT_STEPS,
   DeploymentStepId,
   MIN_STEP_DISPLAY_MS,
-  generateMockDeployment,
+  DeploymentStatus,
+  TENANT_START_STAGGER_MS,
+  MAX_CONCURRENT_DEMO_TENANTS,
+  CANCELLATION_CHECK_INTERVAL_MS,
+  SSE_HEARTBEAT_INTERVAL_MS,
+  SSE_TIMEOUT_MS,
 } from '@agentsync/core'
-import { demoDeployments } from '@/lib/demo-store'
+import { demoDeployments, demoDeploymentsV2, demoBatches, resolveDeployment } from '@/lib/demo-store'
+import { DeploymentQueueManager } from '@agentsync/worker'
 
 export const dynamic = 'force-dynamic'
+
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 /**
  * SSE endpoint for real-time deployment progress updates
@@ -42,18 +50,17 @@ export async function GET(
 
       try {
         if (isDemoMode()) {
-          // Get deployment info - check store first, then generate mock for legacy IDs
-          let deployment = demoDeployments.get(deploymentId)
+          // Resolve deployment from store or generate for historical demo IDs
+          const deployment = resolveDeployment(deploymentId)
 
           if (!deployment) {
-            // For legacy/historical deployments, generate mock and store
-            const isInProgress = deploymentId.includes('progress')
-            const isFailed = deploymentId.includes('fail')
-            deployment = generateMockDeployment({
-              id: deploymentId,
-              status: isInProgress ? 'in_progress' : isFailed ? 'failed' : 'completed',
+            send({
+              type: 'error',
+              message: `Deployment ${deploymentId} not found`,
+              deploymentId,
+              timestamp: new Date().toISOString(),
             })
-            demoDeployments.set(deploymentId, deployment)
+            return
           }
 
           if (!deployment.tenantResults || deployment.tenantResults.length === 0) {
@@ -66,9 +73,21 @@ export async function GET(
             return
           }
 
-          // Only process tenants with pending status (not already completed/failed)
+          // Check if deployment was cancelled
+          if (deployment.status === 'cancelled') {
+            send({
+              type: 'info',
+              message: `Deployment ${deploymentId} was cancelled`,
+              deploymentId,
+              timestamp: new Date().toISOString(),
+            })
+            return
+          }
+
+          // Only process tenants that haven't completed yet (pending or in_progress)
+          // This handles cases where a previous SSE connection was interrupted
           const pendingTenants = deployment.tenantResults.filter(
-            t => t.status === 'pending'
+            t => t.status === 'pending' || t.status === 'in_progress'
           )
 
           if (pendingTenants.length === 0) {
@@ -81,13 +100,15 @@ export async function GET(
             return
           }
 
-          // Map pending tenants to include environment URLs from DEMO_TENANTS
+          // Map pending tenants to include environment URLs and URL overrides
           const tenants = pendingTenants.map(t => {
             const demoTenant = DEMO_TENANTS.find(dt => dt.tenantId === t.tenantId)
             return {
               tenantId: t.tenantId,
               tenantName: t.tenantName,
               environmentUrl: demoTenant?.environmentUrl,
+              // Include URL override if available (for showing dependency URLs in logs)
+              urlOverride: (t as { urlOverride?: { sharepoint: string; dynamicsCrm: string; onmicrosoft: string } }).urlOverride,
             }
           })
 
@@ -101,6 +122,9 @@ export async function GET(
               t => t.status === 'completed' || t.status === 'failed'
             )
             if (allDone) {
+              // Recalculate counts from actual tenant statuses to ensure consistency
+              finalDeployment.completedTenants = finalDeployment.tenantResults.filter(t => t.status === 'completed').length
+              finalDeployment.failedTenants = finalDeployment.tenantResults.filter(t => t.status === 'failed').length
               finalDeployment.status = finalDeployment.failedTenants > 0 ? 'failed' : 'completed'
               finalDeployment.completedAt = new Date().toISOString()
               finalDeployment.updatedAt = new Date().toISOString()
@@ -108,13 +132,8 @@ export async function GET(
             }
           }
         } else {
-          // TODO: Hook into real deployment queue events
-          // For now, send a message indicating real mode
-          send({
-            type: 'info',
-            message: 'Real-time progress requires Redis queue connection',
-            deploymentId,
-          })
+          // Real mode: Connect to Redis queue and stream job events
+          await streamRealDeploymentProgress(deploymentId, send)
         }
 
         // Send completion event
@@ -150,10 +169,18 @@ export async function GET(
   })
 }
 
+interface UrlOverride {
+  sharepoint: string
+  dynamicsCrm: string
+  onmicrosoft: string
+  tenant?: string
+}
+
 interface TenantInfo {
   tenantId: string
   tenantName: string
   environmentUrl?: string
+  urlOverride?: UrlOverride
 }
 
 /**
@@ -190,10 +217,22 @@ async function simulateDemoDeployment(
   // Track all promises for final await, and active promises for concurrency control
   const allPromises: Promise<void>[] = []
   const activePromises: Promise<void>[] = []
-  const maxConcurrent = 2
+  const maxConcurrent = MAX_CONCURRENT_DEMO_TENANTS
 
   for (let i = 0; i < tenants.length; i++) {
     const tenant = tenants[i]
+
+    // Check if deployment was cancelled before starting next tenant
+    const currentDeployment = demoDeployments.get(deploymentId)
+    if (currentDeployment?.status === 'cancelled') {
+      send({
+        type: 'deployment_cancelled',
+        deploymentId,
+        message: 'Deployment was cancelled',
+        timestamp: new Date().toISOString(),
+      })
+      break
+    }
 
     // Wait if we're at max concurrency
     while (activePromises.length >= maxConcurrent) {
@@ -202,7 +241,7 @@ async function simulateDemoDeployment(
 
     // Stagger tenant starts
     if (i > 0) {
-      await delay(300)
+      await delay(TENANT_START_STAGGER_MS)
     }
 
     // Start processing tenant
@@ -234,7 +273,7 @@ async function processTenant(
 
   const startTime = new Date().toISOString()
 
-  // Update tenant status to in_progress in the store
+  // Update tenant status to in_progress in the store (v1 legacy)
   const deployment = demoDeployments.get(deploymentId)
   if (deployment) {
     const tenantResult = deployment.tenantResults.find(t => t.tenantId === tenant.tenantId)
@@ -245,17 +284,47 @@ async function processTenant(
     demoDeployments.set(deploymentId, deployment)
   }
 
-  // Send tenant started event
+  // Update v2 store
+  updateV2DeploymentStatus(deploymentId, tenant.tenantId, 'in_progress')
+
+  // Send tenant started event with URL override info for log display
   send({
     type: 'tenant_started',
     deploymentId,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
     environmentUrl: tenant.environmentUrl,
+    urlOverride: tenant.urlOverride,
     timestamp: startTime,
   })
 
   for (const stepId of stepOrder) {
+    // Check if deployment or tenant was cancelled mid-processing
+    const currentDeployment = demoDeployments.get(deploymentId)
+    if (currentDeployment?.status === 'cancelled') {
+      send({
+        type: 'tenant_cancelled',
+        deploymentId,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        message: 'Deployment was cancelled',
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+    const currentTenant = currentDeployment?.tenantResults.find(t => t.tenantId === tenant.tenantId)
+    if (currentTenant?.status === 'cancelled') {
+      send({
+        type: 'tenant_cancelled',
+        deploymentId,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        message: 'Tenant deployment was cancelled',
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+
     // Send step started event
     send({
       type: 'step_started',
@@ -269,10 +338,23 @@ async function processTenant(
     })
 
     // Simulate step processing with minimum display time
+    // Use cancellation-aware delay that checks every 200ms
     const baseDuration = stepDurations[stepId]
     const variation = Math.random() * 400 - 200 // +/- 200ms
     const duration = Math.max(MIN_STEP_DISPLAY_MS, baseDuration + variation)
-    await delay(duration)
+    const wasCancelled = await delayWithCancellationCheck(duration, deploymentId, tenant.tenantId)
+
+    if (wasCancelled) {
+      send({
+        type: 'tenant_cancelled',
+        deploymentId,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        message: 'Deployment was cancelled',
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
 
     // Check if this step should fail
     if (stepId === failStep) {
@@ -299,17 +381,21 @@ async function processTenant(
         timestamp: failTime,
       })
 
-      // Update tenant status to failed in the store
+      // Update tenant status to failed in the store (v1 legacy)
+      // But only if not cancelled - don't overwrite cancelled status
       const deployment = demoDeployments.get(deploymentId)
-      if (deployment) {
+      if (deployment && deployment.status !== 'cancelled') {
         const tenantResult = deployment.tenantResults.find(t => t.tenantId === tenant.tenantId)
-        if (tenantResult) {
+        if (tenantResult && tenantResult.status !== 'cancelled') {
           tenantResult.status = 'failed'
           tenantResult.error = errorMsg
           tenantResult.completedAt = failTime
         }
         deployment.failedTenants = deployment.tenantResults.filter(t => t.status === 'failed').length
         demoDeployments.set(deploymentId, deployment)
+
+        // Update v2 store only if not cancelled
+        updateV2DeploymentStatus(deploymentId, tenant.tenantId, 'failed', errorMsg)
       }
 
       return
@@ -336,21 +422,97 @@ async function processTenant(
     timestamp: completeTime,
   })
 
-  // Update tenant status to completed in the store
+  // Update tenant status to completed in the store (v1 legacy)
+  // But only if not cancelled - don't overwrite cancelled status
   const deploymentFinal = demoDeployments.get(deploymentId)
-  if (deploymentFinal) {
+  if (deploymentFinal && deploymentFinal.status !== 'cancelled') {
     const tenantResult = deploymentFinal.tenantResults.find(t => t.tenantId === tenant.tenantId)
-    if (tenantResult) {
+    if (tenantResult && tenantResult.status !== 'cancelled') {
       tenantResult.status = 'completed'
       tenantResult.completedAt = completeTime
     }
     deploymentFinal.completedTenants = deploymentFinal.tenantResults.filter(t => t.status === 'completed').length
     demoDeployments.set(deploymentId, deploymentFinal)
+
+    // Update v2 store only if not cancelled
+    updateV2DeploymentStatus(deploymentId, tenant.tenantId, 'completed')
   }
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Delay that checks for cancellation periodically
+ * Returns true if cancelled, false if completed normally
+ */
+async function delayWithCancellationCheck(
+  ms: number,
+  deploymentId: string,
+  tenantId: string,
+  checkInterval: number = CANCELLATION_CHECK_INTERVAL_MS
+): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < ms) {
+    await delay(Math.min(checkInterval, ms - (Date.now() - start)))
+
+    // Check for cancellation
+    const deployment = demoDeployments.get(deploymentId)
+    if (deployment?.status === 'cancelled') {
+      return true // cancelled
+    }
+    const tenant = deployment?.tenantResults.find(t => t.tenantId === tenantId)
+    if (tenant?.status === 'cancelled') {
+      return true // cancelled
+    }
+  }
+  return false // not cancelled
+}
+
+/**
+ * Update v2 deployment status for a tenant
+ */
+function updateV2DeploymentStatus(
+  batchId: string,
+  tenantId: string,
+  status: DeploymentStatus,
+  error?: string
+) {
+  // Find the v2 deployment for this tenant in this batch
+  const deployments = demoDeploymentsV2.getByBatchId(batchId)
+  const deployment = deployments.find(d => d.tenantId === tenantId)
+
+  if (deployment) {
+    const now = new Date().toISOString()
+    const updated = {
+      ...deployment,
+      status,
+      updatedAt: now,
+      ...(status === 'in_progress' && !deployment.startedAt ? { startedAt: now } : {}),
+      ...(status === 'completed' || status === 'failed' ? { completedAt: now } : {}),
+      ...(error ? { error } : {}),
+    }
+    demoDeploymentsV2.set(deployment.id, updated)
+  }
+
+  // Update batch aggregates
+  const batch = demoBatches.get(batchId)
+  if (batch) {
+    const allDeployments = demoDeploymentsV2.getByBatchId(batchId)
+    const completed = allDeployments.filter(d => d.status === 'completed').length
+    const failed = allDeployments.filter(d => d.status === 'failed').length
+    const allDone = completed + failed === allDeployments.length
+
+    demoBatches.set(batchId, {
+      ...batch,
+      completedDeployments: completed,
+      failedDeployments: failed,
+      status: allDone ? (failed > 0 ? 'failed' : 'completed') : 'in_progress',
+      updatedAt: new Date().toISOString(),
+      ...(allDone ? { completedAt: new Date().toISOString() } : {}),
+    })
+  }
 }
 
 /**
@@ -369,7 +531,9 @@ function getRandomStepError(stepId: DeploymentStepId): string {
       'Environment does not have required Power Platform license',
       'Insufficient Dataverse capacity',
       'Environment is in admin mode',
-      'Required dependencies not installed',
+      'SharePoint site not found or access denied',
+      'Dynamics 365 environment unreachable',
+      'Microsoft 365 tenant authentication failed',
       'Version conflict detected with existing solution',
     ],
     exporting: [
@@ -398,6 +562,9 @@ function getRandomStepError(stepId: DeploymentStepId): string {
       'Environment variable value not provided',
       'Flow activation failed: trigger not available',
       'Table permission configuration failed',
+      'SharePoint connection failed: site collection not accessible',
+      'Dynamics 365 binding failed: insufficient privileges',
+      'Microsoft Graph API connection refused',
       'Custom connector authentication not configured',
     ],
     verifying: [
@@ -406,6 +573,9 @@ function getRandomStepError(stepId: DeploymentStepId): string {
       'Required flows are in suspended state',
       'Knowledge base indexing incomplete',
       'Verification timeout: agent initialization took too long',
+      'SharePoint integration test failed: document library not found',
+      'Dynamics 365 connection test failed: API returned 403',
+      'Microsoft 365 authentication loop detected',
     ],
     completing: [
       'Failed to update deployment manifest',
@@ -418,4 +588,233 @@ function getRandomStepError(stepId: DeploymentStepId): string {
 
   const errors = errorsByStep[stepId]
   return errors[Math.floor(Math.random() * errors.length)]
+}
+
+/**
+ * Stream real deployment progress from BullMQ queue events
+ *
+ * Connects to the Redis-backed deployment queue and listens for:
+ * - Job progress updates (percentage complete)
+ * - Job completion events (success)
+ * - Job failure events (with error details)
+ *
+ * Uses heartbeat to keep connection alive and timeout to prevent
+ * hanging connections.
+ */
+async function streamRealDeploymentProgress(
+  deploymentId: string,
+  send: (data: object) => void
+): Promise<void> {
+  let queueManager: DeploymentQueueManager | null = null
+  let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+  let timeoutTimer: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    // Initialize queue manager
+    queueManager = new DeploymentQueueManager(REDIS_URL)
+    const queueEvents = queueManager.getQueueEvents()
+
+    send({
+      type: 'info',
+      message: 'Connected to deployment queue',
+      deploymentId,
+      timestamp: new Date().toISOString(),
+    })
+
+    // Set up heartbeat to keep SSE connection alive
+    heartbeatInterval = setInterval(() => {
+      send({
+        type: 'heartbeat',
+        deploymentId,
+        timestamp: new Date().toISOString(),
+      })
+    }, SSE_HEARTBEAT_INTERVAL_MS)
+
+    // Track completion state
+    let allJobsCompleted = false
+    const jobStatuses = new Map<string, 'pending' | 'active' | 'completed' | 'failed'>()
+
+    // Get current deployment status to initialize tracking
+    const currentStatus = await queueManager.getDeploymentStatus(deploymentId)
+    if (!currentStatus) {
+      send({
+        type: 'error',
+        message: `Deployment ${deploymentId} not found in queue`,
+        deploymentId,
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+
+    // Initialize job tracking from current status
+    for (const tenant of currentStatus.tenantResults) {
+      const jobId = `${deploymentId}-${tenant.tenantId}`
+      jobStatuses.set(jobId, tenant.status === 'completed' ? 'completed' :
+                             tenant.status === 'failed' ? 'failed' :
+                             tenant.status === 'in_progress' ? 'active' : 'pending')
+
+      // Send initial status for each tenant
+      send({
+        type: 'tenant_status',
+        deploymentId,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        status: tenant.status,
+        error: tenant.error,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
+    // Check if already complete
+    if (currentStatus.status === 'completed' || currentStatus.status === 'failed') {
+      send({
+        type: 'deployment_status',
+        deploymentId,
+        status: currentStatus.status,
+        completedTenants: currentStatus.completedTenants,
+        failedTenants: currentStatus.failedTenants,
+        totalTenants: currentStatus.totalTenants,
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+
+    // Create a promise that resolves when all jobs complete or timeout
+    await new Promise<void>((resolve, reject) => {
+      // Set up timeout
+      timeoutTimer = setTimeout(() => {
+        send({
+          type: 'timeout',
+          message: 'SSE connection timed out',
+          deploymentId,
+          timestamp: new Date().toISOString(),
+        })
+        resolve()
+      }, SSE_TIMEOUT_MS)
+
+      // Helper to check if all jobs are done
+      const checkAllJobsCompleted = () => {
+        const statuses = Array.from(jobStatuses.values())
+        const allDone = statuses.every(s => s === 'completed' || s === 'failed')
+        if (allDone && !allJobsCompleted) {
+          allJobsCompleted = true
+          resolve()
+        }
+      }
+
+      // Listen for job progress
+      queueEvents.on('progress', ({ jobId, data }) => {
+        // Only process jobs for this deployment
+        if (!jobId.startsWith(deploymentId)) return
+
+        const tenantId = jobId.replace(`${deploymentId}-`, '')
+        send({
+          type: 'job_progress',
+          deploymentId,
+          tenantId,
+          jobId,
+          progress: data,
+          timestamp: new Date().toISOString(),
+        })
+      })
+
+      // Listen for job completion
+      queueEvents.on('completed', async ({ jobId, returnvalue }) => {
+        if (!jobId.startsWith(deploymentId)) return
+
+        const tenantId = jobId.replace(`${deploymentId}-`, '')
+        jobStatuses.set(jobId, 'completed')
+
+        // Parse the return value - BullMQ returns it as a JSON string
+        let result: { success: boolean; tenantName?: string; error?: string; durationMs?: number } | undefined
+        try {
+          result = returnvalue ? JSON.parse(returnvalue) : undefined
+        } catch {
+          // If parsing fails, treat as simple success
+          result = { success: true }
+        }
+
+        send({
+          type: result?.success ? 'tenant_completed' : 'tenant_failed',
+          deploymentId,
+          tenantId,
+          tenantName: result?.tenantName,
+          success: result?.success,
+          error: result?.error,
+          durationMs: result?.durationMs,
+          timestamp: new Date().toISOString(),
+        })
+
+        checkAllJobsCompleted()
+      })
+
+      // Listen for job failure
+      queueEvents.on('failed', ({ jobId, failedReason }) => {
+        if (!jobId.startsWith(deploymentId)) return
+
+        const tenantId = jobId.replace(`${deploymentId}-`, '')
+        jobStatuses.set(jobId, 'failed')
+
+        send({
+          type: 'tenant_failed',
+          deploymentId,
+          tenantId,
+          error: failedReason,
+          timestamp: new Date().toISOString(),
+        })
+
+        checkAllJobsCompleted()
+      })
+
+      // Listen for job becoming active
+      queueEvents.on('active', ({ jobId }) => {
+        if (!jobId.startsWith(deploymentId)) return
+
+        const tenantId = jobId.replace(`${deploymentId}-`, '')
+        jobStatuses.set(jobId, 'active')
+
+        send({
+          type: 'tenant_started',
+          deploymentId,
+          tenantId,
+          timestamp: new Date().toISOString(),
+        })
+      })
+
+      // Initial check in case all jobs already completed
+      checkAllJobsCompleted()
+    })
+
+    // Final status update
+    const finalStatus = await queueManager.getDeploymentStatus(deploymentId)
+    if (finalStatus) {
+      send({
+        type: 'deployment_status',
+        deploymentId,
+        status: finalStatus.status,
+        completedTenants: finalStatus.completedTenants,
+        failedTenants: finalStatus.failedTenants,
+        totalTenants: finalStatus.totalTenants,
+        timestamp: new Date().toISOString(),
+      })
+    }
+  } catch (error) {
+    send({
+      type: 'error',
+      message: `Queue connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      deploymentId,
+      timestamp: new Date().toISOString(),
+    })
+  } finally {
+    // Cleanup
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval)
+    }
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer)
+    }
+    if (queueManager) {
+      await queueManager.close()
+    }
+  }
 }

@@ -24,7 +24,7 @@ export default function Dashboard() {
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <StatsCard
           title="Total Tenants"
           value={stats?.totalTenants ?? '-'}
@@ -35,7 +35,7 @@ export default function Dashboard() {
           title="Active Deployments"
           value={stats?.activeDeployments ?? '-'}
           color="yellow"
-          href="/deployments?status=in_progress"
+          href="/deployments?filter=active"
         />
         <StatsCard
           title="Completed Today"
@@ -47,8 +47,36 @@ export default function Dashboard() {
           title="Failed Today"
           value={stats?.failedToday ?? '-'}
           color="red"
-          href="/deployments?status=failed"
+          href="/deployments?filter=issues"
         />
+      </div>
+
+      {/* Quick Actions */}
+      <div className="mb-8">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <a
+            href="/agents/new"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-4 text-center transition-colors"
+          >
+            <span className="text-2xl block mb-2">+</span>
+            <span className="font-medium">New Agent</span>
+          </a>
+          <a
+            href="/deployments/new"
+            className="bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg p-4 text-center transition-colors"
+          >
+            <span className="text-2xl block mb-2">+</span>
+            <span className="font-medium">New Deployment</span>
+          </a>
+          <a
+            href="/tenants"
+            className="bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg p-4 text-center transition-colors"
+          >
+            <span className="text-2xl block mb-2">&#9881;</span>
+            <span className="font-medium">Manage Tenants</span>
+          </a>
+        </div>
       </div>
 
       {/* Recent Deployments */}
@@ -70,34 +98,6 @@ export default function Dashboard() {
               <DeploymentCard key={deployment.id} deployment={deployment} />
             ))
           )}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mt-8">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <a
-            href="/deployments/new"
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-4 text-center transition-colors"
-          >
-            <span className="text-2xl block mb-2">+</span>
-            <span className="font-medium">New Deployment</span>
-          </a>
-          <a
-            href="/tenants"
-            className="bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg p-4 text-center transition-colors"
-          >
-            <span className="text-2xl block mb-2">&#9881;</span>
-            <span className="font-medium">Manage Tenants</span>
-          </a>
-          <a
-            href="/deployments"
-            className="bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-lg p-4 text-center transition-colors"
-          >
-            <span className="text-2xl block mb-2">&#128196;</span>
-            <span className="font-medium">View All Deployments</span>
-          </a>
         </div>
       </div>
     </div>

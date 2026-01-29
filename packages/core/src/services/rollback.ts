@@ -6,6 +6,9 @@ import {
   parseDuration,
 } from "../config/schema.js";
 import { DataverseClient, SolutionOperations } from "../dataverse/index.js";
+import { coreLogger } from "./logger.js";
+
+const logger = coreLogger;
 
 /**
  * Service for managing deployment snapshots and rollback capabilities
@@ -68,11 +71,11 @@ export class RollbackService {
         outputPath: solutionPath,
       });
     } catch (error) {
-      console.error(
-        `Failed to create snapshot for ${tenantName}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
+      logger.error("Failed to create snapshot", error instanceof Error ? error : new Error(String(error)), {
+        tenantName,
+        solutionName,
+        deploymentId,
+      });
       return null;
     }
 

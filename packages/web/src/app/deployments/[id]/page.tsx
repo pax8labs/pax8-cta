@@ -132,11 +132,19 @@ const statusLabels: Record<string, string> = {
   rolled_back: 'Rolled Back',
 }
 
+interface UrlOverride {
+  sharepoint: string
+  dynamicsCrm: string
+  onmicrosoft: string
+  tenant?: string
+}
+
 interface TenantProgress {
   tenantId: string
   tenantName: string
   environmentUrl?: string
-  status: 'pending' | 'in_progress' | 'completed' | 'failed'
+  urlOverride?: UrlOverride
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
   currentStep: DeploymentStepId | null
   steps: Record<DeploymentStepId, { status: 'pending' | 'in_progress' | 'completed' | 'failed'; startedAt?: string; completedAt?: string; error?: string }>
   error?: string
@@ -189,6 +197,7 @@ export default function DeploymentDetailPage() {
               tenantId: data.tenantId,
               tenantName: data.tenantName,
               environmentUrl: data.environmentUrl,
+              urlOverride: data.urlOverride,
               status: 'in_progress',
               currentStep: null,
               startedAt: data.timestamp,
@@ -344,15 +353,93 @@ export default function DeploymentDetailPage() {
           break
 
         case 'deployment_completed':
-          setLiveComplete(true)
-          setShowLiveProgress(false)
-          mutate() // Refresh final deployment data
+          // Fetch final deployment data first, then sync liveProgress with server state
           eventSource.close()
+          mutate().then((freshData) => {
+            if (freshData?.tenantResults) {
+              // Sync liveProgress with the actual server state
+              setLiveProgress(prev => {
+                const newMap = new Map(prev)
+                freshData.tenantResults.forEach((serverTenant: TenantDeploymentResult) => {
+                  const liveTenant = newMap.get(serverTenant.tenantId)
+                  if (liveTenant && liveTenant.status === 'in_progress') {
+                    // Update with server's actual status
+                    const updatedTenant = { ...liveTenant }
+                    updatedTenant.status = serverTenant.status === 'completed' ? 'completed' :
+                                           serverTenant.status === 'failed' ? 'failed' : liveTenant.status
+                    updatedTenant.currentStep = null
+                    updatedTenant.completedAt = serverTenant.completedAt || data.timestamp
+                    updatedTenant.error = serverTenant.error
+
+                    // Mark steps based on final status
+                    const finalStepStatus = serverTenant.status === 'failed' ? 'failed' : 'completed'
+                    Object.keys(updatedTenant.steps).forEach(stepId => {
+                      const step = updatedTenant.steps[stepId as DeploymentStepId]
+                      if (step.status === 'pending' || step.status === 'in_progress') {
+                        updatedTenant.steps[stepId as DeploymentStepId] = {
+                          ...step,
+                          status: finalStepStatus,
+                          completedAt: data.timestamp
+                        }
+                      }
+                    })
+                    newMap.set(serverTenant.tenantId, updatedTenant)
+                  }
+                })
+                return newMap
+              })
+            }
+            setLiveComplete(true)
+            setShowLiveProgress(false)
+          })
           break
 
         case 'info':
           // No pending tenants or other info - close and refresh
           console.log('SSE info:', data.message)
+          setLiveComplete(true)
+          setShowLiveProgress(false)
+          mutate()
+          eventSource.close()
+          break
+
+        case 'tenant_cancelled':
+          // Single tenant was cancelled - update its status
+          console.log('SSE tenant cancelled:', data.message)
+          setLiveProgress(prev => {
+            const newMap = new Map(prev)
+            const tenant = newMap.get(data.tenantId)
+            if (tenant) {
+              newMap.set(data.tenantId, {
+                ...tenant,
+                status: 'cancelled',
+                error: 'Deployment cancelled by user',
+                currentStep: null,
+                completedAt: data.timestamp,
+              })
+            }
+            return newMap
+          })
+          break
+
+        case 'deployment_cancelled':
+          // Entire deployment was cancelled - mark all in-progress tenants as cancelled
+          console.log('SSE deployment cancelled:', data.message)
+          setLiveProgress(prev => {
+            const newMap = new Map(prev)
+            newMap.forEach((tenant, tenantId) => {
+              if (tenant.status === 'in_progress' || tenant.status === 'pending') {
+                newMap.set(tenantId, {
+                  ...tenant,
+                  status: 'cancelled',
+                  error: 'Deployment cancelled by user',
+                  currentStep: null,
+                  completedAt: data.timestamp,
+                })
+              }
+            })
+            return newMap
+          })
           setLiveComplete(true)
           setShowLiveProgress(false)
           mutate()
@@ -468,9 +555,58 @@ export default function DeploymentDetailPage() {
     return <div className="text-gray-500">Loading...</div>
   }
 
-  const progress = Math.round(
-    (deployment.completedTenants / deployment.totalTenants) * 100
-  )
+  // Handle error state from API
+  if (deployment.error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 mb-2">
+          <a
+            href="/deployments"
+            className="text-blue-600 hover:text-blue-800 text-sm"
+          >
+            &larr; All Deployments
+          </a>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center max-w-md mx-auto">
+          <div className="w-16 h-16 mx-auto mb-4 bg-slate-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-slate-800 mb-2">Oops! We can&apos;t find this deployment</h2>
+          <p className="text-slate-600 mb-6">
+            This deployment may have expired or the link might be incorrect. Don&apos;t worry—you can start a new deployment or check your existing ones.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <a
+              href="/deployments/new"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Deployment
+            </a>
+            <a
+              href="/deployments"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50"
+            >
+              View All Deployments
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Ensure required fields have sensible defaults
+  const totalTenants = deployment.totalTenants || deployment.tenantResults?.length || 0
+  const completedTenants = deployment.completedTenants ?? 0
+  const failedTenants = deployment.failedTenants ?? 0
+
+  const progress = totalTenants > 0
+    ? Math.round((completedTenants / totalTenants) * 100)
+    : 0
 
   const liveProgressArray = Array.from(liveProgress.values())
   const showingLive = showLiveProgress && liveProgressArray.length > 0
@@ -512,15 +648,15 @@ export default function DeploymentDetailPage() {
       </div>
 
       {/* Action Buttons */}
-      {(deployment.failedTenants > 0 || deployment.status === 'in_progress' || deployment.status === 'pending' || deployment.completedTenants > 0) && (
+      {(failedTenants > 0 || deployment.status === 'in_progress' || deployment.status === 'pending' || completedTenants > 0) && (
         <div className="flex gap-3 mb-6 flex-wrap">
-          {deployment.failedTenants > 0 && (
+          {failedTenants > 0 && (
             <button
               onClick={handleRetry}
               disabled={actionLoading !== null}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {actionLoading === 'retry' ? 'Retrying...' : `Retry ${deployment.failedTenants} Failed`}
+              {actionLoading === 'retry' ? 'Retrying...' : `Retry ${failedTenants} Failed`}
             </button>
           )}
           {(deployment.status === 'in_progress' || deployment.status === 'pending') && (
@@ -532,7 +668,7 @@ export default function DeploymentDetailPage() {
               {actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel Pending'}
             </button>
           )}
-          {deployment.completedTenants > 0 && deployment.status !== 'in_progress' && deployment.status !== 'rolling_back' && (
+          {completedTenants > 0 && deployment.status !== 'in_progress' && deployment.status !== 'rolling_back' && (
             <button
               onClick={() => setShowRollbackConfirm(true)}
               disabled={actionLoading !== null}
@@ -561,7 +697,7 @@ export default function DeploymentDetailPage() {
                 <h3 className="text-lg font-semibold text-gray-900">Undo Deployment?</h3>
               </div>
               <p className="text-gray-600 mb-2">
-                This will roll back <strong>{deployment.solutionName}</strong> from {deployment.completedTenants} tenant{deployment.completedTenants !== 1 ? 's' : ''}.
+                This will roll back <strong>{deployment.solutionName}</strong> from {completedTenants} tenant{completedTenants !== 1 ? 's' : ''}.
               </p>
               <p className="text-sm text-gray-500 mb-4">
                 The solution will be uninstalled and any configuration changes will be reverted. This action may take several minutes to complete.
@@ -603,47 +739,90 @@ export default function DeploymentDetailPage() {
         </div>
       )}
 
-      {/* Live Progress View - Two panel layout */}
+      {/* Live Progress View - Terminal-style tabs */}
       {showingLive && (
         <div className="mb-6">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-blue-200 bg-blue-50/50">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-blue-800">Live Deployment Progress</span>
-              <span className="text-xs text-blue-600 ml-auto">
-                {liveProgressArray.filter(t => t.status === 'in_progress').length} active
-                {liveProgressArray.filter(t => t.status === 'completed').length > 0 &&
-                  ` · ${liveProgressArray.filter(t => t.status === 'completed').length} done`}
-                {liveProgressArray.filter(t => t.status === 'failed').length > 0 &&
-                  ` · ${liveProgressArray.filter(t => t.status === 'failed').length} failed`}
-              </span>
+          <div className="bg-slate-900 rounded-xl overflow-hidden shadow-xl">
+            {/* Terminal header with tabs */}
+            <div className="bg-slate-800 border-b border-slate-700">
+              {/* Window controls + title bar */}
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-700">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                </div>
+                <span className="text-xs text-slate-400 ml-2">Deployment Progress</span>
+                <span className="text-xs text-slate-500 ml-auto">
+                  {liveProgressArray.filter(t => t.status === 'in_progress').length} active
+                  {liveProgressArray.filter(t => t.status === 'completed').length > 0 &&
+                    ` · ${liveProgressArray.filter(t => t.status === 'completed').length} done`}
+                  {liveProgressArray.filter(t => t.status === 'failed').length > 0 &&
+                    ` · ${liveProgressArray.filter(t => t.status === 'failed').length} failed`}
+                  {liveProgressArray.filter(t => t.status === 'cancelled').length > 0 &&
+                    ` · ${liveProgressArray.filter(t => t.status === 'cancelled').length} cancelled`}
+                </span>
+              </div>
+
+              {/* Tenant tabs */}
+              <div className="flex overflow-x-auto scrollbar-hide">
+                {liveProgressArray.map(tenant => {
+                  const isActive = tenant.status === 'in_progress'
+                  const isCompleted = tenant.status === 'completed'
+                  const isFailed = tenant.status === 'failed'
+                  const isCancelled = tenant.status === 'cancelled'
+                  const isSelected = selectedTenant?.tenantId === tenant.tenantId ||
+                    (!selectedTenant && (isActive || tenant === liveProgressArray[liveProgressArray.length - 1]))
+
+                  return (
+                    <button
+                      key={tenant.tenantId}
+                      onClick={() => setSelectedTenant(tenant)}
+                      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-r border-slate-700 whitespace-nowrap transition-colors ${
+                        isSelected
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-800 text-slate-400 hover:bg-slate-750 hover:text-slate-300'
+                      }`}
+                    >
+                      {/* Status indicator */}
+                      {isActive && (
+                        <svg className="w-3.5 h-3.5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      )}
+                      {isCompleted && (
+                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                      {isFailed && (
+                        <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                      {isCancelled && (
+                        <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                      )}
+                      {!isActive && !isCompleted && !isFailed && !isCancelled && (
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-500" />
+                      )}
+                      <span className="truncate max-w-32">{tenant.tenantName}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
-            {/* Two-panel content */}
-            <div className="flex flex-col lg:flex-row">
-              {/* Left: Tenant list (compact) */}
-              <div className="lg:w-64 lg:border-r border-blue-200 p-3 lg:max-h-96 lg:overflow-y-auto">
-                <div className="space-y-2">
-                  {liveProgressArray.map(tenant => (
-                    <CompactTenantRow
-                      key={tenant.tenantId}
-                      tenant={tenant}
-                      isSelected={selectedTenant?.tenantId === tenant.tenantId}
-                      onClick={() => setSelectedTenant(tenant)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Right: Live log panel */}
-              <div className="flex-1 p-4 bg-white/50">
-                <LiveLogPanel
-                  tenant={selectedTenant || liveProgressArray.find(t => t.status === 'in_progress') || liveProgressArray[liveProgressArray.length - 1]}
-                  allTenants={liveProgressArray}
-                  solutionName={deployment.solutionName}
-                />
-              </div>
+            {/* Terminal content - fixed height */}
+            <div className="h-80 overflow-y-auto p-4 font-mono text-sm">
+              <TerminalLogPanel
+                tenant={selectedTenant || liveProgressArray.find(t => t.status === 'in_progress') || liveProgressArray[liveProgressArray.length - 1]}
+                allTenants={liveProgressArray}
+                solutionName={deployment.solutionName}
+              />
             </div>
           </div>
         </div>
@@ -663,7 +842,7 @@ export default function DeploymentDetailPage() {
       <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900">Progress</h2>
-          {deployment.status === 'completed' && deployment.failedTenants === 0 && (
+          {deployment.status === 'completed' && failedTenants === 0 && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -671,12 +850,12 @@ export default function DeploymentDetailPage() {
               All tenants deployed successfully
             </span>
           )}
-          {deployment.status === 'completed' && deployment.failedTenants > 0 && (
+          {deployment.status === 'completed' && failedTenants > 0 && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-              {deployment.failedTenants} tenant{deployment.failedTenants !== 1 ? 's' : ''} failed
+              {failedTenants} tenant{failedTenants !== 1 ? 's' : ''} failed
             </span>
           )}
           {deployment.status === 'in_progress' && (
@@ -693,26 +872,26 @@ export default function DeploymentDetailPage() {
         <div className="grid grid-cols-4 gap-4 mb-4">
           <div className="text-center">
             <p className="text-3xl font-bold text-gray-900">
-              {deployment.totalTenants}
+              {totalTenants}
             </p>
             <p className="text-sm text-gray-500">Total</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-green-600">
-              <AnimatedCounter value={deployment.completedTenants} duration={600} />
+              <AnimatedCounter value={completedTenants} duration={600} />
             </p>
             <p className="text-sm text-gray-500">Succeeded</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-red-600">
-              <AnimatedCounter value={deployment.failedTenants} duration={600} />
+              <AnimatedCounter value={failedTenants} duration={600} />
             </p>
             <p className="text-sm text-gray-500">Failed</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-blue-600">
               <AnimatedCounter
-                value={deployment.totalTenants - deployment.completedTenants - deployment.failedTenants}
+                value={totalTenants - completedTenants - failedTenants}
                 duration={600}
               />
             </p>
@@ -722,29 +901,29 @@ export default function DeploymentDetailPage() {
 
         {/* Segmented Progress Bar */}
         <div className="w-full bg-gray-200 rounded-full h-4 flex overflow-hidden">
-          {deployment.completedTenants > 0 && (
+          {completedTenants > 0 && totalTenants > 0 && (
             <div
               className="h-4 bg-green-500 transition-all duration-500"
-              style={{ width: `${(deployment.completedTenants / deployment.totalTenants) * 100}%` }}
+              style={{ width: `${(completedTenants / totalTenants) * 100}%` }}
             />
           )}
-          {deployment.failedTenants > 0 && (
+          {failedTenants > 0 && totalTenants > 0 && (
             <div
               className="h-4 bg-red-500 transition-all duration-500"
-              style={{ width: `${(deployment.failedTenants / deployment.totalTenants) * 100}%` }}
+              style={{ width: `${(failedTenants / totalTenants) * 100}%` }}
             />
           )}
         </div>
         <div className="flex justify-between mt-2 text-xs text-gray-500">
-          <span><AnimatedCounter value={deployment.completedTenants} duration={600} /> succeeded</span>
-          {deployment.failedTenants > 0 && (
+          <span><AnimatedCounter value={completedTenants} duration={600} /> succeeded</span>
+          {failedTenants > 0 && (
             <span className="text-red-600">
-              <AnimatedCounter value={deployment.failedTenants} duration={600} /> failed
+              <AnimatedCounter value={failedTenants} duration={600} /> failed
             </span>
           )}
           <span>
             <AnimatedCounter
-              value={deployment.totalTenants - deployment.completedTenants - deployment.failedTenants}
+              value={totalTenants - completedTenants - failedTenants}
               duration={600}
             /> pending
           </span>
@@ -867,8 +1046,8 @@ export default function DeploymentDetailPage() {
 
       {/* Metadata */}
       <div className="mt-6 text-sm text-gray-500">
-        <p>Created: {new Date(deployment.createdAt).toLocaleString()}</p>
-        <p>Last Updated: {new Date(deployment.updatedAt).toLocaleString()}</p>
+        <p>Created: {deployment.createdAt ? new Date(deployment.createdAt).toLocaleString() : '—'}</p>
+        <p>Last Updated: {deployment.updatedAt ? new Date(deployment.updatedAt).toLocaleString() : '—'}</p>
       </div>
     </div>
   )
@@ -1062,21 +1241,50 @@ function getDetailedLogMessage(
   tenant: TenantProgress,
   status: 'started' | 'completed' | 'failed',
   solutionName?: string
-): string {
+): string | string[] {
   const tenantShort = tenant.tenantId.slice(0, 8)
   const envDomain = tenant.environmentUrl
     ? new URL(tenant.environmentUrl).hostname.split('.')[0]
     : 'environment'
   const solution = solutionName || 'solution'
 
-  const messages: Record<DeploymentStepId, { started: string; completed: string }> = {
+  // Get URL override info for dependency display
+  const urlOverride = tenant.urlOverride
+
+  // Build dependency verification lines
+  const getDependencyLines = (prefix: string, showStatus: boolean) => {
+    if (!urlOverride) return []
+    const lines: string[] = []
+    if (urlOverride.sharepoint) {
+      lines.push(`  ${prefix} SharePoint: ${urlOverride.sharepoint}${showStatus ? ' ✓' : ''}`)
+    }
+    if (urlOverride.dynamicsCrm) {
+      lines.push(`  ${prefix} Dynamics 365: ${urlOverride.dynamicsCrm}${showStatus ? ' ✓' : ''}`)
+    }
+    if (urlOverride.onmicrosoft) {
+      lines.push(`  ${prefix} Microsoft 365: ${urlOverride.onmicrosoft}${showStatus ? ' ✓' : ''}`)
+    }
+    return lines
+  }
+
+  const messages: Record<DeploymentStepId, { started: string | string[]; completed: string | string[] }> = {
     authenticating: {
       started: `Acquiring GDAP token for tenant ${tenantShort}...`,
       completed: `Authenticated with delegated admin access`,
     },
     validating: {
-      started: `Checking ${envDomain} compatibility for ${solution}...`,
-      completed: `Environment validated: Power Platform license OK, capacity sufficient`,
+      started: urlOverride
+        ? [
+            `Verifying dependencies for ${solution}...`,
+            ...getDependencyLines('→', false),
+          ]
+        : `Checking ${envDomain} compatibility for ${solution}...`,
+      completed: urlOverride
+        ? [
+            `Dependencies verified successfully`,
+            ...getDependencyLines('', true),
+          ]
+        : `Environment validated: Power Platform license OK, capacity sufficient`,
     },
     exporting: {
       started: `Packaging ${solution} from source environment...`,
@@ -1091,12 +1299,32 @@ function getDetailedLogMessage(
       completed: `${solution} imported, components registered`,
     },
     configuring: {
-      started: `Configuring ${solution} connections and variables...`,
-      completed: `Connections bound, environment variables configured`,
+      started: urlOverride
+        ? [
+            `Binding ${solution} to tenant resources...`,
+            ...getDependencyLines('→', false),
+          ]
+        : `Configuring ${solution} connections and variables...`,
+      completed: urlOverride
+        ? [
+            `Resources bound successfully`,
+            ...getDependencyLines('', true),
+          ]
+        : `Connections bound, environment variables configured`,
     },
     verifying: {
-      started: `Running ${solution} health checks...`,
-      completed: `All ${solution} components verified healthy`,
+      started: urlOverride
+        ? [
+            `Running ${solution} health checks...`,
+            ...getDependencyLines('Testing', false),
+          ]
+        : `Running ${solution} health checks...`,
+      completed: urlOverride
+        ? [
+            `All health checks passed`,
+            ...getDependencyLines('', true),
+          ]
+        : `All ${solution} components verified healthy`,
     },
     completing: {
       started: `Finalizing ${solution} deployment...`,
@@ -1249,7 +1477,146 @@ function LiveLogPanel({
   )
 }
 
-// Deployment history shown after live progress completes - collapsed by default
+// Terminal-style log panel for the new tabbed UI
+function TerminalLogPanel({
+  tenant,
+  allTenants,
+  solutionName,
+}: {
+  tenant: TenantProgress | undefined
+  allTenants: TenantProgress[]
+  solutionName?: string
+}) {
+  if (!tenant) {
+    return (
+      <div className="flex items-center justify-center h-full text-slate-500">
+        <p>Waiting for deployment to start...</p>
+      </div>
+    )
+  }
+
+  const isActive = tenant.status === 'in_progress'
+  const isFailed = tenant.status === 'failed'
+  const isCancelled = tenant.status === 'cancelled'
+
+  const stepOrder: DeploymentStepId[] = [
+    'authenticating', 'validating', 'exporting', 'uploading',
+    'importing', 'configuring', 'verifying', 'completing',
+  ]
+
+  const formatLogTime = (timestamp?: string) => {
+    if (!timestamp) return ''
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  }
+
+  const totalElapsed = tenant.startedAt ? calculateDuration(tenant.startedAt, tenant.completedAt) : null
+
+  // Format tenant ID for display (first 8 chars)
+  const tenantIdShort = tenant.tenantId.slice(0, 8)
+
+  return (
+    <div className="text-slate-300">
+      {/* Tenant header line */}
+      <div className="flex items-center gap-2 mb-3 text-slate-400">
+        <span className="text-blue-400">$</span>
+        <span>
+          agentsync deploy {solutionName ? <span className="text-emerald-400">{solutionName}</span> : 'solution'}{' '}
+          --tenant <span className="text-cyan-400">{tenantIdShort}</span>{' '}
+          <span className="text-slate-500"># {tenant.tenantName}</span>
+        </span>
+        {totalElapsed && (
+          <span className="ml-auto text-slate-500">[{totalElapsed}]</span>
+        )}
+      </div>
+
+      {/* Cancelled banner */}
+      {isCancelled && (
+        <div className="mb-3 px-3 py-2 bg-amber-950/50 border border-amber-800/50 rounded text-amber-300">
+          <span className="text-amber-400">CANCELLED:</span> Deployment cancelled by user
+        </div>
+      )}
+
+      {/* Error banner if failed */}
+      {isFailed && tenant.error && (
+        <div className="mb-3 px-3 py-2 bg-red-950/50 border border-red-800/50 rounded text-red-300">
+          <span className="text-red-400">ERROR:</span> {tenant.error}
+        </div>
+      )}
+
+      {/* Step logs */}
+      <div className="space-y-1">
+        {stepOrder.map(stepId => {
+          const step = tenant.steps[stepId]
+          const isStepActive = step?.status === 'in_progress'
+          const isStepDone = step?.status === 'completed'
+          const isStepFailed = step?.status === 'failed'
+          const isPending = !step || step.status === 'pending'
+
+          if (isPending) return null
+
+          const logMessage = getDetailedLogMessage(
+            stepId,
+            tenant,
+            isStepActive ? 'started' : isStepDone ? 'completed' : 'failed',
+            solutionName
+          )
+
+          // Handle both string and array messages
+          const messages = Array.isArray(logMessage) ? logMessage : [logMessage]
+
+          return (
+            <div key={stepId}>
+              {messages.map((msg, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <span className="text-slate-600 shrink-0 w-16">
+                    {idx === 0 && step?.startedAt ? formatLogTime(step.startedAt) : ''}
+                  </span>
+                  <span className="shrink-0 w-4">
+                    {idx === 0 ? (
+                      isStepActive ? (
+                        <span className="text-yellow-400">●</span>
+                      ) : isStepDone ? (
+                        <span className="text-emerald-400">✓</span>
+                      ) : isStepFailed ? (
+                        <span className="text-red-400">✗</span>
+                      ) : null
+                    ) : null}
+                  </span>
+                  <span className={`flex-1 ${
+                    idx > 0 ? 'text-slate-500' : // Sub-lines are dimmer
+                    isStepActive ? 'text-yellow-200' :
+                    isStepDone ? 'text-slate-400' :
+                    isStepFailed ? 'text-red-300' :
+                    'text-slate-500'
+                  }`}>
+                    {msg}
+                    {idx === 0 && isStepActive && <span className="animate-pulse">...</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Blinking cursor when active */}
+      {isActive && (
+        <div className="flex items-center gap-3 mt-3 text-slate-500">
+          <span className="w-16"></span>
+          <span className="w-4"></span>
+          <span className="animate-pulse">▋</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Deployment history shown after live progress completes - terminal style with tabs
 function DeploymentHistory({
   tenants,
   selectedTenant,
@@ -1261,7 +1628,7 @@ function DeploymentHistory({
   onSelectTenant: (tenant: TenantProgress) => void
   solutionName?: string
 }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(true) // Default to expanded
   const succeeded = tenants.filter(t => t.status === 'completed').length
   const failed = tenants.filter(t => t.status === 'failed').length
 
@@ -1270,52 +1637,82 @@ function DeploymentHistory({
 
   return (
     <div className="mb-6">
-      <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border border-slate-200 overflow-hidden">
-        {/* Header - clickable to expand/collapse */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50/50 hover:bg-slate-100/50 transition-colors text-left"
-        >
-          <svg
-            className={`w-4 h-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+      <div className="bg-slate-900 rounded-xl overflow-hidden shadow-xl">
+        {/* Terminal header */}
+        <div className="bg-slate-800 border-b border-slate-700">
+          {/* Window controls + title bar - clickable to expand/collapse */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center gap-2 px-4 py-2 border-b border-slate-700 hover:bg-slate-750 transition-colors text-left"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-sm font-medium text-slate-700">Deployment Complete</span>
-          <span className="text-xs text-slate-500 ml-auto">
-            {succeeded} done
-            {failed > 0 && ` · ${failed} failed`}
-            {!isExpanded && ' · Click to view logs'}
-          </span>
-        </button>
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+            </div>
+            <span className="text-xs text-slate-400 ml-2">Deployment Complete</span>
+            <span className="text-xs text-slate-500 ml-auto">
+              {succeeded} done
+              {failed > 0 && ` · ${failed} failed`}
+              {!isExpanded && ' · Click to expand'}
+            </span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
 
-        {/* Two-panel content - collapsible */}
-        {isExpanded && (
-          <div className="flex flex-col lg:flex-row">
-            {/* Left: Tenant list (compact) */}
-            <div className="lg:w-64 lg:border-r border-slate-200 p-3 lg:max-h-96 lg:overflow-y-auto">
-              <div className="space-y-2">
-                {tenants.map(tenant => (
-                  <CompactTenantRow
+          {/* Tenant tabs - only show when expanded */}
+          {isExpanded && (
+            <div className="flex overflow-x-auto scrollbar-hide">
+              {tenants.map(tenant => {
+                const isCompleted = tenant.status === 'completed'
+                const isFailed = tenant.status === 'failed'
+                const isSelected = displayTenant?.tenantId === tenant.tenantId
+
+                return (
+                  <button
                     key={tenant.tenantId}
-                    tenant={tenant}
-                    isSelected={displayTenant?.tenantId === tenant.tenantId}
                     onClick={() => onSelectTenant(tenant)}
-                  />
-                ))}
-              </div>
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-r border-slate-700 whitespace-nowrap transition-colors ${
+                      isSelected
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-750 hover:text-slate-300'
+                    }`}
+                  >
+                    {isCompleted && (
+                      <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {isFailed && (
+                      <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                    {!isCompleted && !isFailed && (
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-500" />
+                    )}
+                    <span className="truncate max-w-32">{tenant.tenantName}</span>
+                  </button>
+                )
+              })}
             </div>
+          )}
+        </div>
 
-            {/* Right: Log panel */}
-            <div className="flex-1 p-4 bg-white/50">
-              <HistoryLogPanel tenant={displayTenant} solutionName={solutionName} />
-            </div>
+        {/* Terminal content - fixed height, collapsible */}
+        {isExpanded && (
+          <div className="h-80 overflow-y-auto p-4 font-mono text-sm">
+            <TerminalLogPanel
+              tenant={displayTenant}
+              allTenants={tenants}
+              solutionName={solutionName}
+            />
           </div>
         )}
       </div>

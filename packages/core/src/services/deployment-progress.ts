@@ -5,6 +5,11 @@
  * minimum display times to ensure each step is legible even when fast.
  */
 
+import { MIN_STEP_DISPLAY_MS } from '../constants.js';
+
+// Re-export for backward compatibility
+export { MIN_STEP_DISPLAY_MS };
+
 export type DeploymentStepId =
   | 'authenticating'
   | 'validating'
@@ -51,12 +56,6 @@ export interface DeploymentProgressEvent {
   details?: string;
   timestamp: string;
 }
-
-/**
- * Minimum display time per step in milliseconds
- * Ensures each step is visible long enough to be legible
- */
-export const MIN_STEP_DISPLAY_MS = 600;
 
 /**
  * Configuration for each deployment step

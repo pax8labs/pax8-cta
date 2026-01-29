@@ -13,14 +13,18 @@ export async function GET(request: NextRequest) {
 
     // Use demo data if DEMO_MODE is enabled
     if (isDemoMode()) {
-      // Get any real-time demo deployments first
+      // Get any real-time demo deployments first (these are persisted and may have been modified)
       const liveDeployments = Array.from(demoDeployments.values())
+      const liveIds = new Set(liveDeployments.map(d => d.id))
 
       // Generate mock history for the rest
       const historyCount = Math.max(0, limit - liveDeployments.length)
       const mockHistory = generateMockDeploymentHistory(historyCount)
+        // Filter out any mock history that we already have persisted
+        // This ensures retried/modified deployments show their actual state
+        .filter(h => !liveIds.has(h.id))
 
-      // Combine live + history, sort by date
+      // Combine live + filtered history, sort by date
       const allDeployments = [...liveDeployments, ...mockHistory]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, limit)

@@ -3,6 +3,9 @@ export * from "./processor.js";
 
 import { createTenantDeploymentWorker, createScheduledDeploymentWorker } from "./processor.js";
 import { DeploymentQueueManager } from "./queue.js";
+import { workerLogger } from "@agentsync/core";
+
+const logger = workerLogger;
 
 // When run directly, start the workers
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -10,10 +13,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const concurrency = parseInt(process.env.WORKER_CONCURRENCY || "5", 10);
   const enableScheduler = process.env.ENABLE_SCHEDULER !== "false"; // Enabled by default
 
-  console.log(`Starting deployment workers...`);
-  console.log(`  Redis URL: ${redisUrl}`);
-  console.log(`  Concurrency: ${concurrency}`);
-  console.log(`  Scheduler enabled: ${enableScheduler}`);
+  logger.info("Starting deployment workers", {
+    redisUrl,
+    concurrency,
+    schedulerEnabled: enableScheduler,
+  });
 
   // Create shared queue manager
   const queueManager = new DeploymentQueueManager(redisUrl);
@@ -31,12 +35,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       redisUrl,
       queueManager,
     });
-    console.log("Scheduled deployment worker started.");
+    logger.info("Scheduled deployment worker started");
   }
 
   // Graceful shutdown
   const shutdown = async () => {
-    console.log("Shutting down workers...");
+    logger.info("Shutting down workers");
     await tenantWorker.close();
     if (scheduledWorker) {
       await scheduledWorker.close();
@@ -48,5 +52,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
 
-  console.log("Workers started and listening for jobs.");
+  logger.info("Workers started and listening for jobs");
 }

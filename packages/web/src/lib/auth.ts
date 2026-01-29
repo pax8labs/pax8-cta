@@ -1,9 +1,17 @@
-import { NextAuthOptions } from 'next-auth';
+import { NextAuthOptions, Profile } from 'next-auth';
 import AzureADProvider from 'next-auth/providers/azure-ad';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 // Check if demo mode is enabled
 const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1';
+
+/**
+ * Extended Azure AD profile with optional roles claim
+ * Azure AD can be configured to include app roles in the token
+ */
+interface AzureADProfile extends Profile {
+  roles?: string[];
+}
 
 declare module 'next-auth' {
   interface Session {
@@ -57,7 +65,8 @@ export const authOptions: NextAuthOptions = {
       if (account) {
         token.accessToken = account.access_token;
         // Extract roles from Azure AD token if available
-        token.roles = (profile as any)?.roles || [];
+        const azureProfile = profile as AzureADProfile | undefined;
+        token.roles = azureProfile?.roles || [];
       }
       return token;
     },

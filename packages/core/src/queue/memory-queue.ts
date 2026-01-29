@@ -13,6 +13,10 @@
  * - For production with multiple instances, use Redis
  */
 
+import { coreLogger } from "../services/logger.js";
+
+const logger = coreLogger;
+
 export type JobStatus = 'pending' | 'active' | 'completed' | 'failed';
 
 export interface MemoryJob<T = unknown, R = unknown> {
@@ -165,7 +169,10 @@ export class MemoryQueue<T = unknown, R = unknown> {
       try {
         listener(job, result, error);
       } catch (e) {
-        console.error(`Error in queue event listener: ${e}`);
+        logger.error("Error in queue event listener", e instanceof Error ? e : new Error(String(e)), {
+          event,
+          jobId: job.id,
+        });
       }
     }
   }

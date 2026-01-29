@@ -1,14 +1,17 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { Suspense } from 'react'
 import './globals.css'
 import { SessionProvider } from '@/components/SessionProvider'
+import { PostHogProvider } from '@/components/providers/posthog-provider'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { UserMenu } from '@/components/UserMenu'
 import Image from 'next/image'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Copilot Studio Deployer',
+  title: 'AgentSync',
   description: 'Multi-tenant Copilot Studio deployment automation for MSPs',
 }
 
@@ -21,7 +24,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <SessionProvider>
-          <div className="min-h-screen">
+          <Suspense fallback={null}>
+            <PostHogProvider>
+              <div className="min-h-screen">
             <nav className="bg-white shadow-sm border-b">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
@@ -71,9 +76,13 @@ export default function RootLayout({
               </div>
             </nav>
             <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-              {children}
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
             </main>
-          </div>
+              </div>
+            </PostHogProvider>
+          </Suspense>
         </SessionProvider>
       </body>
     </html>

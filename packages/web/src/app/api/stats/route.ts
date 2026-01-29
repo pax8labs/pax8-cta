@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { loadConfig, isDemoMode, DEMO_CONFIG } from '@agentsync/core'
+import { loadConfig, isDemoMode, DEMO_CONFIG, generateMockDeploymentHistory, DEPLOYMENT_STATUS_CATEGORIES } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { resolve } from 'path'
+import { demoDeployments } from '@/lib/demo-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,15 +16,83 @@ export async function GET() {
       const totalTenants = DEMO_CONFIG.tenants.length
       const enabledTenants = DEMO_CONFIG.tenants.filter(t => t.enabled !== false).length
 
+      // Get live deployments from the store
+      const liveDeployments = Array.from(demoDeployments.values())
+      const liveIds = new Set(liveDeployments.map(d => d.id))
+
+      // Generate mock history to include in stats (same logic as /api/deployments)
+      // Use 100 to match the limit used on the deployments page
+      const mockHistory = generateMockDeploymentHistory(100)
+        .filter(h => !liveIds.has(h.id))
+
+      // Combine all deployments for stat calculation
+      const allDeployments = [...liveDeployments, ...mockHistory]
+
+      // Extract unique tenant-agent records (same logic as deployments page)
+      // This ensures dashboard stats match the deployments page counts
+      const seen = new Set<string>()
+      const records: Array<{ status: string; updatedAt: string }> = []
+
+      // Sort newest first to keep most recent record per tenant-agent pair
+      const sorted = [...allDeployments].sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+
+      for (const deployment of sorted) {
+        for (const result of deployment.tenantResults || []) {
+          const key = `${result.tenantId}-${deployment.solutionName}`
+          if (!seen.has(key)) {
+            seen.add(key)
+            records.push({
+              status: result.status,
+              updatedAt: result.completedAt || result.startedAt || deployment.createdAt,
+            })
+          }
+        }
+      }
+
+      // Calculate today's date at midnight
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayTimestamp = today.getTime()
+
+      // Calculate stats using centralized status categories from @agentsync/core
+      let activeDeployments = 0
+      let completedToday = 0
+      let failedToday = 0
+
+      for (const record of records) {
+        // Active = completed or in_progress (uses DEPLOYMENT_STATUS_CATEGORIES.ACTIVE)
+        if ((DEPLOYMENT_STATUS_CATEGORIES.ACTIVE as readonly string[]).includes(record.status)) {
+          activeDeployments++
+        }
+
+        // Completed today
+        if (record.status === 'completed') {
+          const updatedAt = new Date(record.updatedAt).getTime()
+          if (updatedAt >= todayTimestamp) {
+            completedToday++
+          }
+        }
+
+        // Failed today (uses DEPLOYMENT_STATUS_CATEGORIES.FAILED)
+        if ((DEPLOYMENT_STATUS_CATEGORIES.FAILED as readonly string[]).includes(record.status)) {
+          const updatedAt = new Date(record.updatedAt).getTime()
+          if (updatedAt >= todayTimestamp) {
+            failedToday++
+          }
+        }
+      }
+
       return NextResponse.json({
         demoMode: true,
         totalTenants,
         enabledTenants,
-        activeDeployments: 1,
-        completedToday: 3,
-        failedToday: 0,
-        scheduledDeployments: 2,
-        pendingApprovals: 1,
+        activeDeployments,
+        completedToday,
+        failedToday,
+        scheduledDeployments: 0,
+        pendingApprovals: 0,
       })
     }
 

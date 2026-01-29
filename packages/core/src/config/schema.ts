@@ -266,6 +266,65 @@ export const DeploymentStatusSchema = z.enum([
 
 export type DeploymentStatus = z.infer<typeof DeploymentStatusSchema>;
 
+// ============================================================================
+// Centralized Status Categories
+// These should be used throughout the app for consistent status filtering
+// ============================================================================
+
+/**
+ * Status categories for filtering and display
+ * - ACTIVE: Deployments that are actively running or successfully completed
+ * - PENDING_ACTION: Deployments waiting for something (approval, schedule, etc.)
+ * - FAILED: Deployments that encountered an error or were stopped
+ * - TERMINAL: Deployments that have reached a final state (no more processing)
+ * - RETRYABLE: Failed deployments that can be retried
+ */
+export const DEPLOYMENT_STATUS_CATEGORIES = {
+  /** Running or successfully completed */
+  ACTIVE: ['completed', 'in_progress'] as const,
+  /** Waiting for approval, schedule, or processing */
+  PENDING_ACTION: ['pending', 'scheduled', 'awaiting_approval', 'approved'] as const,
+  /** Error states or stopped deployments */
+  FAILED: ['failed', 'rejected', 'cancelled', 'rolled_back', 'rolling_back'] as const,
+  /** Final states - no more processing will occur */
+  TERMINAL: ['completed', 'failed', 'rolled_back', 'cancelled', 'rejected'] as const,
+  /** Can be retried (including rolled_back - user may want to redeploy) */
+  RETRYABLE: ['failed', 'cancelled', 'rolled_back'] as const,
+} as const;
+
+// Helper type for status category arrays
+export type StatusCategory = keyof typeof DEPLOYMENT_STATUS_CATEGORIES;
+
+/**
+ * Calculate the overall deployment status from tenant results
+ * Uses priority-based logic: in_progress > rolling_back > failed > rolled_back > completed > pending
+ */
+export function calculateDeploymentStatus(
+  tenantResults: Array<{ status: DeploymentStatus }>
+): DeploymentStatus {
+  if (tenantResults.length === 0) return 'pending';
+
+  const statuses = new Set(tenantResults.map(t => t.status));
+
+  // Check in priority order
+  if (statuses.has('in_progress')) return 'in_progress';
+  if (statuses.has('rolling_back')) return 'rolling_back';
+
+  // Any failure means overall failed
+  const hasFailures = tenantResults.some(t =>
+    DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE.includes(t.status as typeof DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE[number])
+  );
+  if (hasFailures) return 'failed';
+
+  if (statuses.has('rolled_back')) return 'rolled_back';
+  if (statuses.has('completed')) return 'completed';
+  if (statuses.has('approved')) return 'approved';
+  if (statuses.has('awaiting_approval')) return 'awaiting_approval';
+  if (statuses.has('scheduled')) return 'scheduled';
+
+  return 'pending';
+}
+
 export const TenantDeploymentResultSchema = z.object({
   tenantId: z.string().uuid(),
   tenantName: z.string(),
@@ -323,6 +382,146 @@ export const DeploymentJobSchema = z.object({
 });
 
 export type DeploymentJob = z.infer<typeof DeploymentJobSchema>;
+
+// ============================================================================
+// NEW Atomic Deployment Model (v2)
+// ============================================================================
+// A Deployment represents a single agent deployed to a single tenant.
+// A DeploymentBatch groups multiple deployments that were initiated together.
+
+export const DeploymentSchema = z.object({
+  /** Unique identifier for this deployment */
+  id: z.string(),
+  /** Reference to the batch this deployment belongs to (if any) */
+  batchId: z.string().optional(),
+
+  // Agent/Solution info
+  solutionName: z.string(),
+  solutionVersion: z.string().optional(),
+  solutionPath: z.string().optional(),
+
+  // Tenant info
+  tenantId: z.string().uuid(),
+  tenantName: z.string(),
+  environmentUrl: z.string().url().optional(),
+
+  // Status
+  status: DeploymentStatusSchema,
+  error: z.string().optional(),
+
+  // Timestamps
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  startedAt: z.string().datetime().optional(),
+  completedAt: z.string().datetime().optional(),
+
+  // Attempt tracking (for retries)
+  attemptNumber: z.number().int().positive().default(1),
+
+  // Metadata
+  triggeredBy: DeploymentTriggerSchema.optional(),
+  previousVersion: z.string().optional(),
+  rollbackAvailable: z.boolean().optional(),
+  solutionImportJobId: z.string().optional(),
+  waveNumber: z.number().int().positive().optional(),
+
+  // URL override for tenant-specific URL templating
+  urlOverride: z.object({
+    tenant: z.string(),
+    sharepoint: z.string(),
+    dynamicsCrm: z.string(),
+    onmicrosoft: z.string(),
+  }).optional(),
+});
+
+export type Deployment = z.infer<typeof DeploymentSchema>;
+
+export const DeploymentBatchSchema = z.object({
+  /** Unique identifier for this batch */
+  id: z.string(),
+
+  // Solution being deployed
+  solutionName: z.string(),
+  solutionVersion: z.string().optional(),
+  solutionPath: z.string(),
+
+  // Aggregated status
+  status: DeploymentStatusSchema,
+
+  // Counts (derived from deployments, but cached for performance)
+  totalDeployments: z.number().int().nonnegative(),
+  completedDeployments: z.number().int().nonnegative(),
+  failedDeployments: z.number().int().nonnegative(),
+
+  // Timestamps
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  startedAt: z.string().datetime().optional(),
+  completedAt: z.string().datetime().optional(),
+
+  // Wave tracking
+  currentWave: z.number().int().positive().optional(),
+  totalWaves: z.number().int().positive().optional(),
+
+  // Approvals
+  approvals: z.array(z.object({
+    approver: z.string().email(),
+    approved: z.boolean(),
+    timestamp: z.string().datetime(),
+    comment: z.string().optional(),
+  })).optional(),
+
+  // Metadata
+  triggeredBy: DeploymentTriggerSchema.optional(),
+});
+
+export type DeploymentBatch = z.infer<typeof DeploymentBatchSchema>;
+
+// Helper to convert old DeploymentJob to new Deployment[] + DeploymentBatch
+export function migrateDeploymentJob(job: DeploymentJob): { batch: DeploymentBatch; deployments: Deployment[] } {
+  const deployments: Deployment[] = job.tenantResults.map((result, index) => ({
+    id: `${job.id}-${index}`,
+    batchId: job.id,
+    solutionName: job.solutionName,
+    solutionVersion: job.solutionVersion,
+    solutionPath: job.solutionPath,
+    tenantId: result.tenantId,
+    tenantName: result.tenantName,
+    status: result.status,
+    error: result.error,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    startedAt: result.startedAt,
+    completedAt: result.completedAt,
+    attemptNumber: result.attemptNumber || 1,
+    triggeredBy: job.triggeredBy,
+    previousVersion: result.previousVersion,
+    rollbackAvailable: result.rollbackAvailable,
+    solutionImportJobId: result.solutionImportJobId,
+    waveNumber: result.waveNumber,
+  }));
+
+  const batch: DeploymentBatch = {
+    id: job.id,
+    solutionName: job.solutionName,
+    solutionVersion: job.solutionVersion,
+    solutionPath: job.solutionPath,
+    status: job.status,
+    totalDeployments: job.totalTenants,
+    completedDeployments: job.completedTenants,
+    failedDeployments: job.failedTenants,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt,
+    currentWave: job.currentWave,
+    totalWaves: job.totalWaves,
+    approvals: job.approvals,
+    triggeredBy: job.triggeredBy,
+  };
+
+  return { batch, deployments };
+}
 
 // ============================================================================
 // Solution Metadata (Enhanced)

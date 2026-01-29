@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
-type AddAgentTab = 'manual' | 'url'
 
 interface DeployedTenant {
   tenantId: string
@@ -76,25 +74,27 @@ export default function SolutionsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [formData, setFormData] = useState({
-    friendlyName: '',
-    uniqueName: '',
-    version: '1.0.0.0',
-    description: '',
-    publisherName: '',
-  })
-  const [addAgentTab, setAddAgentTab] = useState<AddAgentTab>('url')
-  const [agentUrl, setAgentUrl] = useState('')
-  const [urlResolving, setUrlResolving] = useState(false)
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null)
   const [editingTagsAgentId, setEditingTagsAgentId] = useState<string | null>(null)
   const [editTagsInput, setEditTagsInput] = useState('')
   const [savingTags, setSavingTags] = useState(false)
-  const [urlResolved, setUrlResolved] = useState<{
-    bot: { id: string; name: string };
-    solution: { uniqueName: string; friendlyName: string; version: string };
+  // File upload state
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [uploadedMetadata, setUploadedMetadata] = useState<{
+    uniqueName: string;
+    friendlyName: string;
+    version: string;
+    publisherName: string;
+    isManaged: boolean;
+    description?: string;
+    connectionReferences?: { name: string; connectorId: string; displayName?: string }[];
+    knowledgeSources?: string[];
+    tenantSpecificValues?: { type: string; value: string; location: string; description?: string }[];
   } | null>(null)
-  const [urlError, setUrlError] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   // Filter agents by search
   const filteredAgents = useMemo(() => {
@@ -114,78 +114,69 @@ export default function SolutionsPage() {
     router.push(`/deployments/new?agent=${agent.id}`)
   }
 
-  const handleCreateAgent = async (e: React.FormEvent) => {
+  // Handle file selection (from input or drag-drop)
+  const handleFileSelect = async (file: File) => {
+    if (!file.name.endsWith('.zip')) {
+      setUploadError('Please select a .zip file exported from Copilot Studio')
+      return
+    }
+
+    setSelectedFile(file)
+    setUploadError(null)
+    setUploadingFile(true)
+    setUploadedMetadata(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      // Upload and parse the solution to preview metadata
+      const response = await fetch('/api/solutions/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to parse solution')
+
+      setUploadedMetadata(result.metadata)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to process solution file')
+      setSelectedFile(null)
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsCreating(true)
-    setCreateError(null)
-
-    try {
-      const response = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Failed to create agent')
-      setFormData({ friendlyName: '', uniqueName: '', version: '1.0.0.0', description: '', publisherName: '' })
-      setShowAddAgent(false)
-      mutate()
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create agent')
-    } finally {
-      setIsCreating(false)
-    }
+    setIsDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) handleFileSelect(file)
   }
 
-  const generateUniqueName = (friendlyName: string) => {
-    return friendlyName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '')
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
   }
 
-  const handleResolveUrl = async () => {
-    if (!agentUrl.trim()) return
-    setUrlResolving(true)
-    setUrlError(null)
-    setUrlResolved(null)
-
-    try {
-      const response = await fetch('/api/solutions/from-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: agentUrl, dryRun: true }),
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Failed to resolve URL')
-      setUrlResolved({ bot: result.bot, solution: result.solution })
-    } catch (err) {
-      setUrlError(err instanceof Error ? err.message : 'Failed to resolve URL')
-    } finally {
-      setUrlResolving(false)
-    }
+  const handleDragLeave = () => {
+    setIsDragging(false)
   }
 
-  const handleImportFromUrl = async () => {
-    if (!urlResolved) return
-    setIsCreating(true)
-    setCreateError(null)
+  const handleConfirmUpload = () => {
+    // The upload already happened during preview - just close modal and refresh
+    setShowAddAgent(false)
+    setSelectedFile(null)
+    setUploadedMetadata(null)
+    mutate()
+  }
 
-    try {
-      const response = await fetch('/api/solutions/from-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: agentUrl, dryRun: false, managed: true }),
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Failed to import agent')
-
-      // Reset and close modal
-      setAgentUrl('')
-      setUrlResolved(null)
-      setShowAddAgent(false)
-      mutate()
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to import agent')
-    } finally {
-      setIsCreating(false)
+  const handleCancelUpload = () => {
+    setSelectedFile(null)
+    setUploadedMetadata(null)
+    setUploadError(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }
 
@@ -585,184 +576,178 @@ export default function SolutionsPage() {
       )}
 
 
-      {/* Add Agent Modal - With URL Import */}
+      {/* Add Agent Modal - File Upload */}
       {showAddAgent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-medium text-slate-900">Add Agent</h3>
-              <button onClick={() => { setShowAddAgent(false); setCreateError(null); setUrlError(null); setUrlResolved(null); setAgentUrl('') }} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="font-medium text-slate-900">Import Agent</h3>
+              <button onClick={() => { setShowAddAgent(false); setUploadError(null); setUploadedMetadata(null); setSelectedFile(null) }} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-slate-200">
-              <button
-                onClick={() => setAddAgentTab('url')}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  addAgentTab === 'url'
-                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                Import from URL
-              </button>
-              <button
-                onClick={() => setAddAgentTab('manual')}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  addAgentTab === 'manual'
-                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                Manual Entry
-              </button>
-            </div>
+            <div className="p-4 space-y-4">
+              {uploadError && (
+                <div className="p-2 bg-rose-50 border border-rose-200 rounded text-sm text-rose-700">{uploadError}</div>
+              )}
 
-            {/* URL Import Tab */}
-            {addAgentTab === 'url' && (
-              <div className="p-4 space-y-4">
-                {(createError || urlError) && (
-                  <div className="p-2 bg-rose-50 border border-rose-200 rounded text-sm text-rose-700">{createError || urlError}</div>
-                )}
+              {/* File upload area */}
+              {!uploadedMetadata && (
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    isDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-300 hover:border-slate-400'
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".zip"
+                    onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                    className="hidden"
+                    id="solution-file-input"
+                  />
+                  {uploadingFile ? (
+                    <div className="py-4">
+                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-sm text-slate-600">Parsing solution...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <svg className="w-10 h-10 text-slate-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="text-sm text-slate-600 mb-2">
+                        Drag & drop your solution .zip file here
+                      </p>
+                      <p className="text-xs text-slate-400 mb-3">or</p>
+                      <label
+                        htmlFor="solution-file-input"
+                        className="inline-block px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 cursor-pointer"
+                      >
+                        Browse files
+                      </label>
+                      <p className="text-xs text-slate-400 mt-4">
+                        Export your agent from Copilot Studio as a managed solution
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
 
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1">M365 Agent URL</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={agentUrl}
-                      onChange={(e) => { setAgentUrl(e.target.value); setUrlResolved(null); setUrlError(null) }}
-                      placeholder="https://m365.cloud.microsoft/chat/?titleId=..."
-                      className="flex-1 px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
+              {/* Parsed solution preview */}
+              {uploadedMetadata && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-emerald-900">{uploadedMetadata.friendlyName}</p>
+                      <p className="text-xs text-emerald-700 mt-1">
+                        {uploadedMetadata.uniqueName} • v{uploadedMetadata.version}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 text-xs">
+                        <span className={`px-1.5 py-0.5 rounded ${uploadedMetadata.isManaged ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'}`}>
+                          {uploadedMetadata.isManaged ? 'Managed' : 'Unmanaged'}
+                        </span>
+                        <span className="text-emerald-600">by {uploadedMetadata.publisherName}</span>
+                      </div>
+                      {uploadedMetadata.description && (
+                        <p className="text-xs text-emerald-600 mt-2">{uploadedMetadata.description}</p>
+                      )}
+
+                      {/* Knowledge Sources */}
+                      {uploadedMetadata.knowledgeSources && uploadedMetadata.knowledgeSources.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-emerald-200">
+                          <p className="text-xs font-medium text-emerald-800 mb-1">Knowledge Sources:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {uploadedMetadata.knowledgeSources.map((source, i) => (
+                              <span key={i} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                {source}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Connection References */}
+                      {uploadedMetadata.connectionReferences && uploadedMetadata.connectionReferences.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-emerald-200">
+                          <p className="text-xs font-medium text-emerald-800 mb-1">Connections Required:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {uploadedMetadata.connectionReferences.map((conn, i) => (
+                              <span key={i} className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded" title={conn.connectorId}>
+                                {conn.displayName || conn.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tenant-Specific Values (URLs that need remapping) */}
+                      {uploadedMetadata.tenantSpecificValues && uploadedMetadata.tenantSpecificValues.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-emerald-200">
+                          <p className="text-xs font-medium text-amber-700 mb-1">
+                            ⚠️ Tenant-Specific Configuration Required:
+                          </p>
+                          <div className="space-y-1.5">
+                            {uploadedMetadata.tenantSpecificValues.map((val, i) => (
+                              <div key={i} className="text-xs bg-amber-50 border border-amber-200 rounded p-2">
+                                <div className="font-mono text-amber-800 break-all">{val.value}</div>
+                                <div className="text-amber-600 mt-1">
+                                  {val.type === 'sharepoint_url' && 'SharePoint URL'}
+                                  {val.type === 'dataverse_url' && 'Dataverse URL'}
+                                  {val.type === 'custom_url' && 'Custom URL'}
+                                  {' — needs mapping per tenant'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-xs text-amber-600 mt-2">
+                            These URLs are specific to your source environment and will need to be configured for each target tenant during deployment.
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedFile && (
+                        <p className="text-xs text-emerald-500 mt-2">{selectedFile.name}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex gap-2 justify-end">
+                {uploadedMetadata ? (
+                  <>
                     <button
                       type="button"
-                      onClick={handleResolveUrl}
-                      disabled={urlResolving || !agentUrl.trim()}
-                      className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded hover:bg-slate-200 disabled:opacity-50"
+                      onClick={handleCancelUpload}
+                      className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
                     >
-                      {urlResolving ? '...' : 'Resolve'}
+                      Upload different file
                     </button>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">Paste the URL from your Copilot Studio agent</p>
-                </div>
-
-                {urlResolved && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <svg className="w-5 h-5 text-emerald-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <div className="flex-1">
-                        <p className="font-medium text-emerald-900">{urlResolved.solution.friendlyName}</p>
-                        <p className="text-xs text-emerald-700 mt-0.5">
-                          {urlResolved.solution.uniqueName} • v{urlResolved.solution.version}
-                        </p>
-                        <p className="text-xs text-emerald-600 mt-1">
-                          Bot: {urlResolved.bot.name}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2 flex gap-2 justify-end">
-                  <button type="button" onClick={() => { setShowAddAgent(false); setUrlError(null); setUrlResolved(null); setAgentUrl('') }} className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900">
-                    Cancel
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmUpload}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Add Agent
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
-                    onClick={handleImportFromUrl}
-                    disabled={isCreating || !urlResolved}
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    onClick={() => { setShowAddAgent(false); setUploadError(null) }}
+                    className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
                   >
-                    {isCreating ? 'Importing...' : 'Import Agent'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Manual Entry Tab */}
-            {addAgentTab === 'manual' && (
-              <form onSubmit={handleCreateAgent}>
-                <div className="p-4 space-y-3">
-                  {createError && (
-                    <div className="p-2 bg-rose-50 border border-rose-200 rounded text-sm text-rose-700">{createError}</div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Display Name *</label>
-                    <input
-                      type="text"
-                      value={formData.friendlyName}
-                      onChange={(e) => {
-                        const friendlyName = e.target.value
-                        setFormData(prev => ({ ...prev, friendlyName, uniqueName: prev.uniqueName || generateUniqueName(friendlyName) }))
-                      }}
-                      placeholder="Customer Support Agent"
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Unique Name *</label>
-                    <input
-                      type="text"
-                      value={formData.uniqueName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, uniqueName: e.target.value }))}
-                      placeholder="CustomerSupportAgent"
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">Version *</label>
-                      <input
-                        type="text"
-                        value={formData.version}
-                        onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                        placeholder="1.0.0.0"
-                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">Publisher</label>
-                      <input
-                        type="text"
-                        value={formData.publisherName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, publisherName: e.target.value }))}
-                        placeholder="Contoso"
-                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Description</label>
-                    <input
-                      type="text"
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Brief description..."
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex gap-2 justify-end">
-                  <button type="button" onClick={() => { setShowAddAgent(false); setCreateError(null) }} className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900">
                     Cancel
                   </button>
-                  <button type="submit" disabled={isCreating} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
-                    {isCreating ? 'Creating...' : 'Create'}
-                  </button>
-                </div>
-              </form>
-            )}
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

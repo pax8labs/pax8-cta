@@ -74,7 +74,7 @@ export async function GET() {
         totalDeployments: (agentDeployments.get(solution.friendlyName) || []).length,
       }))
 
-      // Add custom agents
+      // Add custom agents (include urlTemplates for URL mapping at deploy time)
       const customAgents = Array.from(demoCustomAgents.values()).map(agent => ({
         id: agent.id,
         uniqueName: agent.uniqueName,
@@ -84,6 +84,8 @@ export async function GET() {
         publisherName: agent.publisherName,
         isManaged: agent.isManaged,
         isCustom: true,
+        urlTemplates: agent.urlTemplates,
+        hasSolutionStored: !!agent.solutionBase64,
         deployedTenants: agentDeployments.get(agent.friendlyName) || [],
         totalDeployments: (agentDeployments.get(agent.friendlyName) || []).length,
       }))
