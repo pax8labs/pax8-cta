@@ -258,12 +258,14 @@ export PARTNER_CLIENT_SECRET="your-secret"
 # Start Control Tower
 pnpm web  # Runs at http://localhost:3000
 
-# Optional: For background job processing with Redis
-docker run -d -p 6379:6379 redis:7-alpine
+# Optional: For background job processing with Redis (recommended for production)
+docker run -d --name agentsync-redis -p 6379:6379 \
+  -v agentsync-redis-data:/data \
+  redis:7-alpine redis-server --appendonly yes
 pnpm worker  # In a separate terminal
 ```
 
-> **Note:** The SQLite database is created automatically at `./data/agentsync.db` on first run. Redis is optional - without it, deployments run synchronously in the web process.
+> **Note:** The SQLite database is created automatically at `./data/agentsync.db` on first run. The Redis command above includes persistence (`--appendonly yes` and a volume mount) so queued jobs survive container restarts. For production at scale, use `docker-compose up` which handles this automatically.
 
 ## Configuration
 
@@ -582,7 +584,8 @@ agentsync/
 | `/api/solutions/diff` | POST | Preview deployment diff for a tenant |
 | `/api/deployments` | GET | List shipments |
 | `/api/deployments/[id]` | GET | Shipment details |
-| `/api/deployments/create` | POST | Create new shipment |
+| `/api/deployments/create` | POST | Create new shipment (requires Redis) |
+| `/api/deployments/process` | POST | **Deploy without Redis** (serverless-friendly) |
 | `/api/deployments/[id]/retry` | POST | Retry failed destination deliveries |
 | `/api/deployments/[id]/cancel` | POST | Cancel pending deliveries |
 | `/api/deployments/[id]/approve` | GET | Get approval status |
@@ -591,6 +594,40 @@ agentsync/
 | `/api/tenants/[id]/health` | GET | Get last health check result |
 | `/api/tenants/[id]/health` | POST | Run health check for tenant |
 | `/api/schedules` | GET | Get scheduled deployment info |
+
+### Serverless Deployments (No Redis)
+
+For Vercel, Netlify, or other serverless environments without Redis, use the `/api/deployments/process` endpoint directly:
+
+```bash
+curl -X POST http://localhost:3000/api/deployments/process \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenantIds": ["tenant-uuid-1", "tenant-uuid-2"],
+    "solutionPath": "./solutions/MyAgent_managed.zip",
+    "solutionName": "MyAgent"
+  }'
+```
+
+**Response:**
+```json
+{
+  "deploymentId": "generated-uuid",
+  "status": "completed",
+  "totalTenants": 2,
+  "successCount": 2,
+  "failedCount": 0,
+  "results": [
+    { "tenantId": "...", "tenantName": "...", "success": true, "durationMs": 45000 }
+  ]
+}
+```
+
+**Limitations vs Redis-based deployments:**
+- Deployments run sequentially (not parallel)
+- 5-minute timeout (Vercel Pro) or 10-second (Vercel Hobby)
+- No job persistence - if the request is interrupted, you must retry
+- Best for small fleets (< 20 tenants) or infrequent deployments
 
 ## Known Limitations
 
