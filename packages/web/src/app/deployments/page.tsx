@@ -235,6 +235,18 @@ function getDetailedLogMessage(
   return status === 'started' ? stepMessages.started : stepMessages.completed
 }
 
+// SSE Message types for type-safe parsing
+interface SSEMessage {
+  type: string
+  tenantId?: string
+  tenantName?: string
+  environmentUrl?: string
+  timestamp?: string
+  stepId?: string
+  error?: string
+  message?: string
+}
+
 // Retry Progress Modal - shows live terminal log when retrying deployments
 function RetryProgressModal({
   isOpen,
@@ -252,6 +264,15 @@ function RetryProgressModal({
   const [selectedTenantId, setSelectedTenantId] = React.useState<string | null>(null)
   const eventSourceRef = React.useRef<EventSource | null>(null)
   const [completedDeployments, setCompletedDeployments] = React.useState(0)
+  const mountedRef = React.useRef(true)
+
+  // Track mounted state to prevent state updates after unmount
+  React.useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   // Connect to SSE for each deployment being retried
   React.useEffect(() => {
@@ -270,19 +291,39 @@ function RetryProgressModal({
     eventSourceRef.current = eventSource
 
     eventSource.onopen = () => {
-      setDeploymentStatus('in_progress')
+      if (mountedRef.current) {
+        setDeploymentStatus('in_progress')
+      }
     }
 
     eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data)
+      // Don't process messages if component is unmounted
+      if (!mountedRef.current) return
+
+      // Parse SSE data with error handling
+      let data: SSEMessage
+      try {
+        data = JSON.parse(event.data) as SSEMessage
+      } catch (parseError) {
+        console.error('Failed to parse SSE message:', parseError, event.data)
+        return
+      }
+
+      // Validate required fields for tenant events
+      const tenantId = data.tenantId
+      if (!tenantId && data.type !== 'deployment_completed' && data.type !== 'error') {
+        console.warn('SSE message missing tenantId:', data)
+        return
+      }
 
       switch (data.type) {
         case 'tenant_started':
+          if (!tenantId) return
           setTenantProgress(prev => {
             const newMap = new Map(prev)
-            newMap.set(data.tenantId, {
-              tenantId: data.tenantId,
-              tenantName: data.tenantName,
+            newMap.set(tenantId, {
+              tenantId,
+              tenantName: data.tenantName || 'Unknown',
               environmentUrl: data.environmentUrl,
               status: 'in_progress',
               currentStep: null,
@@ -293,19 +334,20 @@ function RetryProgressModal({
               }), {} as TenantProgress['steps'])
             })
             // Auto-select first tenant
-            setSelectedTenantId(prev => prev || data.tenantId)
+            setSelectedTenantId(prev => prev || tenantId)
             return newMap
           })
           break
 
         case 'step_started':
+          if (!tenantId) return
           setTenantProgress(prev => {
             const newMap = new Map(prev)
-            const tenant = newMap.get(data.tenantId)
-            if (tenant) {
-              newMap.set(data.tenantId, {
+            const tenant = newMap.get(tenantId)
+            if (tenant && data.stepId) {
+              newMap.set(tenantId, {
                 ...tenant,
-                currentStep: data.stepId,
+                currentStep: data.stepId as DeploymentStepId,
                 steps: {
                   ...tenant.steps,
                   [data.stepId]: { status: 'in_progress', startedAt: data.timestamp }
@@ -317,11 +359,12 @@ function RetryProgressModal({
           break
 
         case 'step_completed':
+          if (!tenantId) return
           setTenantProgress(prev => {
             const newMap = new Map(prev)
-            const tenant = newMap.get(data.tenantId)
-            if (tenant) {
-              newMap.set(data.tenantId, {
+            const tenant = newMap.get(tenantId)
+            if (tenant && data.stepId) {
+              newMap.set(tenantId, {
                 ...tenant,
                 steps: {
                   ...tenant.steps,
@@ -334,11 +377,12 @@ function RetryProgressModal({
           break
 
         case 'step_failed':
+          if (!tenantId) return
           setTenantProgress(prev => {
             const newMap = new Map(prev)
-            const tenant = newMap.get(data.tenantId)
-            if (tenant) {
-              newMap.set(data.tenantId, {
+            const tenant = newMap.get(tenantId)
+            if (tenant && data.stepId) {
+              newMap.set(tenantId, {
                 ...tenant,
                 status: 'failed',
                 error: data.error,
@@ -353,11 +397,12 @@ function RetryProgressModal({
           break
 
         case 'tenant_completed':
+          if (!tenantId) return
           setTenantProgress(prev => {
             const newMap = new Map(prev)
-            const tenant = newMap.get(data.tenantId)
+            const tenant = newMap.get(tenantId)
             if (tenant) {
-              newMap.set(data.tenantId, {
+              newMap.set(tenantId, {
                 ...tenant,
                 status: 'completed',
                 completedAt: data.timestamp,
@@ -369,11 +414,12 @@ function RetryProgressModal({
           break
 
         case 'tenant_failed':
+          if (!tenantId) return
           setTenantProgress(prev => {
             const newMap = new Map(prev)
-            const tenant = newMap.get(data.tenantId)
+            const tenant = newMap.get(tenantId)
             if (tenant) {
-              newMap.set(data.tenantId, {
+              newMap.set(tenantId, {
                 ...tenant,
                 status: 'failed',
                 error: data.error,
@@ -402,7 +448,9 @@ function RetryProgressModal({
     eventSource.onerror = () => {
       eventSource.close()
       // If we never got past connecting, mark as failed
-      setDeploymentStatus(prev => prev === 'connecting' ? 'failed' : prev)
+      if (mountedRef.current) {
+        setDeploymentStatus(prev => prev === 'connecting' ? 'failed' : prev)
+      }
     }
 
     return () => {
@@ -662,7 +710,7 @@ function DeploymentsContent() {
   }, [statusFilter, searchParams, router])
 
   // Disable auto-refresh on Issues tab to prevent confusion after retries
-  const refreshInterval = statusFilter === 'issues' ? 0 : 5000
+  const refreshInterval = statusFilter === 'issues' ? 30000 : 5000
   const { data, error, isLoading, mutate } = useSWR('/api/deployments?limit=100', fetcher, { refreshInterval })
   const deployments = data?.deployments ?? []
 
@@ -1217,7 +1265,7 @@ function DeploymentsContent() {
                 const hasError = record.error && FAILED_STATUSES.includes(record.status)
 
                 return (
-                  <React.Fragment key={`${record.tenantId}-${record.agentName}-${idx}`}>
+                  <React.Fragment key={recordKey}>
                     <tr
                       className={`hover:bg-gray-50 ${hasError ? 'cursor-pointer' : ''} ${isExpanded ? 'bg-gray-50' : ''}`}
                       onClick={() => hasError && toggleExpanded(recordKey)}

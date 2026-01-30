@@ -15,15 +15,39 @@ const DEDUPE_WINDOW_MS = 60 * 60 * 1000 // 1 hour - don't report same error twic
 const MAX_ISSUES_PER_HOUR = 10 // Rate limit
 
 // In-memory tracking (resets on server restart)
+// Use bounded Map to prevent memory leaks
+const MAX_CACHED_ERRORS = 1000
 const reportedErrors = new Map<string, number>() // errorHash -> timestamp
 let issueCount = 0
 let issueCountResetTime = Date.now()
+
+// Helper to maintain map size bounds
+function addToErrorCache(hash: string, timestamp: number): void {
+  // If at capacity, remove oldest entries
+  if (reportedErrors.size >= MAX_CACHED_ERRORS) {
+    const entriesToRemove = Math.floor(MAX_CACHED_ERRORS * 0.2) // Remove 20%
+    const sortedByTime = [...reportedErrors.entries()].sort((a, b) => a[1] - b[1])
+    for (let i = 0; i < entriesToRemove && i < sortedByTime.length; i++) {
+      reportedErrors.delete(sortedByTime[i][0])
+    }
+  }
+  reportedErrors.set(hash, timestamp)
+}
+
+// Sanitize error message for logging (remove potential secrets)
+function sanitizeErrorForLogging(error: unknown): string {
+  if (error instanceof Error) {
+    // Only log message and name, not full stack or cause which might contain request details
+    return `${error.name}: ${error.message}`
+  }
+  return String(error)
+}
 
 export interface ErrorReport {
   error: Error | string
   errorStack?: string
   componentStack?: string
-  source: 'error_boundary' | 'api_error' | 'unhandled_rejection' | 'global_error'
+  source: 'error_boundary' | 'api_error' | 'unhandled_rejection' | 'global_error' | 'manual_report'
   context?: Record<string, unknown>
   userAgent?: string
   url?: string
@@ -169,6 +193,7 @@ function generateIssueTitle(report: ErrorReport): string {
     api_error: 'API',
     unhandled_rejection: 'Promise',
     global_error: 'Global',
+    manual_report: 'Manual',
   }[report.source] || report.source
 
   return `[${sourceLabel}] ${errorName}: ${shortMessage}`
@@ -229,8 +254,8 @@ export async function reportErrorToGitHub(report: ErrorReport): Promise<GitHubIs
 
     const data = await response.json()
 
-    // Track successful report
-    reportedErrors.set(errorHash, Date.now())
+    // Track successful report using bounded cache
+    addToErrorCache(errorHash, Date.now())
     issueCount++
 
     return {
@@ -239,7 +264,8 @@ export async function reportErrorToGitHub(report: ErrorReport): Promise<GitHubIs
       issueNumber: data.number,
     }
   } catch (error) {
-    console.error('[GitHub Issue Reporter] Failed to create issue:', error)
+    // Sanitize error before logging to avoid credential exposure
+    console.error('[GitHub Issue Reporter] Failed to create issue:', sanitizeErrorForLogging(error))
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error creating GitHub issue',

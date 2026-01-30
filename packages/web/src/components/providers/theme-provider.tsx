@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -24,6 +24,27 @@ interface ThemeProviderProps {
   children: ReactNode
 }
 
+// Helper function to apply theme to document
+function applyThemeToDocument(resolved: 'light' | 'dark') {
+  const root = document.documentElement
+  if (resolved === 'dark') {
+    root.classList.add('dark')
+  } else {
+    root.classList.remove('dark')
+  }
+}
+
+// Helper to resolve theme based on setting and system preference
+function resolveThemeValue(theme: Theme): 'light' | 'dark' {
+  if (theme === 'system') {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    return 'light' // Default for SSR
+  }
+  return theme
+}
+
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>('system')
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
@@ -37,7 +58,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         if (response.ok) {
           const data = await response.json()
           const savedTheme = data.app?.theme as Theme | undefined
-          if (savedTheme) {
+          if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
             setThemeState(savedTheme)
           }
         }
@@ -53,23 +74,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     if (!mounted) return
 
-    const resolveTheme = () => {
-      if (theme === 'system') {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      }
-      return theme
-    }
-
-    const resolved = resolveTheme()
+    const resolved = resolveThemeValue(theme)
     setResolvedTheme(resolved)
-
-    // Apply to document
-    const root = document.documentElement
-    if (resolved === 'dark') {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
-    }
+    applyThemeToDocument(resolved)
   }, [theme, mounted])
 
   // Listen for system preference changes
@@ -78,29 +85,23 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = (e: MediaQueryListEvent) => {
-      setResolvedTheme(e.matches ? 'dark' : 'light')
-      const root = document.documentElement
-      if (e.matches) {
-        root.classList.add('dark')
-      } else {
-        root.classList.remove('dark')
-      }
+      const newResolved = e.matches ? 'dark' : 'light'
+      setResolvedTheme(newResolved)
+      applyThemeToDocument(newResolved)
     }
 
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [theme, mounted])
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)
     // The settings page handles saving to API when user changes the setting
-  }
+  }, [])
 
-  // Prevent flash of wrong theme
-  if (!mounted) {
-    return null
-  }
-
+  // Return children immediately to avoid hydration mismatch
+  // The theme will be applied after mount via useEffect
+  // This prevents the flash of unstyled content while maintaining SSR compatibility
   return (
     <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
       {children}

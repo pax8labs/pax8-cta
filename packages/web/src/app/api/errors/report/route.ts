@@ -3,6 +3,53 @@ import { reportErrorToGitHub, isGitHubReportingEnabled, ErrorReport } from '@/li
 
 export const dynamic = 'force-dynamic'
 
+// Maximum request body size (100KB)
+const MAX_BODY_SIZE = 100 * 1024
+
+// Valid source values
+const VALID_SOURCES = ['error_boundary', 'global_error', 'unhandled_rejection', 'api_error', 'manual_report'] as const
+type ErrorSource = (typeof VALID_SOURCES)[number]
+
+// Sanitize string fields - limit length and remove potential sensitive data
+function sanitizeString(value: unknown, maxLength: number = 10000): string | undefined {
+  if (typeof value !== 'string') return undefined
+  // Truncate to max length
+  let sanitized = value.slice(0, maxLength)
+  // Remove potential tokens/secrets (basic patterns)
+  sanitized = sanitized.replace(/(?:Bearer|token|api[_-]?key|password|secret)[:\s=]+[^\s"']+/gi, '[REDACTED]')
+  return sanitized
+}
+
+// Sanitize context object - limit depth and remove sensitive keys
+function sanitizeContext(context: unknown): Record<string, unknown> {
+  if (!context || typeof context !== 'object') return {}
+
+  const sensitiveKeys = ['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization', 'cookie', 'session']
+  const sanitized: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(context as Record<string, unknown>)) {
+    // Skip sensitive keys
+    if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk.toLowerCase()))) {
+      sanitized[key] = '[REDACTED]'
+      continue
+    }
+    // Limit nested object depth by stringifying
+    if (typeof value === 'object' && value !== null) {
+      try {
+        sanitized[key] = JSON.stringify(value).slice(0, 500)
+      } catch {
+        sanitized[key] = '[Unable to serialize]'
+      }
+    } else if (typeof value === 'string') {
+      sanitized[key] = value.slice(0, 500)
+    } else {
+      sanitized[key] = value
+    }
+  }
+
+  return sanitized
+}
+
 /**
  * POST /api/errors/report
  *
@@ -11,26 +58,50 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-
-    // Validate required fields
-    if (!body.error && !body.errorMessage) {
+    // Check content length before parsing
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
       return NextResponse.json(
-        { error: 'Missing required field: error or errorMessage' },
+        { error: 'Request body too large', maxSize: MAX_BODY_SIZE },
+        { status: 413 }
+      )
+    }
+
+    let body: Record<string, unknown>
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON body' },
         { status: 400 }
       )
     }
 
-    // Construct the error report
+    // Validate required fields
+    const errorMessage = body.errorMessage || body.error
+    if (!errorMessage || typeof errorMessage !== 'string') {
+      return NextResponse.json(
+        { error: 'Missing or invalid required field: error or errorMessage (must be a string)' },
+        { status: 400 }
+      )
+    }
+
+    // Validate source
+    const rawSource = body.source || 'global_error'
+    const source: ErrorSource = VALID_SOURCES.includes(rawSource as ErrorSource)
+      ? (rawSource as ErrorSource)
+      : 'global_error'
+
+    // Construct the error report with sanitized fields
     const report: ErrorReport = {
-      error: body.errorMessage || body.error || 'Unknown error',
-      errorStack: body.errorStack || body.stack,
-      componentStack: body.componentStack,
-      source: body.source || 'global_error',
-      context: body.context || {},
-      userAgent: request.headers.get('user-agent') || undefined,
-      url: body.url || request.headers.get('referer') || undefined,
-      timestamp: body.timestamp || new Date().toISOString(),
+      error: sanitizeString(errorMessage, 1000) || 'Unknown error',
+      errorStack: sanitizeString(body.errorStack || body.stack, 5000),
+      componentStack: sanitizeString(body.componentStack, 5000),
+      source,
+      context: sanitizeContext(body.context),
+      userAgent: request.headers.get('user-agent')?.slice(0, 500) || undefined,
+      url: sanitizeString(body.url || request.headers.get('referer'), 500),
+      timestamp: typeof body.timestamp === 'string' ? body.timestamp : new Date().toISOString(),
     }
 
     // Check if reporting is enabled

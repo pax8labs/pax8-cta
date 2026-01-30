@@ -8,17 +8,18 @@ interface FlaskSpinnerProps {
   className?: string
 }
 
+// Dimensions moved outside component to avoid recreation on each render
+const DIMENSIONS = {
+  sm: { width: 32, height: 40, bubbleSize: 4 },
+  md: { width: 48, height: 60, bubbleSize: 6 },
+  lg: { width: 64, height: 80, bubbleSize: 8 },
+} as const
+
 /**
  * A fun science flask loading spinner with animated bubbles
  */
 export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpinnerProps) {
-  const dimensions = {
-    sm: { width: 32, height: 40, bubbleSize: 4 },
-    md: { width: 48, height: 60, bubbleSize: 6 },
-    lg: { width: 64, height: 80, bubbleSize: 8 },
-  }
-
-  const { width, height, bubbleSize } = dimensions[size]
+  const { width, height, bubbleSize } = DIMENSIONS[size]
 
   return (
     <div className={`flex flex-col items-center gap-3 ${className}`}>
@@ -31,6 +32,8 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
           className="text-blue-600"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label={message || 'Loading'}
         >
           {/* Flask neck */}
           <path

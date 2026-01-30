@@ -27,11 +27,18 @@ export default function RootLayout({
           <PostHogProvider>
             <ThemeProvider>
               <GlobalErrorHandler>
+              {/* Skip to main content link for accessibility */}
+              <a
+                href="#main-content"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded"
+              >
+                Skip to main content
+              </a>
               <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+            <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700" aria-label="Main navigation">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
-                  <a href="/" className="flex items-center gap-3">
+                  <a href="/" className="flex items-center gap-3" aria-label="AgentSync Home">
                     <Image
                       src="/pax8labs-logo.svg"
                       alt="Pax8 Labs"
@@ -82,7 +89,7 @@ export default function RootLayout({
                 </div>
               </div>
             </nav>
-            <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <main id="main-content" className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
               <ErrorBoundary>
                 {children}
               </ErrorBoundary>
