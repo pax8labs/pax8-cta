@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
+import { FlaskSpinner } from '@/components/ui/flask-spinner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -101,6 +102,18 @@ export default function SolutionsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  // Conflict resolution state
+  const [uploadConflict, setUploadConflict] = useState<{
+    existingAgent: { uniqueName: string; friendlyName: string; version: string; status: string; createdAt: string };
+    newAgent: { uniqueName: string; friendlyName: string; version: string };
+    metadata: any;
+    urlTemplates: any;
+    solutionBase64: string;
+  } | null>(null)
+  const [conflictResolutionMode, setConflictResolutionMode] = useState<'update' | 'create' | null>(null)
+  const [newAgentName, setNewAgentName] = useState('')
+  const [newAgentFriendlyName, setNewAgentFriendlyName] = useState('')
+  const [resolvingConflict, setResolvingConflict] = useState(false)
   // Import mode state
   const [importMode, setImportMode] = useState<'upload' | 'browse'>('upload')
   const [sourceSolutions, setSourceSolutions] = useState<any[]>([])
@@ -157,6 +170,8 @@ export default function SolutionsPage() {
     setUploadError(null)
     setUploadingFile(true)
     setUploadedMetadata(null)
+    setUploadConflict(null)
+    setConflictResolutionMode(null)
 
     try {
       const formData = new FormData()
@@ -168,6 +183,23 @@ export default function SolutionsPage() {
         body: formData,
       })
       const result = await response.json()
+
+      // Check if there's a conflict
+      if (result.conflict) {
+        setUploadConflict({
+          existingAgent: result.existingAgent,
+          newAgent: result.newAgent,
+          metadata: result.metadata,
+          urlTemplates: result.urlTemplates,
+          solutionBase64: result.solutionBase64,
+        })
+        setUploadedMetadata(result.metadata)
+        // Pre-populate new name suggestions
+        setNewAgentName(result.metadata.uniqueName + '_v2')
+        setNewAgentFriendlyName(result.metadata.friendlyName + ' (Copy)')
+        return
+      }
+
       if (!response.ok) throw new Error(result.error || 'Failed to parse solution')
 
       setUploadedMetadata(result.metadata)
@@ -176,6 +208,45 @@ export default function SolutionsPage() {
       setSelectedFile(null)
     } finally {
       setUploadingFile(false)
+    }
+  }
+
+  // Handle conflict resolution
+  const handleResolveConflict = async (action: 'update' | 'create') => {
+    if (!uploadConflict) return
+
+    setResolvingConflict(true)
+    setUploadError(null)
+
+    try {
+      const response = await fetch('/api/solutions/upload/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          originalUniqueName: uploadConflict.existingAgent.uniqueName,
+          newUniqueName: action === 'create' ? newAgentName : undefined,
+          newFriendlyName: action === 'create' ? newAgentFriendlyName : undefined,
+          metadata: uploadConflict.metadata,
+          urlTemplates: uploadConflict.urlTemplates,
+          solutionBase64: uploadConflict.solutionBase64,
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to resolve conflict')
+
+      // Success - close modal and refresh
+      setShowAddAgent(false)
+      setSelectedFile(null)
+      setUploadedMetadata(null)
+      setUploadConflict(null)
+      setConflictResolutionMode(null)
+      mutate()
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to resolve conflict')
+    } finally {
+      setResolvingConflict(false)
     }
   }
 
@@ -207,6 +278,8 @@ export default function SolutionsPage() {
     setSelectedFile(null)
     setUploadedMetadata(null)
     setUploadError(null)
+    setUploadConflict(null)
+    setConflictResolutionMode(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -560,14 +633,25 @@ export default function SolutionsPage() {
                         </div>
                         {editingTagsAgentId === agent.id ? (
                           <div className="space-y-2">
+                            {/* Show current tags being edited */}
+                            {agent.tags && agent.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pb-1 border-b border-slate-200">
+                                <span className="text-xs text-slate-500">Current:</span>
+                                {agent.tags.map(tag => (
+                                  <span key={tag} className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded">{tag}</span>
+                                ))}
+                              </div>
+                            )}
                             <input
                               type="text"
                               value={editTagsInput}
                               onChange={(e) => setEditTagsInput(e.target.value)}
                               placeholder="tag1, tag2, tag3"
-                              className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-2 py-1.5 text-xs text-slate-900 bg-white border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                               onClick={(e) => e.stopPropagation()}
+                              autoFocus
                             />
+                            <p className="text-xs text-slate-400">Separate tags with commas</p>
                             <div className="flex gap-1">
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleSaveTags(agent.id) }}
@@ -889,9 +973,8 @@ export default function SolutionsPage() {
               {importMode === 'browse' && (
                 <div>
                   {loadingEnvironments ? (
-                    <div className="py-8 text-center">
-                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                      <p className="text-sm text-slate-600">Loading environments...</p>
+                    <div className="py-8">
+                      <FlaskSpinner size="sm" message="Loading environments..." />
                     </div>
                   ) : environments.length === 0 ? (
                     <div className="py-8 text-center">
@@ -950,9 +1033,8 @@ export default function SolutionsPage() {
 
                       {/* Solutions list */}
                       {loadingSourceSolutions ? (
-                        <div className="py-6 text-center">
-                          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                          <p className="text-xs text-slate-500">Loading solutions...</p>
+                        <div className="py-4">
+                          <FlaskSpinner size="sm" message="Loading solutions..." />
                         </div>
                       ) : sourceSolutions.length === 0 ? (
                         <div className="py-6 text-center text-sm text-slate-500">
@@ -1158,8 +1240,7 @@ export default function SolutionsPage() {
                   />
                   {uploadingFile ? (
                     <div className="py-4">
-                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      <p className="text-sm text-slate-600">Parsing solution...</p>
+                      <FlaskSpinner size="sm" message="Parsing solution..." />
                     </div>
                   ) : (
                     <>
@@ -1184,8 +1265,123 @@ export default function SolutionsPage() {
                 </div>
               )}
 
-              {/* Parsed solution preview (upload mode only) */}
-              {importMode === 'upload' && uploadedMetadata && (
+              {/* Conflict resolution UI */}
+              {importMode === 'upload' && uploadConflict && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-amber-900">Agent Already Exists</p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        An agent with the unique name <span className="font-mono bg-amber-100 px-1 rounded">{uploadConflict.existingAgent.uniqueName}</span> already exists.
+                      </p>
+
+                      {/* Existing agent info */}
+                      <div className="mt-3 p-2 bg-white border border-amber-200 rounded text-xs">
+                        <p className="font-medium text-slate-700">Existing Agent:</p>
+                        <div className="mt-1 text-slate-600">
+                          <span className="font-medium">{uploadConflict.existingAgent.friendlyName}</span>
+                          <span className="ml-2 text-slate-400">v{uploadConflict.existingAgent.version}</span>
+                          {uploadConflict.existingAgent.status === 'archived' && (
+                            <span className="ml-2 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">archived</span>
+                          )}
+                        </div>
+                        <p className="text-slate-400 mt-1">Created: {new Date(uploadConflict.existingAgent.createdAt).toLocaleDateString()}</p>
+                      </div>
+
+                      {/* New agent info */}
+                      <div className="mt-2 p-2 bg-white border border-amber-200 rounded text-xs">
+                        <p className="font-medium text-slate-700">Uploaded Solution:</p>
+                        <div className="mt-1 text-slate-600">
+                          <span className="font-medium">{uploadConflict.newAgent.friendlyName}</span>
+                          <span className="ml-2 text-slate-400">v{uploadConflict.newAgent.version}</span>
+                        </div>
+                      </div>
+
+                      {/* Resolution options */}
+                      <div className="mt-4 space-y-3">
+                        <p className="text-xs font-medium text-amber-800">Choose how to proceed:</p>
+
+                        {/* Option 1: Update existing */}
+                        <div
+                          onClick={() => setConflictResolutionMode('update')}
+                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                            conflictResolutionMode === 'update'
+                              ? 'border-blue-400 bg-blue-50'
+                              : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                              conflictResolutionMode === 'update' ? 'border-blue-500' : 'border-slate-300'
+                            }`}>
+                              {conflictResolutionMode === 'update' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                            </div>
+                            <span className="text-sm font-medium text-slate-900">Update Existing Agent</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1 ml-6">
+                            Replace the existing agent&apos;s solution with this new version.
+                            {uploadConflict.existingAgent.status === 'archived' && ' The agent will also be reactivated.'}
+                          </p>
+                        </div>
+
+                        {/* Option 2: Create new with different name */}
+                        <div
+                          onClick={() => setConflictResolutionMode('create')}
+                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                            conflictResolutionMode === 'create'
+                              ? 'border-blue-400 bg-blue-50'
+                              : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                              conflictResolutionMode === 'create' ? 'border-blue-500' : 'border-slate-300'
+                            }`}>
+                              {conflictResolutionMode === 'create' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                            </div>
+                            <span className="text-sm font-medium text-slate-900">Create as New Agent</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1 ml-6">
+                            Keep the existing agent and create a new one with a different name.
+                          </p>
+
+                          {/* Name inputs (only shown when this option is selected) */}
+                          {conflictResolutionMode === 'create' && (
+                            <div className="mt-3 ml-6 space-y-2" onClick={(e) => e.stopPropagation()}>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Unique Name</label>
+                                <input
+                                  type="text"
+                                  value={newAgentName}
+                                  onChange={(e) => setNewAgentName(e.target.value)}
+                                  className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  placeholder="e.g., MyAgent_v2"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Display Name</label>
+                                <input
+                                  type="text"
+                                  value={newAgentFriendlyName}
+                                  onChange={(e) => setNewAgentFriendlyName(e.target.value)}
+                                  className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  placeholder="e.g., My Agent (Copy)"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Parsed solution preview (upload mode only) - show only when no conflict */}
+              {importMode === 'upload' && uploadedMetadata && !uploadConflict && (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
                   <div className="flex items-start gap-3">
                     <svg className="w-6 h-6 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1269,7 +1465,26 @@ export default function SolutionsPage() {
 
               {importMode === 'upload' && (
               <div className="pt-2 flex gap-2 justify-end">
-                {uploadedMetadata ? (
+                {uploadConflict ? (
+                  // Conflict resolution buttons
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCancelUpload}
+                      className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleResolveConflict(conflictResolutionMode!)}
+                      disabled={!conflictResolutionMode || resolvingConflict || (conflictResolutionMode === 'create' && !newAgentName.trim())}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resolvingConflict ? 'Processing...' : conflictResolutionMode === 'update' ? 'Update Agent' : conflictResolutionMode === 'create' ? 'Create New Agent' : 'Select an Option'}
+                    </button>
+                  </>
+                ) : uploadedMetadata ? (
                   <>
                     <button
                       type="button"

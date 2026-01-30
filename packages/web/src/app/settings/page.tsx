@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
+import { useTheme } from '@/components/providers/theme-provider'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -46,6 +47,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const { data: apiSettings, mutate } = useSWR('/api/settings', fetcher)
+  const { setTheme } = useTheme()
 
   // Use demo settings when in demo mode with no real settings configured
   const isDemoMode = apiSettings?.app?.demoMode !== false && !apiSettings?.isConfigured
@@ -233,22 +235,22 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Settings</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Configure AgentSync integration and application settings
         </p>
       </div>
 
       {/* Demo mode banner */}
       {isDemoMode && (
-        <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+        <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700">
           <div className="flex items-start gap-2">
-            <span className="text-amber-600 mt-0.5">⚠️</span>
+            <span className="text-amber-600 dark:text-amber-400 mt-0.5">⚠️</span>
             <div>
-              <p className="text-sm font-medium text-amber-800">Demo Mode</p>
-              <p className="text-xs text-amber-700 mt-0.5">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Demo Mode</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
                 Showing sample configuration values. These are example credentials for demonstration purposes only.
-                Complete the <a href="/welcome" className="underline hover:text-amber-900">setup wizard</a> to connect to your real Power Platform environment.
+                Complete the <a href="/welcome" className="underline hover:text-amber-900 dark:hover:text-amber-200">setup wizard</a> to connect to your real Power Platform environment.
               </p>
             </div>
           </div>
@@ -269,7 +271,7 @@ export default function SettingsPage() {
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="-mb-px flex space-x-8">
           {tabs.map((tab) => (
             <button
@@ -277,8 +279,8 @@ export default function SettingsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               <span className="mr-2">{tab.icon}</span>
@@ -292,11 +294,11 @@ export default function SettingsPage() {
       {activeTab === 'integration' && (
         <div className="space-y-6">
           {/* Status Card */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-gray-900">Connection Status</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="font-medium text-gray-900 dark:text-white">Connection Status</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {settings?.isConfigured
                     ? settings?.integration?.lastTestResult === 'success'
                       ? 'Connected and verified'
@@ -306,7 +308,7 @@ export default function SettingsPage() {
                     : 'Not configured'}
                 </p>
                 {settings?.integration?.lastTestedAt && (
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Last tested: {new Date(settings.integration.lastTestedAt).toLocaleString()}
                   </p>
                 )}
@@ -326,15 +328,15 @@ export default function SettingsPage() {
           </div>
 
           {/* Partner Credentials */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Partner Credentials</h3>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Partner Credentials</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Configure your Azure AD app registration for GDAP-based access to customer tenants.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Partner Tenant ID
                 </label>
                 <input
@@ -344,13 +346,13 @@ export default function SettingsPage() {
                     setIntegrationForm({ ...integrationForm, partnerTenantId: e.target.value })
                   }
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">Your MSP/Partner Azure AD tenant ID</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Your MSP/Partner Azure AD tenant ID</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Application (Client) ID
                 </label>
                 <input
@@ -360,13 +362,13 @@ export default function SettingsPage() {
                     setIntegrationForm({ ...integrationForm, partnerClientId: e.target.value })
                   }
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">From your Azure AD app registration</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">From your Azure AD app registration</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Client Secret
                 </label>
                 <input
@@ -376,9 +378,9 @@ export default function SettingsPage() {
                     setIntegrationForm({ ...integrationForm, partnerClientSecret: e.target.value })
                   }
                   placeholder={settings?.integration?.partnerClientSecret ? '••••••••••••••••' : 'Enter client secret'}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   Stored encrypted at rest. Leave blank to keep existing value.
                 </p>
               </div>
@@ -386,15 +388,15 @@ export default function SettingsPage() {
           </div>
 
           {/* Source Environment */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Source Environment (Optional)</h3>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Source Environment (Optional)</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               If your agents are stored in a central Power Platform environment, configure it here.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Source Tenant ID
                 </label>
                 <input
@@ -404,12 +406,12 @@ export default function SettingsPage() {
                     setIntegrationForm({ ...integrationForm, sourceTenantId: e.target.value })
                   }
                   placeholder="Leave blank to use partner tenant"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Source Environment URL
                 </label>
                 <input
@@ -419,15 +421,15 @@ export default function SettingsPage() {
                     setIntegrationForm({ ...integrationForm, sourceEnvironmentUrl: e.target.value })
                   }
                   placeholder="https://yourorg.crm.dynamics.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
           </div>
 
           {/* Feature Flags */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Features</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Features</h3>
 
             <div className="space-y-3">
               <label className="flex items-center">
@@ -440,13 +442,13 @@ export default function SettingsPage() {
                       tenantDiscoveryEnabled: e.target.checked,
                     })
                   }
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                   Enable GDAP Tenant Discovery
                 </span>
               </label>
-              <p className="text-xs text-gray-400 ml-6">
+              <p className="text-xs text-gray-400 dark:text-gray-500 ml-6">
                 Automatically discover customer tenants via Partner Center API
               </p>
 
@@ -460,13 +462,13 @@ export default function SettingsPage() {
                       connectionMappingEnabled: e.target.checked,
                     })
                   }
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                   Enable Connection Reference Mapping
                 </span>
               </label>
-              <p className="text-xs text-gray-400 ml-6">
+              <p className="text-xs text-gray-400 dark:text-gray-500 ml-6">
                 Map connection references during deployment
               </p>
 
@@ -480,13 +482,13 @@ export default function SettingsPage() {
                       environmentVariablesEnabled: e.target.checked,
                     })
                   }
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                   Enable Environment Variable Configuration
                 </span>
               </label>
-              <p className="text-xs text-gray-400 ml-6">
+              <p className="text-xs text-gray-400 dark:text-gray-500 ml-6">
                 Configure environment variables per tenant during deployment
               </p>
             </div>
@@ -494,21 +496,21 @@ export default function SettingsPage() {
 
           {/* Test Results */}
           {testResults && testResults.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Test Results</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Test Results</h3>
               <div className="space-y-3">
                 {testResults.map((result, i) => (
                   <div
                     key={i}
                     className={`flex items-start p-3 rounded-lg ${
-                      result.success ? 'bg-green-50' : 'bg-red-50'
+                      result.success ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30'
                     }`}
                   >
                     <span className="mr-2">{result.success ? '✓' : '✗'}</span>
                     <div>
                       <p
                         className={`text-sm font-medium ${
-                          result.success ? 'text-green-800' : 'text-red-800'
+                          result.success ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'
                         }`}
                       >
                         {result.message}
@@ -516,7 +518,7 @@ export default function SettingsPage() {
                       {result.details && (
                         <p
                           className={`text-xs ${
-                            result.success ? 'text-green-600' : 'text-red-600'
+                            result.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                           }`}
                         >
                           {result.details}
@@ -553,8 +555,8 @@ export default function SettingsPage() {
       {/* Application Tab */}
       {activeTab === 'application' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">General Settings</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">General Settings</h3>
 
             <div className="space-y-4">
               <label className="flex items-center">
@@ -562,22 +564,24 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={appForm.demoMode}
                   onChange={(e) => setAppForm({ ...appForm, demoMode: e.target.checked })}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">Demo Mode</span>
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Demo Mode</span>
               </label>
-              <p className="text-xs text-gray-400 ml-6">
+              <p className="text-xs text-gray-400 dark:text-gray-500 ml-6">
                 Use mock data instead of real Power Platform connections
               </p>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Theme</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Theme</label>
                 <select
                   value={appForm.theme}
-                  onChange={(e) =>
-                    setAppForm({ ...appForm, theme: e.target.value as 'light' | 'dark' | 'system' })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    const newTheme = e.target.value as 'light' | 'dark' | 'system'
+                    setAppForm({ ...appForm, theme: newTheme })
+                    setTheme(newTheme)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="system">System</option>
                   <option value="light">Light</option>
@@ -587,12 +591,12 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Deployment Defaults</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Deployment Defaults</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Max Concurrent Deployments
                 </label>
                 <input
@@ -606,15 +610,15 @@ export default function SettingsPage() {
                       defaultMaxConcurrentDeployments: parseInt(e.target.value) || 3,
                     })
                   }
-                  className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   Number of tenants to deploy to simultaneously
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Deployment Timeout (minutes)
                 </label>
                 <input
@@ -628,9 +632,9 @@ export default function SettingsPage() {
                       defaultDeploymentTimeoutMs: (parseInt(e.target.value) || 10) * 60000,
                     })
                   }
-                  className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   Maximum time to wait for solution import
                 </p>
               </div>
@@ -642,9 +646,9 @@ export default function SettingsPage() {
                   onChange={(e) =>
                     setAppForm({ ...appForm, autoRetryFailedDeployments: e.target.checked })
                   }
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                   Auto-retry failed deployments
                 </span>
               </label>
@@ -666,9 +670,9 @@ export default function SettingsPage() {
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Notification Settings</h3>
-            <p className="text-sm text-gray-500">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Notification Settings</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Notification configuration coming soon. This will include Slack webhooks, Teams webhooks, and email notifications for deployment events.
             </p>
           </div>

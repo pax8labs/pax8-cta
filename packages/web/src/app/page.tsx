@@ -150,17 +150,17 @@ function OnboardingWelcome({ onDismiss }: { onDismiss?: () => void }) {
 export default function Dashboard() {
   const [showHelp, setShowHelp] = useState(false)
 
-  const { data: stats, error: statsError } = useSWR('/api/stats', fetcher, {
+  const { data: stats, error: statsError, isLoading: statsLoading } = useSWR('/api/stats', fetcher, {
     refreshInterval: 5000,
   })
 
-  const { data: recentDeployments, error: deploymentsError } = useSWR(
+  const { data: recentDeployments, error: deploymentsError, isLoading: deploymentsLoading } = useSWR(
     '/api/deployments?limit=5',
     fetcher,
     { refreshInterval: 5000 }
   )
 
-  const { data: agentsData } = useSWR('/api/agents', fetcher)
+  const { data: agentsData, isLoading: agentsLoading } = useSWR('/api/agents', fetcher)
 
   const deployments = recentDeployments?.deployments ?? []
 
@@ -170,8 +170,24 @@ export default function Dashboard() {
   // Check if there are any real (non-demo-hist) deployments
   const hasRealDeployments = deployments.some((d: any) => !d.id?.startsWith('demo-hist-'))
 
+  // Wait for all data to load before deciding on onboarding
+  const isLoading = statsLoading || deploymentsLoading || agentsLoading
+
   // Show onboarding automatically if no custom agents and no real deployments
-  const isNewUser = !hasCustomAgents && !hasRealDeployments && !statsError && !deploymentsError
+  // Only check once data is loaded
+  const isNewUser = !isLoading && !hasCustomAgents && !hasRealDeployments && !statsError && !deploymentsError
+
+  // Show loading state while data is being fetched
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Show onboarding if new user OR manually triggered
   if (isNewUser || showHelp) {

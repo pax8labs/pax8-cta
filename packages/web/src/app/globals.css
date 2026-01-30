@@ -7,6 +7,11 @@
   --background-rgb: 249, 250, 251;
 }
 
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 17, 24, 39;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));

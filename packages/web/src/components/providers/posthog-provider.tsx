@@ -1,23 +1,16 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { initPostHogClient, posthog, isPostHogEnabled } from '@/lib/posthog-client'
 
 /**
- * PostHog Provider Component
- *
- * Initializes PostHog on the client and tracks page views.
- * Wrap your app with this provider to enable analytics.
+ * Internal component that uses useSearchParams
+ * Must be wrapped in Suspense to avoid hydration issues
  */
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
+function PostHogPageTracker() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-
-  // Initialize PostHog on mount
-  useEffect(() => {
-    initPostHogClient()
-  }, [])
 
   // Track page views on route change
   useEffect(() => {
@@ -35,7 +28,29 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     })
   }, [pathname, searchParams])
 
-  return <>{children}</>
+  return null
+}
+
+/**
+ * PostHog Provider Component
+ *
+ * Initializes PostHog on the client and tracks page views.
+ * Wrap your app with this provider to enable analytics.
+ */
+export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  // Initialize PostHog on mount
+  useEffect(() => {
+    initPostHogClient()
+  }, [])
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        <PostHogPageTracker />
+      </Suspense>
+      {children}
+    </>
+  )
 }
 
 /**

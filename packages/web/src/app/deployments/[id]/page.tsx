@@ -877,6 +877,15 @@ export default function DeploymentDetailPage() {
             <p className="text-sm text-gray-500">Total</p>
           </div>
           <div className="text-center">
+            <p className="text-3xl font-bold text-blue-600">
+              <AnimatedCounter
+                value={totalTenants - completedTenants - failedTenants}
+                duration={600}
+              />
+            </p>
+            <p className="text-sm text-gray-500">Pending</p>
+          </div>
+          <div className="text-center">
             <p className="text-3xl font-bold text-green-600">
               <AnimatedCounter value={completedTenants} duration={600} />
             </p>
@@ -887,15 +896,6 @@ export default function DeploymentDetailPage() {
               <AnimatedCounter value={failedTenants} duration={600} />
             </p>
             <p className="text-sm text-gray-500">Failed</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-blue-600">
-              <AnimatedCounter
-                value={totalTenants - completedTenants - failedTenants}
-                duration={600}
-              />
-            </p>
-            <p className="text-sm text-gray-500">Pending</p>
           </div>
         </div>
 

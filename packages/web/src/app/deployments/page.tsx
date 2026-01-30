@@ -6,6 +6,7 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import { trackEvent, trackDeployment, trackError } from '@/lib/posthog-client'
 import { DEPLOYMENT_STATUS_CATEGORIES } from '@agentsync/core/client'
+import { FlaskSpinner } from '@/components/ui/flask-spinner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -626,6 +627,8 @@ function RetryProgressModal({
   )
 }
 
+type ViewMode = 'tenants' | 'batches'
+
 function DeploymentsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -633,9 +636,11 @@ function DeploymentsContent() {
   // Initialize filter from URL param
   const initialFilter = filterUrlMap[searchParams.get('filter') || ''] || 'all'
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter)
+  const [viewMode, setViewMode] = useState<ViewMode>('batches')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set())
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set())
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
   const [bulkRetrying, setBulkRetrying] = useState(false)
   const [bulkMessage, setBulkMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [retryModalOpen, setRetryModalOpen] = useState(false)
@@ -695,11 +700,44 @@ function DeploymentsContent() {
     return { active, pendingAction, failed, total: records.length }
   }, [records])
 
-  const statusOptions: { value: StatusFilter; label: string; count: number }[] = [
+  // Batch-level stats
+  const batchStats = useMemo(() => {
+    const inProgress = deployments.filter((d: any) => d.status === 'in_progress').length
+    const completed = deployments.filter((d: any) => d.status === 'completed').length
+    const withFailures = deployments.filter((d: any) =>
+      d.status === 'completed' && d.tenantResults?.some((r: any) => FAILED_STATUSES.includes(r.status))
+    ).length
+    return { inProgress, completed, withFailures, total: deployments.length }
+  }, [deployments])
+
+  // Filter batches based on status filter
+  const filteredBatches = useMemo(() => {
+    return deployments.filter((d: any) => {
+      if (statusFilter === 'all') return true
+      if (statusFilter === 'active') return d.status === 'in_progress' || d.status === 'completed'
+      if (statusFilter === 'pending') return d.status === 'pending' || d.status === 'scheduled'
+      if (statusFilter === 'issues') {
+        return d.tenantResults?.some((r: any) => FAILED_STATUSES.includes(r.status))
+      }
+      return true
+    }).filter((d: any) => {
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      return d.solutionName?.toLowerCase().includes(q) ||
+        d.tenantResults?.some((r: any) => r.tenantName?.toLowerCase().includes(q))
+    })
+  }, [deployments, statusFilter, searchQuery])
+
+  const statusOptions: { value: StatusFilter; label: string; count: number }[] = viewMode === 'tenants' ? [
     { value: 'all', label: 'All', count: stats.total },
     { value: 'active', label: 'Active', count: stats.active },
     { value: 'pending', label: 'Pending', count: stats.pendingAction },
     { value: 'issues', label: 'Issues', count: stats.failed },
+  ] : [
+    { value: 'all', label: 'All', count: batchStats.total },
+    { value: 'active', label: 'Active', count: batchStats.inProgress + batchStats.completed },
+    { value: 'pending', label: 'Pending', count: deployments.filter((d: any) => d.status === 'pending').length },
+    { value: 'issues', label: 'Issues', count: batchStats.withFailures },
   ]
 
   // Clear selection when filter changes
@@ -741,6 +779,19 @@ function DeploymentsContent() {
         next.delete(recordKey)
       } else {
         next.add(recordKey)
+      }
+      return next
+    })
+  }
+
+  // Toggle expanded batch
+  const toggleBatchExpanded = (batchId: string) => {
+    setExpandedBatches(prev => {
+      const next = new Set(prev)
+      if (next.has(batchId)) {
+        next.delete(batchId)
+      } else {
+        next.add(batchId)
       }
       return next
     })
@@ -863,6 +914,39 @@ function DeploymentsContent() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
+        {/* View mode toggle */}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('batches')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+              viewMode === 'batches'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Batches
+          </button>
+          <button
+            onClick={() => setViewMode('tenants')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+              viewMode === 'tenants'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            By Tenant
+          </button>
+        </div>
+
+        <div className="border-l border-gray-300 h-6" />
+
+        {/* Status filter */}
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           {statusOptions.map((opt) => (
             <button
@@ -929,11 +1013,10 @@ function DeploymentsContent() {
           <p className="text-sm text-gray-500 mt-1">Please try refreshing the page</p>
         </div>
       ) : isLoading ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <div className="w-6 h-6 mx-auto mb-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500">Loading deployments...</p>
+        <div className="bg-white rounded-lg border border-gray-200 p-8">
+          <FlaskSpinner size="md" message="Loading deployments..." className="py-4" />
         </div>
-      ) : filteredRecords.length === 0 ? (
+      ) : (viewMode === 'batches' ? filteredBatches.length : filteredRecords.length) === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
           <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -958,7 +1041,142 @@ function DeploymentsContent() {
             </Link>
           )}
         </div>
+      ) : viewMode === 'batches' ? (
+        /* Batch View - Shows deployment jobs with inline progress */
+        <div className="space-y-3">
+          {filteredBatches.map((deployment: any) => {
+            const isExpanded = expandedBatches.has(deployment.id)
+            const tenantResults = deployment.tenantResults || []
+            const totalTenants = tenantResults.length
+            const completedTenants = tenantResults.filter((r: any) => r.status === 'completed').length
+            const failedTenants = tenantResults.filter((r: any) => FAILED_STATUSES.includes(r.status)).length
+            const pendingTenants = totalTenants - completedTenants - failedTenants
+            const isInProgress = deployment.status === 'in_progress'
+            const hasIssues = failedTenants > 0
+
+            return (
+              <div key={deployment.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {/* Batch header row */}
+                <div
+                  className={`px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-gray-50 ${isExpanded ? 'border-b border-gray-200' : ''}`}
+                  onClick={() => toggleBatchExpanded(deployment.id)}
+                >
+                  {/* Expand/collapse icon */}
+                  <svg
+                    className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+
+                  {/* Agent name and version */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{deployment.solutionName}</span>
+                      {deployment.solutionVersion && (
+                        <span className="text-xs text-gray-400 font-mono">v{deployment.solutionVersion}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {formatTimeAgo(deployment.createdAt)} · {totalTenants} tenant{totalTenants !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+
+                  {/* Progress counters - Total / Pending / Succeeded / Failed */}
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-gray-600 font-medium">{totalTenants}</span>
+                    <span className="text-gray-300">/</span>
+                    <span className={`${pendingTenants > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                      {pendingTenants}
+                    </span>
+                    <span className="text-gray-300">/</span>
+                    <span className={`${completedTenants > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                      {completedTenants}
+                    </span>
+                    <span className="text-gray-300">/</span>
+                    <span className={`${failedTenants > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                      {failedTenants}
+                    </span>
+                  </div>
+
+                  {/* Mini progress bar */}
+                  <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden flex">
+                    {completedTenants > 0 && (
+                      <div
+                        className="h-full bg-green-500"
+                        style={{ width: `${(completedTenants / totalTenants) * 100}%` }}
+                      />
+                    )}
+                    {failedTenants > 0 && (
+                      <div
+                        className="h-full bg-red-500"
+                        style={{ width: `${(failedTenants / totalTenants) * 100}%` }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Status badge */}
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
+                      isInProgress
+                        ? 'bg-blue-50 text-blue-700'
+                        : hasIssues
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-green-50 text-green-700'
+                    }`}
+                  >
+                    {isInProgress && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    )}
+                    {isInProgress ? 'In Progress' : hasIssues ? `${failedTenants} Failed` : 'Completed'}
+                  </span>
+
+                  {/* View details link */}
+                  <Link
+                    href={`/deployments/${deployment.id}`}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Details
+                  </Link>
+                </div>
+
+                {/* Expanded tenant details */}
+                {isExpanded && (
+                  <div className="divide-y divide-gray-100">
+                    {tenantResults.map((result: any) => {
+                      const isFailed = FAILED_STATUSES.includes(result.status)
+                      return (
+                        <div
+                          key={result.tenantId}
+                          className={`px-4 py-2 flex items-center gap-4 ${isFailed ? 'bg-red-50' : 'bg-gray-50'}`}
+                        >
+                          <div className="w-4" /> {/* Spacer to align with chevron */}
+                          <div className="flex-1">
+                            <span className="text-sm text-gray-900">{result.tenantName}</span>
+                            {isFailed && result.error && (
+                              <p className="text-xs text-red-600 mt-0.5 truncate" title={result.error}>
+                                {result.error}
+                              </p>
+                            )}
+                          </div>
+                          <StatusBadge status={result.status} error={result.error} />
+                          <span className="text-xs text-gray-400 w-16 text-right">
+                            {formatTimeAgo(result.completedAt || result.startedAt)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       ) : (
+        /* Tenant View - Original table showing individual tenant-agent records */
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -1105,9 +1323,8 @@ function LoadingFallback() {
           <p className="text-sm text-gray-500 mt-1">Agent deployments across all tenants</p>
         </div>
       </div>
-      <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-        <div className="w-6 h-6 mx-auto mb-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-500">Loading...</p>
+      <div className="bg-white rounded-lg border border-gray-200 p-8">
+        <FlaskSpinner size="md" message="Loading..." className="py-4" />
       </div>
     </div>
   )

@@ -6,12 +6,16 @@ import { trackError, posthog, isPostHogEnabled } from '@/lib/posthog-client'
 interface ErrorBoundaryProps {
   children: React.ReactNode
   fallback?: React.ReactNode
+  /** Enable automatic GitHub issue creation for errors */
+  reportToGitHub?: boolean
 }
 
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
   errorInfo: React.ErrorInfo | null
+  gitHubIssueUrl?: string
+  isReportingToGitHub: boolean
 }
 
 /**
@@ -23,7 +27,7 @@ interface ErrorBoundaryState {
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false, error: null, errorInfo: null }
+    this.state = { hasError: false, error: null, errorInfo: null, isReportingToGitHub: false }
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
@@ -49,12 +53,49 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       })
     }
 
+    // Report to GitHub Issues if enabled
+    if (this.props.reportToGitHub !== false) {
+      this.reportToGitHub(error, errorInfo)
+    }
+
     // Log to console for development
     console.error('Error caught by ErrorBoundary:', error, errorInfo)
   }
 
+  async reportToGitHub(error: Error, errorInfo: React.ErrorInfo) {
+    this.setState({ isReportingToGitHub: true })
+
+    try {
+      const response = await fetch('/api/errors/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          errorMessage: error.message,
+          errorStack: error.stack,
+          componentStack: errorInfo.componentStack,
+          source: 'error_boundary',
+          url: typeof window !== 'undefined' ? window.location.href : undefined,
+          timestamp: new Date().toISOString(),
+          context: {
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+          },
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success && result.issueUrl) {
+        this.setState({ gitHubIssueUrl: result.issueUrl })
+      }
+    } catch (reportError) {
+      console.error('Failed to report error to GitHub:', reportError)
+    } finally {
+      this.setState({ isReportingToGitHub: false })
+    }
+  }
+
   handleRetry = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null })
+    this.setState({ hasError: false, error: null, errorInfo: null, gitHubIssueUrl: undefined, isReportingToGitHub: false })
   }
 
   render() {
@@ -102,6 +143,36 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               </div>
             )}
 
+            {/* GitHub Issue Status */}
+            {this.state.isReportingToGitHub && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-md flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-600 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-xs text-blue-700">Creating GitHub issue...</span>
+              </div>
+            )}
+
+            {this.state.gitHubIssueUrl && (
+              <div className="mb-4 p-3 bg-green-50 rounded-md">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-xs font-medium text-green-700">Issue reported</span>
+                </div>
+                <a
+                  href={this.state.gitHubIssueUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-green-600 hover:underline break-all"
+                >
+                  {this.state.gitHubIssueUrl}
+                </a>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
                 onClick={this.handleRetry}
@@ -126,13 +197,113 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 }
 
 /**
- * Hook to manually report errors to PostHog
+ * Hook to manually report errors to PostHog and optionally GitHub
  * Use this for errors caught in try/catch blocks
  */
 export function useErrorReporter() {
-  const reportError = React.useCallback((error: Error | string, context?: Record<string, unknown>) => {
+  const [isReporting, setIsReporting] = React.useState(false)
+  const [lastIssueUrl, setLastIssueUrl] = React.useState<string | undefined>()
+
+  const reportError = React.useCallback(async (
+    error: Error | string,
+    context?: Record<string, unknown>,
+    options?: { reportToGitHub?: boolean }
+  ) => {
+    // Track in PostHog
     trackError(error, context)
+
+    // Report to GitHub if requested
+    if (options?.reportToGitHub) {
+      setIsReporting(true)
+      try {
+        const response = await fetch('/api/errors/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            errorMessage: typeof error === 'string' ? error : error.message,
+            errorStack: typeof error === 'string' ? undefined : error.stack,
+            source: 'manual_report',
+            url: typeof window !== 'undefined' ? window.location.href : undefined,
+            timestamp: new Date().toISOString(),
+            context: {
+              ...context,
+              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+            },
+          }),
+        })
+
+        const result = await response.json()
+        if (result.success && result.issueUrl) {
+          setLastIssueUrl(result.issueUrl)
+        }
+      } catch (reportError) {
+        console.error('Failed to report error to GitHub:', reportError)
+      } finally {
+        setIsReporting(false)
+      }
+    }
   }, [])
 
-  return { reportError }
+  return { reportError, isReporting, lastIssueUrl }
+}
+
+/**
+ * Global error handler component that catches unhandled errors and promise rejections.
+ * Add this component once in your app layout to catch errors that escape error boundaries.
+ */
+export function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
+  React.useEffect(() => {
+    const reportGlobalError = async (error: Error, source: string) => {
+      // Track in PostHog
+      trackError(error, { source })
+
+      // Report to GitHub
+      try {
+        await fetch('/api/errors/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            errorMessage: error.message,
+            errorStack: error.stack,
+            source,
+            url: typeof window !== 'undefined' ? window.location.href : undefined,
+            timestamp: new Date().toISOString(),
+            context: {
+              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+            },
+          }),
+        })
+      } catch (reportError) {
+        console.error('Failed to report global error to GitHub:', reportError)
+      }
+    }
+
+    // Handle unhandled errors
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error caught:', event.error)
+      reportGlobalError(
+        event.error || new Error(event.message),
+        'global_error'
+      )
+    }
+
+    // Handle unhandled promise rejections
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection:', event.reason)
+      const error = event.reason instanceof Error
+        ? event.reason
+        : new Error(String(event.reason))
+      reportGlobalError(error, 'unhandled_rejection')
+    }
+
+    window.addEventListener('error', handleError)
+    window.addEventListener('unhandledrejection', handleRejection)
+
+    return () => {
+      window.removeEventListener('error', handleError)
+      window.removeEventListener('unhandledrejection', handleRejection)
+    }
+  }, [])
+
+  return <>{children}</>
 }

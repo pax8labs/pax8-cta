@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { Suspense } from 'react'
 import './globals.css'
 import { SessionProvider } from '@/components/SessionProvider'
 import { PostHogProvider } from '@/components/providers/posthog-provider'
-import { ErrorBoundary } from '@/components/error-boundary'
+import { ThemeProvider } from '@/components/providers/theme-provider'
+import { ErrorBoundary, GlobalErrorHandler } from '@/components/error-boundary'
 import { UserMenu } from '@/components/UserMenu'
 import Image from 'next/image'
 
@@ -24,10 +24,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <SessionProvider>
-          <Suspense fallback={null}>
-            <PostHogProvider>
-              <div className="min-h-screen">
-            <nav className="bg-white shadow-sm border-b">
+          <PostHogProvider>
+            <ThemeProvider>
+              <GlobalErrorHandler>
+              <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
                   <a href="/" className="flex items-center gap-3">
@@ -36,46 +37,46 @@ export default function RootLayout({
                       alt="Pax8 Labs"
                       width={100}
                       height={30}
-                      className="h-7 w-auto"
+                      className="h-7 w-auto dark:invert"
                       priority
                     />
-                    <div className="border-l border-gray-300 h-6" />
-                    <span className="text-lg font-semibold text-gray-900">
+                    <div className="border-l border-gray-300 dark:border-gray-600 h-6" />
+                    <span className="text-lg font-semibold text-gray-900 dark:text-white">
                       AgentSync
                     </span>
                   </a>
                   <div className="flex items-center space-x-4">
                     <a
                       href="/"
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                      className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 text-sm font-medium"
                     >
                       Dashboard
                     </a>
                     <a
                       href="/agents"
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                      className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 text-sm font-medium"
                     >
                       Agents
                     </a>
                     <a
                       href="/tenants"
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                      className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 text-sm font-medium"
                     >
                       Tenants
                     </a>
                     <a
                       href="/deployments"
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                      className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 text-sm font-medium"
                     >
                       Deployments
                     </a>
                     <a
                       href="/settings"
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                      className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 text-sm font-medium"
                     >
                       Settings
                     </a>
-                    <div className="border-l border-gray-200 h-6 mx-2" />
+                    <div className="border-l border-gray-200 dark:border-gray-600 h-6 mx-2" />
                     <UserMenu />
                   </div>
                 </div>
@@ -87,8 +88,9 @@ export default function RootLayout({
               </ErrorBoundary>
             </main>
               </div>
-            </PostHogProvider>
-          </Suspense>
+              </GlobalErrorHandler>
+            </ThemeProvider>
+          </PostHogProvider>
         </SessionProvider>
       </body>
     </html>
