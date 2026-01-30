@@ -71,8 +71,19 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   // Load config first to get approvers list
-  const config = await loadConfig(resolve(CONFIG_PATH))
-  const approvalConfig = config.settings?.approval
+  // In DEMO_MODE, use demo approvers if config file is missing
+  let approvalConfig: { approvers?: string[] } | undefined
+  try {
+    const config = await loadConfig(resolve(CONFIG_PATH))
+    approvalConfig = config.settings?.approval
+  } catch (error) {
+    if (isDemoMode()) {
+      // In DEMO_MODE, allow any authenticated user to approve
+      approvalConfig = { approvers: ['demo@agentsync.test'] }
+    } else {
+      throw error
+    }
+  }
   const allowedApprovers = approvalConfig?.approvers || []
 
   // Check if user is an authorized approver
