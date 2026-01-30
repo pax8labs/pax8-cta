@@ -38,10 +38,10 @@ cd agentsync
 npm install -g pnpm           # Skip if you have pnpm
 pnpm install && pnpm build
 cp .env.example .env          # Then edit with your credentials
-pnpm web                      # Opens Control Tower at localhost:3001
+pnpm web                      # Opens Control Tower at localhost:3000
 ```
 
-> **Note:** Local mode runs without Redis using an in-memory queue. Great for testing.
+> **Note:** Local mode runs with SQLite for data persistence. Redis is optional for background job processing - without it, deployments run synchronously during web requests. Great for testing and small fleets.
 
 **Need to deploy to 50+ tenants at once?** Skip to [Docker Setup](#option-2-docker---recommended-for-scale) for production-scale deployments with parallel processing.
 
@@ -69,14 +69,16 @@ pnpm web                      # Opens Control Tower at localhost:3001
 - **Tag-based targeting** - Ship to fleet groups (e.g., "enterprise", "pilot")
 
 ### Advanced Features (v2.0)
+- **SQLite Persistence** - Durable storage for deployments, approvals, and audit logs that survives restarts
+- **Approval Workflows** - Multi-approver voting system with expiration and audit trail
+- **Health Checks** - Validate tenant environments with persistent historical results
+- **Audit Logging** - Complete audit trail of all deployment and approval actions
 - **Connection Reference Mapping** - Automatically map connection references to target connections
 - **Environment Variables** - Configure tenant-specific environment variables
 - **Deployment Waves** - Staged rollouts with configurable parallelism and wait times
 - **Rollback Capability** - Create snapshots before deployment, rollback on failure
-- **Health Checks** - Validate tenant environments before and after deployment
 - **Webhook Notifications** - Real-time notifications to external systems (Slack, Teams, etc.)
 - **Scheduled Deployments** - Cron-based scheduling with maintenance windows
-- **Approval Workflows** - Require approvals before deployment proceeds
 - **Solution Diff & Preview** - Compare solutions before deployment
 
 ## Architecture
@@ -96,14 +98,17 @@ pnpm web                      # Opens Control Tower at localhost:3001
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   CLI / Control │────▶│   Dock Queue    │────▶│    Dockworker   │
 │   Tower (Web)   │     │   (Redis)       │     │    (Worker)     │
-└─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                                         │
-                              ┌──────────────────────────┼──────────────────────────┐
-                              │                          │                          │
-                              ▼                          ▼                          ▼
-                    ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-                    │   Customer A    │       │   Customer B    │       │   Customer C    │
-                    └─────────────────┘       └─────────────────┘       └─────────────────┘
+└────────┬────────┘     └─────────────────┘     └────────┬────────┘
+         │                                                │
+         │                                                │
+         └────▶ SQLite Database ◀────────────────────────┘
+                (Deployments, Approvals, Audit Logs)
+
+         │                          │                          │
+         ▼                          ▼                          ▼
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│   Customer A    │       │   Customer B    │       │   Customer C    │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
 ```
 
 > **How it works:** Copilot Studio agents live in Microsoft Dataverse (the database behind Power Platform). AgentSync uses the Dataverse API to export your agent as a "solution" from your dev environment, then imports it into each customer's environment via GDAP.
@@ -164,7 +169,7 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-Access Control Tower at `http://localhost:3001`
+Access Control Tower at `http://localhost:3000`
 
 ### Option 3: Local Development
 
@@ -177,18 +182,18 @@ pnpm install
 # Build all packages
 pnpm build
 
-# Start Redis (required for job queue)
-docker run -d -p 6379:6379 redis:7-alpine
-
 # Set environment variables
 export PARTNER_CLIENT_SECRET="your-secret"
 
-# Start dockworker (in one terminal)
-pnpm worker
+# Start Control Tower
+pnpm web  # Runs at http://localhost:3000
 
-# Start Control Tower (in another terminal)
-pnpm web
+# Optional: For background job processing with Redis
+docker run -d -p 6379:6379 redis:7-alpine
+pnpm worker  # In a separate terminal
 ```
+
+> **Note:** The SQLite database is created automatically at `./data/agentsync.db` on first run. Redis is optional - without it, deployments run synchronously in the web process.
 
 ## Configuration
 
@@ -313,7 +318,7 @@ settings:
 
 ### Approval Workflow
 
-Require approvals before deployment:
+Require approvals before deployment with multi-approver voting:
 
 ```yaml
 settings:
@@ -321,20 +326,31 @@ settings:
     required: true
     approvers:
       - admin@yourcompany.com
-    minApprovals: 1
+      - lead@yourcompany.com
+    minApprovals: 2
     timeout: "24h"
     autoApproveForTags: ["test", "pilot"]
 ```
+
+**Features:**
+- Multiple approvers can vote (approve/reject) on each deployment
+- Deployments proceed once minimum approvals are reached
+- Any rejection immediately blocks the deployment
+- Complete audit trail stored in SQLite database
+- Approvals expire after configured timeout
+- Real-time approval panel in Control Tower dashboard
 
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PARTNER_CLIENT_SECRET` | Azure AD app client secret | Required |
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` |
+| `DATABASE_PATH` | SQLite database file location | `./data/agentsync.db` |
+| `REDIS_URL` | Redis connection URL (optional for demo mode) | `redis://localhost:6379` |
 | `CONFIG_PATH` | Path to tenants.yaml | `./config/tenants.yaml` |
 | `WORKER_CONCURRENCY` | Parallel deployments | `5` |
 | `SNAPSHOTS_DIR` | Directory for rollback snapshots | `./snapshots` |
+| `DEMO_MODE` | Enable demo mode (uses in-memory stores) | `false` |
 
 ## CLI Usage
 
@@ -395,14 +411,27 @@ agentsync deliver --solution ./crates/CustomerServiceAgent_managed.zip --tenant 
 
 ## Control Tower (Web Dashboard)
 
-Access at `http://localhost:3001`
+Access at `http://localhost:3000`
 
-- **Dashboard** - Overview stats and recent shipments
+- **Dashboard** - Overview stats, recent shipments, and pending approvals
 - **Solutions** - Browse and pack solutions from your source environment (warehouse)
-- **Fleet** - View configured destinations
-- **Shipments** - List all deployments with real-time status
-- **New Shipment** - Upload crate and select target destinations
-- **Shipment Detail** - View per-destination progress, retry failed, or cancel pending
+- **Fleet** - View configured destinations with health check status
+- **Agents** - Manage deployed agents across your tenant fleet
+- **Deployments** - List all deployments with real-time status and approval states
+- **New Deployment** - Upload solution and select target destinations
+- **Deployment Detail** - View per-destination progress, approval panel, retry failed, or rollback
+- **Tenant Detail** - Run health checks, view deployment history, and manage connections
+
+### Data Persistence
+
+AgentSync uses SQLite for durable storage:
+- **Deployment History** - Complete history of all deployments with batch tracking
+- **Approval Records** - Full audit trail of approvals with voter information
+- **Health Check Results** - Historical health check data for trend analysis
+- **Audit Logs** - Comprehensive logging of all system actions
+- **Rollback Snapshots** - Metadata for solution snapshots
+
+The database is created automatically at `./data/agentsync.db` (configurable via `DATABASE_PATH` environment variable).
 
 ## Project Structure
 
@@ -422,9 +451,18 @@ agentsync/
 │   ├── worker/         # Dockworker (BullMQ job processor)
 │   │
 │   └── web/            # Control Tower (Next.js dashboard)
+│       └── src/
+│           ├── app/              # Next.js app routes
+│           ├── components/       # React components
+│           └── lib/
+│               ├── db.ts              # SQLite database client
+│               ├── db-schema.sql     # Database schema
+│               └── repositories/     # Data access layer
 │
 ├── config/
 │   └── tenants.yaml    # Your fleet configuration
+├── data/               # SQLite database (created automatically)
+│   └── agentsync.db
 ├── crates/             # Packed solution files
 ├── snapshots/          # Rollback snapshots
 ├── docker-compose.yml
@@ -479,6 +517,9 @@ agentsync/
 | `/api/deployments/[id]/cancel` | POST | Cancel pending deliveries |
 | `/api/deployments/[id]/approve` | GET | Get approval status |
 | `/api/deployments/[id]/approve` | POST | Approve or reject a deployment |
+| `/api/deployments/[id]/rollback` | POST | Rollback a deployment |
+| `/api/tenants/[id]/health` | GET | Get last health check result |
+| `/api/tenants/[id]/health` | POST | Run health check for tenant |
 | `/api/schedules` | GET | Get scheduled deployment info |
 
 ## Known Limitations
