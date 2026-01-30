@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession, Session } from 'next-auth';
 import { authOptions, hasRole, AppRole, AppRoles } from './auth';
+import { isDemoMode } from '@agentsync/core';
 
 /**
  * Result type for authentication/authorization checks
@@ -11,6 +12,7 @@ export type AuthResult = Session | NextResponse;
 /**
  * Validates that the request has a valid session.
  * Returns the session on success, or a 401 response on failure.
+ * In DEMO_MODE, returns a mock session if no real session exists (for E2E testing).
  *
  * @example
  * export async function POST(req: NextRequest) {
@@ -23,6 +25,18 @@ export async function requireAuth(): Promise<AuthResult> {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
+    // In DEMO_MODE, allow requests without authentication for E2E testing
+    if (isDemoMode()) {
+      return {
+        user: {
+          email: 'demo@agentsync.test',
+          name: 'Demo User',
+          roles: ['Admin'],
+        },
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      } as Session;
+    }
+
     return NextResponse.json(
       {
         error: 'Unauthorized',
