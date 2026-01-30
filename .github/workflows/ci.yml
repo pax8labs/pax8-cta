@@ -91,10 +91,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build packages
+        run: pnpm run build
+        env:
+          DEMO_MODE: "true"
+
       - name: Run tests
         run: pnpm run test
         env:
           REDIS_URL: redis://localhost:6379
+          DEMO_MODE: "true"
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
