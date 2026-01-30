@@ -133,6 +133,8 @@ jobs:
 
       - name: Build packages
         run: pnpm run build
+        env:
+          DEMO_MODE: "true"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -220,6 +222,8 @@ jobs:
 
       - name: Build
         run: pnpm run build
+        env:
+          DEMO_MODE: "true"
 
       - name: Run E2E tests
         run: pnpm run test:e2e
@@ -227,6 +231,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
           NEXTAUTH_SECRET: test-secret
           NEXTAUTH_URL: http://localhost:3001
+          DEMO_MODE: "true"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

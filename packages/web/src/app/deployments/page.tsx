@@ -726,7 +726,7 @@ function DeploymentsContent() {
   // Disable auto-refresh on Issues tab to prevent confusion after retries
   const refreshInterval = statusFilter === 'issues' ? 30000 : 5000
   const { data, error, isLoading, mutate } = useSWR('/api/deployments?limit=100', fetcher, { refreshInterval })
-  const deployments = data?.deployments ?? []
+  const deployments = useMemo(() => data?.deployments ?? [], [data])
 
   // Delay showing spinner to avoid flash on fast loads
   useEffect(() => {

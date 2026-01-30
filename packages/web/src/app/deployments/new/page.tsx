@@ -321,8 +321,14 @@ function NewDeploymentContent() {
   const [urlOverrides, setUrlOverrides] = useState<Record<string, TenantUrlOverride>>({})
   const [showUrlMappingStep, setShowUrlMappingStep] = useState(false)
 
-  const tenants: Tenant[] = tenantsData?.tenants?.filter((t: Tenant) => t.enabled) || []
-  const agents: Agent[] = agentsData?.agents || []
+  const tenants: Tenant[] = useMemo(() =>
+    tenantsData?.tenants?.filter((t: Tenant) => t.enabled) || [],
+    [tenantsData]
+  )
+  const agents: Agent[] = useMemo(() =>
+    agentsData?.agents || [],
+    [agentsData]
+  )
 
   // Filter agents by search query
   const filteredAgents = useMemo(() => {
@@ -351,24 +357,25 @@ function NewDeploymentContent() {
   const hasUrlTemplates = selectedAgent?.urlTemplates && selectedAgent.urlTemplates.templates.length > 0
 
   // Initialize URL overrides when tenants are selected and agent has URL templates
+  // Note: urlOverrides intentionally not in deps - we only want to initialize missing ones
   useEffect(() => {
     if (hasUrlTemplates && selectedTenants.length > 0) {
-      const newOverrides: Record<string, TenantUrlOverride> = {}
-      for (const tenantId of selectedTenants) {
-        if (!urlOverrides[tenantId]) {
-          const tenant = tenants.find(t => t.tenantId === tenantId)
-          if (tenant) {
-            newOverrides[tenantId] = generateTenantUrls(tenant)
+      setUrlOverrides(prev => {
+        const newOverrides: Record<string, TenantUrlOverride> = { ...prev }
+        let hasChanges = false
+        for (const tenantId of selectedTenants) {
+          if (!prev[tenantId]) {
+            const tenant = tenants.find(t => t.tenantId === tenantId)
+            if (tenant) {
+              newOverrides[tenantId] = generateTenantUrls(tenant)
+              hasChanges = true
+            }
           }
-        } else {
-          newOverrides[tenantId] = urlOverrides[tenantId]
         }
-      }
-      // Only update if there are changes
-      if (Object.keys(newOverrides).length > 0) {
-        setUrlOverrides(prev => ({ ...prev, ...newOverrides }))
-      }
+        return hasChanges ? newOverrides : prev
+      })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTenants, hasUrlTemplates, tenants])
 
   // Filter tenants by search query

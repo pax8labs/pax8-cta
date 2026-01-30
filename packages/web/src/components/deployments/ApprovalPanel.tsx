@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 
 interface ApprovalStatus {
@@ -26,11 +26,7 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
 
-  useEffect(() => {
-    fetchApprovalStatus()
-  }, [deploymentId])
-
-  const fetchApprovalStatus = async () => {
+  const fetchApprovalStatus = useCallback(async () => {
     try {
       const response = await fetch(`/api/deployments/${deploymentId}/approve`)
       const data = await response.json()
@@ -40,7 +36,11 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
     } finally {
       setLoading(false)
     }
-  }
+  }, [deploymentId])
+
+  useEffect(() => {
+    fetchApprovalStatus()
+  }, [fetchApprovalStatus])
 
   const handleApprove = async () => {
     if (!approverEmail.trim()) {

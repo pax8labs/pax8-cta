@@ -105,10 +105,12 @@ export default function SettingsPage() {
   }
 
   // Sync on initial load using useEffect to avoid hydration issues
+  // Note: only syncs once when settings first loads and form is empty
   useEffect(() => {
     if (settings && !integrationForm.partnerTenantId && settings.integration?.partnerTenantId) {
       syncFormsWithSettings()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings])
 
   // Initialize demo values when in demo mode

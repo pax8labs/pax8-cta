@@ -54,6 +54,7 @@ export function UserMenu() {
         className="flex items-center gap-2 p-1.5 rounded-full hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
       >
         {session.user?.image ? (
+          /* eslint-disable-next-line @next/next/no-img-element -- OAuth avatar URLs vary by provider */
           <img
             src={session.user.image}
             alt={session.user.name || 'User'}
@@ -71,6 +72,7 @@ export function UserMenu() {
           <div className="px-4 py-3 border-b border-slate-100">
             <div className="flex items-center gap-3">
               {session.user?.image ? (
+                /* eslint-disable-next-line @next/next/no-img-element -- OAuth avatar URLs vary by provider */
                 <img
                   src={session.user.image}
                   alt={session.user.name || 'User'}

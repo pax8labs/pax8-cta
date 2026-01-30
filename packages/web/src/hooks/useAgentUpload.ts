@@ -102,6 +102,7 @@ export function useAgentUpload(onSuccess: () => void) {
     } finally {
       setIsResolvingConflict(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conflict, newAgentName, newAgentFriendlyName, onSuccess])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -124,6 +125,7 @@ export function useAgentUpload(onSuccess: () => void) {
     toast.success('Agent added successfully')
     reset()
     onSuccess()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSuccess])
 
   const reset = useCallback(() => {

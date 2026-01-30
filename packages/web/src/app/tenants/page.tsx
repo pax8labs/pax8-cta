@@ -52,7 +52,7 @@ export default function TenantsPage() {
   }, [isLoading])
 
   const allTags: string[] = tagsData?.tags ?? []
-  const tenants: Tenant[] = data?.tenants ?? []
+  const tenants: Tenant[] = useMemo(() => data?.tenants ?? [], [data])
 
   // Apply filters
   const filteredTenants = useMemo(() => {
