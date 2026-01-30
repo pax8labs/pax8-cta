@@ -246,11 +246,11 @@ export default function Dashboard() {
           title="Completed Today"
           value={stats?.completedToday ?? '-'}
           color="green"
-          href="/deployments?period=today"
+          href="/deployments"
         />
         <StatsCard
-          title="Failed Today"
-          value={stats?.failedToday ?? '-'}
+          title="Issues"
+          value={stats?.batchesWithFailures ?? '-'}
           color="red"
           href="/deployments?filter=issues"
         />

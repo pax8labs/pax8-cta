@@ -63,7 +63,6 @@ export async function GET() {
       // Calculate stats using centralized status categories from @agentsync/core
       let activeDeployments = 0
       let completedToday = 0
-      let failedToday = 0
 
       for (const record of records) {
         // Active = completed or in_progress (uses DEPLOYMENT_STATUS_CATEGORIES.ACTIVE)
@@ -78,15 +77,14 @@ export async function GET() {
             completedToday++
           }
         }
-
-        // Failed today (uses DEPLOYMENT_STATUS_CATEGORIES.FAILED)
-        if ((DEPLOYMENT_STATUS_CATEGORIES.FAILED as readonly string[]).includes(record.status)) {
-          const updatedAt = new Date(record.updatedAt).getTime()
-          if (updatedAt >= todayTimestamp) {
-            failedToday++
-          }
-        }
       }
+
+      // Count batches with any failures (matches Issues filter on deployments page)
+      // This counts batches, not unique tenant-agent pairs, because the Issues tab shows batches
+      const FAILED_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.FAILED as readonly string[]
+      const batchesWithFailures = allDeployments.filter(d =>
+        d.tenantResults?.some(r => FAILED_STATUSES.includes(r.status))
+      ).length
 
       return NextResponse.json({
         demoMode: true,
@@ -94,7 +92,7 @@ export async function GET() {
         enabledTenants,
         activeDeployments,
         completedToday,
-        failedToday,
+        batchesWithFailures,
         scheduledDeployments: 0,
         pendingApprovals: 0,
       })
@@ -126,7 +124,7 @@ export async function GET() {
 
     let activeDeployments = 0
     let completedToday = 0
-    let failedToday = 0
+    let batchesWithFailures = 0
 
     for (const deploymentId of deploymentIds) {
       const deployment = await queueManager.getDeploymentStatus(deploymentId)
@@ -146,11 +144,10 @@ export async function GET() {
         completedToday++
       }
 
-      if (
-        deployment.status === 'failed' &&
-        new Date(deployment.updatedAt).getTime() >= todayTimestamp
-      ) {
-        failedToday++
+      // Count batches that have any failed tenant results
+      const FAILED_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.FAILED as readonly string[]
+      if (deployment.tenantResults?.some(r => FAILED_STATUSES.includes(r.status))) {
+        batchesWithFailures++
       }
     }
 
@@ -164,7 +161,7 @@ export async function GET() {
       totalTenants,
       activeDeployments,
       completedToday,
-      failedToday,
+      batchesWithFailures,
       scheduledDeployments,
     })
   } catch (error) {
