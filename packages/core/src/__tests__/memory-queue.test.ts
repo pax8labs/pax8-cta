@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryQueue, getMemoryQueue, MemoryJob } from '../queue/memory-queue.js';
+import { MemoryQueue, getMemoryQueue } from '../queue/memory-queue.js';
 
 describe('MemoryQueue', () => {
   let queue: MemoryQueue<{ tenantId: string }, { success: boolean }>;

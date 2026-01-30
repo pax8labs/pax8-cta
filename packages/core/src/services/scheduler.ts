@@ -402,16 +402,16 @@ export class SchedulerService {
   /**
    * Generate next N scheduled run times
    */
-  getNextRuns(schedule: Schedule, count: number = 5): Date[] {
+  getNextRuns(schedule: Schedule, count: number = 5, from: Date = new Date()): Date[] {
     const runs: Date[] = [];
-    let from = new Date();
+    let current = from;
 
     for (let i = 0; i < count; i++) {
-      const next = this.getNextCronRun(schedule, from);
+      const next = this.getNextCronRun(schedule, current);
       if (!next) break;
 
       runs.push(next);
-      from = new Date(next.getTime() + 60000); // Add 1 minute
+      current = new Date(next.getTime() + 60000); // Add 1 minute
     }
 
     return runs;

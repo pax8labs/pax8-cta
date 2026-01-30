@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SecretsManager, SecretProvider, getSecretsManager } from '../services/secrets.js';
+import { SecretsManager, SecretProvider } from '../services/secrets.js';
 
 // Mock fetch for Azure Key Vault tests
 const mockFetch = vi.fn();

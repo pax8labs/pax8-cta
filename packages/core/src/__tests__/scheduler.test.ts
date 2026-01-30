@@ -193,8 +193,16 @@ describe('SchedulerService', () => {
         timezone: 'UTC',
       };
 
-      const runs = scheduler.getNextRuns(schedule, 5);
+      // Use a fixed starting point to ensure consistent results across timezones
+      const from = new Date('2024-01-15T10:30:00.000Z');
+      const runs = scheduler.getNextRuns(schedule, 5, from);
       expect(runs).toHaveLength(5);
+
+      // Verify each run is at minute 0 and consecutive hours
+      for (let i = 0; i < runs.length; i++) {
+        expect(runs[i].getUTCMinutes()).toBe(0);
+        expect(runs[i].getUTCHours()).toBe(11 + i); // 11:00, 12:00, 13:00, 14:00, 15:00
+      }
 
       // Each run should be 1 hour apart
       for (let i = 1; i < runs.length; i++) {

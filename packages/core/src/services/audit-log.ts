@@ -69,7 +69,7 @@ class InMemoryAuditStorage implements AuditLogStorage {
   }
 
   async query(query: AuditLogQuery): Promise<AuditLogEntry[]> {
-    let results = this.entries.filter((entry) => {
+    const results = this.entries.filter((entry) => {
       if (query.startDate && entry.timestamp < query.startDate) return false;
       if (query.endDate && entry.timestamp > query.endDate) return false;
       if (query.userId && entry.userId !== query.userId) return false;
