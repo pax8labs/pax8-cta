@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isDemoMode, DataverseClient, TokenManager, ConnectionOperations, DEMO_TENANTS } from '@agentsync/core'
+import {
+  isDemoMode,
+  DataverseClient,
+  TokenManager,
+  ConnectionOperations,
+  DEMO_TENANTS,
+  getEffectiveIntegrationSettings,
+} from '@agentsync/core'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,11 +106,9 @@ export async function GET(
     }
 
     // Real mode - query Dataverse for connections
-    const partnerTenantId = process.env.PARTNER_TENANT_ID
-    const partnerClientId = process.env.PARTNER_CLIENT_ID
-    const partnerClientSecret = process.env.PARTNER_CLIENT_SECRET
+    const settings = await getEffectiveIntegrationSettings()
 
-    if (!partnerTenantId || !partnerClientId || !partnerClientSecret) {
+    if (!settings.partnerTenantId || !settings.partnerClientId || !settings.partnerClientSecret) {
       return NextResponse.json(
         { error: 'Partner credentials not configured' },
         { status: 500 }
@@ -120,8 +125,8 @@ export async function GET(
     // Create token manager for customer tenant (GDAP delegation)
     const customerTokenManager = new TokenManager({
       tenantId: tenantId,
-      clientId: partnerClientId,
-      clientSecret: partnerClientSecret,
+      clientId: settings.partnerClientId,
+      clientSecret: settings.partnerClientSecret,
     })
 
     const dataverseClient = new DataverseClient({
@@ -209,10 +214,9 @@ export async function PUT(
     }
 
     // Real mode - apply connection mappings
-    const partnerClientId = process.env.PARTNER_CLIENT_ID
-    const partnerClientSecret = process.env.PARTNER_CLIENT_SECRET
+    const settings = await getEffectiveIntegrationSettings()
 
-    if (!partnerClientId || !partnerClientSecret) {
+    if (!settings.partnerClientId || !settings.partnerClientSecret) {
       return NextResponse.json(
         { error: 'Partner credentials not configured' },
         { status: 500 }
@@ -221,8 +225,8 @@ export async function PUT(
 
     const customerTokenManager = new TokenManager({
       tenantId: tenantId,
-      clientId: partnerClientId,
-      clientSecret: partnerClientSecret,
+      clientId: settings.partnerClientId,
+      clientSecret: settings.partnerClientSecret,
     })
 
     const dataverseClient = new DataverseClient({

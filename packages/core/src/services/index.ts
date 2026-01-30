@@ -11,3 +11,4 @@ export * from "./deployment-progress.js";
 export * from "./url-templater.js";
 export * from "./tenant-resolver.js";
 export * from "./deployment-service.js";
+export * from "./settings-service.js";

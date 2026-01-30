@@ -101,6 +101,12 @@ export default function SolutionsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  // Import mode state
+  const [importMode, setImportMode] = useState<'upload' | 'browse'>('upload')
+  const [sourceSolutions, setSourceSolutions] = useState<any[]>([])
+  const [loadingSourceSolutions, setLoadingSourceSolutions] = useState(false)
+  const [sourceEnvironmentUrl, setSourceEnvironmentUrl] = useState<string | null>(null)
+  const [importingFromSource, setImportingFromSource] = useState<string | null>(null)
 
   // Filter agents by search and view mode
   const filteredAgents = useMemo(() => {
@@ -196,6 +202,52 @@ export default function SolutionsPage() {
     setUploadError(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+  }
+
+  // Load source solutions when switching to browse mode
+  const loadSourceSolutions = async () => {
+    setLoadingSourceSolutions(true)
+    try {
+      const response = await fetch('/api/solutions/source')
+      const data = await response.json()
+      if (data.solutions) {
+        setSourceSolutions(data.solutions)
+        setSourceEnvironmentUrl(data.sourceEnvironment)
+      }
+    } catch (err) {
+      console.error('Failed to load source solutions:', err)
+    } finally {
+      setLoadingSourceSolutions(false)
+    }
+  }
+
+  // Import solution from source environment
+  const handleImportFromSource = async (solution: any) => {
+    setImportingFromSource(solution.uniqueName)
+    setUploadError(null)
+    try {
+      const response = await fetch('/api/solutions/import-from-environment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          solutionUniqueName: solution.uniqueName,
+          environmentUrl: sourceEnvironmentUrl,
+          displayName: solution.displayName,
+          description: solution.description,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to import')
+
+      // Success - close modal and refresh
+      setShowAddAgent(false)
+      setImportMode('upload')
+      mutate()
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to import solution')
+    } finally {
+      setImportingFromSource(null)
     }
   }
 
@@ -752,13 +804,42 @@ export default function SolutionsPage() {
       )}
 
 
-      {/* Add Agent Modal - File Upload */}
+      {/* Add Agent Modal - File Upload or Browse from Power Platform */}
       {showAddAgent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-900">Import Agent</h3>
-              <button onClick={() => { setShowAddAgent(false); setUploadError(null); setUploadedMetadata(null); setSelectedFile(null) }} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button onClick={() => { setShowAddAgent(false); setUploadError(null); setUploadedMetadata(null); setSelectedFile(null); setImportMode('upload') }} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            {/* Import Mode Tabs */}
+            <div className="border-b border-slate-200">
+              <div className="flex">
+                <button
+                  onClick={() => setImportMode('upload')}
+                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    importMode === 'upload'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Upload ZIP
+                </button>
+                <button
+                  onClick={() => {
+                    setImportMode('browse')
+                    if (sourceSolutions.length === 0) loadSourceSolutions()
+                  }}
+                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    importMode === 'browse'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Browse Power Platform
+                </button>
+              </div>
             </div>
 
             <div className="p-4 space-y-4">
@@ -766,8 +847,85 @@ export default function SolutionsPage() {
                 <div className="p-2 bg-rose-50 border border-rose-200 rounded text-sm text-rose-700">{uploadError}</div>
               )}
 
+              {/* Browse from Power Platform */}
+              {importMode === 'browse' && (
+                <div>
+                  {loadingSourceSolutions ? (
+                    <div className="py-8 text-center">
+                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                      <p className="text-sm text-slate-600">Loading solutions from Power Platform...</p>
+                    </div>
+                  ) : sourceSolutions.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      <p className="text-slate-600 mb-2">No source environment configured</p>
+                      <p className="text-xs text-slate-400 mb-4">
+                        Configure a source environment in Settings to browse solutions directly from Power Platform.
+                      </p>
+                      <a href="/settings" className="text-sm text-blue-600 hover:text-blue-700">
+                        Go to Settings →
+                      </a>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-3">
+                        Solutions from <span className="font-medium">{sourceEnvironmentUrl}</span>
+                      </p>
+                      <div className="max-h-[350px] overflow-y-auto space-y-2">
+                        {sourceSolutions.map((solution) => (
+                          <div
+                            key={solution.solutionId}
+                            className="p-3 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-slate-900">{solution.displayName}</h4>
+                                <p className="text-xs text-slate-500 font-mono">{solution.uniqueName}</p>
+                                {solution.description && (
+                                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{solution.description}</p>
+                                )}
+                                <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+                                  <span>v{solution.version}</span>
+                                  <span>•</span>
+                                  <span>{solution.publisher}</span>
+                                  {solution.hasBot && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-blue-600">Contains Agent</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleImportFromSource(solution)}
+                                disabled={importingFromSource === solution.uniqueName}
+                                className="ml-3 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex-shrink-0"
+                              >
+                                {importingFromSource === solution.uniqueName ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Importing...
+                                  </span>
+                                ) : (
+                                  'Import'
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* File upload area */}
-              {!uploadedMetadata && (
+              {importMode === 'upload' && !uploadedMetadata && (
                 <div
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
@@ -812,8 +970,8 @@ export default function SolutionsPage() {
                 </div>
               )}
 
-              {/* Parsed solution preview */}
-              {uploadedMetadata && (
+              {/* Parsed solution preview (upload mode only) */}
+              {importMode === 'upload' && uploadedMetadata && (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
                   <div className="flex items-start gap-3">
                     <svg className="w-6 h-6 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -895,6 +1053,7 @@ export default function SolutionsPage() {
                 </div>
               )}
 
+              {importMode === 'upload' && (
               <div className="pt-2 flex gap-2 justify-end">
                 {uploadedMetadata ? (
                   <>
@@ -923,6 +1082,7 @@ export default function SolutionsPage() {
                   </button>
                 )}
               </div>
+              )}
             </div>
           </div>
         </div>

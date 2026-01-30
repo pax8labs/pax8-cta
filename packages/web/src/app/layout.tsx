@@ -69,6 +69,12 @@ export default function RootLayout({
                     >
                       Deployments
                     </a>
+                    <a
+                      href="/settings"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                    >
+                      Settings
+                    </a>
                     <div className="border-l border-gray-200 h-6 mx-2" />
                     <UserMenu />
                   </div>

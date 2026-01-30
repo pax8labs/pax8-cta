@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
-import { loadConfig, isDemoMode, DEMO_CONFIG, TenantDiscoveryService } from '@agentsync/core'
+import {
+  loadConfig,
+  isDemoMode,
+  DEMO_CONFIG,
+  TenantDiscoveryService,
+  getEffectiveIntegrationSettings,
+} from '@agentsync/core'
 import { resolve } from 'path'
 import { demoDeployedAgents, demoTenantStatus, initializeDemoAgents } from '@/lib/demo-store'
 
@@ -15,13 +21,14 @@ let discoveryCache: {
 const DISCOVERY_CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 
 /**
- * Check if tenant discovery via GDAP is enabled
+ * Check if tenant discovery via GDAP is enabled using settings service
  */
-function isDiscoveryEnabled(): boolean {
-  return process.env.TENANT_DISCOVERY_ENABLED === 'true' &&
-    !!process.env.PARTNER_TENANT_ID &&
-    !!process.env.PARTNER_CLIENT_ID &&
-    !!process.env.PARTNER_CLIENT_SECRET
+async function isDiscoveryEnabled(): Promise<boolean> {
+  const settings = await getEffectiveIntegrationSettings()
+  return !!settings.tenantDiscoveryEnabled &&
+    !!settings.partnerTenantId &&
+    !!settings.partnerClientId &&
+    !!settings.partnerClientSecret
 }
 
 /**
@@ -33,10 +40,12 @@ async function discoverTenantsViaGDAP() {
     return discoveryCache.data
   }
 
+  const settings = await getEffectiveIntegrationSettings()
+
   const discoveryService = new TenantDiscoveryService({
-    tenantId: process.env.PARTNER_TENANT_ID!,
-    clientId: process.env.PARTNER_CLIENT_ID!,
-    clientSecret: process.env.PARTNER_CLIENT_SECRET!,
+    tenantId: settings.partnerTenantId!,
+    clientId: settings.partnerClientId!,
+    clientSecret: settings.partnerClientSecret!,
   })
 
   const tenants = await discoveryService.discoverTenants()
@@ -78,15 +87,17 @@ export async function GET() {
     }
 
     // Discovery mode - fetch tenants via GDAP
-    if (isDiscoveryEnabled()) {
+    const discoveryEnabled = await isDiscoveryEnabled()
+    if (discoveryEnabled) {
       const discoveredTenants = await discoverTenantsViaGDAP()
+      const settings = await getEffectiveIntegrationSettings()
 
       return NextResponse.json({
         demoMode: false,
         discoveryMode: true,
         partner: {
-          tenantId: process.env.PARTNER_TENANT_ID,
-          clientId: process.env.PARTNER_CLIENT_ID,
+          tenantId: settings.partnerTenantId,
+          clientId: settings.partnerClientId,
         },
         tenants: discoveredTenants.map((t) => ({
           name: t.displayName,
@@ -147,7 +158,8 @@ export async function GET() {
  */
 export async function POST() {
   try {
-    if (!isDiscoveryEnabled()) {
+    const discoveryEnabled = await isDiscoveryEnabled()
+    if (!discoveryEnabled) {
       return NextResponse.json(
         { error: 'Tenant discovery is not enabled' },
         { status: 400 }
