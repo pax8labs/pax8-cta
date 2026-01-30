@@ -20,7 +20,7 @@ const DEMO_SETTINGS = {
     connectionMappingEnabled: true,
     environmentVariablesEnabled: false,
     lastTestResult: 'success' as const,
-    lastTestedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+    lastTestedAt: '2026-01-30T16:00:00.000Z', // Fixed timestamp to avoid hydration mismatch
   },
   app: {
     demoMode: true,
@@ -309,7 +309,7 @@ export default function SettingsPage() {
                 </p>
                 {settings?.integration?.lastTestedAt && (
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" suppressHydrationWarning>
-                    Last tested: {new Date(settings.integration.lastTestedAt).toLocaleString()}
+                    Last tested: {new Date(settings.integration.lastTestedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'}
                   </p>
                 )}
               </div>
@@ -329,10 +329,20 @@ export default function SettingsPage() {
 
           {/* Partner Credentials */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Partner Credentials</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Configure your Azure AD app registration for GDAP-based access to customer tenants.
-            </p>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Partner Credentials</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Configure your Azure AD app registration for GDAP-based access to customer tenants.
+                </p>
+              </div>
+              <a
+                href="/welcome"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap ml-4"
+              >
+                Setup Guide →
+              </a>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -389,9 +399,12 @@ export default function SettingsPage() {
 
           {/* Source Environment */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Source Environment (Optional)</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              If your agents are stored in a central Power Platform environment, configure it here.
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Source Environment (Optional)</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+              Configure a central Power Platform environment to import agents directly without uploading ZIP files.
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 italic">
+              💡 Recommended: This allows one-click import of agents from your master environment
             </p>
 
             <div className="space-y-4">
