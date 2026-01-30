@@ -158,8 +158,8 @@ describe('AgentCard', () => {
       })
       render(<AgentCard {...defaultProps} agent={agent} />)
 
-      // 3 active out of 4 = 75%
-      expect(screen.getByText('75%')).toBeInTheDocument()
+      // 3 active out of 4
+      expect(screen.getByText('3/4 healthy')).toBeInTheDocument()
     })
 
     it('should show tenants button when deployed', () => {

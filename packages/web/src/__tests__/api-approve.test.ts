@@ -19,6 +19,80 @@ vi.mock('@agentsync/core', () => ({
       },
     },
   }),
+  isDemoMode: vi.fn().mockReturnValue(false),
+}));
+
+// Mock the repository modules to avoid database interactions in tests
+const mockApprovals = new Map<string, any>();
+const mockDeployments = new Map<string, any>();
+
+vi.mock('../lib/repositories/approval-repository', () => ({
+  getApprovalByDeployment: vi.fn((deploymentId: string) => {
+    return mockApprovals.get(deploymentId) || null;
+  }),
+  createApproval: vi.fn((approval: any) => {
+    const id = crypto.randomUUID();
+    const newApproval = {
+      id,
+      ...approval,
+      approvals: [],
+      rejections: [],
+    };
+    mockApprovals.set(approval.deploymentId, newApproval);
+    return newApproval;
+  }),
+  addVote: vi.fn((approvalId: string, approver: string, action: string, reason?: string) => {
+    const approval = Array.from(mockApprovals.values()).find(a => a.id === approvalId);
+    if (!approval) return;
+
+    const vote = {
+      id: Date.now(),
+      approvalId,
+      approver,
+      action,
+      reason,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (action === 'approve') {
+      approval.approvals.push(vote);
+    } else {
+      approval.rejections.push(vote);
+    }
+  }),
+  hasVoted: vi.fn((approvalId: string, approver: string) => {
+    const approval = Array.from(mockApprovals.values()).find(a => a.id === approvalId);
+    if (!approval) return false;
+    return approval.approvals.some((a: any) => a.approver === approver) ||
+           approval.rejections.some((r: any) => r.approver === approver);
+  }),
+  updateApprovalStatus: vi.fn((id: string, status: string) => {
+    const approval = Array.from(mockApprovals.values()).find(a => a.id === id);
+    if (approval) approval.status = status;
+  }),
+}));
+
+vi.mock('../lib/repositories/deployment-repository', () => ({
+  updateBatchStatus: vi.fn((id: string, status: string) => {
+    const deployment = mockDeployments.get(id) || { id, status: 'pending' };
+    deployment.status = status;
+    mockDeployments.set(id, deployment);
+  }),
+}));
+
+vi.mock('../lib/repositories/audit-repository', () => ({
+  logApprovalAction: vi.fn(),
+}));
+
+vi.mock('../lib/demo-store', () => ({
+  demoDeployments: {
+    get: vi.fn(),
+    set: vi.fn(),
+  },
+  demoBatches: {
+    get: vi.fn(),
+    set: vi.fn(),
+  },
 }));
 
 // Import after mocks
@@ -27,6 +101,8 @@ import { GET, POST } from '../app/api/deployments/[id]/approve/route';
 describe('Approval API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockApprovals.clear();
+    mockDeployments.clear();
   });
 
   describe('GET /api/deployments/[id]/approve', () => {
