@@ -767,8 +767,9 @@ function DeploymentsContent() {
   const batchStats = useMemo(() => {
     const inProgress = deployments.filter((d: DeploymentJob) => d.status === 'in_progress').length
     const completed = deployments.filter((d: DeploymentJob) => d.status === 'completed').length
+    // Count batches with any failures (matches Issues filter logic)
     const withFailures = deployments.filter((d: DeploymentJob) =>
-      d.status === 'completed' && d.tenantResults?.some((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status))
+      d.tenantResults?.some((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status))
     ).length
     return { inProgress, completed, withFailures, total: deployments.length }
   }, [deployments])
