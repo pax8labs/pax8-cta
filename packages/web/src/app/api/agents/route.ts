@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { isDemoMode, DEMO_SOLUTIONS } from '@agentsync/core'
 import { demoDeployedAgents, initializeDemoAgents, demoCustomAgents, demoAgentStatus, DeployedAgent, CustomAgent, AgentStatus } from '@/lib/demo-store'
+import { requireAuth, requireRoles, logAuthFailure } from '@/lib/api-middleware'
+import { AppRoles } from '@/lib/auth'
 
 /**
  * Get all agents with their deployment information
  * Returns agents and which tenants they are deployed to
+ * Requires authentication
  */
 export async function GET() {
+  // Require authentication to view agents
+  const session = await requireAuth()
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/agents', 'unauthorized')
+    return session
+  }
+
   try {
     if (isDemoMode()) {
       // Initialize demo agents if not already done
@@ -199,8 +209,16 @@ export async function GET() {
 
 /**
  * Create a new custom agent
+ * Requires Admin or Deployer role
  */
 export async function POST(request: NextRequest) {
+  // Require Admin or Deployer role to create custom agents
+  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER])
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/agents', 'forbidden', { action: 'create_agent' })
+    return session
+  }
+
   try {
     const body = await request.json()
     const { friendlyName, uniqueName, version, description, publisherName } = body

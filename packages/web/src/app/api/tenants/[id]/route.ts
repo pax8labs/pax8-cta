@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { loadConfig, isDemoMode, DEMO_CONFIG } from '@agentsync/core'
 import { resolve } from 'path'
 import { demoDeployedAgents, initializeDemoAgents } from '@/lib/demo-store'
+import { requireTenantAccess, logAuthFailure } from '@/lib/api-middleware'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 
@@ -10,8 +11,16 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: tenantId } = await params
+
+  // Require authentication and tenant access
+  const session = await requireTenantAccess(tenantId)
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, `/api/tenants/${tenantId}`, 'forbidden', { tenantId })
+    return session
+  }
+
   try {
-    const { id: tenantId } = await params
 
     const config = isDemoMode()
       ? DEMO_CONFIG

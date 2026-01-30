@@ -3,6 +3,7 @@ import { loadConfig, isDemoMode, DEMO_CONFIG, generateMockDeploymentHistory, DEP
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { resolve } from 'path'
 import { demoDeployments } from '@/lib/demo-store'
+import { requireAuth, logAuthFailure } from '@/lib/api-middleware'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,13 @@ const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 export async function GET() {
+  // Require authentication to view stats
+  const session = await requireAuth()
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/stats', 'unauthorized')
+    return session
+  }
+
   try {
     // Use demo data if DEMO_MODE is enabled
     if (isDemoMode()) {

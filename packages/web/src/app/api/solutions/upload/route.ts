@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { demoCustomAgents, CustomAgent, AgentUrlTemplates } from "@/lib/demo-store";
 import JSZip from "jszip";
 import { UrlTemplater } from "@agentsync/core";
+import { requireRoles, logAuthFailure } from "@/lib/api-middleware";
+import { AppRoles } from "@/lib/auth";
 
 const DEMO_MODE = process.env.DEMO_MODE === "true" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -374,10 +376,18 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
  * POST /api/solutions/upload
  *
  * Upload a Power Platform solution zip file
+ * Requires Admin or Deployer role
  *
  * Body: FormData with 'file' field containing the .zip file
  */
 export async function POST(request: NextRequest) {
+  // Require Admin or Deployer role to upload solutions
+  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER]);
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/solutions/upload', 'forbidden', { action: 'upload_solution' });
+    return session;
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("file");

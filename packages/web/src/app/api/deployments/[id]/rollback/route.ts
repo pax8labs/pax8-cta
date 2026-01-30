@@ -5,6 +5,8 @@ import { demoDeployments, demoBatches, demoDeploymentsV2 } from '@/lib/demo-stor
 import * as deploymentRepo from '@/lib/repositories/deployment-repository'
 import * as snapshotRepo from '@/lib/repositories/snapshot-repository'
 import * as auditRepo from '@/lib/repositories/audit-repository'
+import { requireRole, logAuthFailure } from '@/lib/api-middleware'
+import { AppRoles } from '@/lib/auth'
 
 // Load tenant config for authentication
 async function loadTenantConfig() {
@@ -19,12 +21,20 @@ async function loadTenantConfig() {
 
 /**
  * Rollback a deployment (undo deployed solutions)
+ * Requires Admin role - this is a critical operation
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  // Require Admin role for rollback operations
+  const session = await requireRole(AppRoles.ADMIN)
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, `/api/deployments/${id}/rollback`, 'forbidden', { action: 'rollback_deployment' })
+    return session
+  }
 
   try {
     // Demo mode handling

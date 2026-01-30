@@ -5,6 +5,8 @@ import { loadConfig, isDemoMode, DEPLOYMENT_STATUS_CATEGORIES } from '@agentsync
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { demoDeployments, resolveDeployment } from '@/lib/demo-store'
 import { serverTrackDeployment, serverTrackError } from '@/lib/posthog-server'
+import { requireRoles, logAuthFailure } from '@/lib/api-middleware'
+import { AppRoles } from '@/lib/auth'
 
 // Use centralized retryable statuses (failed, cancelled, rolled_back)
 const RETRYABLE_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE as readonly string[]
@@ -14,11 +16,19 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 /**
  * Retry failed tenant deployments for a specific deployment
+ * Requires Admin or Deployer role
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Require Admin or Deployer role
+  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER])
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, `/api/deployments/${params.id}/retry`, 'forbidden', { action: 'retry_deployment' })
+    return session
+  }
+
   try {
     // Demo mode handling
     if (isDemoMode()) {

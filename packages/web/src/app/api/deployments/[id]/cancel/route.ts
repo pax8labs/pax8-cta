@@ -3,16 +3,26 @@ export const dynamic = 'force-dynamic'
 import { isDemoMode } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { demoDeployments, demoBatches, demoDeploymentsV2 } from '@/lib/demo-store'
+import { requireRoles, logAuthFailure } from '@/lib/api-middleware'
+import { AppRoles } from '@/lib/auth'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 /**
  * Cancel pending tenant deployments for a specific deployment
+ * Requires Admin or Deployer role
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Require Admin or Deployer role
+  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER])
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, `/api/deployments/${params.id}/cancel`, 'forbidden', { action: 'cancel_deployment' })
+    return session
+  }
+
   try {
     // Demo mode handling
     if (isDemoMode()) {

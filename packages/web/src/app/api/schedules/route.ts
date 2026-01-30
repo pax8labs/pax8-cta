@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { loadConfig, SchedulerService } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { resolve } from 'path'
+import { requireAuth, requireRoles, logAuthFailure } from '@/lib/api-middleware'
+import { AppRoles } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,8 +12,16 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 /**
  * GET /api/schedules - Get scheduled deployment info
+ * Requires authentication
  */
 export async function GET() {
+  // Require authentication to view schedules
+  const session = await requireAuth()
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/schedules', 'unauthorized')
+    return session
+  }
+
   try {
     const config = await loadConfig(resolve(CONFIG_PATH))
     const scheduler = new SchedulerService()
@@ -80,8 +90,15 @@ export async function GET() {
  *
  * This endpoint syncs schedules from config to BullMQ repeatable jobs.
  * Should be called after config changes or on worker startup.
+ * Requires Admin or Deployer role
  */
 export async function POST(request: NextRequest) {
+  // Require Admin or Deployer role to create schedules
+  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER])
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/schedules', 'forbidden', { action: 'create_schedule' })
+    return session
+  }
   try {
     const body = await request.json()
     const { solutionPath, solutionName } = body
@@ -134,8 +151,16 @@ export async function POST(request: NextRequest) {
 
 /**
  * DELETE /api/schedules - Remove all registered schedules
+ * Requires Admin role
  */
 export async function DELETE() {
+  // Require Admin role to delete schedules
+  const session = await requireRoles([AppRoles.ADMIN])
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/schedules', 'forbidden', { action: 'delete_schedules' })
+    return session
+  }
+
   try {
     const queueManager = new DeploymentQueueManager(REDIS_URL)
 

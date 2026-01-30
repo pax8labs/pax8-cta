@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { isDemoMode } from '@agentsync/core'
 import { resolveDeployment } from '@/lib/demo-store'
+import { requireAuth, logAuthFailure } from '@/lib/api-middleware'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
@@ -10,6 +11,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Require authentication to view deployment details
+  const session = await requireAuth()
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, `/api/deployments/${params.id}`, 'unauthorized')
+    return session
+  }
+
   try {
     // Use demo data if DEMO_MODE is enabled
     if (isDemoMode()) {

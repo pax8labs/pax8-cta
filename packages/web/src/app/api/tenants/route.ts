@@ -9,6 +9,8 @@ import {
 } from '@agentsync/core'
 import { resolve } from 'path'
 import { demoDeployedAgents, demoTenantStatus, initializeDemoAgents } from '@/lib/demo-store'
+import { requireAuth, requireRole, logAuthFailure } from '@/lib/api-middleware'
+import { AppRoles } from '@/lib/auth'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 
@@ -60,6 +62,13 @@ async function discoverTenantsViaGDAP() {
 }
 
 export async function GET() {
+  // Require authentication to view tenants
+  const session = await requireAuth()
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/tenants', 'unauthorized')
+    return session
+  }
+
   try {
     // Demo mode - use hardcoded demo data
     if (isDemoMode()) {
@@ -155,8 +164,16 @@ export async function GET() {
 
 /**
  * POST endpoint to refresh tenant discovery cache
+ * Requires Admin role
  */
 export async function POST() {
+  // Require Admin role to refresh discovery cache
+  const session = await requireRole(AppRoles.ADMIN)
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/tenants', 'forbidden', { action: 'refresh_discovery' })
+    return session
+  }
+
   try {
     const discoveryEnabled = await isDiscoveryEnabled()
     if (!discoveryEnabled) {

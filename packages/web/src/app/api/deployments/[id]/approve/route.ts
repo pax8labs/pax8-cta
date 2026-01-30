@@ -5,6 +5,7 @@ import * as approvalRepo from '@/lib/repositories/approval-repository'
 import { logApprovalAction } from '@/lib/repositories/audit-repository'
 import { demoDeployments, demoBatches } from '@/lib/demo-store'
 import * as deploymentRepo from '@/lib/repositories/deployment-repository'
+import { requireAuth, requireApproverEmail, logAuthFailure } from '@/lib/api-middleware'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,11 +13,17 @@ const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 
 /**
  * GET /api/deployments/[id]/approve - Get approval status
+ * Requires authentication
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const session = await requireAuth()
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, `/api/deployments/${params.id}/approve`, 'unauthorized')
+    return session
+  }
   try {
     const approval = approvalRepo.getApprovalByDeployment(params.id)
 
@@ -54,38 +61,41 @@ export async function GET(
 
 /**
  * POST /api/deployments/[id]/approve - Approve or reject a deployment
- * Body: { action: 'approve' | 'reject', approver: string, reason?: string }
+ * Body: { action: 'approve' | 'reject', reason?: string }
+ *
+ * SECURITY: The approver email is taken from the authenticated session, not from the request body.
+ * This prevents users from approving deployments with someone else's email.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Load config first to get approvers list
+  const config = await loadConfig(resolve(CONFIG_PATH))
+  const approvalConfig = config.settings?.approval
+  const allowedApprovers = approvalConfig?.approvers || []
+
+  // Check if user is an authorized approver
+  const session = await requireApproverEmail(allowedApprovers)
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, `/api/deployments/${params.id}/approve`, 'forbidden', {
+      action: 'approve_deployment',
+      deploymentId: params.id
+    })
+    return session
+  }
+
+  // SECURITY: Use the authenticated user's email, not from request body
+  const approver = session.user.email!
+
   try {
     const body = await request.json()
-    const { action, approver, reason } = body
+    const { action, reason } = body
 
     if (!action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json(
         { error: 'action must be "approve" or "reject"' },
         { status: 400 }
-      )
-    }
-
-    if (!approver) {
-      return NextResponse.json(
-        { error: 'approver is required' },
-        { status: 400 }
-      )
-    }
-
-    const config = await loadConfig(resolve(CONFIG_PATH))
-    const approvalConfig = config.settings?.approval
-
-    // Check if approver is authorized
-    if (approvalConfig?.approvers && !approvalConfig.approvers.includes(approver)) {
-      return NextResponse.json(
-        { error: `${approver} is not authorized to approve deployments` },
-        { status: 403 }
       )
     }
 

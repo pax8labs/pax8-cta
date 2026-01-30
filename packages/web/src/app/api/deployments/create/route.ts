@@ -9,12 +9,21 @@ import { serverTrackDeployment, serverTrackError } from '@/lib/posthog-server'
 import * as deploymentRepo from '@/lib/repositories/deployment-repository'
 import * as approvalRepo from '@/lib/repositories/approval-repository'
 import { logDeploymentAction, logApprovalAction } from '@/lib/repositories/audit-repository'
+import { requireRoles, logAuthFailure } from '@/lib/api-middleware'
+import { AppRoles } from '@/lib/auth'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 const SOLUTIONS_DIR = process.env.SOLUTIONS_DIR || './solutions'
 
 export async function POST(request: NextRequest) {
+  // Require Admin or Deployer role
+  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER])
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/deployments/create', 'forbidden', { action: 'create_deployment' })
+    return session
+  }
+
   try {
     const formData = await request.formData()
     const solutionFile = formData.get('solution') as File | null

@@ -3,10 +3,18 @@ export const dynamic = 'force-dynamic'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { DeploymentJob, isDemoMode, generateMockDeploymentHistory } from '@agentsync/core'
 import { demoDeployments } from '@/lib/demo-store'
+import { requireAuth, logAuthFailure } from '@/lib/api-middleware'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 export async function GET(request: NextRequest) {
+  // Require authentication to view deployments
+  const session = await requireAuth()
+  if (session instanceof NextResponse) {
+    logAuthFailure(undefined, '/api/deployments', 'unauthorized')
+    return session
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams
     const limit = parseInt(searchParams.get('limit') || '20', 10)
