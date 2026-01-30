@@ -1,0 +1,71 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    # Skip if the OAuth token secret is not configured
+    if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      checks: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            **Tone**: Be encouraging but concise. Limit emojis to section headers only (max 1 per section). Keep feedback direct and actionable.
+
+            FIRST: Before starting your review, run `gh pr view ${{ github.event.pull_request.number }} --comments` to read any existing comments on this PR, including your previous reviews. This helps you:
+            - Maintain consistency with points you've already raised
+            - Acknowledge issues that have been addressed since your last review
+            - Avoid repeating the same feedback unnecessarily
+            - Track the evolution of the PR across multiple review cycles
+
+            Also check CI status: `gh pr checks ${{ github.event.pull_request.number }}`
+
+            Then review this pull request and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
+
+            Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback. If this is a follow-up review, note which issues from previous reviews have been addressed.
+
+            IMPORTANT FORMATTING RULES:
+            - Keep your visible review BRIEF - no more than 5-10 lines of immediately visible text
+            - Use HTML <details><summary>Section Title</summary><p>detailed content here</p></details> AGGRESSIVELY
+            - Put all detailed explanations, code examples, and lengthy analysis inside collapsed details sections
+            - The summary line should be a one-line description; details go inside the collapsed section
+            - Reference specific files and lines (e.g., `runner.go:150`) so feedback is actionable
+            - Example format:
+              <details><summary>Potential race condition in runner.go:150</summary><p>
+
+              The fan-in buffer access should use mutex protection...
+              [detailed explanation here]
+
+              </p></details>
+
+            Before posting your review, first run `gh pr comment --edit-last` to replace any previous review comment with a brief message like "_This review is outdated. See latest review below._" This keeps the comment history clean and relevant to the latest code.
+
+            Then use `gh pr comment` with your Bash tool to leave your new review as a comment on the PR.
+
+          claude_args: '--model opus --allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh pr checks:*)"'
