@@ -33,7 +33,9 @@ interface DeploymentRecord {
 }
 
 // Extract tenant-agent deployment records from deployment jobs
-function extractDeploymentRecords(deployments: DeploymentJob[]): DeploymentRecord[] {
+// When deduplicate=true (default), keeps only the most recent record per tenant-agent pair
+// When deduplicate=false, returns all records (useful for Issues view to show all failed deployments)
+function extractDeploymentRecords(deployments: DeploymentJob[], deduplicate: boolean = true): DeploymentRecord[] {
   const records: DeploymentRecord[] = []
 
   // Track seen tenant-agent pairs to only keep most recent
@@ -47,7 +49,7 @@ function extractDeploymentRecords(deployments: DeploymentJob[]): DeploymentRecor
   for (const deployment of sorted) {
     for (const result of deployment.tenantResults || []) {
       const key = `${result.tenantId}-${deployment.solutionName}`
-      if (!seen.has(key)) {
+      if (!deduplicate || !seen.has(key)) {
         seen.add(key)
         records.push({
           tenantId: result.tenantId,
@@ -736,14 +738,33 @@ function DeploymentsContent() {
     }
   }, [isLoading])
 
-  const records = useMemo(() => extractDeploymentRecords(deployments), [deployments])
+  // For Issues filter, don't deduplicate so we show ALL failed deployments (even if later succeeded)
+  // For other filters, deduplicate to show current state per tenant-agent pair
+  const records = useMemo(() => extractDeploymentRecords(deployments, true), [deployments])
+  const allFailedRecords = useMemo(() => {
+    // Extract all records without deduplication, then filter to only failed ones
+    return extractDeploymentRecords(deployments, false).filter(r => FAILED_STATUSES.includes(r.status))
+  }, [deployments])
 
   const filteredRecords = useMemo(() => {
+    // For Issues filter, use the non-deduplicated failed records
+    if (statusFilter === 'issues') {
+      let issueRecords = allFailedRecords
+      // Apply search filter
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        issueRecords = issueRecords.filter(r =>
+          r.tenantName.toLowerCase().includes(q) || r.agentName.toLowerCase().includes(q)
+        )
+      }
+      return issueRecords
+    }
+
+    // For other filters, use deduplicated records
     return records.filter(r => {
       // Status filter - using category groupings
       if (statusFilter === 'active' && !ACTIVE_STATUSES.includes(r.status)) return false
       if (statusFilter === 'pending' && !PENDING_ACTION_STATUSES.includes(r.status)) return false
-      if (statusFilter === 'issues' && !FAILED_STATUSES.includes(r.status)) return false
 
       // Search filter
       if (searchQuery) {
@@ -755,7 +776,7 @@ function DeploymentsContent() {
 
       return true
     })
-  }, [records, statusFilter, searchQuery])
+  }, [records, allFailedRecords, statusFilter, searchQuery])
 
   // Get retryable records (failed or cancelled)
   const retryableRecords = useMemo(() => {
