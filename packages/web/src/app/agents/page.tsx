@@ -107,6 +107,13 @@ export default function SolutionsPage() {
   const [loadingSourceSolutions, setLoadingSourceSolutions] = useState(false)
   const [sourceEnvironmentUrl, setSourceEnvironmentUrl] = useState<string | null>(null)
   const [importingFromSource, setImportingFromSource] = useState<string | null>(null)
+  // Environment browser state
+  const [environments, setEnvironments] = useState<any[]>([])
+  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
+  const [selectedEnvironment, setSelectedEnvironment] = useState<string | null>(null)
+  const [showAgentsOnly, setShowAgentsOnly] = useState(true)
+  // Agent preview state
+  const [previewSolution, setPreviewSolution] = useState<any | null>(null)
 
   // Filter agents by search and view mode
   const filteredAgents = useMemo(() => {
@@ -205,11 +212,42 @@ export default function SolutionsPage() {
     }
   }
 
-  // Load source solutions when switching to browse mode
-  const loadSourceSolutions = async () => {
-    setLoadingSourceSolutions(true)
+  // Load available environments
+  const loadEnvironments = async () => {
+    setLoadingEnvironments(true)
     try {
-      const response = await fetch('/api/solutions/source')
+      const response = await fetch('/api/environments')
+      const data = await response.json()
+      if (data.environments) {
+        setEnvironments(data.environments)
+        // Auto-select first environment if none selected
+        if (data.environments.length > 0 && !selectedEnvironment) {
+          const defaultEnv = data.environments.find((e: any) => e.isDefault) || data.environments[0]
+          setSelectedEnvironment(defaultEnv.instanceUrl)
+          loadSourceSolutions(defaultEnv.instanceUrl)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load environments:', err)
+    } finally {
+      setLoadingEnvironments(false)
+    }
+  }
+
+  // Load source solutions for a specific environment
+  const loadSourceSolutions = async (envUrl?: string) => {
+    const url = envUrl || selectedEnvironment
+    if (!url) return
+
+    setLoadingSourceSolutions(true)
+    setSourceSolutions([])
+    try {
+      const params = new URLSearchParams()
+      params.set('environmentUrl', url)
+      if (showAgentsOnly) {
+        params.set('botsOnly', 'true')
+      }
+      const response = await fetch(`/api/solutions/source?${params.toString()}`)
       const data = await response.json()
       if (data.solutions) {
         setSourceSolutions(data.solutions)
@@ -829,7 +867,7 @@ export default function SolutionsPage() {
                 <button
                   onClick={() => {
                     setImportMode('browse')
-                    if (sourceSolutions.length === 0) loadSourceSolutions()
+                    if (environments.length === 0) loadEnvironments()
                   }}
                   className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                     importMode === 'browse'
@@ -850,77 +888,253 @@ export default function SolutionsPage() {
               {/* Browse from Power Platform */}
               {importMode === 'browse' && (
                 <div>
-                  {loadingSourceSolutions ? (
+                  {loadingEnvironments ? (
                     <div className="py-8 text-center">
                       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                      <p className="text-sm text-slate-600">Loading solutions from Power Platform...</p>
+                      <p className="text-sm text-slate-600">Loading environments...</p>
                     </div>
-                  ) : sourceSolutions.length === 0 ? (
+                  ) : environments.length === 0 ? (
                     <div className="py-8 text-center">
                       <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      <p className="text-slate-600 mb-2">No source environment configured</p>
+                      <p className="text-slate-600 mb-2">No Power Platform connection configured</p>
                       <p className="text-xs text-slate-400 mb-4">
-                        Configure a source environment in Settings to browse solutions directly from Power Platform.
+                        Configure your Azure AD credentials in Settings to browse Power Platform environments.
                       </p>
                       <a href="/settings" className="text-sm text-blue-600 hover:text-blue-700">
                         Go to Settings →
                       </a>
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-xs text-slate-500 mb-3">
-                        Solutions from <span className="font-medium">{sourceEnvironmentUrl}</span>
-                      </p>
-                      <div className="max-h-[350px] overflow-y-auto space-y-2">
-                        {sourceSolutions.map((solution) => (
-                          <div
-                            key={solution.solutionId}
-                            className="p-3 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-slate-900">{solution.displayName}</h4>
-                                <p className="text-xs text-slate-500 font-mono">{solution.uniqueName}</p>
-                                {solution.description && (
-                                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{solution.description}</p>
-                                )}
-                                <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-                                  <span>v{solution.version}</span>
-                                  <span>•</span>
-                                  <span>{solution.publisher}</span>
-                                  {solution.hasBot && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="text-blue-600">Contains Agent</span>
-                                    </>
+                    <div className="space-y-3">
+                      {/* Environment selector */}
+                      <div className="flex items-center gap-3">
+                        <label className="text-xs font-medium text-slate-600">Environment:</label>
+                        <select
+                          value={selectedEnvironment || ''}
+                          onChange={(e) => {
+                            setSelectedEnvironment(e.target.value)
+                            loadSourceSolutions(e.target.value)
+                          }}
+                          className="flex-1 text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          {environments.map((env) => (
+                            <option key={env.id} value={env.instanceUrl}>
+                              {env.displayName} ({env.type})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Filter toggle */}
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showAgentsOnly}
+                            onChange={(e) => {
+                              setShowAgentsOnly(e.target.checked)
+                              if (selectedEnvironment) {
+                                setTimeout(() => loadSourceSolutions(selectedEnvironment), 0)
+                              }
+                            }}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Show Copilot agents only
+                        </label>
+                        <span className="text-xs text-slate-400">
+                          {sourceSolutions.length} solution{sourceSolutions.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {/* Solutions list */}
+                      {loadingSourceSolutions ? (
+                        <div className="py-6 text-center">
+                          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                          <p className="text-xs text-slate-500">Loading solutions...</p>
+                        </div>
+                      ) : sourceSolutions.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-slate-500">
+                          {showAgentsOnly ? 'No Copilot agents found in this environment' : 'No exportable solutions found'}
+                        </div>
+                      ) : (
+                        <div className="max-h-[300px] overflow-y-auto space-y-2">
+                          {sourceSolutions.map((solution) => (
+                            <div
+                              key={solution.solutionId}
+                              className="p-3 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors cursor-pointer"
+                              onClick={() => setPreviewSolution(solution)}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-medium text-slate-900">{solution.displayName}</h4>
+                                    {solution.hasBot && (
+                                      <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Agent</span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-slate-500 font-mono">{solution.uniqueName}</p>
+                                  {solution.description && (
+                                    <p className="text-xs text-slate-600 mt-1 line-clamp-1">{solution.description}</p>
                                   )}
+                                  <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
+                                    <span>v{solution.version}</span>
+                                    <span>•</span>
+                                    <span>{solution.publisher}</span>
+                                    {solution.botInfo?.botName && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-blue-600">{solution.botInfo.botName}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 ml-3">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setPreviewSolution(solution)
+                                    }}
+                                    className="px-2 py-1 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded"
+                                  >
+                                    Preview
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleImportFromSource(solution)
+                                    }}
+                                    disabled={importingFromSource === solution.uniqueName}
+                                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex-shrink-0"
+                                  >
+                                    {importingFromSource === solution.uniqueName ? (
+                                      <span className="flex items-center gap-1">
+                                        <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        ...
+                                      </span>
+                                    ) : (
+                                      'Import'
+                                    )}
+                                  </button>
                                 </div>
                               </div>
-                              <button
-                                onClick={() => handleImportFromSource(solution)}
-                                disabled={importingFromSource === solution.uniqueName}
-                                className="ml-3 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex-shrink-0"
-                              >
-                                {importingFromSource === solution.uniqueName ? (
-                                  <span className="flex items-center gap-1">
-                                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Importing...
-                                  </span>
-                                ) : (
-                                  'Import'
-                                )}
-                              </button>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Agent Preview Modal */}
+              {previewSolution && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setPreviewSolution(null)}>
+                  <div className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                      <h3 className="font-medium text-slate-900">Agent Preview</h3>
+                      <button onClick={() => setPreviewSolution(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {/* Agent header */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="text-lg font-semibold text-slate-900">{previewSolution.displayName}</h4>
+                          {previewSolution.hasBot && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Copilot Agent</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-500 font-mono">{previewSolution.uniqueName}</p>
+                      </div>
+
+                      {/* Description */}
+                      {previewSolution.description && (
+                        <p className="text-sm text-slate-600">{previewSolution.description}</p>
+                      )}
+
+                      {/* Bot details */}
+                      {previewSolution.botInfo && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <h5 className="text-sm font-medium text-blue-900 mb-2">Agent Details</h5>
+                          <div className="space-y-1.5 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-blue-700">Name:</span>
+                              <span className="text-blue-900 font-medium">{previewSolution.botInfo.botName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-blue-700">Type:</span>
+                              <span className="text-blue-900">{previewSolution.botInfo.botType === 'copilot' ? 'Copilot Studio' : 'Classic PVA'}</span>
+                            </div>
+                            {previewSolution.botInfo.topicsCount > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-blue-700">Topics:</span>
+                                <span className="text-blue-900">{previewSolution.botInfo.topicsCount}</span>
+                              </div>
+                            )}
+                          </div>
+                          {previewSolution.botInfo.knowledgeSources?.length > 0 && (
+                            <div className="mt-3 pt-2 border-t border-blue-200">
+                              <p className="text-xs font-medium text-blue-800 mb-1">Knowledge Sources:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {previewSolution.botInfo.knowledgeSources.map((source: string, i: number) => (
+                                  <span key={i} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                    {source}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Solution metadata */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        <h5 className="text-sm font-medium text-slate-700 mb-2">Solution Info</h5>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-slate-500">Version:</span>
+                            <span className="ml-1 text-slate-700">{previewSolution.version}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Publisher:</span>
+                            <span className="ml-1 text-slate-700">{previewSolution.publisher}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Type:</span>
+                            <span className="ml-1 text-slate-700">{previewSolution.isManaged ? 'Managed' : 'Unmanaged'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Environment:</span>
+                            <span className="ml-1 text-slate-700 text-xs">{selectedEnvironment?.split('.')[0].replace('https://', '')}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          onClick={() => setPreviewSolution(null)}
+                          className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleImportFromSource(previewSolution)
+                            setPreviewSolution(null)
+                          }}
+                          disabled={importingFromSource === previewSolution.uniqueName}
+                          className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          Import Agent
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
