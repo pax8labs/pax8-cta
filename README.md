@@ -10,9 +10,13 @@ Take your CoPilot agents and ship them to your clients' tenants! Multi-tenant Co
 
 **Already have GDAP set up with your customers?** You're 90% there.
 
+> **📱 What You're Deploying**: AgentSync Control Tower - a Next.js web dashboard for managing Copilot Studio agent deployments across your customer fleet. It includes the full UI, approval workflows, health checks, and deployment tracking.
+>
+> **🚧 Current Status**: BETA - Core functionality works, but requires [production readiness work](https://github.com/pax8labs/agentsync/issues) before use with live customer data (see issues #11-20 for details).
+
 ### Option A: One-Click Cloud Deploy (Easiest)
 
-Deploy to **Vercel** - a free cloud hosting platform (like Azure App Service, but simpler). Good for testing or small-scale production.
+Deploy the **Control Tower web dashboard** to **Vercel** - a free cloud hosting platform (like Azure App Service, but simpler). Good for testing and evaluation.
 
 1. Click the **"Deploy with Vercel"** button above
 2. Sign in with GitHub (create a free account if needed)
@@ -22,15 +26,17 @@ Deploy to **Vercel** - a free cloud hosting platform (like Azure App Service, bu
    - `PARTNER_CLIENT_SECRET` - Your app registration secret
    - `SOURCE_TENANT_ID` - Where your master agent lives
    - `SOURCE_ENVIRONMENT_URL` - e.g., `https://yourdev.crm.dynamics.com`
-4. Click Deploy → Your Control Tower is live in ~2 minutes
+4. Click Deploy → Your Control Tower dashboard is live in ~2 minutes
 
 To add customer tenants, either:
 - Set `TENANTS_JSON` env var with a JSON array of tenants, OR
 - Edit `config/tenants.yaml` in your forked repo (see [Configuration](#configuration))
 
-**Production-ready?** Yes for small fleets. For batch deployments to your entire fleet or scheduled overnight rollouts, use [Docker](#option-2-docker---recommended-for-scale) instead (Vercel has a 10-second timeout per request on free tier).
+**Production-ready?** Currently BETA. Works for testing and demos with demo mode. For production deployment with live customer data, complete the [production readiness checklist](https://github.com/pax8labs/agentsync/issues) first. For batch deployments to your entire fleet or scheduled overnight rollouts, use [Docker](#option-2-docker---recommended-for-scale) instead (Vercel has a 10-second timeout per request on free tier).
 
 ### Option B: Run Locally (5 commands)
+
+Run the Control Tower web dashboard on your local machine:
 
 ```bash
 git clone https://github.com/pax8labs/agentsync.git
@@ -38,10 +44,12 @@ cd agentsync
 npm install -g pnpm           # Skip if you have pnpm
 pnpm install && pnpm build
 cp .env.example .env          # Then edit with your credentials
-pnpm web                      # Opens Control Tower at localhost:3000
+pnpm web                      # Opens Control Tower dashboard at localhost:3000
 ```
 
 > **Note:** Local mode runs with SQLite for data persistence. Redis is optional for background job processing - without it, deployments run synchronously during web requests. Great for testing and small fleets.
+>
+> **Demo Mode**: Set `DEMO_MODE=true` in `.env` to test the UI with mock data (no Azure AD or customer tenants required).
 
 **Need to deploy to 50+ tenants at once?** Skip to [Docker Setup](#option-2-docker---recommended-for-scale) for production-scale deployments with parallel processing.
 
