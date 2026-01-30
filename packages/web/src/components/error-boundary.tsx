@@ -247,15 +247,34 @@ export function useErrorReporter() {
   return { reportError, isReporting, lastIssueUrl }
 }
 
+// Patterns that indicate hydration-related errors
+const HYDRATION_ERROR_PATTERNS = [
+  'hydration',
+  'Hydration',
+  'Text content does not match',
+  'server-rendered HTML',
+  'did not match',
+  'Minified React error #418',
+  'Minified React error #423',
+  'Minified React error #425',
+]
+
+function isHydrationError(message: string): boolean {
+  return HYDRATION_ERROR_PATTERNS.some(pattern => message.includes(pattern))
+}
+
 /**
  * Global error handler component that catches unhandled errors and promise rejections.
  * Add this component once in your app layout to catch errors that escape error boundaries.
+ *
+ * This also captures React hydration errors which are often logged as warnings but
+ * can also throw as errors in development mode.
  */
 export function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
-    const reportGlobalError = async (error: Error, source: string) => {
+    const reportGlobalError = async (error: Error, source: string, context?: Record<string, unknown>) => {
       // Track in PostHog
-      trackError(error, { source })
+      trackError(error, { source, ...context })
 
       // Report to GitHub
       try {
@@ -270,6 +289,7 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
             timestamp: new Date().toISOString(),
             context: {
               userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+              ...context,
             },
           }),
         })
@@ -280,10 +300,14 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
 
     // Handle unhandled errors
     const handleError = (event: ErrorEvent) => {
-      console.error('Global error caught:', event.error)
+      const error = event.error || new Error(event.message)
+      const isHydration = isHydrationError(error.message || event.message || '')
+
+      console.error('Global error caught:', error)
       reportGlobalError(
-        event.error || new Error(event.message),
-        'global_error'
+        error,
+        isHydration ? 'hydration_error' : 'global_error',
+        isHydration ? { errorType: 'hydration' } : undefined
       )
     }
 
@@ -293,7 +317,43 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
       const error = event.reason instanceof Error
         ? event.reason
         : new Error(String(event.reason))
-      reportGlobalError(error, 'unhandled_rejection')
+
+      const isHydration = isHydrationError(error.message || '')
+      reportGlobalError(
+        error,
+        isHydration ? 'hydration_error' : 'unhandled_rejection',
+        isHydration ? { errorType: 'hydration' } : undefined
+      )
+    }
+
+    // Intercept console.error to catch React hydration warnings
+    // React logs hydration mismatches as warnings/errors to console before throwing
+    const originalConsoleError = console.error
+    const reportedMessages = new Set<string>() // Dedupe within session
+
+    console.error = (...args: unknown[]) => {
+      // Call original first
+      originalConsoleError.apply(console, args)
+
+      // Check if this looks like a hydration error
+      const message = args.map(arg =>
+        typeof arg === 'string' ? arg : (arg instanceof Error ? arg.message : String(arg))
+      ).join(' ')
+
+      if (isHydrationError(message) && !reportedMessages.has(message.slice(0, 200))) {
+        reportedMessages.add(message.slice(0, 200))
+
+        // Report hydration error to GitHub
+        const error = args.find(arg => arg instanceof Error) as Error | undefined
+        reportGlobalError(
+          error || new Error(message.slice(0, 500)),
+          'hydration_error',
+          {
+            errorType: 'hydration',
+            consoleArgs: message.slice(0, 1000),
+          }
+        )
+      }
     }
 
     window.addEventListener('error', handleError)
@@ -302,6 +362,7 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
     return () => {
       window.removeEventListener('error', handleError)
       window.removeEventListener('unhandledrejection', handleRejection)
+      console.error = originalConsoleError
     }
   }, [])
 
