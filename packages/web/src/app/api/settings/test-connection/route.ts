@@ -4,9 +4,14 @@ import {
   TokenManager,
   DataverseClient,
   PowerPlatformAdminClient,
+  isDemoMode,
+  formatRedisError,
 } from '@agentsync/core'
+import Redis from 'ioredis'
 
 export const dynamic = 'force-dynamic'
+
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 interface TestResult {
   step: string
@@ -23,6 +28,46 @@ export async function POST() {
   let overallSuccess = true
 
   try {
+    // Step 0: Test Redis connectivity (required for non-demo deployments)
+    if (!isDemoMode()) {
+      try {
+        const redis = new Redis(REDIS_URL, {
+          maxRetriesPerRequest: 1,
+          retryStrategy: () => null,
+          connectTimeout: 5000,
+          lazyConnect: true,
+        })
+
+        await redis.connect()
+        await redis.ping()
+        await redis.quit()
+
+        results.push({
+          step: 'redis',
+          success: true,
+          message: 'Redis connected successfully',
+          details: `Connected to ${new URL(REDIS_URL).hostname}:${new URL(REDIS_URL).port || 6379}`,
+        })
+      } catch (error) {
+        results.push({
+          step: 'redis',
+          success: false,
+          message: 'Redis not available',
+          details: error instanceof Error
+            ? formatRedisError(error, REDIS_URL)
+            : 'Redis is required for deployment job processing. See error details for setup instructions.',
+        })
+        // Don't fail overall - deployments can still work via /api/deployments/process
+      }
+    } else {
+      results.push({
+        step: 'redis',
+        success: true,
+        message: 'Redis check skipped (demo mode)',
+        details: 'Demo mode uses in-memory simulation instead of Redis queues',
+      })
+    }
+
     const settingsService = getSettingsService()
     const settings = await settingsService.getDecryptedIntegrationSettings()
 
