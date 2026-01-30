@@ -43,6 +43,9 @@ coverage/
 .demo-*.json
 .agentsync-settings.json
 
+# SQLite database
+data/
+
 # Playwright
 playwright-report/
 test-results/

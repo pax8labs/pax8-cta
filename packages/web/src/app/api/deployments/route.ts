@@ -10,19 +10,26 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const statusFilter = searchParams.get('status') // Optional status filter
 
     // Use demo data if DEMO_MODE is enabled
     if (isDemoMode()) {
       // Get any real-time demo deployments first (these are persisted and may have been modified)
-      const liveDeployments = Array.from(demoDeployments.values())
+      let liveDeployments = Array.from(demoDeployments.values())
       const liveIds = new Set(liveDeployments.map(d => d.id))
 
       // Generate mock history for the rest
       const historyCount = Math.max(0, limit - liveDeployments.length)
-      const mockHistory = generateMockDeploymentHistory(historyCount)
+      let mockHistory = generateMockDeploymentHistory(historyCount)
         // Filter out any mock history that we already have persisted
         // This ensures retried/modified deployments show their actual state
         .filter(h => !liveIds.has(h.id))
+
+      // Apply status filter if provided
+      if (statusFilter) {
+        liveDeployments = liveDeployments.filter(d => d.status === statusFilter)
+        mockHistory = mockHistory.filter(d => d.status === statusFilter)
+      }
 
       // Combine live + filtered history, sort by date
       const allDeployments = [...liveDeployments, ...mockHistory]
@@ -54,8 +61,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Apply status filter if provided
+    let filteredDeployments = deployments
+    if (statusFilter) {
+      filteredDeployments = deployments.filter(d => d.status === statusFilter)
+    }
+
     // Sort by creation date (newest first) and limit
-    deployments.sort(
+    filteredDeployments.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
@@ -64,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       demoMode: false,
-      deployments: deployments.slice(0, limit),
+      deployments: filteredDeployments.slice(0, limit),
     })
   } catch (error) {
     console.error('Deployments error:', error)

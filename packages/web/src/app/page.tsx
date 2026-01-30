@@ -169,6 +169,11 @@ export default function Dashboard() {
 
   const { data: agentsData, isLoading: agentsLoading } = useSWR('/api/agents', fetcher)
 
+  // Fetch pending approvals - deployments awaiting approval
+  const { data: pendingApprovals } = useSWR('/api/deployments?status=awaiting_approval', fetcher, {
+    refreshInterval: 5000,
+  })
+
   const deployments = recentDeployments?.deployments ?? []
 
   // Check if user has any custom agents (indicates they've actually used the app)
@@ -255,6 +260,58 @@ export default function Dashboard() {
           href="/deployments?filter=issues"
         />
       </div>
+
+      {/* Pending Approvals Alert */}
+      {pendingApprovals?.deployments?.length > 0 && (
+        <div className="mb-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-medium text-purple-900">
+                  {pendingApprovals.deployments.length} deployment{pendingApprovals.deployments.length !== 1 ? 's' : ''} awaiting approval
+                </h3>
+                <p className="text-sm text-purple-700">
+                  Review and approve these deployments to continue
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/deployments?status=awaiting_approval"
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+            >
+              Review Approvals
+            </Link>
+          </div>
+          {/* List first 3 pending approvals */}
+          <div className="mt-4 space-y-2">
+            {pendingApprovals.deployments.slice(0, 3).map((d: DeploymentJob) => (
+              <Link
+                key={d.id}
+                href={`/deployments/${d.id}`}
+                className="flex items-center justify-between p-2 bg-white rounded-lg border border-purple-100 hover:border-purple-300 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-900">{d.solutionName}</span>
+                  <span className="text-xs text-gray-500">
+                    {d.totalTenants} tenant{d.totalTenants !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <span className="text-xs text-purple-600">Review →</span>
+              </Link>
+            ))}
+            {pendingApprovals.deployments.length > 3 && (
+              <p className="text-xs text-purple-600 text-center">
+                +{pendingApprovals.deployments.length - 3} more
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="mb-8">

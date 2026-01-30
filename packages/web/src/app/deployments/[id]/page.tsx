@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import useSWR from 'swr'
+import { ApprovalPanel } from '@/components/deployments/ApprovalPanel'
 
 // Animated counter that smoothly transitions between values
 function AnimatedCounter({
@@ -646,6 +647,16 @@ export default function DeploymentDetailPage() {
           Deployment ID: {deployment.id}
         </p>
       </div>
+
+      {/* Approval Panel - show when awaiting approval */}
+      {deployment.status === 'awaiting_approval' && (
+        <div className="mb-6">
+          <ApprovalPanel
+            deploymentId={deployment.id}
+            onStatusChange={() => mutate()}
+          />
+        </div>
+      )}
 
       {/* Action Buttons */}
       {(failedTenants > 0 || deployment.status === 'in_progress' || deployment.status === 'pending' || completedTenants > 0) && (

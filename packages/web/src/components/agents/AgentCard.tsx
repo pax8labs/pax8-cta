@@ -171,9 +171,11 @@ export const AgentCard = React.memo(function AgentCard({
               {agent.totalDeployments > 0 ? (
                 <>
                   <span className="text-slate-600 tabular-nums">{agent.totalDeployments} tenants</span>
-                  {stats.health !== null && (
-                    <span className={`tabular-nums ${stats.health >= 90 ? 'text-emerald-600' : stats.health >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
-                      {stats.health}%
+                  {stats.active === agent.totalDeployments ? (
+                    <span className="text-emerald-600">all healthy</span>
+                  ) : (
+                    <span className={`tabular-nums ${stats.health && stats.health >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
+                      {stats.active}/{agent.totalDeployments} healthy
                     </span>
                   )}
                 </>

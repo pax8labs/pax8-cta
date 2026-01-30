@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { loadConfig } from '@agentsync/core'
+import { loadConfig, isDemoMode } from '@agentsync/core'
 import { resolve } from 'path'
+import * as approvalRepo from '@/lib/repositories/approval-repository'
+import { logApprovalAction } from '@/lib/repositories/audit-repository'
+import { demoDeployments, demoBatches } from '@/lib/demo-store'
+import * as deploymentRepo from '@/lib/repositories/deployment-repository'
 
 export const dynamic = 'force-dynamic'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
-
-// In-memory approval store (in production, use Redis or a database)
-const approvalStore = new Map<string, {
-  deploymentId: string;
-  status: 'pending' | 'approved' | 'rejected';
-  requiredApprovals: number;
-  approvals: Array<{ approver: string; timestamp: string; }>;
-  rejections: Array<{ approver: string; reason: string; timestamp: string; }>;
-  createdAt: string;
-  expiresAt: string;
-}>()
 
 /**
  * GET /api/deployments/[id]/approve - Get approval status
@@ -25,7 +18,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const approval = approvalStore.get(params.id)
+    const approval = approvalRepo.getApprovalByDeployment(params.id)
 
     if (!approval) {
       return NextResponse.json({
@@ -39,8 +32,15 @@ export async function GET(
       status: approval.status,
       requiredApprovals: approval.requiredApprovals,
       currentApprovals: approval.approvals.length,
-      approvals: approval.approvals,
-      rejections: approval.rejections,
+      approvals: approval.approvals.map(a => ({
+        approver: a.approver,
+        timestamp: a.timestamp,
+      })),
+      rejections: approval.rejections.map(r => ({
+        approver: r.approver,
+        reason: r.reason,
+        timestamp: r.timestamp,
+      })),
       expiresAt: approval.expiresAt,
     })
   } catch (error) {
@@ -89,7 +89,7 @@ export async function POST(
       )
     }
 
-    let approval = approvalStore.get(params.id)
+    let approval = approvalRepo.getApprovalByDeployment(params.id)
 
     // Create new approval record if doesn't exist
     if (!approval) {
@@ -97,16 +97,19 @@ export async function POST(
       const timeoutMs = parseTimeout(timeout)
       const expiresAt = new Date(Date.now() + timeoutMs)
 
-      approval = {
+      const newApproval = approvalRepo.createApproval({
         deploymentId: params.id,
         status: 'pending',
         requiredApprovals: approvalConfig?.minApprovals || 1,
-        approvals: [],
-        rejections: [],
         createdAt: new Date().toISOString(),
         expiresAt: expiresAt.toISOString(),
+      })
+
+      approval = {
+        ...newApproval,
+        approvals: [],
+        rejections: [],
       }
-      approvalStore.set(params.id, approval)
     }
 
     // Check if already decided
@@ -119,8 +122,8 @@ export async function POST(
 
     // Check expiration
     if (new Date() > new Date(approval.expiresAt)) {
-      approval.status = 'rejected'
-      approvalStore.set(params.id, approval)
+      approvalRepo.updateApprovalStatus(approval.id, 'rejected')
+      logApprovalAction('approval.expired', params.id)
       return NextResponse.json(
         { error: 'Approval request has expired' },
         { status: 400 }
@@ -128,44 +131,83 @@ export async function POST(
     }
 
     // Check if this approver already voted
-    const alreadyApproved = approval.approvals.some(a => a.approver === approver)
-    const alreadyRejected = approval.rejections.some(r => r.approver === approver)
-
-    if (alreadyApproved || alreadyRejected) {
+    if (approvalRepo.hasVoted(approval.id, approver)) {
       return NextResponse.json(
         { error: `${approver} has already voted on this deployment` },
         { status: 400 }
       )
     }
 
-    if (action === 'approve') {
-      approval.approvals.push({
-        approver,
-        timestamp: new Date().toISOString(),
-      })
+    // Add the vote
+    approvalRepo.addVote(approval.id, approver, action, reason)
 
+    // Get updated approval state
+    const updatedApproval = approvalRepo.getApprovalByDeployment(params.id)!
+
+    let newStatus: 'pending' | 'approved' | 'rejected' = 'pending'
+
+    if (action === 'approve') {
       // Check if we have enough approvals
-      if (approval.approvals.length >= approval.requiredApprovals) {
-        approval.status = 'approved'
+      if (updatedApproval.approvals.length >= updatedApproval.requiredApprovals) {
+        newStatus = 'approved'
       }
     } else {
-      approval.rejections.push({
-        approver,
-        reason: reason || 'No reason provided',
-        timestamp: new Date().toISOString(),
-      })
-      approval.status = 'rejected'
+      // Single rejection rejects the deployment
+      newStatus = 'rejected'
     }
 
-    approvalStore.set(params.id, approval)
+    // Update approval status
+    if (newStatus !== 'pending') {
+      approvalRepo.updateApprovalStatus(approval.id, newStatus)
+
+      // Update deployment status
+      const deploymentStatus = newStatus === 'approved' ? 'in_progress' : 'rejected'
+
+      // Update in database
+      try {
+        deploymentRepo.updateBatchStatus(params.id, deploymentStatus)
+      } catch (e) {
+        console.warn('Failed to update batch status in DB:', e)
+      }
+
+      // Update in demo stores (if demo mode)
+      if (isDemoMode()) {
+        const legacyDep = demoDeployments.get(params.id)
+        if (legacyDep) {
+          legacyDep.status = deploymentStatus
+          legacyDep.updatedAt = new Date().toISOString()
+          if (newStatus === 'approved') {
+            legacyDep.startedAt = new Date().toISOString()
+          }
+          demoDeployments.set(params.id, legacyDep)
+        }
+
+        const batch = demoBatches.get(params.id)
+        if (batch) {
+          batch.status = deploymentStatus
+          batch.updatedAt = new Date().toISOString()
+          if (newStatus === 'approved') {
+            batch.startedAt = new Date().toISOString()
+          }
+          demoBatches.set(params.id, batch)
+        }
+      }
+
+      logApprovalAction(
+        newStatus === 'approved' ? 'approval.approved' : 'approval.rejected',
+        params.id,
+        approver,
+        reason
+      )
+    }
 
     return NextResponse.json({
-      status: approval.status,
+      status: newStatus,
       message: action === 'approve'
-        ? `Deployment ${approval.status === 'approved' ? 'approved' : 'approval recorded'}`
+        ? `Deployment ${newStatus === 'approved' ? 'approved' : 'approval recorded'}`
         : 'Deployment rejected',
-      currentApprovals: approval.approvals.length,
-      requiredApprovals: approval.requiredApprovals,
+      currentApprovals: updatedApproval.approvals.length,
+      requiredApprovals: updatedApproval.requiredApprovals,
     })
   } catch (error) {
     console.error('Approval error:', error)

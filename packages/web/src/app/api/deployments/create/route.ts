@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { writeFile, mkdir } from 'fs/promises'
 import { resolve, join } from 'path'
-import { loadConfig, TenantConfig, isDemoMode, DEMO_TENANTS, Deployment, DeploymentBatch } from '@agentsync/core'
+import { loadConfig, TenantConfig, isDemoMode, DEMO_TENANTS, Deployment, DeploymentBatch, DeploymentStatus } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { demoDeployments, demoDeploymentsV2, demoBatches } from '@/lib/demo-store'
 import { serverTrackDeployment, serverTrackError } from '@/lib/posthog-server'
+import * as deploymentRepo from '@/lib/repositories/deployment-repository'
+import * as approvalRepo from '@/lib/repositories/approval-repository'
+import { logDeploymentAction, logApprovalAction } from '@/lib/repositories/audit-repository'
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
@@ -94,27 +97,80 @@ export async function POST(request: NextRequest) {
         ...(urlOverrides?.[t.tenantId] ? { urlOverride: urlOverrides[t.tenantId] } : {}),
       }))
 
+      // Load config to check approval requirements
+      let approvalRequired = false
+      let approvalConfig: { minApprovals?: number; timeout?: string } | undefined
+      try {
+        const config = await loadConfig(resolve(CONFIG_PATH))
+        approvalRequired = config.settings?.approval?.required || false
+        approvalConfig = config.settings?.approval
+      } catch {
+        // Config not available, proceed without approval
+      }
+
+      // Determine initial status based on approval requirements
+      const initialStatus: DeploymentStatus = approvalRequired ? 'awaiting_approval' : 'in_progress'
+
       // Create the batch
       const batch: DeploymentBatch = {
         id: batchId,
         solutionName: solutionName || 'DemoAgent',
         solutionVersion: '1.0.0',
         solutionPath,
-        status: 'in_progress',
+        status: initialStatus,
         totalDeployments: deployments.length,
         completedDeployments: 0,
         failedDeployments: 0,
         createdAt: now,
         updatedAt: now,
-        startedAt: now,
+        startedAt: approvalRequired ? undefined : now,
         triggeredBy: 'manual',
       }
 
-      // Store v2 data
+      // Update deployment statuses if awaiting approval
+      if (approvalRequired) {
+        deployments.forEach(d => {
+          d.status = 'pending'
+        })
+      }
+
+      // Store v2 data in demo stores
       for (const deployment of deployments) {
         demoDeploymentsV2.set(deployment.id, deployment)
       }
       demoBatches.set(batchId, batch)
+
+      // Also persist to database
+      try {
+        deploymentRepo.createBatch(batch)
+        for (const deployment of deployments) {
+          deploymentRepo.createDeployment(deployment)
+        }
+
+        // Create approval record if required
+        if (approvalRequired) {
+          const timeout = approvalConfig?.timeout || '24h'
+          const timeoutMs = parseTimeout(timeout)
+          const expiresAt = new Date(Date.now() + timeoutMs).toISOString()
+
+          approvalRepo.createApproval({
+            deploymentId: batchId,
+            status: 'pending',
+            requiredApprovals: approvalConfig?.minApprovals || 1,
+            createdAt: now,
+            expiresAt,
+          })
+
+          logApprovalAction('approval.requested', batchId)
+        }
+
+        logDeploymentAction('deployment.created', batchId, solutionName || 'DemoAgent', {
+          details: { tenantCount: targetTenants.length, approvalRequired },
+        })
+      } catch (dbError) {
+        console.warn('Failed to persist to database:', dbError)
+        // Continue - demo stores are primary for demo mode
+      }
 
       // Also create legacy DeploymentJob for backward compatibility with existing UI
       const legacyDeployment = {
@@ -122,13 +178,13 @@ export async function POST(request: NextRequest) {
         solutionName: solutionName || 'DemoAgent',
         solutionPath,
         solutionVersion: '1.0.0',
-        status: 'in_progress' as const,
+        status: initialStatus,
         totalTenants: targetTenants.length,
         completedTenants: 0,
         failedTenants: 0,
         createdAt: now,
         updatedAt: now,
-        startedAt: now,
+        startedAt: approvalRequired ? undefined : now,
         triggeredBy: 'manual' as const,
         tenantResults: targetTenants.map(t => ({
           tenantId: t.tenantId,
@@ -146,7 +202,7 @@ export async function POST(request: NextRequest) {
         deploymentId: batchId,
         solutionName: solutionName || 'DemoAgent',
         tenantCount: targetTenants.length,
-        status: 'in_progress',
+        status: initialStatus,
       })
 
       return NextResponse.json({
@@ -155,7 +211,10 @@ export async function POST(request: NextRequest) {
         demoMode: true,
         solutionPath,
         tenantCount: targetTenants.length,
-        message: 'Demo deployment created - watch the progress!',
+        approvalRequired,
+        message: approvalRequired
+          ? 'Demo deployment created - awaiting approval'
+          : 'Demo deployment created - watch the progress!',
       })
     }
 
@@ -226,6 +285,30 @@ export async function POST(request: NextRequest) {
       { error: error instanceof Error ? error.message : 'Failed to create deployment' },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Parse timeout string like "24h", "30m", "7d"
+ */
+function parseTimeout(timeout: string): number {
+  const match = timeout.match(/^(\d+)([mhd])$/)
+  if (!match) {
+    return 24 * 60 * 60 * 1000 // Default 24 hours
+  }
+
+  const value = parseInt(match[1], 10)
+  const unit = match[2]
+
+  switch (unit) {
+    case 'm':
+      return value * 60 * 1000
+    case 'h':
+      return value * 60 * 60 * 1000
+    case 'd':
+      return value * 24 * 60 * 60 * 1000
+    default:
+      return 24 * 60 * 60 * 1000
   }
 }
 

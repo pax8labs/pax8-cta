@@ -42,6 +42,13 @@ export default function TenantDetailPage() {
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false)
+  const [healthResult, setHealthResult] = useState<{
+    healthy: boolean
+    checks: Array<{ name: string; passed: boolean; message: string; durationMs: number }>
+    totalDurationMs: number
+    checkedAt: string
+  } | null>(null)
 
   const tenant: Tenant | undefined = data?.tenant
   const allTags: string[] = allTagsData?.tags ?? []
@@ -135,6 +142,36 @@ export default function TenantDetailPage() {
     } else {
       // If currently disabled, enable directly
       confirmToggleEnabled()
+    }
+  }
+
+  const handleCheckHealth = async () => {
+    setIsCheckingHealth(true)
+    setActionError(null)
+    try {
+      const response = await fetch(`/api/tenants/${tenantId}/health`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) throw new Error('Failed to run health check')
+
+      const result = await response.json()
+      setHealthResult({
+        healthy: result.healthy,
+        checks: result.checks,
+        totalDurationMs: result.totalDurationMs,
+        checkedAt: result.checkedAt,
+      })
+
+      if (result.healthy) {
+        setActionSuccess('Health check passed - tenant is healthy')
+      } else {
+        setActionError('Health check failed - see details below')
+      }
+    } catch (err) {
+      setActionError('Failed to run health check')
+    } finally {
+      setIsCheckingHealth(false)
     }
   }
 
@@ -288,6 +325,102 @@ export default function TenantDetailPage() {
           </svg>
           {new URL(tenant?.environmentUrl || 'https://example.com').hostname}
         </a>
+      </div>
+
+      {/* Health Check Section */}
+      <div className="bg-white shadow-md rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Health Check</h2>
+            <p className="text-sm text-slate-500 mt-0.5">Verify tenant environment connectivity and permissions</p>
+          </div>
+          <button
+            onClick={handleCheckHealth}
+            disabled={isCheckingHealth}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+          >
+            {isCheckingHealth ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Checking...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Check Health
+              </>
+            )}
+          </button>
+        </div>
+        <div className="p-6">
+          {healthResult ? (
+            <div className="space-y-4">
+              {/* Overall status */}
+              <div className={`flex items-center gap-3 p-4 rounded-lg ${healthResult.healthy ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}>
+                {healthResult.healthy ? (
+                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                )}
+                <div>
+                  <p className={`font-semibold ${healthResult.healthy ? 'text-emerald-800' : 'text-rose-800'}`}>
+                    {healthResult.healthy ? 'Tenant is Healthy' : 'Health Check Failed'}
+                  </p>
+                  <p className="text-sm text-slate-500" suppressHydrationWarning>
+                    Checked {new Date(healthResult.checkedAt).toLocaleString()} ({healthResult.totalDurationMs}ms)
+                  </p>
+                </div>
+              </div>
+
+              {/* Individual checks */}
+              <div className="space-y-2">
+                {healthResult.checks.map((check, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-center justify-between p-3 rounded-lg ${check.passed ? 'bg-slate-50' : 'bg-rose-50'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {check.passed ? (
+                        <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">{check.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                        <p className="text-xs text-slate-500">{check.message}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-400">{check.durationMs}ms</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-slate-600 text-sm">No health check has been run yet</p>
+              <p className="text-slate-400 text-xs mt-1">Click &quot;Check Health&quot; to verify tenant connectivity</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tags Section */}
