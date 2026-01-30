@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { resolve } from 'path'
-import { loadConfig, isDemoMode } from '@agentsync/core'
+import { loadConfig, isDemoMode, DEPLOYMENT_STATUS_CATEGORIES } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { demoDeployments, resolveDeployment } from '@/lib/demo-store'
 import { serverTrackDeployment, serverTrackError } from '@/lib/posthog-server'
+
+// Use centralized retryable statuses (failed, cancelled, rolled_back)
+const RETRYABLE_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE as readonly string[]
 
 const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
@@ -29,9 +32,9 @@ export async function POST(
         )
       }
 
-      // Find failed or cancelled tenants
+      // Find retryable tenants (failed, cancelled, or rolled_back)
       const retryableTenants = deployment.tenantResults.filter(
-        (r) => r.status === 'failed' || r.status === 'cancelled'
+        (r) => RETRYABLE_STATUSES.includes(r.status)
       )
 
       if (retryableTenants.length === 0) {
@@ -41,9 +44,9 @@ export async function POST(
         )
       }
 
-      // Reset failed/cancelled tenants to pending and update deployment status
+      // Reset retryable tenants to pending and update deployment status
       for (const result of deployment.tenantResults) {
-        if (result.status === 'failed' || result.status === 'cancelled') {
+        if (RETRYABLE_STATUSES.includes(result.status)) {
           result.status = 'pending'
           result.error = undefined
           result.startedAt = undefined
@@ -92,9 +95,9 @@ export async function POST(
       )
     }
 
-    // Find failed or cancelled tenants
+    // Find retryable tenants (failed, cancelled, or rolled_back)
     const retryableTenants = deployment.tenantResults.filter(
-      (r) => r.status === 'failed' || r.status === 'cancelled'
+      (r) => RETRYABLE_STATUSES.includes(r.status)
     )
 
     if (retryableTenants.length === 0) {
