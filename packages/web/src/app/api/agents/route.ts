@@ -52,52 +52,66 @@ export async function GET() {
       })
 
       // Convert DEMO_SOLUTIONS to array format with full agent details
-      const builtInAgents = DEMO_SOLUTIONS.map((solution: any) => ({
-        id: solution.uniqueName,
-        uniqueName: solution.uniqueName,
-        friendlyName: solution.friendlyName,
-        version: solution.version,
-        description: solution.description,
-        publisherName: solution.publisherName,
-        isManaged: solution.isManaged,
-        isCustom: false,
-        status: demoAgentStatus.get(solution.uniqueName) || 'active',
-        category: solution.category,
-        capabilities: solution.capabilities,
-        tags: solution.tags || [],
-        dependencies: solution.dependencies || [],
-        connectionReferences: solution.connectionReferences || [],
-        environmentVariables: solution.environmentVariables || [],
-        lastPublished: solution.lastPublished,
-        sizeKb: solution.sizeKb,
-        changelog: solution.changelog,
-        deployedTenants: agentDeployments.get(solution.friendlyName) || [],
-        totalDeployments: (agentDeployments.get(solution.friendlyName) || []).length,
-      }))
+      // Note: deployments are keyed by solutionName which can match friendlyName OR uniqueName
+      const builtInAgents = DEMO_SOLUTIONS.map((solution: any) => {
+        // Try to match deployments by friendlyName first, then uniqueName
+        const deployments = agentDeployments.get(solution.friendlyName)
+          || agentDeployments.get(solution.uniqueName)
+          || []
+        return {
+          id: solution.uniqueName,
+          uniqueName: solution.uniqueName,
+          friendlyName: solution.friendlyName,
+          version: solution.version,
+          description: solution.description,
+          publisherName: solution.publisherName,
+          isManaged: solution.isManaged,
+          isCustom: false,
+          status: demoAgentStatus.get(solution.uniqueName) || 'active',
+          category: solution.category,
+          capabilities: solution.capabilities,
+          tags: solution.tags || [],
+          dependencies: solution.dependencies || [],
+          connectionReferences: solution.connectionReferences || [],
+          environmentVariables: solution.environmentVariables || [],
+          lastPublished: solution.lastPublished,
+          sizeKb: solution.sizeKb,
+          changelog: solution.changelog,
+          deployedTenants: deployments,
+          totalDeployments: deployments.length,
+        }
+      })
 
       // Add custom agents (include urlTemplates for URL mapping at deploy time)
-      const customAgents = Array.from(demoCustomAgents.values()).map(agent => ({
-        id: agent.id,
-        uniqueName: agent.uniqueName,
-        friendlyName: agent.friendlyName,
-        version: agent.version,
-        description: agent.description,
-        publisherName: agent.publisherName,
-        isManaged: agent.isManaged,
-        isCustom: true,
-        status: agent.status || 'active',
-        urlTemplates: agent.urlTemplates,
-        hasSolutionStored: !!agent.solutionBase64,
-        // Include dependencies (knowledge sources) and connection references
-        dependencies: agent.dependencies || [],
-        connectionReferences: (agent.connectionReferences || []).map(cr => ({
-          name: cr.name,
-          connectorId: cr.connectorId,
-          required: true, // All stored connection refs are required
-        })),
-        deployedTenants: agentDeployments.get(agent.friendlyName) || [],
-        totalDeployments: (agentDeployments.get(agent.friendlyName) || []).length,
-      }))
+      // Note: deployments are keyed by solutionName which can match friendlyName OR uniqueName
+      const customAgents = Array.from(demoCustomAgents.values()).map(agent => {
+        // Try to match deployments by uniqueName first (more likely for custom agents), then friendlyName
+        const deployments = agentDeployments.get(agent.uniqueName)
+          || agentDeployments.get(agent.friendlyName)
+          || []
+        return {
+          id: agent.id,
+          uniqueName: agent.uniqueName,
+          friendlyName: agent.friendlyName,
+          version: agent.version,
+          description: agent.description,
+          publisherName: agent.publisherName,
+          isManaged: agent.isManaged,
+          isCustom: true,
+          status: agent.status || 'active',
+          urlTemplates: agent.urlTemplates,
+          hasSolutionStored: !!agent.solutionBase64,
+          // Include dependencies (knowledge sources) and connection references
+          dependencies: agent.dependencies || [],
+          connectionReferences: (agent.connectionReferences || []).map(cr => ({
+            name: cr.name,
+            connectorId: cr.connectorId,
+            required: true, // All stored connection refs are required
+          })),
+          deployedTenants: deployments,
+          totalDeployments: deployments.length,
+        }
+      })
 
       return NextResponse.json({
         demoMode: true,

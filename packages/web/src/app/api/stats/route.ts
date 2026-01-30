@@ -22,11 +22,15 @@ export async function GET() {
 
       // Generate mock history to include in stats (same logic as /api/deployments)
       // Use 100 to match the limit used on the deployments page
-      const mockHistory = generateMockDeploymentHistory(100)
+      // Adjust mock history count based on live deployments to ensure consistent total
+      const historyCount = Math.max(0, 100 - liveDeployments.length)
+      const mockHistory = generateMockDeploymentHistory(historyCount)
         .filter(h => !liveIds.has(h.id))
 
-      // Combine all deployments for stat calculation
+      // Combine all deployments for stat calculation, sorted and limited to 100
       const allDeployments = [...liveDeployments, ...mockHistory]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 100)
 
       // Extract unique tenant-agent records (same logic as deployments page)
       // This ensures dashboard stats match the deployments page counts
