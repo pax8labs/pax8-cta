@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import { writeFile, mkdir } from 'fs/promises'
 import { resolve, join } from 'path'
-import { loadConfig, TenantConfig, isDemoMode, DEMO_TENANTS, Deployment, DeploymentBatch, DeploymentStatus } from '@agentsync/core'
+import { loadConfig, TenantConfig, isDemoMode, DEMO_TENANTS, Deployment, DeploymentBatch, DeploymentStatus, formatRedisError } from '@agentsync/core'
 import { DeploymentQueueManager } from '@agentsync/worker'
 import { demoDeployments, demoDeploymentsV2, demoBatches } from '@/lib/demo-store'
 import { serverTrackDeployment, serverTrackError } from '@/lib/posthog-server'
@@ -290,8 +290,21 @@ export async function POST(request: NextRequest) {
       method: 'POST',
     })
 
+    // Provide helpful error messages for common issues
+    let errorMessage = 'Failed to create deployment'
+    if (error instanceof Error) {
+      // Check if this is a Redis connection error
+      if (error.message.includes('ECONNREFUSED') ||
+          error.message.includes('Redis') ||
+          error.message.includes('connect')) {
+        errorMessage = formatRedisError(error, REDIS_URL)
+      } else {
+        errorMessage = error.message
+      }
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create deployment' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

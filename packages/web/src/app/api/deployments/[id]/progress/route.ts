@@ -11,6 +11,7 @@ import {
   CANCELLATION_CHECK_INTERVAL_MS,
   SSE_HEARTBEAT_INTERVAL_MS,
   SSE_TIMEOUT_MS,
+  formatRedisError,
 } from '@agentsync/core'
 import { demoDeployments, demoDeploymentsV2, demoBatches, resolveDeployment, demoDeployedAgents, DeployedAgent } from '@/lib/demo-store'
 import { DeploymentQueueManager } from '@agentsync/worker'
@@ -825,9 +826,14 @@ async function streamRealDeploymentProgress(
       })
     }
   } catch (error) {
+    // Provide helpful error message for Redis connection issues
+    const errorMessage = error instanceof Error
+      ? formatRedisError(error, REDIS_URL)
+      : 'Unknown error connecting to deployment queue'
+
     send({
       type: 'error',
-      message: `Queue connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: errorMessage,
       deploymentId,
       timestamp: new Date().toISOString(),
     })

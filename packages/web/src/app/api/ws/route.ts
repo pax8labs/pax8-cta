@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DeploymentQueueManager } from '@agentsync/worker';
-import { isDemoMode, generateMockDeployment, DeploymentJob } from '@agentsync/core';
+import { isDemoMode, generateMockDeployment, DeploymentJob, formatRedisError } from '@agentsync/core';
 
 // Note: Next.js App Router doesn't support WebSocket directly.
 // Using Server-Sent Events (SSE) for real-time updates.
@@ -56,11 +56,14 @@ export async function GET(request: NextRequest) {
         try {
           queueManager = new DeploymentQueueManager(REDIS_URL);
         } catch (error) {
+          const errorMessage = error instanceof Error
+            ? formatRedisError(error, REDIS_URL)
+            : 'Failed to connect to Redis'
           sendMessage({
             type: 'error',
             deploymentId,
             timestamp: new Date().toISOString(),
-            data: { error: 'Failed to connect to Redis' },
+            data: { error: errorMessage },
           });
         }
       }
