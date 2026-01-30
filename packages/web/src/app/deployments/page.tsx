@@ -678,6 +678,9 @@ function RetryProgressModal({
 
 type ViewMode = 'tenants' | 'batches'
 
+// Delay before showing loading spinner to avoid flash on fast loads
+const LOADING_DELAY_MS = 200
+
 function DeploymentsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -694,6 +697,7 @@ function DeploymentsContent() {
   const [bulkMessage, setBulkMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [retryModalOpen, setRetryModalOpen] = useState(false)
   const [retryDeploymentIds, setRetryDeploymentIds] = useState<string[]>([])
+  const [showSpinner, setShowSpinner] = useState(false)
 
   // Sync URL with filter changes
   useEffect(() => {
@@ -714,6 +718,16 @@ function DeploymentsContent() {
   const refreshInterval = statusFilter === 'issues' ? 30000 : 5000
   const { data, error, isLoading, mutate } = useSWR('/api/deployments?limit=100', fetcher, { refreshInterval })
   const deployments = data?.deployments ?? []
+
+  // Delay showing spinner to avoid flash on fast loads
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => setShowSpinner(true), LOADING_DELAY_MS)
+      return () => clearTimeout(timer)
+    } else {
+      setShowSpinner(false)
+    }
+  }, [isLoading])
 
   const records = useMemo(() => extractDeploymentRecords(deployments), [deployments])
 
@@ -1066,10 +1080,12 @@ function DeploymentsContent() {
           <p className="text-rose-600 font-medium">Failed to load deployments</p>
           <p className="text-sm text-gray-500 mt-1">Please try refreshing the page</p>
         </div>
-      ) : isLoading ? (
+      ) : isLoading && showSpinner ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8">
           <FlaskSpinner size="md" message="Loading deployments..." className="py-4" />
         </div>
+      ) : isLoading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-8 min-h-[200px]" />
       ) : (viewMode === 'batches' ? filteredBatches.length : filteredRecords.length) === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
           <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">

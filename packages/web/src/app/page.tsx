@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { DeploymentCard } from '@/components/DeploymentCard'
@@ -150,8 +150,12 @@ function OnboardingWelcome({ onDismiss }: { onDismiss?: () => void }) {
   )
 }
 
+// Delay before showing loading spinner to avoid flash on fast loads
+const LOADING_DELAY_MS = 200
+
 export default function Dashboard() {
   const [showHelp, setShowHelp] = useState(false)
+  const [showSpinner, setShowSpinner] = useState(false)
 
   const { data: stats, error: statsError, isLoading: statsLoading } = useSWR('/api/stats', fetcher, {
     refreshInterval: 5000,
@@ -176,17 +180,32 @@ export default function Dashboard() {
   // Wait for all data to load before deciding on onboarding
   const isLoading = statsLoading || deploymentsLoading || agentsLoading
 
+  // Delay showing spinner to avoid flash on fast loads
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => setShowSpinner(true), LOADING_DELAY_MS)
+      return () => clearTimeout(timer)
+    } else {
+      setShowSpinner(false)
+    }
+  }, [isLoading])
+
   // Show onboarding automatically if no custom agents and no real deployments
   // Only check once data is loaded
   const isNewUser = !isLoading && !hasCustomAgents && !hasRealDeployments && !statsError && !deploymentsError
 
-  // Show loading state while data is being fetched
-  if (isLoading) {
+  // Show loading state while data is being fetched (only after delay)
+  if (isLoading && showSpinner) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <FlaskSpinner size="lg" message="Loading dashboard..." />
       </div>
     )
+  }
+
+  // Show nothing during initial load delay (prevents flash)
+  if (isLoading) {
+    return <div className="min-h-[60vh]" />
   }
 
   // Show onboarding if new user OR manually triggered

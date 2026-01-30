@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR, { mutate } from 'swr'
 import { toast } from 'sonner'
 import { FlaskSpinner } from '@/components/ui/flask-spinner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+// Delay before showing loading spinner to avoid flash on fast loads
+const LOADING_DELAY_MS = 200
 
 interface DeployedAgent {
   solutionName: string
@@ -36,6 +39,17 @@ export default function TenantsPage() {
   const [expandedTenantId, setExpandedTenantId] = useState<string | null>(null)
   const [showDisableWarning, setShowDisableWarning] = useState<string | null>(null)
   const [isTogglingStatus, setIsTogglingStatus] = useState<string | null>(null)
+  const [showSpinner, setShowSpinner] = useState(false)
+
+  // Delay showing spinner to avoid flash on fast loads
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => setShowSpinner(true), LOADING_DELAY_MS)
+      return () => clearTimeout(timer)
+    } else {
+      setShowSpinner(false)
+    }
+  }, [isLoading])
 
   const allTags: string[] = tagsData?.tags ?? []
   const tenants: Tenant[] = data?.tenants ?? []
@@ -123,12 +137,18 @@ export default function TenantsPage() {
     )
   }
 
-  if (isLoading) {
+  // Show loading state only after delay (prevents flash on fast loads)
+  if (isLoading && showSpinner) {
     return (
       <div className="flex items-center justify-center py-12">
         <FlaskSpinner size="md" message="Loading tenants..." />
       </div>
     )
+  }
+
+  // Show nothing during initial load delay (prevents flash)
+  if (isLoading) {
+    return <div className="py-12" />
   }
 
   return (

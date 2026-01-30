@@ -481,9 +481,18 @@ export function resolveDeployment(deploymentId: string, store: boolean = true): 
   return deployment
 }
 
+// Track if demo agents have been initialized this server session
+let _demoAgentsInitialized = false
+
 // Initialize demo agents with hardcoded tenant IDs (matching DEMO_TENANTS from core)
 export function initializeDemoAgents() {
-  // Only initialize once
+  // Only initialize once per server session
+  // We track this separately because demoDeployedAgents might be empty
+  // after archiving agents (and we don't want to reinitialize in that case)
+  if (_demoAgentsInitialized) return
+  _demoAgentsInitialized = true
+
+  // If there's persisted data from the file, use that instead of hardcoded data
   if (demoDeployedAgents.size > 0) return
 
   // Contoso has all agents
