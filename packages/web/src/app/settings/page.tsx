@@ -1,11 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 type Tab = 'integration' | 'application' | 'notifications'
+
+// Demo values for showcasing the settings UI
+const DEMO_SETTINGS = {
+  integration: {
+    partnerTenantId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    partnerClientId: 'f9e8d7c6-b5a4-3210-fedc-ba0987654321',
+    partnerClientSecret: '••••••••••••••••',
+    sourceTenantId: '',
+    sourceEnvironmentUrl: 'https://pax8-demo.crm.dynamics.com',
+    tenantDiscoveryEnabled: true,
+    connectionMappingEnabled: true,
+    environmentVariablesEnabled: false,
+    lastTestResult: 'success' as const,
+    lastTestedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+  },
+  app: {
+    demoMode: true,
+    defaultMaxConcurrentDeployments: 3,
+    defaultDeploymentTimeoutMs: 600000,
+    autoRetryFailedDeployments: false,
+    theme: 'system' as const,
+  },
+  isConfigured: true,
+}
 
 interface TestResult {
   step: string
@@ -21,9 +45,13 @@ export default function SettingsPage() {
   const [testResults, setTestResults] = useState<TestResult[] | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const { data: settings, mutate } = useSWR('/api/settings', fetcher)
+  const { data: apiSettings, mutate } = useSWR('/api/settings', fetcher)
 
-  // Integration form state
+  // Use demo settings when in demo mode with no real settings configured
+  const isDemoMode = apiSettings?.app?.demoMode !== false && !apiSettings?.isConfigured
+  const settings = isDemoMode ? DEMO_SETTINGS : apiSettings
+
+  // Integration form state - pre-populate with demo values in demo mode
   const [integrationForm, setIntegrationForm] = useState({
     partnerTenantId: '',
     partnerClientId: '',
@@ -34,6 +62,9 @@ export default function SettingsPage() {
     connectionMappingEnabled: false,
     environmentVariablesEnabled: false,
   })
+
+  // Track if we've initialized demo values
+  const [demoInitialized, setDemoInitialized] = useState(false)
 
   // App form state
   const [appForm, setAppForm] = useState({
@@ -71,10 +102,36 @@ export default function SettingsPage() {
     }
   }
 
-  // Sync on initial load
-  if (settings && !integrationForm.partnerTenantId && settings.integration?.partnerTenantId) {
-    syncFormsWithSettings()
-  }
+  // Sync on initial load using useEffect to avoid hydration issues
+  useEffect(() => {
+    if (settings && !integrationForm.partnerTenantId && settings.integration?.partnerTenantId) {
+      syncFormsWithSettings()
+    }
+  }, [settings])
+
+  // Initialize demo values when in demo mode
+  useEffect(() => {
+    if (isDemoMode && !demoInitialized && apiSettings !== undefined) {
+      setIntegrationForm({
+        partnerTenantId: DEMO_SETTINGS.integration.partnerTenantId,
+        partnerClientId: DEMO_SETTINGS.integration.partnerClientId,
+        partnerClientSecret: '',
+        sourceTenantId: DEMO_SETTINGS.integration.sourceTenantId,
+        sourceEnvironmentUrl: DEMO_SETTINGS.integration.sourceEnvironmentUrl,
+        tenantDiscoveryEnabled: DEMO_SETTINGS.integration.tenantDiscoveryEnabled,
+        connectionMappingEnabled: DEMO_SETTINGS.integration.connectionMappingEnabled,
+        environmentVariablesEnabled: DEMO_SETTINGS.integration.environmentVariablesEnabled,
+      })
+      setAppForm({
+        demoMode: DEMO_SETTINGS.app.demoMode,
+        defaultMaxConcurrentDeployments: DEMO_SETTINGS.app.defaultMaxConcurrentDeployments,
+        defaultDeploymentTimeoutMs: DEMO_SETTINGS.app.defaultDeploymentTimeoutMs,
+        autoRetryFailedDeployments: DEMO_SETTINGS.app.autoRetryFailedDeployments,
+        theme: DEMO_SETTINGS.app.theme,
+      })
+      setDemoInitialized(true)
+    }
+  }, [isDemoMode, demoInitialized, apiSettings])
 
   const saveIntegrationSettings = async () => {
     setSaving(true)
@@ -181,6 +238,22 @@ export default function SettingsPage() {
           Configure AgentSync integration and application settings
         </p>
       </div>
+
+      {/* Demo mode banner */}
+      {isDemoMode && (
+        <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+          <div className="flex items-start gap-2">
+            <span className="text-amber-600 mt-0.5">⚠️</span>
+            <div>
+              <p className="text-sm font-medium text-amber-800">Demo Mode</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Showing sample configuration values. These are example credentials for demonstration purposes only.
+                Complete the <a href="/welcome" className="underline hover:text-amber-900">setup wizard</a> to connect to your real Power Platform environment.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Message banner */}
       {message && (
