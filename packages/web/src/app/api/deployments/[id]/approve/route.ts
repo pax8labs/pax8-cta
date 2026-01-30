@@ -72,14 +72,18 @@ export async function POST(
 ) {
   // Load config first to get approvers list
   // In DEMO_MODE, use demo approvers if config file is missing
-  let approvalConfig: { approvers?: string[] } | undefined
+  let approvalConfig: { approvers?: string[]; minApprovals?: number; timeout?: string } | undefined
   try {
     const config = await loadConfig(resolve(CONFIG_PATH))
     approvalConfig = config.settings?.approval
   } catch (error) {
     if (isDemoMode()) {
       // In DEMO_MODE, allow any authenticated user to approve
-      approvalConfig = { approvers: ['demo@agentsync.test'] }
+      approvalConfig = {
+        approvers: ['demo@agentsync.test'],
+        minApprovals: 1,
+        timeout: '24h'
+      }
     } else {
       throw error
     }

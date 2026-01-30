@@ -5,6 +5,7 @@ import {
   TokenManager,
   DataverseClient,
   AgentResolver,
+  isDemoMode,
 } from "@agentsync/core";
 
 const CONFIG_PATH = process.env.CONFIG_PATH || "./config/tenants.yaml";
@@ -16,7 +17,16 @@ const CONFIG_PATH = process.env.CONFIG_PATH || "./config/tenants.yaml";
  */
 export async function GET(request: NextRequest) {
   try {
-    const config = await loadConfig(CONFIG_PATH);
+    // In DEMO_MODE, return empty list if config is missing
+    let config
+    try {
+      config = await loadConfig(CONFIG_PATH);
+    } catch (error) {
+      if (isDemoMode()) {
+        return NextResponse.json({ bots: [], count: 0, demoMode: true });
+      }
+      throw error
+    }
     const clientSecret = getClientSecret();
 
     const tokenManager = new TokenManager({
