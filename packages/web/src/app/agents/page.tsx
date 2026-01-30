@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { FlaskSpinner } from '@/components/ui/flask-spinner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -162,7 +163,7 @@ export default function SolutionsPage() {
   // Handle file selection (from input or drag-drop)
   const handleFileSelect = async (file: File) => {
     if (!file.name.endsWith('.zip')) {
-      setUploadError('Please select a .zip file exported from Copilot Studio')
+      toast.error('Please select a .zip file exported from Copilot Studio')
       return
     }
 
@@ -204,7 +205,9 @@ export default function SolutionsPage() {
 
       setUploadedMetadata(result.metadata)
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Failed to process solution file')
+      const message = err instanceof Error ? err.message : 'Failed to process solution file'
+      setUploadError(message)
+      toast.error(message)
       setSelectedFile(null)
     } finally {
       setUploadingFile(false)
@@ -237,6 +240,7 @@ export default function SolutionsPage() {
       if (!response.ok) throw new Error(result.error || 'Failed to resolve conflict')
 
       // Success - close modal and refresh
+      toast.success('Agent saved successfully')
       setShowAddAgent(false)
       setSelectedFile(null)
       setUploadedMetadata(null)
@@ -244,7 +248,9 @@ export default function SolutionsPage() {
       setConflictResolutionMode(null)
       mutate()
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Failed to resolve conflict')
+      const message = err instanceof Error ? err.message : 'Failed to resolve conflict'
+      setUploadError(message)
+      toast.error(message)
     } finally {
       setResolvingConflict(false)
     }
@@ -268,6 +274,7 @@ export default function SolutionsPage() {
 
   const handleConfirmUpload = () => {
     // The upload already happened during preview - just close modal and refresh
+    toast.success('Agent added successfully')
     setShowAddAgent(false)
     setSelectedFile(null)
     setUploadedMetadata(null)
@@ -302,6 +309,7 @@ export default function SolutionsPage() {
       }
     } catch (err) {
       console.error('Failed to load environments:', err)
+      toast.error('Failed to load environments')
     } finally {
       setLoadingEnvironments(false)
     }
@@ -328,6 +336,7 @@ export default function SolutionsPage() {
       }
     } catch (err) {
       console.error('Failed to load source solutions:', err)
+      toast.error('Failed to load solutions')
     } finally {
       setLoadingSourceSolutions(false)
     }
@@ -352,11 +361,14 @@ export default function SolutionsPage() {
       if (!response.ok) throw new Error(result.error || 'Failed to import')
 
       // Success - close modal and refresh
+      toast.success('Agent imported successfully')
       setShowAddAgent(false)
       setImportMode('upload')
       mutate()
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Failed to import solution')
+      const message = err instanceof Error ? err.message : 'Failed to import solution'
+      setUploadError(message)
+      toast.error(message)
     } finally {
       setImportingFromSource(null)
     }
@@ -378,10 +390,12 @@ export default function SolutionsPage() {
         body: JSON.stringify({ tags }),
       })
       if (!response.ok) throw new Error('Failed to save tags')
+      toast.success('Tags updated')
       mutate()
       setEditingTagsAgentId(null)
     } catch (err) {
       console.error(err)
+      toast.error('Failed to save tags')
     } finally {
       setSavingTags(false)
     }
@@ -399,6 +413,12 @@ export default function SolutionsPage() {
         const data = await response.json()
         throw new Error(data.error || 'Failed to update agent status')
       }
+      const statusLabels: Record<AgentStatus, string> = {
+        active: 'activated',
+        deprecated: 'deprecated',
+        archived: 'archived',
+      }
+      toast.success(`Agent ${statusLabels[newStatus]}`)
       mutate()
       setShowStatusConfirm(null)
       if (selectedAgent?.id === agentId) {
@@ -406,7 +426,7 @@ export default function SolutionsPage() {
       }
     } catch (err) {
       console.error('Change status error:', err)
-      alert(err instanceof Error ? err.message : 'Failed to update agent status')
+      toast.error(err instanceof Error ? err.message : 'Failed to update agent status')
     } finally {
       setChangingStatusAgentId(null)
     }

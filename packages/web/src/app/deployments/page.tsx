@@ -4,6 +4,7 @@ import React, { Suspense, useState, useMemo, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { trackEvent, trackDeployment, trackError } from '@/lib/posthog-client'
 import { DEPLOYMENT_STATUS_CATEGORIES } from '@agentsync/core/client'
 import { FlaskSpinner } from '@/components/ui/flask-spinner'
@@ -921,10 +922,15 @@ function DeploymentsContent() {
     if (successfulIds.length > 0) {
       setRetryDeploymentIds(successfulIds)
       setRetryModalOpen(true)
+      if (errorCount > 0) {
+        toast.warning(`Retrying ${successCount} deployments. ${errorCount} failed to start.`)
+      } else {
+        toast.success(`Retrying ${successCount} deployment${successCount > 1 ? 's' : ''}`)
+      }
     } else if (errorCount > 0) {
       // Only show error message if all retries failed
       const errorDetail = errors[0] || 'Unknown error'
-      setBulkMessage({ type: 'error', text: `Failed to retry: ${errorDetail}` })
+      toast.error(`Failed to retry: ${errorDetail}`)
       trackError('Bulk retry failed', { deployment_count: errorCount, first_error: errorDetail })
     }
   }

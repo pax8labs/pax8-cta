@@ -5,6 +5,7 @@ import { SessionProvider } from '@/components/SessionProvider'
 import { PostHogProvider } from '@/components/providers/posthog-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { ErrorBoundary, GlobalErrorHandler } from '@/components/error-boundary'
+import { ToastProvider } from '@/components/providers/toast-provider'
 import { UserMenu } from '@/components/UserMenu'
 import Image from 'next/image'
 
@@ -26,6 +27,7 @@ export default function RootLayout({
         <SessionProvider>
           <PostHogProvider>
             <ThemeProvider>
+              <ToastProvider>
               <GlobalErrorHandler>
               {/* Skip to main content link for accessibility */}
               <a
@@ -96,6 +98,7 @@ export default function RootLayout({
             </main>
               </div>
               </GlobalErrorHandler>
+              </ToastProvider>
             </ThemeProvider>
           </PostHogProvider>
         </SessionProvider>

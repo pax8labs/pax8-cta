@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR, { mutate } from 'swr'
+import { toast } from 'sonner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -92,10 +93,12 @@ export default function TenantsPage() {
         body: JSON.stringify({ enabled: !tenant.enabled }),
       })
       if (!response.ok) throw new Error('Failed to update status')
+      toast.success(`Tenant ${tenant.enabled ? 'disabled' : 'enabled'}`)
       mutate('/api/tenants')
       setShowDisableWarning(null)
     } catch (err) {
       console.error(err)
+      toast.error('Failed to update tenant status')
     } finally {
       setIsTogglingStatus(null)
     }
