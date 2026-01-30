@@ -278,13 +278,28 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
   )
 }
 
+interface FlaskLoadingOverlayProps {
+  message?: string
+  subMessage?: string
+}
+
 /**
  * Full-page loading overlay with flask spinner
  */
-export function FlaskLoadingOverlay({ message = 'Loading...' }: { message?: string }) {
+export function FlaskLoadingOverlay({ message = 'Loading...', subMessage }: FlaskLoadingOverlayProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-      <FlaskSpinner size="lg" message={message} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
+        <div className="text-center">
+          <FlaskSpinner size="lg" />
+          <h3 className="text-lg font-semibold text-slate-900 mt-4 mb-2">
+            {message}
+          </h3>
+          {subMessage && (
+            <p className="text-slate-500 text-sm">{subMessage}</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

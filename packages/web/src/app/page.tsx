@@ -5,6 +5,9 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import { DeploymentCard } from '@/components/DeploymentCard'
 import { StatsCard } from '@/components/StatsCard'
+import { FlaskSpinner } from '@/components/ui/flask-spinner'
+import type { DeploymentJob } from '@agentsync/core'
+import type { Agent } from '@/types/agent'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -165,10 +168,10 @@ export default function Dashboard() {
   const deployments = recentDeployments?.deployments ?? []
 
   // Check if user has any custom agents (indicates they've actually used the app)
-  const hasCustomAgents = agentsData?.agents?.some((a: any) => a.isCustom) ?? false
+  const hasCustomAgents = agentsData?.agents?.some((a: Agent) => a.isCustom) ?? false
 
   // Check if there are any real (non-demo-hist) deployments
-  const hasRealDeployments = deployments.some((d: any) => !d.id?.startsWith('demo-hist-'))
+  const hasRealDeployments = deployments.some((d: DeploymentJob) => !d.id?.startsWith('demo-hist-'))
 
   // Wait for all data to load before deciding on onboarding
   const isLoading = statsLoading || deploymentsLoading || agentsLoading
@@ -181,10 +184,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500">Loading dashboard...</p>
-        </div>
+        <FlaskSpinner size="lg" message="Loading dashboard..." />
       </div>
     )
   }
@@ -280,7 +280,7 @@ export default function Dashboard() {
           ) : deployments.length === 0 ? (
             <p className="p-4 text-gray-500">No deployments yet</p>
           ) : (
-            deployments.map((deployment: any) => (
+            deployments.map((deployment: DeploymentJob) => (
               <DeploymentCard key={deployment.id} deployment={deployment} />
             ))
           )}

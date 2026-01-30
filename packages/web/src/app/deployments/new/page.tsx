@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
+import { FlaskLoadingOverlay } from '@/components/ui/flask-spinner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -1031,35 +1032,13 @@ function NewDeploymentContent() {
 
       {/* Deployment Progress Overlay */}
       {(isPreparingDeploy || isSubmitting) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 relative">
-                <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
-                <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                <div className="absolute inset-2 bg-blue-100 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                {isPreparingDeploy ? 'Preparing Deployment' : 'Starting Deployment'}
-              </h3>
-              <p className="text-slate-500 text-sm">
-                {isPreparingDeploy
-                  ? `Packaging ${selectedAgent?.friendlyName} for deployment...`
-                  : `Deploying to ${selectedTenants.length} tenant${selectedTenants.length !== 1 ? 's' : ''}...`
-                }
-              </p>
-              <div className="mt-4 flex justify-center gap-1">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <FlaskLoadingOverlay
+          message={isPreparingDeploy ? 'Preparing Deployment' : 'Starting Deployment'}
+          subMessage={isPreparingDeploy
+            ? `Packaging ${selectedAgent?.friendlyName} for deployment...`
+            : `Deploying to ${selectedTenants.length} tenant${selectedTenants.length !== 1 ? 's' : ''}...`
+          }
+        />
       )}
 
       {/* URL Import Modal */}

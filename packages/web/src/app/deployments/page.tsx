@@ -6,7 +6,7 @@ import useSWR from 'swr'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { trackEvent, trackDeployment, trackError } from '@/lib/posthog-client'
-import { DEPLOYMENT_STATUS_CATEGORIES } from '@agentsync/core/client'
+import { DEPLOYMENT_STATUS_CATEGORIES, DeploymentJob, TenantDeploymentResult } from '@agentsync/core/client'
 import { FlaskSpinner } from '@/components/ui/flask-spinner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -33,7 +33,7 @@ interface DeploymentRecord {
 }
 
 // Extract tenant-agent deployment records from deployment jobs
-function extractDeploymentRecords(deployments: any[]): DeploymentRecord[] {
+function extractDeploymentRecords(deployments: DeploymentJob[]): DeploymentRecord[] {
   const records: DeploymentRecord[] = []
 
   // Track seen tenant-agent pairs to only keep most recent
@@ -751,29 +751,29 @@ function DeploymentsContent() {
 
   // Batch-level stats
   const batchStats = useMemo(() => {
-    const inProgress = deployments.filter((d: any) => d.status === 'in_progress').length
-    const completed = deployments.filter((d: any) => d.status === 'completed').length
-    const withFailures = deployments.filter((d: any) =>
-      d.status === 'completed' && d.tenantResults?.some((r: any) => FAILED_STATUSES.includes(r.status))
+    const inProgress = deployments.filter((d: DeploymentJob) => d.status === 'in_progress').length
+    const completed = deployments.filter((d: DeploymentJob) => d.status === 'completed').length
+    const withFailures = deployments.filter((d: DeploymentJob) =>
+      d.status === 'completed' && d.tenantResults?.some((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status))
     ).length
     return { inProgress, completed, withFailures, total: deployments.length }
   }, [deployments])
 
   // Filter batches based on status filter
   const filteredBatches = useMemo(() => {
-    return deployments.filter((d: any) => {
+    return deployments.filter((d: DeploymentJob) => {
       if (statusFilter === 'all') return true
       if (statusFilter === 'active') return d.status === 'in_progress' || d.status === 'completed'
       if (statusFilter === 'pending') return d.status === 'pending' || d.status === 'scheduled'
       if (statusFilter === 'issues') {
-        return d.tenantResults?.some((r: any) => FAILED_STATUSES.includes(r.status))
+        return d.tenantResults?.some((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status))
       }
       return true
-    }).filter((d: any) => {
+    }).filter((d: DeploymentJob) => {
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
       return d.solutionName?.toLowerCase().includes(q) ||
-        d.tenantResults?.some((r: any) => r.tenantName?.toLowerCase().includes(q))
+        d.tenantResults?.some((r: TenantDeploymentResult) => r.tenantName?.toLowerCase().includes(q))
     })
   }, [deployments, statusFilter, searchQuery])
 
@@ -785,7 +785,7 @@ function DeploymentsContent() {
   ] : [
     { value: 'all', label: 'All', count: batchStats.total },
     { value: 'active', label: 'Active', count: batchStats.inProgress + batchStats.completed },
-    { value: 'pending', label: 'Pending', count: deployments.filter((d: any) => d.status === 'pending').length },
+    { value: 'pending', label: 'Pending', count: deployments.filter((d: DeploymentJob) => d.status === 'pending').length },
     { value: 'issues', label: 'Issues', count: batchStats.withFailures },
   ]
 
@@ -1098,12 +1098,12 @@ function DeploymentsContent() {
       ) : viewMode === 'batches' ? (
         /* Batch View - Shows deployment jobs with inline progress */
         <div className="space-y-3">
-          {filteredBatches.map((deployment: any) => {
+          {filteredBatches.map((deployment: DeploymentJob) => {
             const isExpanded = expandedBatches.has(deployment.id)
             const tenantResults = deployment.tenantResults || []
             const totalTenants = tenantResults.length
-            const completedTenants = tenantResults.filter((r: any) => r.status === 'completed').length
-            const failedTenants = tenantResults.filter((r: any) => FAILED_STATUSES.includes(r.status)).length
+            const completedTenants = tenantResults.filter((r: TenantDeploymentResult) => r.status === 'completed').length
+            const failedTenants = tenantResults.filter((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status)).length
             const pendingTenants = totalTenants - completedTenants - failedTenants
             const isInProgress = deployment.status === 'in_progress'
             const hasIssues = failedTenants > 0
@@ -1133,7 +1133,7 @@ function DeploymentsContent() {
                         <span className="text-xs text-gray-400 font-mono">v{deployment.solutionVersion}</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-500 mt-0.5" suppressHydrationWarning>
                       {formatTimeAgo(deployment.createdAt)} · {totalTenants} tenant{totalTenants !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -1200,7 +1200,7 @@ function DeploymentsContent() {
                 {/* Expanded tenant details */}
                 {isExpanded && (
                   <div className="divide-y divide-gray-100">
-                    {tenantResults.map((result: any) => {
+                    {tenantResults.map((result: TenantDeploymentResult) => {
                       const isFailed = FAILED_STATUSES.includes(result.status)
                       return (
                         <div
@@ -1217,7 +1217,7 @@ function DeploymentsContent() {
                             )}
                           </div>
                           <StatusBadge status={result.status} error={result.error} />
-                          <span className="text-xs text-gray-400 w-16 text-right">
+                          <span className="text-xs text-gray-400 w-16 text-right" suppressHydrationWarning>
                             {formatTimeAgo(result.completedAt || result.startedAt)}
                           </span>
                         </div>
@@ -1316,7 +1316,7 @@ function DeploymentsContent() {
                       <td className="px-4 py-3">
                         <StatusBadge status={record.status} error={record.error} />
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500" suppressHydrationWarning>
                         {formatTimeAgo(record.deployedAt)}
                       </td>
                       <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>

@@ -62,8 +62,10 @@ export interface SolutionMetadata {
   tenantSpecificValues?: TenantSpecificValue[]
 }
 
+export type TenantSpecificValueType = 'sharepoint_url' | 'dataverse_url' | 'custom_url' | 'environment_variable' | 'connection_reference'
+
 export interface TenantSpecificValue {
-  type: string
+  type: TenantSpecificValueType
   value: string
   location: string
   description?: string

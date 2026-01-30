@@ -88,6 +88,13 @@ export async function GET() {
         status: agent.status || 'active',
         urlTemplates: agent.urlTemplates,
         hasSolutionStored: !!agent.solutionBase64,
+        // Include dependencies (knowledge sources) and connection references
+        dependencies: agent.dependencies || [],
+        connectionReferences: (agent.connectionReferences || []).map(cr => ({
+          name: cr.name,
+          connectorId: cr.connectorId,
+          required: true, // All stored connection refs are required
+        })),
         deployedTenants: agentDeployments.get(agent.friendlyName) || [],
         totalDeployments: (agentDeployments.get(agent.friendlyName) || []).length,
       }))

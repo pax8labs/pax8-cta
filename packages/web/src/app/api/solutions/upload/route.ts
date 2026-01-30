@@ -425,14 +425,36 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
       urlTemplates: urlTemplates || undefined,
       solutionBase64,
+      // Store dependencies (knowledge sources) and connection references
+      dependencies: metadata.knowledgeSources,
+      connectionReferences: metadata.connectionReferences,
     };
 
     // Check if agent already exists
-    if (demoCustomAgents.has(metadata.uniqueName)) {
-      // Update existing agent
-      const existing = demoCustomAgents.get(metadata.uniqueName)!;
-      newAgent.createdAt = existing.createdAt; // Preserve original creation date
-      newAgent.status = existing.status; // Preserve existing status
+    const existingAgent = demoCustomAgents.get(metadata.uniqueName);
+
+    if (existingAgent) {
+      // Don't auto-update - return conflict info for user to decide
+      return NextResponse.json({
+        success: false,
+        conflict: true,
+        existingAgent: {
+          uniqueName: existingAgent.uniqueName,
+          friendlyName: existingAgent.friendlyName,
+          version: existingAgent.version,
+          status: existingAgent.status,
+          createdAt: existingAgent.createdAt,
+        },
+        newAgent: {
+          uniqueName: metadata.uniqueName,
+          friendlyName: metadata.friendlyName,
+          version: metadata.version,
+        },
+        metadata,
+        urlTemplates,
+        solutionBase64, // Include so client can use it for resolve action
+        demoMode: DEMO_MODE,
+      });
     }
 
     demoCustomAgents.set(metadata.uniqueName, newAgent);

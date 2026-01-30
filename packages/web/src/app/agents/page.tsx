@@ -1,133 +1,27 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
-import { toast } from 'sonner'
-import { FlaskSpinner } from '@/components/ui/flask-spinner'
+import { AgentCard, AgentUploadModal } from '@/components/agents'
+import type { Agent } from '@/types/agent'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
-interface DeployedTenant {
-  tenantId: string
-  tenantName: string
-  version: string
-  deployedAt: string
-  status: 'active' | 'failed' | 'updating'
-}
+type ViewMode = 'active' | 'archived'
 
-interface ConnectionReference {
-  name: string
-  connectorId: string
-  required: boolean
-}
-
-interface EnvironmentVariable {
-  name: string
-  type: 'string' | 'number' | 'boolean' | 'secret'
-  required: boolean
-  defaultValue?: string
-}
-
-type AgentStatus = 'active' | 'deprecated' | 'archived'
-
-interface Agent {
-  id: string
-  uniqueName: string
-  friendlyName: string
-  version: string
-  isManaged: boolean
-  isCustom?: boolean
-  status: AgentStatus
-  description?: string
-  publisherName?: string
-  category?: string
-  capabilities?: string[]
-  tags?: string[]
-  deployedTenants: DeployedTenant[]
-  totalDeployments: number
-  // Extended details
-  dependencies?: string[]
-  connectionReferences?: ConnectionReference[]
-  environmentVariables?: EnvironmentVariable[]
-  lastPublished?: string
-  sizeKb?: number
-  changelog?: string
-}
-
-function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return 'now'
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays < 7) return `${diffDays}d`
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-export default function SolutionsPage() {
+export default function AgentsPage() {
   const router = useRouter()
-  const { data, error, isLoading, mutate } = useSWR('/api/agents', fetcher)
+  const { data, error, isLoading, mutate } = useSWR<{ agents: Agent[]; demoMode?: boolean }>('/api/agents', fetcher)
+
+  // UI state
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [showDeployments, setShowDeployments] = useState(false)
   const [showAddAgent, setShowAddAgent] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null)
-  const [editingTagsAgentId, setEditingTagsAgentId] = useState<string | null>(null)
-  const [editTagsInput, setEditTagsInput] = useState('')
-  const [savingTags, setSavingTags] = useState(false)
-  const [changingStatusAgentId, setChangingStatusAgentId] = useState<string | null>(null)
-  const [showStatusConfirm, setShowStatusConfirm] = useState<{ agentId: string; newStatus: AgentStatus } | null>(null)
-  const [viewMode, setViewMode] = useState<'active' | 'archived'>('active')
-  // File upload state
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploadingFile, setUploadingFile] = useState(false)
-  const [uploadedMetadata, setUploadedMetadata] = useState<{
-    uniqueName: string;
-    friendlyName: string;
-    version: string;
-    publisherName: string;
-    isManaged: boolean;
-    description?: string;
-    connectionReferences?: { name: string; connectorId: string; displayName?: string }[];
-    knowledgeSources?: string[];
-    tenantSpecificValues?: { type: string; value: string; location: string; description?: string }[];
-  } | null>(null)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  // Conflict resolution state
-  const [uploadConflict, setUploadConflict] = useState<{
-    existingAgent: { uniqueName: string; friendlyName: string; version: string; status: string; createdAt: string };
-    newAgent: { uniqueName: string; friendlyName: string; version: string };
-    metadata: any;
-    urlTemplates: any;
-    solutionBase64: string;
-  } | null>(null)
-  const [conflictResolutionMode, setConflictResolutionMode] = useState<'update' | 'create' | null>(null)
-  const [newAgentName, setNewAgentName] = useState('')
-  const [newAgentFriendlyName, setNewAgentFriendlyName] = useState('')
-  const [resolvingConflict, setResolvingConflict] = useState(false)
-  // Import mode state
-  const [importMode, setImportMode] = useState<'upload' | 'browse'>('upload')
-  const [sourceSolutions, setSourceSolutions] = useState<any[]>([])
-  const [loadingSourceSolutions, setLoadingSourceSolutions] = useState(false)
-  const [sourceEnvironmentUrl, setSourceEnvironmentUrl] = useState<string | null>(null)
-  const [importingFromSource, setImportingFromSource] = useState<string | null>(null)
-  // Environment browser state
-  const [environments, setEnvironments] = useState<any[]>([])
-  const [loadingEnvironments, setLoadingEnvironments] = useState(false)
-  const [selectedEnvironment, setSelectedEnvironment] = useState<string | null>(null)
-  const [showAgentsOnly, setShowAgentsOnly] = useState(true)
-  // Agent preview state
-  const [previewSolution, setPreviewSolution] = useState<any | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('active')
 
   // Filter agents by search and view mode
   const filteredAgents = useMemo(() => {
@@ -160,298 +54,15 @@ export default function SolutionsPage() {
     router.push(`/deployments/new?agent=${agent.id}`)
   }
 
-  // Handle file selection (from input or drag-drop)
-  const handleFileSelect = async (file: File) => {
-    if (!file.name.endsWith('.zip')) {
-      toast.error('Please select a .zip file exported from Copilot Studio')
-      return
-    }
-
-    setSelectedFile(file)
-    setUploadError(null)
-    setUploadingFile(true)
-    setUploadedMetadata(null)
-    setUploadConflict(null)
-    setConflictResolutionMode(null)
-
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      // Upload and parse the solution to preview metadata
-      const response = await fetch('/api/solutions/upload', {
-        method: 'POST',
-        body: formData,
-      })
-      const result = await response.json()
-
-      // Check if there's a conflict
-      if (result.conflict) {
-        setUploadConflict({
-          existingAgent: result.existingAgent,
-          newAgent: result.newAgent,
-          metadata: result.metadata,
-          urlTemplates: result.urlTemplates,
-          solutionBase64: result.solutionBase64,
-        })
-        setUploadedMetadata(result.metadata)
-        // Pre-populate new name suggestions
-        setNewAgentName(result.metadata.uniqueName + '_v2')
-        setNewAgentFriendlyName(result.metadata.friendlyName + ' (Copy)')
-        return
-      }
-
-      if (!response.ok) throw new Error(result.error || 'Failed to parse solution')
-
-      setUploadedMetadata(result.metadata)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to process solution file'
-      setUploadError(message)
-      toast.error(message)
-      setSelectedFile(null)
-    } finally {
-      setUploadingFile(false)
-    }
-  }
-
-  // Handle conflict resolution
-  const handleResolveConflict = async (action: 'update' | 'create') => {
-    if (!uploadConflict) return
-
-    setResolvingConflict(true)
-    setUploadError(null)
-
-    try {
-      const response = await fetch('/api/solutions/upload/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          originalUniqueName: uploadConflict.existingAgent.uniqueName,
-          newUniqueName: action === 'create' ? newAgentName : undefined,
-          newFriendlyName: action === 'create' ? newAgentFriendlyName : undefined,
-          metadata: uploadConflict.metadata,
-          urlTemplates: uploadConflict.urlTemplates,
-          solutionBase64: uploadConflict.solutionBase64,
-        }),
-      })
-
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Failed to resolve conflict')
-
-      // Success - close modal and refresh
-      toast.success('Agent saved successfully')
-      setShowAddAgent(false)
-      setSelectedFile(null)
-      setUploadedMetadata(null)
-      setUploadConflict(null)
-      setConflictResolutionMode(null)
-      mutate()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to resolve conflict'
-      setUploadError(message)
-      toast.error(message)
-    } finally {
-      setResolvingConflict(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file) handleFileSelect(file)
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = () => {
-    setIsDragging(false)
-  }
-
-  const handleConfirmUpload = () => {
-    // The upload already happened during preview - just close modal and refresh
-    toast.success('Agent added successfully')
-    setShowAddAgent(false)
-    setSelectedFile(null)
-    setUploadedMetadata(null)
-    mutate()
-  }
-
-  const handleCancelUpload = () => {
-    setSelectedFile(null)
-    setUploadedMetadata(null)
-    setUploadError(null)
-    setUploadConflict(null)
-    setConflictResolutionMode(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
-
-  // Load available environments
-  const loadEnvironments = async () => {
-    setLoadingEnvironments(true)
-    try {
-      const response = await fetch('/api/environments')
-      const data = await response.json()
-      if (data.environments) {
-        setEnvironments(data.environments)
-        // Auto-select first environment if none selected
-        if (data.environments.length > 0 && !selectedEnvironment) {
-          const defaultEnv = data.environments.find((e: any) => e.isDefault) || data.environments[0]
-          setSelectedEnvironment(defaultEnv.instanceUrl)
-          loadSourceSolutions(defaultEnv.instanceUrl)
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load environments:', err)
-      toast.error('Failed to load environments')
-    } finally {
-      setLoadingEnvironments(false)
-    }
-  }
-
-  // Load source solutions for a specific environment
-  const loadSourceSolutions = async (envUrl?: string) => {
-    const url = envUrl || selectedEnvironment
-    if (!url) return
-
-    setLoadingSourceSolutions(true)
-    setSourceSolutions([])
-    try {
-      const params = new URLSearchParams()
-      params.set('environmentUrl', url)
-      if (showAgentsOnly) {
-        params.set('botsOnly', 'true')
-      }
-      const response = await fetch(`/api/solutions/source?${params.toString()}`)
-      const data = await response.json()
-      if (data.solutions) {
-        setSourceSolutions(data.solutions)
-        setSourceEnvironmentUrl(data.sourceEnvironment)
-      }
-    } catch (err) {
-      console.error('Failed to load source solutions:', err)
-      toast.error('Failed to load solutions')
-    } finally {
-      setLoadingSourceSolutions(false)
-    }
-  }
-
-  // Import solution from source environment
-  const handleImportFromSource = async (solution: any) => {
-    setImportingFromSource(solution.uniqueName)
-    setUploadError(null)
-    try {
-      const response = await fetch('/api/solutions/import-from-environment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          solutionUniqueName: solution.uniqueName,
-          environmentUrl: sourceEnvironmentUrl,
-          displayName: solution.displayName,
-          description: solution.description,
-        }),
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Failed to import')
-
-      // Success - close modal and refresh
-      toast.success('Agent imported successfully')
-      setShowAddAgent(false)
-      setImportMode('upload')
-      mutate()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to import solution'
-      setUploadError(message)
-      toast.error(message)
-    } finally {
-      setImportingFromSource(null)
-    }
-  }
-
-  // Handle tag editing
-  const handleStartEditTags = (agent: Agent) => {
-    setEditingTagsAgentId(agent.id)
-    setEditTagsInput((agent.tags || []).join(', '))
-  }
-
-  const handleSaveTags = async (agentId: string) => {
-    setSavingTags(true)
-    try {
-      const tags = editTagsInput.split(',').map(t => t.trim()).filter(Boolean)
-      const response = await fetch(`/api/agents/${agentId}/tags`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags }),
-      })
-      if (!response.ok) throw new Error('Failed to save tags')
-      toast.success('Tags updated')
-      mutate()
-      setEditingTagsAgentId(null)
-    } catch (err) {
-      console.error(err)
-      toast.error('Failed to save tags')
-    } finally {
-      setSavingTags(false)
-    }
-  }
-
-  const handleChangeStatus = async (agentId: string, newStatus: AgentStatus) => {
-    setChangingStatusAgentId(agentId)
-    try {
-      const response = await fetch(`/api/agents/${agentId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to update agent status')
-      }
-      const statusLabels: Record<AgentStatus, string> = {
-        active: 'activated',
-        deprecated: 'deprecated',
-        archived: 'archived',
-      }
-      toast.success(`Agent ${statusLabels[newStatus]}`)
-      mutate()
-      setShowStatusConfirm(null)
-      if (selectedAgent?.id === agentId) {
-        setSelectedAgent(null)
-      }
-    } catch (err) {
-      console.error('Change status error:', err)
-      toast.error(err instanceof Error ? err.message : 'Failed to update agent status')
-    } finally {
-      setChangingStatusAgentId(null)
-    }
-  }
-
-  // Calculate stats for an agent
-  const getAgentStats = (agent: Agent) => {
-    const tenants = agent.deployedTenants || []
-    const active = tenants.filter(t => t.status === 'active').length
-    const failed = tenants.filter(t => t.status === 'failed').length
-    const health = tenants.length > 0 ? Math.round((active / tenants.length) * 100) : null
-    const lastDeploy = tenants.length > 0
-      ? new Date(Math.max(...tenants.map(t => new Date(t.deployedAt).getTime())))
-      : null
-    return { active, failed, health, lastDeploy }
-  }
-
   return (
     <div className="space-y-4">
       {/* Compact header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-semibold text-slate-900">Agents</h1>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Agents</h1>
         <button
           onClick={() => setShowAddAgent(true)}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+          aria-label="Add a new agent"
         >
           + Add Agent
         </button>
@@ -460,13 +71,13 @@ export default function SolutionsPage() {
       {/* View tabs and search */}
       <div className="flex items-center gap-4">
         {/* View toggle */}
-        <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+        <div className="flex border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
           <button
             onClick={() => setViewMode('active')}
             className={`px-3 py-1.5 text-sm font-medium transition-colors ${
               viewMode === 'active'
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:bg-slate-50'
+                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             Active
@@ -475,14 +86,14 @@ export default function SolutionsPage() {
             onClick={() => setViewMode('archived')}
             className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
               viewMode === 'archived'
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:bg-slate-50'
+                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             Archived
             {archivedCount > 0 && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                viewMode === 'archived' ? 'bg-slate-700' : 'bg-slate-200'
+                viewMode === 'archived' ? 'bg-slate-700 dark:bg-slate-300' : 'bg-slate-200 dark:bg-slate-700'
               }`}>
                 {archivedCount}
               </span>
@@ -500,23 +111,23 @@ export default function SolutionsPage() {
             placeholder="Search agents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         {data?.demoMode && (
-          <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">Demo</span>
+          <span className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">Demo</span>
         )}
         <span className="text-xs text-slate-400">{filteredAgents.length} agents</span>
       </div>
 
       {/* Agents Grid */}
       {error ? (
-        <div className="p-4 text-center text-sm text-rose-600 bg-white border border-slate-200 rounded-lg">Failed to load agents</div>
+        <div className="p-4 text-center text-sm text-rose-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">Failed to load agents</div>
       ) : isLoading ? (
-        <div className="p-4 text-center text-sm text-slate-400 bg-white border border-slate-200 rounded-lg">Loading...</div>
+        <div className="p-4 text-center text-sm text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">Loading...</div>
       ) : filteredAgents.length === 0 ? (
-        <div className="p-6 text-center bg-white border border-slate-200 rounded-lg">
-          <p className="text-slate-500 text-sm">{searchQuery ? 'No matching agents' : 'No agents found'}</p>
+        <div className="p-6 text-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{searchQuery ? 'No matching agents' : 'No agents found'}</p>
           {!searchQuery && (
             <button onClick={() => setShowAddAgent(true)} className="text-sm text-blue-600 hover:text-blue-700 mt-1">
               Add first agent →
@@ -525,359 +136,40 @@ export default function SolutionsPage() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {filteredAgents.map((agent: Agent) => {
-            const stats = getAgentStats(agent)
-            const isSelected = selectedAgent?.id === agent.id
-            const isExpanded = expandedAgentId === agent.id
-            return (
-              <div
-                key={agent.id}
-                className={`bg-white border rounded-lg overflow-hidden transition-colors ${
-                  isSelected ? 'border-blue-400 ring-1 ring-blue-100' : 'border-slate-200'
-                }`}
-              >
-                {/* Main row */}
-                <div
-                  className="p-4 hover:bg-slate-50 cursor-pointer"
-                  onClick={() => setSelectedAgent(isSelected ? null : agent)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setExpandedAgentId(isExpanded ? null : agent.id)
-                          }}
-                          className="text-slate-400 hover:text-slate-600 transition-transform"
-                          style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                        <h3 className="font-medium text-slate-900">{agent.friendlyName}</h3>
-                        <span className="text-xs text-slate-400 tabular-nums">v{agent.version}</span>
-                        {agent.isCustom && <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">custom</span>}
-                        {(agent.status || 'active') === 'deprecated' && (
-                          <span className="text-xs text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">deprecated</span>
-                        )}
-                        {(agent.status || 'active') === 'archived' && (
-                          <span className="text-xs text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">archived</span>
-                        )}
-                        {agent.category && <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{agent.category}</span>}
-                      </div>
-                      {agent.description && (
-                        <p className="text-sm text-slate-600 mb-2 ml-6">{agent.description}</p>
-                      )}
-                      <div className="flex items-center gap-4 text-xs text-slate-400 ml-6">
-                        <span className="font-mono">{agent.uniqueName}</span>
-                        {agent.publisherName && <span>by {agent.publisherName}</span>}
-                        {agent.sizeKb && <span>{agent.sizeKb} KB</span>}
-                        {agent.lastPublished && <span>published {formatRelativeTime(new Date(agent.lastPublished))}</span>}
-                      </div>
-                      {/* Tags and capabilities row */}
-                      <div className="flex items-center gap-2 mt-2 ml-6 flex-wrap">
-                        {agent.tags && agent.tags.length > 0 && agent.tags.map(tag => (
-                          <span key={tag} className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{tag}</span>
-                        ))}
-                        {agent.capabilities && agent.capabilities.length > 0 && agent.capabilities.map(cap => (
-                          <span key={cap} className="text-xs text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded">{cap}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 text-sm">
-                      <div className="flex items-center gap-3">
-                        {agent.totalDeployments > 0 ? (
-                          <>
-                            <span className="text-slate-600 tabular-nums">{agent.totalDeployments} tenants</span>
-                            {stats.health !== null && (
-                              <span className={`tabular-nums ${stats.health >= 90 ? 'text-emerald-600' : stats.health >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
-                                {stats.health}%
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-slate-400">Not deployed</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {agent.totalDeployments > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedAgent(agent)
-                              setShowDeployments(true)
-                            }}
-                            className="px-2 py-1 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded"
-                          >
-                            tenants
-                          </button>
-                        )}
-                        {(agent.status || 'active') === 'active' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeploy(agent)
-                            }}
-                            className="px-3 py-1 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded font-medium"
-                          >
-                            Deploy
-                          </button>
-                        ) : (
-                          <span className="px-3 py-1 text-xs text-slate-400 bg-slate-100 rounded">
-                            {agent.status === 'deprecated' ? 'Deprecated' : 'Archived'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded details */}
-                {isExpanded && (
-                  <div className="border-t border-slate-100 bg-slate-50 p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      {/* Tags section */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-slate-700">Tags</h4>
-                          {editingTagsAgentId !== agent.id && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleStartEditTags(agent) }}
-                              className="text-xs text-blue-600 hover:text-blue-700"
-                            >
-                              Edit
-                            </button>
-                          )}
-                        </div>
-                        {editingTagsAgentId === agent.id ? (
-                          <div className="space-y-2">
-                            {/* Show current tags being edited */}
-                            {agent.tags && agent.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pb-1 border-b border-slate-200">
-                                <span className="text-xs text-slate-500">Current:</span>
-                                {agent.tags.map(tag => (
-                                  <span key={tag} className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded">{tag}</span>
-                                ))}
-                              </div>
-                            )}
-                            <input
-                              type="text"
-                              value={editTagsInput}
-                              onChange={(e) => setEditTagsInput(e.target.value)}
-                              placeholder="tag1, tag2, tag3"
-                              className="w-full px-2 py-1.5 text-xs text-slate-900 bg-white border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              onClick={(e) => e.stopPropagation()}
-                              autoFocus
-                            />
-                            <p className="text-xs text-slate-400">Separate tags with commas</p>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleSaveTags(agent.id) }}
-                                disabled={savingTags}
-                                className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {savingTags ? '...' : 'Save'}
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setEditingTagsAgentId(null) }}
-                                className="px-2 py-0.5 text-xs text-slate-600 hover:text-slate-900"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {agent.tags && agent.tags.length > 0 ? (
-                              agent.tags.map(tag => (
-                                <span key={tag} className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded">{tag}</span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-slate-400">No tags</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Dependencies section */}
-                      <div>
-                        <h4 className="font-medium text-slate-700 mb-2">Dependencies</h4>
-                        {agent.dependencies && agent.dependencies.length > 0 ? (
-                          <ul className="space-y-1">
-                            {agent.dependencies.map(dep => (
-                              <li key={dep} className="text-xs text-slate-600 flex items-center gap-1">
-                                <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                                {dep}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-xs text-slate-400">No dependencies</span>
-                        )}
-                      </div>
-
-                      {/* Connection References section */}
-                      <div>
-                        <h4 className="font-medium text-slate-700 mb-2">Connection References</h4>
-                        {agent.connectionReferences && agent.connectionReferences.length > 0 ? (
-                          <ul className="space-y-1">
-                            {agent.connectionReferences.map(ref => (
-                              <li key={ref.name} className="text-xs text-slate-600 flex items-center gap-1">
-                                <span className={`w-1.5 h-1.5 rounded-full ${ref.required ? 'bg-amber-500' : 'bg-slate-300'}`}></span>
-                                {ref.name}
-                                {ref.required && <span className="text-amber-600">(required)</span>}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-xs text-slate-400">No connections required</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Environment Variables (if any) */}
-                    {agent.environmentVariables && agent.environmentVariables.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-slate-200">
-                        <h4 className="font-medium text-slate-700 mb-2 text-sm">Environment Variables</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {agent.environmentVariables.map(envVar => (
-                            <div key={envVar.name} className="text-xs bg-white border border-slate-200 rounded p-2">
-                              <div className="font-mono text-slate-700">{envVar.name}</div>
-                              <div className="text-slate-400 mt-0.5">
-                                {envVar.type}
-                                {envVar.required && <span className="text-amber-600 ml-1">• required</span>}
-                              </div>
-                              {envVar.defaultValue && (
-                                <div className="text-slate-500 mt-0.5">default: {envVar.defaultValue}</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Changelog (if any) */}
-                    {agent.changelog && (
-                      <div className="mt-4 pt-4 border-t border-slate-200">
-                        <h4 className="font-medium text-slate-700 mb-2 text-sm">Changelog</h4>
-                        <p className="text-xs text-slate-600 whitespace-pre-wrap">{agent.changelog}</p>
-                      </div>
-                    )}
-
-                    {/* Agent lifecycle actions */}
-                    <div className="mt-4 pt-4 border-t border-slate-200">
-                      {showStatusConfirm?.agentId === agent.id ? (
-                        <div className="space-y-2">
-                          {showStatusConfirm.newStatus === 'archived' && agent.totalDeployments > 0 && (
-                            <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-                              <strong>Note:</strong> This agent is deployed to {agent.totalDeployments} tenant{agent.totalDeployments !== 1 ? 's' : ''}.
-                              Archiving will automatically uninstall it from all tenants.
-                            </div>
-                          )}
-                          {showStatusConfirm.newStatus === 'deprecated' && (
-                            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
-                              Deprecating will prevent new deployments but keep existing installations.
-                            </div>
-                          )}
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm text-slate-700">
-                              {showStatusConfirm.newStatus === 'archived' && 'Archive this agent?'}
-                              {showStatusConfirm.newStatus === 'deprecated' && 'Deprecate this agent?'}
-                              {showStatusConfirm.newStatus === 'active' && 'Restore this agent?'}
-                            </span>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleChangeStatus(agent.id, showStatusConfirm.newStatus) }}
-                              disabled={changingStatusAgentId === agent.id}
-                              className={`px-3 py-1 text-xs text-white rounded disabled:opacity-50 ${
-                                showStatusConfirm.newStatus === 'archived' ? 'bg-slate-600 hover:bg-slate-700' :
-                                showStatusConfirm.newStatus === 'deprecated' ? 'bg-amber-600 hover:bg-amber-700' :
-                                'bg-emerald-600 hover:bg-emerald-700'
-                              }`}
-                            >
-                              {changingStatusAgentId === agent.id ? 'Updating...' : 'Confirm'}
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setShowStatusConfirm(null) }}
-                              className="px-3 py-1 text-xs text-slate-600 hover:text-slate-900"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          {(agent.status || 'active') === 'active' && (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'deprecated' }) }}
-                                className="text-xs text-amber-600 hover:text-amber-700"
-                              >
-                                Deprecate
-                              </button>
-                              <span className="text-slate-300">|</span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'archived' }) }}
-                                className="text-xs text-slate-500 hover:text-slate-700"
-                              >
-                                Archive
-                              </button>
-                            </>
-                          )}
-                          {(agent.status || 'active') === 'deprecated' && (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'active' }) }}
-                                className="text-xs text-emerald-600 hover:text-emerald-700"
-                              >
-                                Restore to Active
-                              </button>
-                              <span className="text-slate-300">|</span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'archived' }) }}
-                                className="text-xs text-slate-500 hover:text-slate-700"
-                              >
-                                Archive
-                              </button>
-                            </>
-                          )}
-                          {(agent.status || 'active') === 'archived' && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setShowStatusConfirm({ agentId: agent.id, newStatus: 'active' }) }}
-                              className="text-xs text-emerald-600 hover:text-emerald-700"
-                            >
-                              Restore to Active
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {filteredAgents.map((agent: Agent) => (
+            <AgentCard
+              key={agent.id}
+              agent={agent}
+              isSelected={selectedAgent?.id === agent.id}
+              isExpanded={expandedAgentId === agent.id}
+              onSelect={setSelectedAgent}
+              onToggleExpand={() => setExpandedAgentId(expandedAgentId === agent.id ? null : agent.id)}
+              onDeploy={handleDeploy}
+              onShowDeployments={() => {
+                setSelectedAgent(agent)
+                setShowDeployments(true)
+              }}
+              onRefresh={() => mutate()}
+            />
+          ))}
         </div>
       )}
 
       {/* Selected agent quick action bar */}
       {selectedAgent && !showDeployments && (
-        <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+        <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
           <div className="flex items-center gap-3">
-            <span className="font-medium text-slate-900">{selectedAgent.friendlyName}</span>
-            <span className="text-slate-500">v{selectedAgent.version}</span>
+            <span className="font-medium text-slate-900 dark:text-white">{selectedAgent.friendlyName}</span>
+            <span className="text-slate-500 dark:text-slate-400">v{selectedAgent.version}</span>
             {selectedAgent.totalDeployments > 0 && (
-              <span className="text-emerald-600">{selectedAgent.totalDeployments} tenants</span>
+              <span className="text-emerald-600 dark:text-emerald-400">{selectedAgent.totalDeployments} tenants</span>
             )}
           </div>
           <div className="flex items-center gap-2">
             {selectedAgent.totalDeployments > 0 && (
               <button
                 onClick={() => setShowDeployments(true)}
-                className="px-2 py-1 text-slate-600 hover:text-slate-900"
+                className="px-2 py-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               >
                 view tenants
               </button>
@@ -888,654 +180,91 @@ export default function SolutionsPage() {
             >
               Deploy →
             </button>
-            <button onClick={() => setSelectedAgent(null)} className="text-slate-400 hover:text-slate-600 p-1">✕</button>
+            <button onClick={() => setSelectedAgent(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1">✕</button>
           </div>
         </div>
       )}
 
-      {/* Deployed Tenants Modal - Compact */}
+      {/* Deployed Tenants Modal */}
       {showDeployments && selectedAgent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[70vh] overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-slate-900">{selectedAgent.friendlyName}</h3>
-                <p className="text-xs text-slate-500">{selectedAgent.totalDeployments} tenants</p>
-              </div>
-              <button onClick={() => setShowDeployments(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-
-            {/* Tenant list as table */}
-            <div className="max-h-[50vh] overflow-y-auto">
-              <div className="grid grid-cols-[1fr_60px_70px] gap-2 px-4 py-1 text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100 bg-slate-50">
-                <div>Tenant</div>
-                <div className="text-right">Version</div>
-                <div className="text-right">Status</div>
-              </div>
-              {selectedAgent.deployedTenants.map((deployment) => (
-                <Link
-                  key={deployment.tenantId}
-                  href={`/tenants/${deployment.tenantId}`}
-                  className="grid grid-cols-[1fr_60px_70px] gap-2 px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0"
-                >
-                  <div className="truncate text-slate-900">{deployment.tenantName}</div>
-                  <div className="text-right text-slate-500 tabular-nums">v{deployment.version}</div>
-                  <div className="text-right">
-                    <span className={`text-xs ${
-                      deployment.status === 'active' ? 'text-emerald-600' :
-                      deployment.status === 'updating' ? 'text-amber-600' : 'text-rose-600'
-                    }`}>
-                      {deployment.status === 'active' ? '✓ ok' :
-                       deployment.status === 'updating' ? '◐ updating' : '✗ failed'}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="px-4 py-3 border-t border-slate-200 bg-slate-50">
-              <button
-                onClick={() => { setShowDeployments(false); handleDeploy(selectedAgent) }}
-                className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Deploy to more tenants →
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeployedTenantsModal
+          agent={selectedAgent}
+          onClose={() => setShowDeployments(false)}
+          onDeploy={() => {
+            setShowDeployments(false)
+            handleDeploy(selectedAgent)
+          }}
+        />
       )}
 
+      {/* Add Agent Modal */}
+      <AgentUploadModal
+        isOpen={showAddAgent}
+        onClose={() => setShowAddAgent(false)}
+        onSuccess={() => mutate()}
+      />
+    </div>
+  )
+}
 
-      {/* Add Agent Modal - File Upload or Browse from Power Platform */}
-      {showAddAgent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-medium text-slate-900">Import Agent</h3>
-              <button onClick={() => { setShowAddAgent(false); setUploadError(null); setUploadedMetadata(null); setSelectedFile(null); setImportMode('upload') }} className="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-
-            {/* Import Mode Tabs */}
-            <div className="border-b border-slate-200">
-              <div className="flex">
-                <button
-                  onClick={() => setImportMode('upload')}
-                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    importMode === 'upload'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Upload ZIP
-                </button>
-                <button
-                  onClick={() => {
-                    setImportMode('browse')
-                    if (environments.length === 0) loadEnvironments()
-                  }}
-                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    importMode === 'browse'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Browse Power Platform
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {uploadError && (
-                <div className="p-2 bg-rose-50 border border-rose-200 rounded text-sm text-rose-700">{uploadError}</div>
-              )}
-
-              {/* Browse from Power Platform */}
-              {importMode === 'browse' && (
-                <div>
-                  {loadingEnvironments ? (
-                    <div className="py-8">
-                      <FlaskSpinner size="sm" message="Loading environments..." />
-                    </div>
-                  ) : environments.length === 0 ? (
-                    <div className="py-8 text-center">
-                      <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                      <p className="text-slate-600 mb-2">No Power Platform connection configured</p>
-                      <p className="text-xs text-slate-400 mb-4">
-                        Configure your Azure AD credentials in Settings to browse Power Platform environments.
-                      </p>
-                      <a href="/settings" className="text-sm text-blue-600 hover:text-blue-700">
-                        Go to Settings →
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {/* Environment selector */}
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs font-medium text-slate-600">Environment:</label>
-                        <select
-                          value={selectedEnvironment || ''}
-                          onChange={(e) => {
-                            setSelectedEnvironment(e.target.value)
-                            loadSourceSolutions(e.target.value)
-                          }}
-                          className="flex-1 text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          {environments.map((env) => (
-                            <option key={env.id} value={env.instanceUrl}>
-                              {env.displayName} ({env.type})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Filter toggle */}
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={showAgentsOnly}
-                            onChange={(e) => {
-                              setShowAgentsOnly(e.target.checked)
-                              if (selectedEnvironment) {
-                                setTimeout(() => loadSourceSolutions(selectedEnvironment), 0)
-                              }
-                            }}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          Show Copilot agents only
-                        </label>
-                        <span className="text-xs text-slate-400">
-                          {sourceSolutions.length} solution{sourceSolutions.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-
-                      {/* Solutions list */}
-                      {loadingSourceSolutions ? (
-                        <div className="py-4">
-                          <FlaskSpinner size="sm" message="Loading solutions..." />
-                        </div>
-                      ) : sourceSolutions.length === 0 ? (
-                        <div className="py-6 text-center text-sm text-slate-500">
-                          {showAgentsOnly ? 'No Copilot agents found in this environment' : 'No exportable solutions found'}
-                        </div>
-                      ) : (
-                        <div className="max-h-[300px] overflow-y-auto space-y-2">
-                          {sourceSolutions.map((solution) => (
-                            <div
-                              key={solution.solutionId}
-                              className="p-3 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors cursor-pointer"
-                              onClick={() => setPreviewSolution(solution)}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-medium text-slate-900">{solution.displayName}</h4>
-                                    {solution.hasBot && (
-                                      <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Agent</span>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-slate-500 font-mono">{solution.uniqueName}</p>
-                                  {solution.description && (
-                                    <p className="text-xs text-slate-600 mt-1 line-clamp-1">{solution.description}</p>
-                                  )}
-                                  <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
-                                    <span>v{solution.version}</span>
-                                    <span>•</span>
-                                    <span>{solution.publisher}</span>
-                                    {solution.botInfo?.botName && (
-                                      <>
-                                        <span>•</span>
-                                        <span className="text-blue-600">{solution.botInfo.botName}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 ml-3">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setPreviewSolution(solution)
-                                    }}
-                                    className="px-2 py-1 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded"
-                                  >
-                                    Preview
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleImportFromSource(solution)
-                                    }}
-                                    disabled={importingFromSource === solution.uniqueName}
-                                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex-shrink-0"
-                                  >
-                                    {importingFromSource === solution.uniqueName ? (
-                                      <span className="flex items-center gap-1">
-                                        <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        ...
-                                      </span>
-                                    ) : (
-                                      'Import'
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Agent Preview Modal */}
-              {previewSolution && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setPreviewSolution(null)}>
-                  <div className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                    <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                      <h3 className="font-medium text-slate-900">Agent Preview</h3>
-                      <button onClick={() => setPreviewSolution(null)} className="text-slate-400 hover:text-slate-600">✕</button>
-                    </div>
-                    <div className="p-4 space-y-4">
-                      {/* Agent header */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-lg font-semibold text-slate-900">{previewSolution.displayName}</h4>
-                          {previewSolution.hasBot && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Copilot Agent</span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-500 font-mono">{previewSolution.uniqueName}</p>
-                      </div>
-
-                      {/* Description */}
-                      {previewSolution.description && (
-                        <p className="text-sm text-slate-600">{previewSolution.description}</p>
-                      )}
-
-                      {/* Bot details */}
-                      {previewSolution.botInfo && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                          <h5 className="text-sm font-medium text-blue-900 mb-2">Agent Details</h5>
-                          <div className="space-y-1.5 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-blue-700">Name:</span>
-                              <span className="text-blue-900 font-medium">{previewSolution.botInfo.botName}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-blue-700">Type:</span>
-                              <span className="text-blue-900">{previewSolution.botInfo.botType === 'copilot' ? 'Copilot Studio' : 'Classic PVA'}</span>
-                            </div>
-                            {previewSolution.botInfo.topicsCount > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-blue-700">Topics:</span>
-                                <span className="text-blue-900">{previewSolution.botInfo.topicsCount}</span>
-                              </div>
-                            )}
-                          </div>
-                          {previewSolution.botInfo.knowledgeSources?.length > 0 && (
-                            <div className="mt-3 pt-2 border-t border-blue-200">
-                              <p className="text-xs font-medium text-blue-800 mb-1">Knowledge Sources:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {previewSolution.botInfo.knowledgeSources.map((source: string, i: number) => (
-                                  <span key={i} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                                    {source}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Solution metadata */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                        <h5 className="text-sm font-medium text-slate-700 mb-2">Solution Info</h5>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-slate-500">Version:</span>
-                            <span className="ml-1 text-slate-700">{previewSolution.version}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500">Publisher:</span>
-                            <span className="ml-1 text-slate-700">{previewSolution.publisher}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500">Type:</span>
-                            <span className="ml-1 text-slate-700">{previewSolution.isManaged ? 'Managed' : 'Unmanaged'}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500">Environment:</span>
-                            <span className="ml-1 text-slate-700 text-xs">{selectedEnvironment?.split('.')[0].replace('https://', '')}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex justify-end gap-2 pt-2">
-                        <button
-                          onClick={() => setPreviewSolution(null)}
-                          className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            handleImportFromSource(previewSolution)
-                            setPreviewSolution(null)
-                          }}
-                          disabled={importingFromSource === previewSolution.uniqueName}
-                          className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          Import Agent
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* File upload area */}
-              {importMode === 'upload' && !uploadedMetadata && (
-                <div
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                    isDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-300 hover:border-slate-400'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".zip"
-                    onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-                    className="hidden"
-                    id="solution-file-input"
-                  />
-                  {uploadingFile ? (
-                    <div className="py-4">
-                      <FlaskSpinner size="sm" message="Parsing solution..." />
-                    </div>
-                  ) : (
-                    <>
-                      <svg className="w-10 h-10 text-slate-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-sm text-slate-600 mb-2">
-                        Drag & drop your solution .zip file here
-                      </p>
-                      <p className="text-xs text-slate-400 mb-3">or</p>
-                      <label
-                        htmlFor="solution-file-input"
-                        className="inline-block px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 cursor-pointer"
-                      >
-                        Browse files
-                      </label>
-                      <p className="text-xs text-slate-400 mt-4">
-                        Export your agent from Copilot Studio as a managed solution
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Conflict resolution UI */}
-              {importMode === 'upload' && uploadConflict && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-amber-900">Agent Already Exists</p>
-                      <p className="text-xs text-amber-700 mt-1">
-                        An agent with the unique name <span className="font-mono bg-amber-100 px-1 rounded">{uploadConflict.existingAgent.uniqueName}</span> already exists.
-                      </p>
-
-                      {/* Existing agent info */}
-                      <div className="mt-3 p-2 bg-white border border-amber-200 rounded text-xs">
-                        <p className="font-medium text-slate-700">Existing Agent:</p>
-                        <div className="mt-1 text-slate-600">
-                          <span className="font-medium">{uploadConflict.existingAgent.friendlyName}</span>
-                          <span className="ml-2 text-slate-400">v{uploadConflict.existingAgent.version}</span>
-                          {uploadConflict.existingAgent.status === 'archived' && (
-                            <span className="ml-2 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">archived</span>
-                          )}
-                        </div>
-                        <p className="text-slate-400 mt-1">Created: {new Date(uploadConflict.existingAgent.createdAt).toLocaleDateString()}</p>
-                      </div>
-
-                      {/* New agent info */}
-                      <div className="mt-2 p-2 bg-white border border-amber-200 rounded text-xs">
-                        <p className="font-medium text-slate-700">Uploaded Solution:</p>
-                        <div className="mt-1 text-slate-600">
-                          <span className="font-medium">{uploadConflict.newAgent.friendlyName}</span>
-                          <span className="ml-2 text-slate-400">v{uploadConflict.newAgent.version}</span>
-                        </div>
-                      </div>
-
-                      {/* Resolution options */}
-                      <div className="mt-4 space-y-3">
-                        <p className="text-xs font-medium text-amber-800">Choose how to proceed:</p>
-
-                        {/* Option 1: Update existing */}
-                        <div
-                          onClick={() => setConflictResolutionMode('update')}
-                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                            conflictResolutionMode === 'update'
-                              ? 'border-blue-400 bg-blue-50'
-                              : 'border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                              conflictResolutionMode === 'update' ? 'border-blue-500' : 'border-slate-300'
-                            }`}>
-                              {conflictResolutionMode === 'update' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-                            </div>
-                            <span className="text-sm font-medium text-slate-900">Update Existing Agent</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1 ml-6">
-                            Replace the existing agent&apos;s solution with this new version.
-                            {uploadConflict.existingAgent.status === 'archived' && ' The agent will also be reactivated.'}
-                          </p>
-                        </div>
-
-                        {/* Option 2: Create new with different name */}
-                        <div
-                          onClick={() => setConflictResolutionMode('create')}
-                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                            conflictResolutionMode === 'create'
-                              ? 'border-blue-400 bg-blue-50'
-                              : 'border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                              conflictResolutionMode === 'create' ? 'border-blue-500' : 'border-slate-300'
-                            }`}>
-                              {conflictResolutionMode === 'create' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-                            </div>
-                            <span className="text-sm font-medium text-slate-900">Create as New Agent</span>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1 ml-6">
-                            Keep the existing agent and create a new one with a different name.
-                          </p>
-
-                          {/* Name inputs (only shown when this option is selected) */}
-                          {conflictResolutionMode === 'create' && (
-                            <div className="mt-3 ml-6 space-y-2" onClick={(e) => e.stopPropagation()}>
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Unique Name</label>
-                                <input
-                                  type="text"
-                                  value={newAgentName}
-                                  onChange={(e) => setNewAgentName(e.target.value)}
-                                  className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  placeholder="e.g., MyAgent_v2"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Display Name</label>
-                                <input
-                                  type="text"
-                                  value={newAgentFriendlyName}
-                                  onChange={(e) => setNewAgentFriendlyName(e.target.value)}
-                                  className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  placeholder="e.g., My Agent (Copy)"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Parsed solution preview (upload mode only) - show only when no conflict */}
-              {importMode === 'upload' && uploadedMetadata && !uploadConflict && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-6 h-6 text-emerald-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-emerald-900">{uploadedMetadata.friendlyName}</p>
-                      <p className="text-xs text-emerald-700 mt-1">
-                        {uploadedMetadata.uniqueName} • v{uploadedMetadata.version}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2 text-xs">
-                        <span className={`px-1.5 py-0.5 rounded ${uploadedMetadata.isManaged ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'}`}>
-                          {uploadedMetadata.isManaged ? 'Managed' : 'Unmanaged'}
-                        </span>
-                        <span className="text-emerald-600">by {uploadedMetadata.publisherName}</span>
-                      </div>
-                      {uploadedMetadata.description && (
-                        <p className="text-xs text-emerald-600 mt-2">{uploadedMetadata.description}</p>
-                      )}
-
-                      {/* Knowledge Sources */}
-                      {uploadedMetadata.knowledgeSources && uploadedMetadata.knowledgeSources.length > 0 && (
-                        <div className="mt-3 pt-2 border-t border-emerald-200">
-                          <p className="text-xs font-medium text-emerald-800 mb-1">Knowledge Sources:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {uploadedMetadata.knowledgeSources.map((source, i) => (
-                              <span key={i} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                                {source}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Connection References */}
-                      {uploadedMetadata.connectionReferences && uploadedMetadata.connectionReferences.length > 0 && (
-                        <div className="mt-3 pt-2 border-t border-emerald-200">
-                          <p className="text-xs font-medium text-emerald-800 mb-1">Connections Required:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {uploadedMetadata.connectionReferences.map((conn, i) => (
-                              <span key={i} className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded" title={conn.connectorId}>
-                                {conn.displayName || conn.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Tenant-Specific Values (URLs that need remapping) */}
-                      {uploadedMetadata.tenantSpecificValues && uploadedMetadata.tenantSpecificValues.length > 0 && (
-                        <div className="mt-3 pt-2 border-t border-emerald-200">
-                          <p className="text-xs font-medium text-amber-700 mb-1">
-                            ⚠️ Tenant-Specific Configuration Required:
-                          </p>
-                          <div className="space-y-1.5">
-                            {uploadedMetadata.tenantSpecificValues.map((val, i) => (
-                              <div key={i} className="text-xs bg-amber-50 border border-amber-200 rounded p-2">
-                                <div className="font-mono text-amber-800 break-all">{val.value}</div>
-                                <div className="text-amber-600 mt-1">
-                                  {val.type === 'sharepoint_url' && 'SharePoint URL'}
-                                  {val.type === 'dataverse_url' && 'Dataverse URL'}
-                                  {val.type === 'custom_url' && 'Custom URL'}
-                                  {' — needs mapping per tenant'}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="text-xs text-amber-600 mt-2">
-                            These URLs are specific to your source environment and will need to be configured for each target tenant during deployment.
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedFile && (
-                        <p className="text-xs text-emerald-500 mt-2">{selectedFile.name}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {importMode === 'upload' && (
-              <div className="pt-2 flex gap-2 justify-end">
-                {uploadConflict ? (
-                  // Conflict resolution buttons
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleCancelUpload}
-                      className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResolveConflict(conflictResolutionMode!)}
-                      disabled={!conflictResolutionMode || resolvingConflict || (conflictResolutionMode === 'create' && !newAgentName.trim())}
-                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {resolvingConflict ? 'Processing...' : conflictResolutionMode === 'update' ? 'Update Agent' : conflictResolutionMode === 'create' ? 'Create New Agent' : 'Select an Option'}
-                    </button>
-                  </>
-                ) : uploadedMetadata ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleCancelUpload}
-                      className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
-                    >
-                      Upload different file
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleConfirmUpload}
-                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Add Agent
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => { setShowAddAgent(false); setUploadError(null) }}
-                    className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-              )}
-            </div>
+// Deployed tenants modal - kept inline as it's simple
+function DeployedTenantsModal({
+  agent,
+  onClose,
+  onDeploy,
+}: {
+  agent: Agent
+  onClose: () => void
+  onDeploy: () => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-md w-full max-h-[70vh] overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <div>
+            <h3 className="font-medium text-slate-900 dark:text-white">{agent.friendlyName}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{agent.totalDeployments} tenants</p>
           </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">✕</button>
         </div>
-      )}
+
+        {/* Tenant list as table */}
+        <div className="max-h-[50vh] overflow-y-auto">
+          <div className="grid grid-cols-[1fr_60px_70px] gap-2 px-4 py-1 text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+            <div>Tenant</div>
+            <div className="text-right">Version</div>
+            <div className="text-right">Status</div>
+          </div>
+          {agent.deployedTenants.map((deployment) => (
+            <Link
+              key={deployment.tenantId}
+              href={`/tenants/${deployment.tenantId}`}
+              className="grid grid-cols-[1fr_60px_70px] gap-2 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
+            >
+              <div className="truncate text-slate-900 dark:text-white">{deployment.tenantName}</div>
+              <div className="text-right text-slate-500 dark:text-slate-400 tabular-nums">v{deployment.version}</div>
+              <div className="text-right">
+                <span className={`text-xs ${
+                  deployment.status === 'active' ? 'text-emerald-600 dark:text-emerald-400' :
+                  deployment.status === 'updating' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+                }`}>
+                  {deployment.status === 'active' ? '✓ ok' :
+                   deployment.status === 'updating' ? '◐ updating' : '✗ failed'}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+          <button
+            onClick={onDeploy}
+            className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Deploy to more tenants →
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -58,6 +58,10 @@ export interface CustomAgent {
   urlTemplates?: AgentUrlTemplates
   // Original solution stored as base64 for deploy-time modification
   solutionBase64?: string
+  // Dependencies (knowledge sources like SharePoint, Dataverse, etc.)
+  dependencies?: string[]
+  // Connection references required by this agent
+  connectionReferences?: { name: string; connectorId: string; displayName?: string }[]
 }
 
 // Demo deployments store - uses the core DeploymentJob type for consistency

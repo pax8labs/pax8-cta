@@ -40,7 +40,8 @@ out/
 coverage/
 
 # Demo mode data
-.demo-custom-agents.json
+.demo-*.json
+.agentsync-settings.json
 
 # Playwright
 playwright-report/

@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR, { mutate } from 'swr'
 import { toast } from 'sonner'
+import { FlaskSpinner } from '@/components/ui/flask-spinner'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -125,8 +126,7 @@ export default function TenantsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-        <span className="ml-3 text-slate-500">Loading tenants...</span>
+        <FlaskSpinner size="md" message="Loading tenants..." />
       </div>
     )
   }

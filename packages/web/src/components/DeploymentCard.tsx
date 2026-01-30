@@ -1,3 +1,4 @@
+import React from 'react'
 import { DeploymentJob, DeploymentTrigger } from '@agentsync/core'
 
 interface DeploymentCardProps {
@@ -120,12 +121,16 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString()
 }
 
-export function DeploymentCard({ deployment }: DeploymentCardProps) {
-  const progress = Math.round(
-    (deployment.completedTenants / deployment.totalTenants) * 100
-  )
-  const successRate = deployment.totalTenants > 0
-    ? Math.round(((deployment.completedTenants) / (deployment.completedTenants + deployment.failedTenants || 1)) * 100)
+export const DeploymentCard = React.memo(function DeploymentCard({ deployment }: DeploymentCardProps) {
+  // Safe division with fallback to 0 when totalTenants is 0
+  const progress = deployment.totalTenants > 0
+    ? Math.round((deployment.completedTenants / deployment.totalTenants) * 100)
+    : 0
+
+  // Safe success rate calculation
+  const totalProcessed = deployment.completedTenants + deployment.failedTenants
+  const successRate = totalProcessed > 0
+    ? Math.round((deployment.completedTenants / totalProcessed) * 100)
     : 0
 
   return (
@@ -197,10 +202,10 @@ export function DeploymentCard({ deployment }: DeploymentCardProps) {
           </div>
         </div>
         <div className="text-right flex-shrink-0 ml-4">
-          <p className="text-sm text-slate-600 font-medium">
+          <p className="text-sm text-slate-600 font-medium" suppressHydrationWarning>
             {formatRelativeTime(deployment.createdAt)}
           </p>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-400 mt-0.5" suppressHydrationWarning>
             {new Date(deployment.createdAt).toLocaleDateString(undefined, {
               month: 'short',
               day: 'numeric',
@@ -226,4 +231,4 @@ export function DeploymentCard({ deployment }: DeploymentCardProps) {
       )}
     </a>
   )
-}
+})
