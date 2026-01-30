@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider'
 import { ErrorBoundary, GlobalErrorHandler } from '@/components/error-boundary'
 import { ToastProvider } from '@/components/providers/toast-provider'
 import { UserMenu } from '@/components/UserMenu'
+import PrototypeBanner from '@/components/PrototypeBanner'
 import Image from 'next/image'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -91,11 +92,12 @@ export default function RootLayout({
                 </div>
               </div>
             </nav>
-            <main id="main-content" className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <main id="main-content" className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pb-20">
               <ErrorBoundary>
                 {children}
               </ErrorBoundary>
             </main>
+            <PrototypeBanner />
               </div>
               </GlobalErrorHandler>
               </ToastProvider>
