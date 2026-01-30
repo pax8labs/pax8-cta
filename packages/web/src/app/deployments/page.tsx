@@ -714,6 +714,13 @@ function DeploymentsContent() {
     }
   }, [statusFilter, searchParams, router])
 
+  // Auto-switch to tenants view when Issues filter is selected (retry UI is only in tenants view)
+  useEffect(() => {
+    if (statusFilter === 'issues') {
+      setViewMode('tenants')
+    }
+  }, [statusFilter])
+
   // Disable auto-refresh on Issues tab to prevent confusion after retries
   const refreshInterval = statusFilter === 'issues' ? 30000 : 5000
   const { data, error, isLoading, mutate } = useSWR('/api/deployments?limit=100', fetcher, { refreshInterval })
@@ -1050,6 +1057,13 @@ function DeploymentsContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh
+            </button>
+            <button
+              onClick={selectAllRetryable}
+              disabled={retryableRecords.length === 0}
+              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {selectedRecords.size === retryableRecords.length && retryableRecords.length > 0 ? 'Deselect All' : `Select All (${retryableRecords.length})`}
             </button>
             <button
               onClick={handleBulkRetry}
