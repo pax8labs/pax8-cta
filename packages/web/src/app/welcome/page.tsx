@@ -79,7 +79,7 @@ export default function WelcomePage() {
                     <ol className="space-y-1 ml-4 mt-2">
                       <li>1. Open your agent in Copilot Studio</li>
                       <li>2. Go to Settings → Agent details → Export agent</li>
-                      <li>3. Choose "Export as solution" (not "Export bot content")</li>
+                      <li>3. Choose &quot;Export as solution&quot; (not &quot;Export bot content&quot;)</li>
                       <li>4. Download the .zip file</li>
                     </ol>
                   </details>

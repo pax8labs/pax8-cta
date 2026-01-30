@@ -617,7 +617,7 @@ function NewDeploymentContent() {
                     <svg className="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <p className="text-sm">No agents match "{agentSearch}"</p>
+                    <p className="text-sm">No agents match &quot;{agentSearch}&quot;</p>
                   </div>
                 ) : (
                   <>
@@ -793,7 +793,7 @@ function NewDeploymentContent() {
                 <svg className="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <p className="text-sm">No tenants match "{tenantSearch}"</p>
+                <p className="text-sm">No tenants match &quot;{tenantSearch}&quot;</p>
               </div>
             ) : filteredTenants.map((tenant: Tenant) => {
               const isDeployed = deployedTenantIds.has(tenant.tenantId)

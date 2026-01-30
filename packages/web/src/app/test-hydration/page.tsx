@@ -55,7 +55,7 @@ export default function TestHydrationPage() {
             <li>Does GlobalErrorHandler load? (Look for 🟢 message)</li>
             <li>Does it detect the hydration error? (Look for 🔍 message)</li>
             <li>Does it attempt to report? (Look for 🚀 and 📤 messages)</li>
-            <li>What's the response? (Look for 📥 message - check if deduplicated/rate-limited)</li>
+            <li>What&apos;s the response? (Look for 📥 message - check if deduplicated/rate-limited)</li>
             <li>Was a GitHub issue created? (Check the issueUrl in the response)</li>
           </ul>
         </div>
