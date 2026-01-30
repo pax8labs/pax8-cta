@@ -43,7 +43,7 @@ export function ConflictResolutionPanel({
                 <span className="ml-2 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">archived</span>
               )}
             </div>
-            <p className="text-slate-400 mt-1">Created: {new Date(conflict.existingAgent.createdAt).toLocaleDateString()}</p>
+            <p className="text-slate-400 mt-1" suppressHydrationWarning>Created: {new Date(conflict.existingAgent.createdAt).toLocaleDateString()}</p>
           </div>
 
           {/* New agent info */}

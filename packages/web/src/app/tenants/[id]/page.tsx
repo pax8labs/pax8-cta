@@ -414,7 +414,7 @@ export default function TenantDetailPage() {
                       <p className="font-semibold text-slate-900">{agent.solutionName}</p>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs font-mono text-slate-500">v{agent.version}</span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-400" suppressHydrationWarning>
                           Deployed {new Date(agent.deployedAt).toLocaleDateString()}
                         </span>
                       </div>

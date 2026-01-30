@@ -308,7 +308,7 @@ export default function SettingsPage() {
                     : 'Not configured'}
                 </p>
                 {settings?.integration?.lastTestedAt && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" suppressHydrationWarning>
                     Last tested: {new Date(settings.integration.lastTestedAt).toLocaleString()}
                   </p>
                 )}

@@ -1018,7 +1018,7 @@ export default function DeploymentDetailPage() {
                       {statusLabels[result.status]}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" suppressHydrationWarning>
                     {result.startedAt
                       ? new Date(result.startedAt).toLocaleTimeString()
                       : '-'}
@@ -1046,8 +1046,8 @@ export default function DeploymentDetailPage() {
 
       {/* Metadata */}
       <div className="mt-6 text-sm text-gray-500">
-        <p>Created: {deployment.createdAt ? new Date(deployment.createdAt).toLocaleString() : '—'}</p>
-        <p>Last Updated: {deployment.updatedAt ? new Date(deployment.updatedAt).toLocaleString() : '—'}</p>
+        <p suppressHydrationWarning>Created: {deployment.createdAt ? new Date(deployment.createdAt).toLocaleString() : '—'}</p>
+        <p suppressHydrationWarning>Last Updated: {deployment.updatedAt ? new Date(deployment.updatedAt).toLocaleString() : '—'}</p>
       </div>
     </div>
   )
