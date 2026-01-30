@@ -192,7 +192,7 @@ export function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
         </div>
 
         {/* Step content */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
           {/* Welcome Step */}
           {currentStep === 'welcome' && (
             <div className="text-center">

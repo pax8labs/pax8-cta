@@ -86,23 +86,23 @@ function formatTimeAgo(dateString?: string) {
 
 const statusStyles: Record<string, { bg: string; text: string; dot: string; label: string }> = {
   // Active/completed states
-  completed: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'deployed' },
-  in_progress: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500', label: 'deploying' },
+  completed: { bg: 'bg-emerald-50 dark:bg-emerald-900', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', label: 'deployed' },
+  in_progress: { bg: 'bg-blue-50 dark:bg-blue-900', text: 'text-blue-700 dark:text-blue-300', dot: 'bg-blue-500', label: 'deploying' },
 
   // Pending action states
-  pending: { bg: 'bg-slate-50', text: 'text-slate-600', dot: 'bg-slate-400', label: 'pending' },
-  scheduled: { bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500', label: 'scheduled' },
-  awaiting_approval: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: 'needs approval' },
-  approved: { bg: 'bg-teal-50', text: 'text-teal-700', dot: 'bg-teal-500', label: 'approved' },
+  pending: { bg: 'bg-slate-50 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300', dot: 'bg-slate-400', label: 'pending' },
+  scheduled: { bg: 'bg-purple-50 dark:bg-purple-900', text: 'text-purple-700 dark:text-purple-300', dot: 'bg-purple-500', label: 'scheduled' },
+  awaiting_approval: { bg: 'bg-amber-50 dark:bg-amber-900', text: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500', label: 'needs approval' },
+  approved: { bg: 'bg-teal-50 dark:bg-teal-900', text: 'text-teal-700 dark:text-teal-300', dot: 'bg-teal-500', label: 'approved' },
 
   // Terminal failure states
-  failed: { bg: 'bg-rose-50', text: 'text-rose-700', dot: 'bg-rose-500', label: 'failed' },
-  rejected: { bg: 'bg-rose-50', text: 'text-rose-600', dot: 'bg-rose-400', label: 'rejected' },
-  cancelled: { bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-500', label: 'cancelled' },
+  failed: { bg: 'bg-rose-50 dark:bg-rose-900', text: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500', label: 'failed' },
+  rejected: { bg: 'bg-rose-50 dark:bg-rose-900', text: 'text-rose-600 dark:text-rose-300', dot: 'bg-rose-400', label: 'rejected' },
+  cancelled: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300', dot: 'bg-slate-500', label: 'cancelled' },
 
   // Rollback states
-  rolling_back: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', label: 'rolling back' },
-  rolled_back: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500', label: 'rolled back' },
+  rolling_back: { bg: 'bg-orange-50 dark:bg-orange-900', text: 'text-orange-700 dark:text-orange-300', dot: 'bg-orange-500', label: 'rolling back' },
+  rolled_back: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-700 dark:text-slate-300', dot: 'bg-slate-500', label: 'rolled back' },
 }
 
 function StatusBadge({ status, error }: { status: string; error?: string }) {
@@ -123,9 +123,9 @@ function StatusBadge({ status, error }: { status: string; error?: string }) {
         )}
       </span>
       {hasError && (
-        <span className="absolute left-0 bottom-full mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-normal max-w-xs z-50 pointer-events-none">
+        <span className="absolute left-0 bottom-full mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-normal max-w-xs z-50 pointer-events-none">
           {error}
-          <span className="absolute top-full left-4 border-4 border-transparent border-t-gray-900" />
+          <span className="absolute top-full left-4 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
         </span>
       )}
     </span>
@@ -996,8 +996,8 @@ function DeploymentsContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Deployments</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Deployments</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Agent deployments across all tenants
           </p>
         </div>
@@ -1012,13 +1012,13 @@ function DeploymentsContent() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         {/* View mode toggle */}
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
             onClick={() => setViewMode('batches')}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               viewMode === 'batches'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1030,8 +1030,8 @@ function DeploymentsContent() {
             onClick={() => setViewMode('tenants')}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               viewMode === 'tenants'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1041,23 +1041,23 @@ function DeploymentsContent() {
           </button>
         </div>
 
-        <div className="border-l border-gray-300 h-6" />
+        <div className="border-l border-gray-300 dark:border-gray-600 h-6" />
 
         {/* Status filter */}
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           {statusOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => handleFilterChange(opt.value)}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 statusFilter === opt.value
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               {opt.label}
               {opt.count > 0 && (
-                <span className={`ml-1.5 ${statusFilter === opt.value ? 'text-gray-500' : 'text-gray-400'}`}>
+                <span className={`ml-1.5 ${statusFilter === opt.value ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>
                   {opt.count}
                 </span>
               )}
@@ -1072,7 +1072,7 @@ function DeploymentsContent() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => { mutate(); setBulkMessage(null); }}
-              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1082,7 +1082,7 @@ function DeploymentsContent() {
             <button
               onClick={selectAllRetryable}
               disabled={retryableRecords.length === 0}
-              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {selectedRecords.size === retryableRecords.length && retryableRecords.length > 0 ? 'Deselect All' : `Select All (${retryableRecords.length})`}
             </button>
@@ -1094,7 +1094,7 @@ function DeploymentsContent() {
               {bulkRetrying ? 'Retrying...' : selectedRecords.size > 0 ? `Retry ${selectedRecords.size} Selected` : 'Retry Selected'}
             </button>
             {bulkMessage && (
-              <span className={`text-sm ${bulkMessage.type === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
+              <span className={`text-sm ${bulkMessage.type === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                 {bulkMessage.text}
               </span>
             )}
@@ -1106,33 +1106,33 @@ function DeploymentsContent() {
           placeholder="Search tenants or agents..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm w-64 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
       {/* Content */}
       {error ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <p className="text-rose-600 font-medium">Failed to load deployments</p>
-          <p className="text-sm text-gray-500 mt-1">Please try refreshing the page</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <p className="text-rose-600 dark:text-rose-400 font-medium">Failed to load deployments</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Please try refreshing the page</p>
         </div>
       ) : isLoading && showSpinner ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
           <FlaskSpinner size="md" message="Loading deployments..." className="py-4" />
         </div>
       ) : isLoading ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 min-h-[200px]" />
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 min-h-[200px]" />
       ) : (viewMode === 'batches' ? filteredBatches.length : filteredRecords.length) === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
             <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h3 className="font-medium text-gray-900 mb-1">
+          <h3 className="font-medium text-gray-900 dark:text-white mb-1">
             {searchQuery || statusFilter !== 'all' ? 'No matching deployments' : 'No deployments yet'}
           </h3>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             {searchQuery || statusFilter !== 'all'
               ? 'Try adjusting your filters'
               : 'Deploy an agent to a tenant to get started'
@@ -1161,15 +1161,15 @@ function DeploymentsContent() {
             const hasIssues = failedTenants > 0
 
             return (
-              <div key={deployment.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div key={deployment.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {/* Batch header row */}
                 <div
-                  className={`px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-gray-50 ${isExpanded ? 'border-b border-gray-200' : ''}`}
+                  className={`px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${isExpanded ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}
                   onClick={() => toggleBatchExpanded(deployment.id)}
                 >
                   {/* Expand/collapse icon */}
                   <svg
-                    className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                    className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -1180,35 +1180,35 @@ function DeploymentsContent() {
                   {/* Agent name and version */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{deployment.solutionName}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{deployment.solutionName}</span>
                       {deployment.solutionVersion && (
-                        <span className="text-xs text-gray-400 font-mono">v{deployment.solutionVersion}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">v{deployment.solutionVersion}</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5" suppressHydrationWarning>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" suppressHydrationWarning>
                       {formatTimeAgo(deployment.createdAt)} · {totalTenants} tenant{totalTenants !== 1 ? 's' : ''}
                     </p>
                   </div>
 
                   {/* Progress counters - Total / Pending / Succeeded / Failed */}
                   <div className="flex items-center gap-3 text-sm">
-                    <span className="text-gray-600 font-medium">{totalTenants}</span>
-                    <span className="text-gray-300">/</span>
-                    <span className={`${pendingTenants > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                    <span className="text-gray-600 dark:text-gray-300 font-medium">{totalTenants}</span>
+                    <span className="text-gray-300 dark:text-gray-600">/</span>
+                    <span className={`${pendingTenants > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
                       {pendingTenants}
                     </span>
-                    <span className="text-gray-300">/</span>
-                    <span className={`${completedTenants > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                    <span className="text-gray-300 dark:text-gray-600">/</span>
+                    <span className={`${completedTenants > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
                       {completedTenants}
                     </span>
-                    <span className="text-gray-300">/</span>
-                    <span className={`${failedTenants > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                    <span className="text-gray-300 dark:text-gray-600">/</span>
+                    <span className={`${failedTenants > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
                       {failedTenants}
                     </span>
                   </div>
 
                   {/* Mini progress bar */}
-                  <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden flex">
+                  <div className="w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
                     {completedTenants > 0 && (
                       <div
                         className="h-full bg-green-500"
@@ -1227,10 +1227,10 @@ function DeploymentsContent() {
                   <span
                     className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
                       isInProgress
-                        ? 'bg-blue-50 text-blue-700'
+                        ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
                         : hasIssues
-                        ? 'bg-red-50 text-red-700'
-                        : 'bg-green-50 text-green-700'
+                        ? 'bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300'
+                        : 'bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300'
                     }`}
                   >
                     {isInProgress && (
@@ -1242,7 +1242,7 @@ function DeploymentsContent() {
                   {/* View details link */}
                   <Link
                     href={`/deployments/${deployment.id}`}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Details
@@ -1251,25 +1251,25 @@ function DeploymentsContent() {
 
                 {/* Expanded tenant details */}
                 {isExpanded && (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {tenantResults.map((result: TenantDeploymentResult) => {
                       const isFailed = FAILED_STATUSES.includes(result.status)
                       return (
                         <div
                           key={result.tenantId}
-                          className={`px-4 py-2 flex items-center gap-4 ${isFailed ? 'bg-red-50' : 'bg-gray-50'}`}
+                          className={`px-4 py-2 flex items-center gap-4 ${isFailed ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gray-50 dark:bg-gray-900'}`}
                         >
                           <div className="w-4" /> {/* Spacer to align with chevron */}
                           <div className="flex-1">
-                            <span className="text-sm text-gray-900">{result.tenantName}</span>
+                            <span className="text-sm text-gray-900 dark:text-white">{result.tenantName}</span>
                             {isFailed && result.error && (
-                              <p className="text-xs text-red-600 mt-0.5 truncate" title={result.error}>
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 truncate" title={result.error}>
                                 {result.error}
                               </p>
                             )}
                           </div>
                           <StatusBadge status={result.status} error={result.error} />
-                          <span className="text-xs text-gray-400 w-16 text-right" suppressHydrationWarning>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 w-16 text-right" suppressHydrationWarning>
                             {formatTimeAgo(result.completedAt || result.startedAt)}
                           </span>
                         </div>
@@ -1283,9 +1283,9 @@ function DeploymentsContent() {
         </div>
       ) : (
         /* Tenant View - Original table showing individual tenant-agent records */
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 {showSelectionUI && (
                   <th className="px-4 py-3 w-10">
@@ -1293,28 +1293,28 @@ function DeploymentsContent() {
                       type="checkbox"
                       checked={selectedRecords.size === retryableRecords.length && retryableRecords.length > 0}
                       onChange={selectAllRetryable}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                     />
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Tenant
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Agent
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Deployed
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredRecords.map((record, idx) => {
                 const recordKey = `${record.deploymentId}:${record.tenantId}`
                 const isRetryable = RETRYABLE_STATUSES.includes(record.status)
@@ -1325,7 +1325,7 @@ function DeploymentsContent() {
                 return (
                   <React.Fragment key={recordKey}>
                     <tr
-                      className={`hover:bg-gray-50 ${hasError ? 'cursor-pointer' : ''} ${isExpanded ? 'bg-gray-50' : ''}`}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${hasError ? 'cursor-pointer' : ''} ${isExpanded ? 'bg-gray-50 dark:bg-gray-900' : ''}`}
                       onClick={() => hasError && toggleExpanded(recordKey)}
                     >
                       {showSelectionUI && (
@@ -1335,7 +1335,7 @@ function DeploymentsContent() {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleRecord(recordKey)}
-                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                             />
                           ) : (
                             <span className="w-4 h-4 block" />
@@ -1346,7 +1346,7 @@ function DeploymentsContent() {
                         <div className="flex items-center gap-2">
                           {hasError && (
                             <svg
-                              className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                              className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
@@ -1354,27 +1354,27 @@ function DeploymentsContent() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                           )}
-                          <span className="font-medium text-gray-900">{record.tenantName}</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{record.tenantName}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-900">{record.agentName}</span>
+                          <span className="text-gray-900 dark:text-white">{record.agentName}</span>
                           {record.agentVersion && (
-                            <span className="text-xs text-gray-400 font-mono">v{record.agentVersion}</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">v{record.agentVersion}</span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={record.status} error={record.error} />
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500" suppressHydrationWarning>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" suppressHydrationWarning>
                         {formatTimeAgo(record.deployedAt)}
                       </td>
                       <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <Link
                           href={`/deployments/${record.deploymentId}`}
-                          className="text-sm text-blue-600 hover:text-blue-800"
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                         >
                           View
                         </Link>
@@ -1382,19 +1382,19 @@ function DeploymentsContent() {
                     </tr>
                     {/* Expanded error details row */}
                     {isExpanded && hasError && (
-                      <tr className="bg-slate-900">
+                      <tr className="bg-slate-900 dark:bg-slate-950">
                         <td colSpan={showSelectionUI ? 6 : 5} className="px-4 py-3">
                           <div className="font-mono text-sm">
-                            <div className="flex items-center gap-2 text-slate-400 mb-2">
+                            <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 mb-2">
                               <span className="text-blue-400">$</span>
                               <span>
                                 agentsync deploy <span className="text-emerald-400">{record.agentName}</span>{' '}
                                 --tenant <span className="text-cyan-400">{record.tenantId.slice(0, 8)}</span>{' '}
-                                <span className="text-slate-500"># {record.tenantName}</span>
+                                <span className="text-slate-500 dark:text-slate-600"># {record.tenantName}</span>
                               </span>
                             </div>
-                            <div className="flex items-start gap-2 text-red-300">
-                              <span className="text-red-400 shrink-0">✗</span>
+                            <div className="flex items-start gap-2 text-red-300 dark:text-red-400">
+                              <span className="text-red-400 dark:text-red-500 shrink-0">✗</span>
                               <span className="break-words">{record.error}</span>
                             </div>
                           </div>
@@ -1425,11 +1425,11 @@ function LoadingFallback() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Deployments</h1>
-          <p className="text-sm text-gray-500 mt-1">Agent deployments across all tenants</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Deployments</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Agent deployments across all tenants</p>
         </div>
       </div>
-      <div className="bg-white rounded-lg border border-gray-200 p-8">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
         <FlaskSpinner size="md" message="Loading..." className="py-4" />
       </div>
     </div>

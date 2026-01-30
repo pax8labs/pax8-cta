@@ -272,13 +272,21 @@ function isHydrationError(message: string): boolean {
  */
 export function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
+    console.log('[GlobalErrorHandler] 🟢 Loaded and active')
+
     const reportGlobalError = async (error: Error, source: string, context?: Record<string, unknown>) => {
+      console.log('[GlobalErrorHandler] 📤 Attempting to report error:', {
+        source,
+        message: error.message.slice(0, 100),
+        hasStack: !!error.stack,
+      })
+
       // Track in PostHog
       trackError(error, { source, ...context })
 
       // Report to GitHub
       try {
-        await fetch('/api/errors/report', {
+        const response = await fetch('/api/errors/report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -293,8 +301,18 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
             },
           }),
         })
+
+        const result = await response.json()
+        console.log('[GlobalErrorHandler] 📥 GitHub report response:', {
+          status: response.status,
+          success: result.success,
+          reported: result.reported,
+          deduplicated: result.deduplicated,
+          rateLimited: result.rateLimited,
+          issueUrl: result.issueUrl,
+        })
       } catch (reportError) {
-        console.error('Failed to report global error to GitHub:', reportError)
+        console.error('[GlobalErrorHandler] ❌ Failed to report global error to GitHub:', reportError)
       }
     }
 
@@ -331,6 +349,8 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
     const originalConsoleError = console.error
     const reportedMessages = new Set<string>() // Dedupe within session
 
+    console.log('[GlobalErrorHandler] 🎣 console.error interception installed')
+
     console.error = (...args: unknown[]) => {
       // Call original first
       originalConsoleError.apply(console, args)
@@ -340,8 +360,21 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
         typeof arg === 'string' ? arg : (arg instanceof Error ? arg.message : String(arg))
       ).join(' ')
 
-      if (isHydrationError(message) && !reportedMessages.has(message.slice(0, 200))) {
-        reportedMessages.add(message.slice(0, 200))
+      const isHydration = isHydrationError(message)
+      const messageKey = message.slice(0, 200)
+      const alreadyReported = reportedMessages.has(messageKey)
+
+      if (isHydration) {
+        console.log('[GlobalErrorHandler] 🔍 Hydration error detected:', {
+          isHydration,
+          alreadyReported,
+          messagePreview: message.slice(0, 100),
+        })
+      }
+
+      if (isHydration && !alreadyReported) {
+        reportedMessages.add(messageKey)
+        console.log('[GlobalErrorHandler] 🚀 Reporting hydration error to GitHub...')
 
         // Report hydration error to GitHub
         const error = args.find(arg => arg instanceof Error) as Error | undefined
@@ -353,13 +386,17 @@ export function GlobalErrorHandler({ children }: { children: React.ReactNode }) 
             consoleArgs: message.slice(0, 1000),
           }
         )
+      } else if (isHydration && alreadyReported) {
+        console.log('[GlobalErrorHandler] ⏭️  Skipping duplicate hydration error (already reported in this session)')
       }
     }
 
     window.addEventListener('error', handleError)
     window.addEventListener('unhandledrejection', handleRejection)
+    console.log('[GlobalErrorHandler] 👂 Event listeners attached')
 
     return () => {
+      console.log('[GlobalErrorHandler] 🔴 Cleaning up and unloading')
       window.removeEventListener('error', handleError)
       window.removeEventListener('unhandledrejection', handleRejection)
       console.error = originalConsoleError

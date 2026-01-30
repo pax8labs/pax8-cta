@@ -850,7 +850,7 @@ export default function DeploymentDetailPage() {
       )}
 
       {/* Progress Overview */}
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900">Progress</h2>
           {deployment.status === 'completed' && failedTenants === 0 && (
@@ -942,7 +942,7 @@ export default function DeploymentDetailPage() {
       </div>
 
       {/* Tenant Results */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b">
           <h2 className="text-lg font-medium text-gray-900">Tenant Results</h2>
         </div>
@@ -966,7 +966,7 @@ export default function DeploymentDetailPage() {
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {deployment.tenantResults
               ?.sort((a: TenantDeploymentResult, b: TenantDeploymentResult) => {
                 const order: Record<string, number> = {

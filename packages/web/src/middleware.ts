@@ -4,6 +4,13 @@ import { NextResponse, NextRequest } from 'next/server';
 // Check if demo mode is enabled
 const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1';
 
+// Log warning if demo mode is enabled
+if (isDemoMode) {
+  console.warn('⚠️  WARNING: DEMO MODE ENABLED - All authentication is bypassed!');
+  console.warn('⚠️  This mode should NEVER be used in production environments.');
+  console.warn('⚠️  Set DEMO_MODE=false and configure Azure AD credentials for production.');
+}
+
 function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');

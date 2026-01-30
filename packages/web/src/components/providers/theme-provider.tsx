@@ -50,8 +50,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
   const [mounted, setMounted] = useState(false)
 
-  // Load theme from settings API on mount
+  // Load theme from localStorage first (instant), then from API (authoritative)
   useEffect(() => {
+    // Load from localStorage immediately for instant theme application
+    try {
+      const localTheme = localStorage.getItem('agentsync-theme') as Theme | null
+      if (localTheme && ['light', 'dark', 'system'].includes(localTheme)) {
+        setThemeState(localTheme)
+      }
+    } catch (e) {
+      console.error('Failed to load theme from localStorage:', e)
+    }
+
+    // Then load from API (authoritative source)
     const loadTheme = async () => {
       try {
         const response = await fetch('/api/settings')
@@ -60,6 +71,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
           const savedTheme = data.app?.theme as Theme | undefined
           if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
             setThemeState(savedTheme)
+            // Sync to localStorage
+            localStorage.setItem('agentsync-theme', savedTheme)
           }
         }
       } catch (error) {
@@ -96,6 +109,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)
+    // Save to localStorage for inline script to prevent flash
+    try {
+      localStorage.setItem('agentsync-theme', newTheme)
+    } catch (e) {
+      console.error('Failed to save theme to localStorage:', e)
+    }
     // The settings page handles saving to API when user changes the setting
   }, [])
 

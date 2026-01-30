@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import useSWR, { mutate } from 'swr'
 import Link from 'next/link'
@@ -52,6 +52,31 @@ export default function TenantDetailPage() {
 
   const tenant: Tenant | undefined = data?.tenant
   const allTags: string[] = allTagsData?.tags ?? []
+
+  // Load last health check result on mount
+  useEffect(() => {
+    const loadLastHealthCheck = async () => {
+      try {
+        const response = await fetch(`/api/tenants/${tenantId}/health`)
+        if (response.ok) {
+          const result = await response.json()
+          if (result.lastCheck) {
+            setHealthResult({
+              healthy: result.healthy,
+              checks: result.checks,
+              totalDurationMs: result.totalDurationMs,
+              checkedAt: result.lastCheck,
+            })
+          }
+        }
+      } catch (err) {
+        // Ignore errors - health check is optional
+        console.error('Failed to load last health check:', err)
+      }
+    }
+
+    loadLastHealthCheck()
+  }, [tenantId])
 
   const handleStartEditTags = () => {
     setSelectedTags(tenant?.tags ?? [])
@@ -328,7 +353,7 @@ export default function TenantDetailPage() {
       </div>
 
       {/* Health Check Section */}
-      <div className="bg-white shadow-md rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Health Check</h2>
@@ -424,7 +449,7 @@ export default function TenantDetailPage() {
       </div>
 
       {/* Tags Section */}
-      <div className="bg-white shadow-md rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Tags</h2>
           {!isEditingTags ? (
@@ -524,7 +549,7 @@ export default function TenantDetailPage() {
       </div>
 
       {/* Deployed Agents Section */}
-      <div className="bg-white shadow-md rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900">Deployed Agents</h2>
           <p className="text-sm text-slate-500 mt-1">Copilot Studio agents installed on this tenant</p>
@@ -615,7 +640,7 @@ export default function TenantDetailPage() {
 
       {/* Metadata Section */}
       {tenant?.metadata && Object.keys(tenant.metadata).length > 0 && (
-        <div className="bg-white shadow-md rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-200">
             <h2 className="text-lg font-semibold text-slate-900">Metadata</h2>
           </div>

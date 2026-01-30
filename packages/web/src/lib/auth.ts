@@ -47,10 +47,18 @@ const demoProvider = CredentialsProvider({
 });
 
 // Production Azure AD provider
+// SECURITY: No default values - these MUST be set explicitly in production
+if (!isDemoMode && (!process.env.AZURE_AD_CLIENT_ID || !process.env.AZURE_AD_CLIENT_SECRET || !process.env.AZURE_AD_TENANT_ID)) {
+  throw new Error(
+    'CRITICAL: Azure AD credentials not configured. Set AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, and AZURE_AD_TENANT_ID environment variables. ' +
+    'For development/testing only, you can enable DEMO_MODE=true (NOT for production use).'
+  );
+}
+
 const azureProvider = AzureADProvider({
-  clientId: process.env.AZURE_AD_CLIENT_ID || 'demo-client-id',
-  clientSecret: process.env.AZURE_AD_CLIENT_SECRET || 'demo-client-secret',
-  tenantId: process.env.AZURE_AD_TENANT_ID || 'demo-tenant-id',
+  clientId: process.env.AZURE_AD_CLIENT_ID!,
+  clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+  tenantId: process.env.AZURE_AD_TENANT_ID!,
   authorization: {
     params: {
       scope: 'openid email profile User.Read',
@@ -78,6 +86,18 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // Always redirect to dashboard after sign-in
+      // This prevents redirect issues with directory listings
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      // Default to dashboard
+      return baseUrl;
+    },
   },
   pages: {
     signIn: '/auth/signin',
@@ -87,7 +107,23 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 8 * 60 * 60, // 8 hours
   },
-  secret: process.env.NEXTAUTH_SECRET || (isDemoMode ? 'demo-secret-for-local-testing-only' : undefined),
+  secret: (() => {
+    if (isDemoMode) {
+      console.warn('⚠️  WARNING: Running in DEMO MODE - Authentication is bypassed! DO NOT use in production.');
+      return 'demo-secret-for-local-testing-only';
+    }
+    if (!process.env.NEXTAUTH_SECRET) {
+      throw new Error(
+        'CRITICAL: NEXTAUTH_SECRET is not set. Generate a secure secret with: openssl rand -base64 32'
+      );
+    }
+    if (process.env.NEXTAUTH_SECRET.length < 32) {
+      throw new Error(
+        'CRITICAL: NEXTAUTH_SECRET is too short (minimum 32 characters). Generate a secure secret with: openssl rand -base64 32'
+      );
+    }
+    return process.env.NEXTAUTH_SECRET;
+  })(),
 };
 
 // Role-based access control helper

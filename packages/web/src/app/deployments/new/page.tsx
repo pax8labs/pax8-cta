@@ -562,7 +562,7 @@ function NewDeploymentContent() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Step 1: Select Agent */}
-        <div className="bg-white shadow-md rounded-xl border border-slate-200 p-6">
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -704,7 +704,7 @@ function NewDeploymentContent() {
         </div>
 
         {/* Step 2: Select Tenants */}
-        <div className="bg-white shadow-md rounded-xl border border-slate-200 p-6">
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
               <span className="text-blue-600 font-semibold text-sm">2</span>
@@ -876,7 +876,7 @@ function NewDeploymentContent() {
 
         {/* Step 3: URL Mapping (only shown if agent has URL templates) */}
         {hasUrlTemplates && selectedTenants.length > 0 && (
-          <div className="bg-white shadow-md rounded-xl border border-slate-200 p-6">
+          <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
                 <span className="text-amber-600 font-semibold text-sm">3</span>
@@ -1237,7 +1237,7 @@ function LoadingFallback() {
           Deploy a Copilot Studio solution to multiple customer tenants
         </p>
       </div>
-      <div className="bg-white shadow-md rounded-xl border border-slate-200 p-8 text-center">
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center">
         <div className="animate-spin w-8 h-8 mx-auto mb-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
         <p className="text-slate-500">Loading...</p>
       </div>

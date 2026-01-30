@@ -6,6 +6,38 @@ Take your CoPilot agents and ship them to your clients' tenants! Multi-tenant Co
 
 ---
 
+## ⚡ Quick Start: Deploy Agents to Multiple Tenants
+
+### One-Time Setup (5-10 minutes)
+
+1. **Create GDAP relationships** in [Microsoft Partner Center](https://partner.microsoft.com/en-us/dashboard/customers)
+   - Go to Customers → [Customer] → Admin relationships
+   - Request **Power Platform Administrator** role
+   - Customer approves the relationship
+   - *This is the only external step - everything else is done in AgentSync*
+
+2. **Create Azure AD app registration** in your partner tenant
+   - [Azure Portal](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → App registrations → New registration
+   - Add API permission: `Dynamics CRM > user_impersonation`
+   - Create client secret and save it
+   - Note: Client ID, Tenant ID, Secret
+
+3. **Enter credentials in AgentSync**
+   - Start AgentSync (see [installation options](#-try-it-in-5-minutes-no-install-required) below)
+   - Go to Settings → Integration tab
+   - Enter your partner credentials
+   - Click "Test Connection" ✓
+
+4. **Deploy agents!**
+   - AgentSync auto-discovers all your GDAP customers
+   - Select agent, select tenants, click Deploy
+   - Monitor real-time progress across all tenants
+
+**Time to first deployment:** ~15 minutes
+**Time per subsequent deployment:** ~2 minutes (to 1 tenant or 100 tenants - same time!)
+
+---
+
 ## 🚀 Try It in 5 Minutes (No Install Required)
 
 **Already have GDAP set up with your customers?** You're 90% there.
@@ -121,29 +153,59 @@ pnpm web                      # Opens Control Tower dashboard at localhost:3000
 
 > **How it works:** Copilot Studio agents live in Microsoft Dataverse (the database behind Power Platform). AgentSync uses the Dataverse API to export your agent as a "solution" from your dev environment, then imports it into each customer's environment via GDAP.
 
-## Prerequisites
+## Prerequisites (Detailed)
 
-### Azure AD App Registration
+### 1. Azure AD App Registration (One-Time)
 
-1. Create an App Registration in your **partner tenant**
-2. Add API permission: `Dynamics CRM > user_impersonation` (Delegated)
-3. Grant admin consent
-4. Create a client secret and save it securely
+**In your partner tenant [Azure Portal](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade):**
 
-### GDAP Relationships
+1. Navigate to **Azure Active Directory** → **App registrations** → **New registration**
+2. Configure:
+   - Name: `AgentSync Deployment Tool`
+   - Supported account types: **Accounts in any organizational directory (Multitenant)**
+3. After creation, note these values:
+   - **Application (client) ID** - You'll enter this in AgentSync settings
+   - **Directory (tenant) ID** - Your partner tenant ID
+4. **Create client secret:**
+   - Certificates & secrets → New client secret
+   - Copy the **value** immediately (shown only once!)
+5. **Add API permissions:**
+   - API permissions → Add a permission
+   - **Dynamics CRM** → Delegated permissions → `user_impersonation`
+   - Click "Grant admin consent" ✓
+6. **Optional - for direct import:**
+   - Add **Microsoft Graph** → Delegated → `DelegatedAdminRelationship.Read.All`
+   - Add **PowerApps Service** → Delegated → `User`
 
-For each customer tenant:
-1. Establish a GDAP relationship via Partner Center
-2. Request the **Power Platform Administrator** role
-3. Customer must approve the relationship
+### 2. GDAP Relationships (Per Customer)
 
-### Application User (per customer)
+**What is GDAP?** Microsoft's secure delegation model that lets you access customer tenants without storing their credentials.
 
-In each customer's Dataverse environment, create an Application User:
-1. Go to Power Platform Admin Center > Environments > [Environment] > Settings
-2. Users + permissions > Application users > New app user
+**Setup in Partner Center:**
+
+1. Sign in to [Microsoft Partner Center](https://partner.microsoft.com/en-us/dashboard/customers)
+2. Navigate to **Customers** → Select your customer
+3. Go to **Account** → **Admin relationships**
+4. Click **"Request a delegated admin relationship"**
+5. Configure:
+   - Relationship name: `AgentSync Deployment Access`
+   - Duration: 2 years (default)
+   - Roles to request: ☑️ **Power Platform Administrator** (required)
+6. Send invitation link to customer
+7. Customer approves in their Microsoft 365 Admin Center
+8. Status changes to **"Active"** ✓
+
+**Once active, AgentSync automatically discovers this customer!** No manual tenant configuration needed.
+
+### 3. Application User (Per Customer) - Optional
+
+*Only needed if you encounter permission issues. Most MSPs with GDAP + Power Platform Admin role don't need this.*
+
+If required, in each customer's environment:
+1. Power Platform Admin Center → Environments → [Environment] → Settings
+2. Users + permissions → Application users → New app user
 3. Add your partner app registration
-4. Assign System Administrator or Solution Import role
+4. Assign: System Administrator or Solution Import role
 
 ## Installation
 
