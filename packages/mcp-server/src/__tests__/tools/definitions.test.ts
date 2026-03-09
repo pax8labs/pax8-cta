@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { tools } from '../../tools/definitions.js';
 
 describe('Tool Definitions', () => {
-  it('should have exactly 8 tools defined', () => {
-    expect(tools).toHaveLength(8);
+  it('should have exactly 9 tools defined', () => {
+    expect(tools).toHaveLength(9);
   });
 
   it('should have all expected tool names', () => {
@@ -12,6 +12,7 @@ describe('Tool Definitions', () => {
     expect(toolNames).toContain('get_deployment_status');
     expect(toolNames).toContain('list_agents');
     expect(toolNames).toContain('list_tenants');
+    expect(toolNames).toContain('analyze_deployment_risk');
     expect(toolNames).toContain('create_deployment');
     expect(toolNames).toContain('monitor_deployment');
     expect(toolNames).toContain('get_deployment_stats');
