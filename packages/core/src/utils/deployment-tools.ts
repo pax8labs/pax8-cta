@@ -1,6 +1,6 @@
 /**
  * Shared deployment tool handlers
- * Used by both MCP server and web chat API
+ * Used by MCP server for creating deployments via the web API
  */
 
 const API_BASE_URL = process.env.AGENTSYNC_API_URL || 'http://localhost:3000'
@@ -18,6 +18,56 @@ export interface CreateDeploymentResult {
   tenantCount: number
   approvalRequired?: boolean
   message: string
+}
+
+export interface DeploymentStatusResponse {
+  id: string
+  status: string
+  solutionName?: string
+  totalTenants: number
+  completedTenants: number
+  failedTenants: number
+  createdAt: string
+  startedAt?: string
+  completedAt?: string
+  tenants?: Array<{
+    tenantId: string
+    tenantName: string
+    status: string
+    error?: string
+  }>
+}
+
+export interface DeploymentListResponse {
+  deployments: DeploymentStatusResponse[]
+  total: number
+}
+
+export interface AgentListResponse {
+  agents: Array<{
+    id: string
+    name: string
+    version?: string
+    description?: string
+  }>
+}
+
+export interface TenantListResponse {
+  tenants: Array<{
+    id: string
+    name: string
+    environmentUrl: string
+    tags?: string[]
+  }>
+}
+
+export interface DeploymentStatsResponse {
+  total: number
+  pending: number
+  inProgress: number
+  completed: number
+  failed: number
+  successRate: number
 }
 
 /**
@@ -39,11 +89,12 @@ export async function createDeployment(params: CreateDeploymentParams): Promise<
   const solutionBuffer = Buffer.from(arrayBuffer)
 
   // Step 2: Create form data with the solution file
-  const FormData = (await import('node-fetch')).FormData as any
-  const { Blob } = await import('node:buffer')
+  const { FormData, Blob } = await import('node:buffer') as Record<string, unknown>
+  const NativeFormData = FormData as typeof globalThis.FormData
+  const NativeBlob = Blob as typeof globalThis.Blob
 
-  const formData = new FormData()
-  const blob = new Blob([solutionBuffer], { type: 'application/zip' })
+  const formData = new NativeFormData()
+  const blob = new NativeBlob([solutionBuffer], { type: 'application/zip' })
   formData.append('solution', blob, `${agentId}_managed.zip`)
   formData.append('tenantIds', JSON.stringify(tenantIds))
 
@@ -68,14 +119,14 @@ export interface DeploymentStatusParams {
 /**
  * Get deployment status
  */
-export async function getDeploymentStatus(params: DeploymentStatusParams): Promise<any> {
+export async function getDeploymentStatus(params: DeploymentStatusParams): Promise<DeploymentStatusResponse> {
   const response = await fetch(`${API_BASE_URL}/api/deployments/${params.deploymentId}`)
 
   if (!response.ok) {
     throw new Error(`Failed to get deployment status: ${response.status}`)
   }
 
-  return await response.json()
+  return await response.json() as DeploymentStatusResponse
 }
 
 export interface ListDeploymentsParams {
@@ -86,7 +137,7 @@ export interface ListDeploymentsParams {
 /**
  * List deployments
  */
-export async function listDeployments(params: ListDeploymentsParams = {}): Promise<any> {
+export async function listDeployments(params: ListDeploymentsParams = {}): Promise<DeploymentListResponse> {
   const queryParams = new URLSearchParams()
   if (params.status) queryParams.append('status', params.status)
   if (params.limit) queryParams.append('limit', params.limit.toString())
@@ -97,13 +148,13 @@ export async function listDeployments(params: ListDeploymentsParams = {}): Promi
     throw new Error(`Failed to list deployments: ${response.status}`)
   }
 
-  return await response.json()
+  return await response.json() as DeploymentListResponse
 }
 
 /**
  * Retry a failed deployment
  */
-export async function retryDeployment(params: DeploymentStatusParams): Promise<any> {
+export async function retryDeployment(params: DeploymentStatusParams): Promise<DeploymentStatusResponse> {
   const response = await fetch(`${API_BASE_URL}/api/deployments/${params.deploymentId}/retry`, {
     method: 'POST',
   })
@@ -112,44 +163,44 @@ export async function retryDeployment(params: DeploymentStatusParams): Promise<a
     throw new Error(`Failed to retry deployment: ${response.status}`)
   }
 
-  return await response.json()
+  return await response.json() as DeploymentStatusResponse
 }
 
 /**
  * List available agents
  */
-export async function listAgents(): Promise<any> {
+export async function listAgents(): Promise<AgentListResponse> {
   const response = await fetch(`${API_BASE_URL}/api/agents`)
 
   if (!response.ok) {
     throw new Error(`Failed to list agents: ${response.status}`)
   }
 
-  return await response.json()
+  return await response.json() as AgentListResponse
 }
 
 /**
  * List available tenants
  */
-export async function listTenants(): Promise<any> {
+export async function listTenants(): Promise<TenantListResponse> {
   const response = await fetch(`${API_BASE_URL}/api/tenants`)
 
   if (!response.ok) {
     throw new Error(`Failed to list tenants: ${response.status}`)
   }
 
-  return await response.json()
+  return await response.json() as TenantListResponse
 }
 
 /**
  * Get deployment statistics
  */
-export async function getDeploymentStats(): Promise<any> {
+export async function getDeploymentStats(): Promise<DeploymentStatsResponse> {
   const response = await fetch(`${API_BASE_URL}/api/stats`)
 
   if (!response.ok) {
     throw new Error(`Failed to get deployment stats: ${response.status}`)
   }
 
-  return await response.json()
+  return await response.json() as DeploymentStatsResponse
 }

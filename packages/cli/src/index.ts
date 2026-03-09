@@ -50,10 +50,35 @@ import chalk from "chalk";
 
 const VERSION = "0.1.0";
 
+// Factory function to create a program instance
+export function createProgram(): Command {
+  const program = new Command();
+
+  program
+    .name("agentsync")
+    .description("AgentSync - Sync your agents to all your tenants")
+    .version(VERSION);
+
+  program.addCommand(initCommand);
+  program.addCommand(demoCommand);
+  program.addCommand(exportCommand);
+  program.addCommand(importCommand);
+  program.addCommand(analyzeCommand);
+  program.addCommand(deployCommand);
+  program.addCommand(deploymentsCommand);
+  program.addCommand(statusCommand);
+  program.addCommand(tenantsCommand);
+  program.addCommand(agentsCommand);
+  program.addCommand(resolveUrlCommand);
+  program.addCommand(telemetryCommand);
+
+  return program;
+}
+
 // Show banner if no arguments provided OR showing top-level help (not command-specific help)
 const args = process.argv.slice(2);
-const commands = ["pack", "export", "deliver", "import", "analyze", "ship", "deploy", "track", "status", "fleet", "tenants", "agents", "deployments", "resolve-url", "help", "init", "demo", "telemetry"];
-const hasCommand = args.some(arg => commands.includes(arg));
+const knownCommands = createProgram().commands.flatMap(cmd => [cmd.name(), ...cmd.aliases()]);
+const hasCommand = args.some(arg => knownCommands.includes(arg));
 const isTopLevelHelp = (args.includes("--help") || args.includes("-h")) && !hasCommand;
 const shouldShowBanner = args.length === 0 || isTopLevelHelp;
 
@@ -69,32 +94,6 @@ if (isTelemetryEnabled() && !hasShownFirstRunNotice() && args.length > 0) {
   console.log(chalk.gray(getFirstRunNotice()));
   markFirstRunNoticeShown();
   trackFirstRun();
-}
-
-// Factory function to create a program instance
-export function createProgram(): Command {
-  const program = new Command();
-
-  program
-    .name("agentsync")
-    .description("AgentSync - Sync your agents to all your tenants")
-    .version(VERSION);
-
-  // Register commands (shipping metaphor aliases: ship, pack, deliver, track, fleet)
-  program.addCommand(initCommand);
-  program.addCommand(demoCommand);
-  program.addCommand(exportCommand);
-  program.addCommand(importCommand);
-  program.addCommand(analyzeCommand);
-  program.addCommand(deployCommand);
-  program.addCommand(deploymentsCommand);
-  program.addCommand(statusCommand);
-  program.addCommand(tenantsCommand);
-  program.addCommand(agentsCommand);
-  program.addCommand(resolveUrlCommand);
-  program.addCommand(telemetryCommand);
-
-  return program;
 }
 
 // Graceful shutdown handling

@@ -24,10 +24,9 @@ import {
   getClientSecret,
   filterTenantsByTags,
   TenantConfig,
-  DEMO_TENANTS,
 } from "@agentsync/core";
 import { DeploymentQueueManager } from "@agentsync/worker";
-import { isDemoModeEnabled } from "./demo.js";
+import { isDemoModeEnabled, getDemoTenants } from "./demo.js";
 
 export const deployCommand = new Command("deploy")
   .alias("ship")
@@ -60,13 +59,7 @@ export const deployCommand = new Command("deploy")
         spinner.succeed("Demo fleet manifest loaded");
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
 
-        // Get demo tenants
-        let destinations = DEMO_TENANTS.filter(t => t.enabled);
-        if (!options.all && options.tag) {
-          destinations = destinations.filter((t) =>
-            options.tag.some((tag: string) => t.tags?.includes(tag))
-          );
-        }
+        const destinations = getDemoTenants(options);
 
         if (destinations.length === 0) {
           spinner.fail(chalk.red("No destinations matched the selection criteria"));

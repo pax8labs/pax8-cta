@@ -23,12 +23,11 @@ import {
   loadConfig,
   filterTenantsByTags,
   TenantConfig,
-  DEMO_TENANTS,
   riskAnalyzer,
   type RiskAnalysis,
   type DeploymentContext,
 } from "@agentsync/core";
-import { isDemoModeEnabled } from "./demo.js";
+import { isDemoModeEnabled, getDemoTenants } from "./demo.js";
 
 // Risk issue severity colors
 const SEVERITY_COLORS = {
@@ -70,13 +69,7 @@ export const analyzeCommand = new Command("analyze")
         spinner.succeed("Demo fleet manifest loaded");
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
 
-        // Get demo tenants
-        let destinations = DEMO_TENANTS.filter((t) => t.enabled);
-        if (!options.all && options.tag) {
-          destinations = destinations.filter((t) =>
-            options.tag.some((tag: string) => t.tags?.includes(tag))
-          );
-        }
+        const destinations = getDemoTenants(options);
 
         if (destinations.length === 0) {
           spinner.fail(chalk.red("No destinations matched the selection criteria"));

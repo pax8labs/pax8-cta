@@ -20,6 +20,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
+import { DEMO_TENANTS, type TenantConfig } from "@agentsync/core";
 
 const CONFIG_DIR = join(homedir(), ".agentsync");
 const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
@@ -172,6 +173,20 @@ export function isDemoModeEnabled(): boolean {
   // Check stored config
   const config = loadCliConfig();
   return config.demoMode ?? false;
+}
+
+/**
+ * Get filtered demo tenants based on command options.
+ * Shared across analyze, deploy, and other commands that operate on tenant sets.
+ */
+export function getDemoTenants(options: { all?: boolean; tag?: string[] }): TenantConfig[] {
+  let destinations = DEMO_TENANTS.filter((t) => t.enabled);
+  if (!options.all && options.tag) {
+    destinations = destinations.filter((t) =>
+      options.tag!.some((tag: string) => t.tags?.includes(tag))
+    );
+  }
+  return destinations;
 }
 
 // ============================================================================
