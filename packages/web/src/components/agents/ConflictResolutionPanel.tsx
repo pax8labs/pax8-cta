@@ -1,15 +1,31 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import type { UploadConflict } from '@/types/agent'
+"use client";
+
+import type { UploadConflict } from "@/types/agent";
 
 interface ConflictResolutionPanelProps {
-  conflict: UploadConflict
-  conflictMode: 'update' | 'create' | null
-  onModeChange: (mode: 'update' | 'create') => void
-  newAgentName: string
-  onNewAgentNameChange: (name: string) => void
-  newAgentFriendlyName: string
-  onNewAgentFriendlyNameChange: (name: string) => void
+  conflict: UploadConflict;
+  conflictMode: "update" | "create" | null;
+  onModeChange: (mode: "update" | "create") => void;
+  newAgentName: string;
+  onNewAgentNameChange: (name: string) => void;
+  newAgentFriendlyName: string;
+  onNewAgentFriendlyNameChange: (name: string) => void;
 }
 
 export function ConflictResolutionPanel({
@@ -24,13 +40,27 @@ export function ConflictResolutionPanel({
   return (
     <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
       <div className="flex items-start gap-3">
-        <svg className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        <svg
+          className="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
         </svg>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-amber-900">Agent Already Exists</p>
           <p className="text-xs text-amber-700 mt-1">
-            An agent with the unique name <span className="font-mono bg-amber-100 px-1 rounded">{conflict.existingAgent.uniqueName}</span> already exists.
+            An agent with the unique name{" "}
+            <span className="font-mono bg-amber-100 px-1 rounded">
+              {conflict.existingAgent.uniqueName}
+            </span>{" "}
+            already exists.
           </p>
 
           {/* Existing agent info */}
@@ -39,11 +69,15 @@ export function ConflictResolutionPanel({
             <div className="mt-1 text-slate-600">
               <span className="font-medium">{conflict.existingAgent.friendlyName}</span>
               <span className="ml-2 text-slate-400">v{conflict.existingAgent.version}</span>
-              {conflict.existingAgent.status === 'archived' && (
-                <span className="ml-2 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">archived</span>
+              {conflict.existingAgent.status === "archived" && (
+                <span className="ml-2 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                  archived
+                </span>
               )}
             </div>
-            <p className="text-slate-400 mt-1" suppressHydrationWarning>Created: {new Date(conflict.existingAgent.createdAt).toLocaleDateString()}</p>
+            <p className="text-slate-400 mt-1" suppressHydrationWarning>
+              Created: {new Date(conflict.existingAgent.createdAt).toLocaleDateString()}
+            </p>
           </div>
 
           {/* New agent info */}
@@ -61,41 +95,50 @@ export function ConflictResolutionPanel({
 
             {/* Option 1: Update existing */}
             <div
-              onClick={() => onModeChange('update')}
+              onClick={() => onModeChange("update")}
               className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                conflictMode === 'update'
-                  ? 'border-blue-400 bg-blue-50'
-                  : 'border-slate-200 hover:border-slate-300'
+                conflictMode === "update"
+                  ? "border-blue-400 bg-blue-50"
+                  : "border-slate-200 hover:border-slate-300"
               }`}
             >
               <div className="flex items-center gap-2">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  conflictMode === 'update' ? 'border-blue-500' : 'border-slate-300'
-                }`}>
-                  {conflictMode === 'update' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                <div
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    conflictMode === "update" ? "border-blue-500" : "border-slate-300"
+                  }`}
+                >
+                  {conflictMode === "update" && (
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  )}
                 </div>
                 <span className="text-sm font-medium text-slate-900">Update Existing Agent</span>
               </div>
               <p className="text-xs text-slate-500 mt-1 ml-6">
                 Replace the existing agent&apos;s solution with this new version.
-                {conflict.existingAgent.status === 'archived' && ' The agent will also be reactivated.'}
+                {conflict.existingAgent.status === "archived" &&
+                  " The agent will also be reactivated."}
               </p>
             </div>
 
             {/* Option 2: Create new with different name */}
             <div
-              onClick={() => onModeChange('create')}
+              onClick={() => onModeChange("create")}
               className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                conflictMode === 'create'
-                  ? 'border-blue-400 bg-blue-50'
-                  : 'border-slate-200 hover:border-slate-300'
+                conflictMode === "create"
+                  ? "border-blue-400 bg-blue-50"
+                  : "border-slate-200 hover:border-slate-300"
               }`}
             >
               <div className="flex items-center gap-2">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  conflictMode === 'create' ? 'border-blue-500' : 'border-slate-300'
-                }`}>
-                  {conflictMode === 'create' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                <div
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    conflictMode === "create" ? "border-blue-500" : "border-slate-300"
+                  }`}
+                >
+                  {conflictMode === "create" && (
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  )}
                 </div>
                 <span className="text-sm font-medium text-slate-900">Create as New Agent</span>
               </div>
@@ -104,10 +147,12 @@ export function ConflictResolutionPanel({
               </p>
 
               {/* Name inputs (only shown when this option is selected) */}
-              {conflictMode === 'create' && (
+              {conflictMode === "create" && (
                 <div className="mt-3 ml-6 space-y-2" onClick={(e) => e.stopPropagation()}>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Unique Name</label>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                      Unique Name
+                    </label>
                     <input
                       type="text"
                       value={newAgentName}
@@ -117,7 +162,9 @@ export function ConflictResolutionPanel({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Display Name</label>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                      Display Name
+                    </label>
                     <input
                       type="text"
                       value={newAgentFriendlyName}
@@ -133,5 +180,5 @@ export function ConflictResolutionPanel({
         </div>
       </div>
     </div>
-  )
+  );
 }

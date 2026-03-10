@@ -1,15 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
 import {
   isDemoMode,
   DataverseClient,
   TokenManager,
   SolutionOperations,
   getEffectiveIntegrationSettings,
-} from '@agentsync/core'
-import { demoCustomAgents, CustomAgent } from '@/lib/demo-store'
-import { invalidRequest, notFound, internalError } from '@/lib/errors'
+} from "@agentsync/core";
+import { demoCustomAgents, CustomAgent } from "@/lib/demo-store";
+import { invalidRequest, notFound, internalError } from "@/lib/errors";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 /**
  * Import a solution from a Power Platform environment
@@ -17,52 +33,48 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const {
-      solutionUniqueName,
-      environmentUrl,
-      tenantId,
-      displayName,
-      description,
-    } = body as {
-      solutionUniqueName: string
-      environmentUrl: string
-      tenantId?: string
-      displayName?: string
-      description?: string
-    }
+    const body = await request.json();
+    const { solutionUniqueName, environmentUrl, tenantId, displayName, description } = body as {
+      solutionUniqueName: string;
+      environmentUrl: string;
+      tenantId?: string;
+      displayName?: string;
+      description?: string;
+    };
 
     if (!solutionUniqueName || !environmentUrl) {
-      return invalidRequest('solutionUniqueName and environmentUrl are required')
+      return invalidRequest("solutionUniqueName and environmentUrl are required");
     }
 
     if (isDemoMode()) {
       // Demo mode - create a mock agent
-      const agentId = `agent-${Date.now()}`
+      const agentId = `agent-${Date.now()}`;
       const agent = {
         id: agentId,
         name: displayName || solutionUniqueName,
         displayName: displayName || solutionUniqueName,
         solutionName: solutionUniqueName,
         uniqueName: solutionUniqueName,
-        version: '1.0.0.0',
-        status: 'active' as const,
+        version: "1.0.0.0",
+        status: "active" as const,
         description: description || `Imported from ${environmentUrl}`,
         isCustom: true,
         importedFrom: {
-          type: 'power-platform' as const,
+          type: "power-platform" as const,
           environmentUrl,
           importedAt: new Date().toISOString(),
         },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         // Mock solution content (would be real base64 in production)
-        solutionBase64: Buffer.from(JSON.stringify({
-          mock: true,
-          solutionName: solutionUniqueName,
-          importedFrom: environmentUrl,
-        })).toString('base64'),
-      }
+        solutionBase64: Buffer.from(
+          JSON.stringify({
+            mock: true,
+            solutionName: solutionUniqueName,
+            importedFrom: environmentUrl,
+          })
+        ).toString("base64"),
+      };
 
       // Store in demo store
       const customAgent: CustomAgent = {
@@ -71,13 +83,13 @@ export async function POST(request: NextRequest) {
         friendlyName: agent.displayName,
         version: agent.version,
         description: agent.description,
-        publisherName: 'Demo Publisher',
+        publisherName: "Demo Publisher",
         isManaged: true,
-        status: 'active',
+        status: "active",
         createdAt: agent.createdAt,
         solutionBase64: agent.solutionBase64,
-      }
-      demoCustomAgents.set(solutionUniqueName, customAgent)
+      };
+      demoCustomAgents.set(solutionUniqueName, customAgent);
 
       return NextResponse.json({
         demoMode: true,
@@ -89,69 +101,69 @@ export async function POST(request: NextRequest) {
           version: agent.version,
           importedFrom: agent.importedFrom,
         },
-      })
+      });
     }
 
     // Real mode - export solution from source environment
-    const settings = await getEffectiveIntegrationSettings()
+    const settings = await getEffectiveIntegrationSettings();
 
     if (!settings.partnerClientId || !settings.partnerClientSecret) {
-      return internalError('Partner credentials not configured')
+      return internalError("Partner credentials not configured");
     }
 
     // Determine which tenant to authenticate to
-    const targetTenantId = tenantId || settings.sourceTenantId || settings.partnerTenantId
+    const targetTenantId = tenantId || settings.sourceTenantId || settings.partnerTenantId;
     if (!targetTenantId) {
-      return invalidRequest('Unable to determine tenant ID')
+      return invalidRequest("Unable to determine tenant ID");
     }
 
     const tokenManager = new TokenManager({
       tenantId: targetTenantId,
       clientId: settings.partnerClientId,
       clientSecret: settings.partnerClientSecret,
-    })
+    });
 
     const dataverseClient = new DataverseClient({
       environmentUrl,
       tokenManager,
-    })
+    });
 
-    const solutionOps = new SolutionOperations(dataverseClient)
+    const solutionOps = new SolutionOperations(dataverseClient);
 
     // Get solution metadata first
-    const solutions = await dataverseClient.querySolutions()
-    const solution = solutions.find(s => s.uniquename === solutionUniqueName)
+    const solutions = await dataverseClient.querySolutions();
+    const solution = solutions.find((s) => s.uniquename === solutionUniqueName);
 
     if (!solution) {
-      return notFound('Solution', solutionUniqueName)
+      return notFound("Solution", solutionUniqueName);
     }
 
     // Export the solution as managed to a temp file
-    const os = await import('os')
-    const path = await import('path')
-    const fs = await import('fs/promises')
+    const os = await import("os");
+    const path = await import("path");
+    const fs = await import("fs/promises");
 
-    const tempDir = os.tmpdir()
-    const outputPath = path.join(tempDir, `${solutionUniqueName}_${Date.now()}.zip`)
+    const tempDir = os.tmpdir();
+    const outputPath = path.join(tempDir, `${solutionUniqueName}_${Date.now()}.zip`);
 
     await solutionOps.exportSolution(solutionUniqueName, {
       managed: true,
       outputPath,
-    })
+    });
 
     // Read the exported file
-    const exportResult = await fs.readFile(outputPath)
+    const exportResult = await fs.readFile(outputPath);
 
     // Clean up temp file
     try {
-      await fs.unlink(outputPath)
+      await fs.unlink(outputPath);
     } catch {
       // Ignore cleanup errors
     }
 
     // Store the agent in our system
     // For now, we'll return the data - in production this would persist to a database
-    const agentId = `agent-${Date.now()}`
+    const agentId = `agent-${Date.now()}`;
     const agent = {
       id: agentId,
       name: displayName || solution.friendlyname || solutionUniqueName,
@@ -159,12 +171,12 @@ export async function POST(request: NextRequest) {
       solutionName: solutionUniqueName,
       uniqueName: solution.uniquename,
       version: solution.version,
-      status: 'active',
+      status: "active",
       description: description || `Imported from ${environmentUrl}`,
       publisher: solution.publisherid?.friendlyname,
       isCustom: true,
       importedFrom: {
-        type: 'power-platform',
+        type: "power-platform",
         environmentUrl,
         tenantId: targetTenantId,
         solutionId: solution.solutionid,
@@ -175,7 +187,7 @@ export async function POST(request: NextRequest) {
       // Note: In production, this would be stored in blob storage or similar
       // and we'd just store a reference here
       solutionSize: exportResult.length,
-    }
+    };
 
     // Store the imported agent
     const customAgent: CustomAgent = {
@@ -184,13 +196,13 @@ export async function POST(request: NextRequest) {
       friendlyName: agent.displayName,
       version: agent.version,
       description: agent.description,
-      publisherName: agent.publisher || 'Unknown',
+      publisherName: agent.publisher || "Unknown",
       isManaged: true,
-      status: 'active',
+      status: "active",
       createdAt: agent.createdAt,
-      solutionBase64: exportResult.toString('base64'),
-    }
-    demoCustomAgents.set(solutionUniqueName, customAgent)
+      solutionBase64: exportResult.toString("base64"),
+    };
+    demoCustomAgents.set(solutionUniqueName, customAgent);
 
     return NextResponse.json({
       demoMode: false,
@@ -204,12 +216,14 @@ export async function POST(request: NextRequest) {
         solutionSize: agent.solutionSize,
         importedFrom: agent.importedFrom,
       },
-    })
+    });
   } catch (error) {
-    console.error('Import from environment error:', error)
+    console.error("Import from environment error:", error);
     return internalError(
-      'Failed to import solution from environment',
-      process.env.NODE_ENV === 'development' && error instanceof Error ? { error: error.message } : undefined
-    )
+      "Failed to import solution from environment",
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? { error: error.message }
+        : undefined
+    );
   }
 }

@@ -1,19 +1,35 @@
-import { NextResponse } from 'next/server';
-import Redis from 'ioredis';
-import { getDatabase } from '@/lib/db';
-import { DeploymentQueueManager } from '@agentsync/worker';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-export const dynamic = 'force-dynamic';
+import { NextResponse } from "next/server";
+import Redis from "ioredis";
+import { getDatabase } from "@/lib/db";
+import { DeploymentQueueManager } from "@agentsync/worker";
+
+export const dynamic = "force-dynamic";
 
 interface ReadinessCheck {
   name: string;
-  status: 'healthy' | 'unhealthy';
+  status: "healthy" | "unhealthy";
   latency?: number;
   error?: string;
   details?: Record<string, any>;
 }
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
 export async function GET() {
   const checks: ReadinessCheck[] = [];
@@ -22,27 +38,27 @@ export async function GET() {
   // Check Redis connectivity
   const redisCheck = await checkRedis();
   checks.push(redisCheck);
-  if (redisCheck.status === 'unhealthy') {
+  if (redisCheck.status === "unhealthy") {
     allHealthy = false;
   }
 
   // Check database connectivity
   const dbCheck = await checkDatabase();
   checks.push(dbCheck);
-  if (dbCheck.status === 'unhealthy') {
+  if (dbCheck.status === "unhealthy") {
     allHealthy = false;
   }
 
   // Check worker availability
   const workerCheck = await checkWorkers();
   checks.push(workerCheck);
-  if (workerCheck.status === 'unhealthy') {
+  if (workerCheck.status === "unhealthy") {
     allHealthy = false;
   }
 
   return NextResponse.json(
     {
-      status: allHealthy ? 'ready' : 'not_ready',
+      status: allHealthy ? "ready" : "not_ready",
       timestamp: new Date().toISOString(),
       checks,
     },
@@ -54,7 +70,7 @@ async function checkRedis(): Promise<ReadinessCheck> {
   const start = Date.now();
 
   try {
-    const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
       maxRetriesPerRequest: 1,
       connectTimeout: 5000,
       lazyConnect: true,
@@ -65,16 +81,16 @@ async function checkRedis(): Promise<ReadinessCheck> {
     await redis.quit();
 
     return {
-      name: 'redis',
-      status: 'healthy',
+      name: "redis",
+      status: "healthy",
       latency: Date.now() - start,
     };
   } catch (error) {
     return {
-      name: 'redis',
-      status: 'unhealthy',
+      name: "redis",
+      status: "unhealthy",
       latency: Date.now() - start,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
@@ -86,27 +102,27 @@ async function checkDatabase(): Promise<ReadinessCheck> {
     const db = getDatabase();
 
     // Test read capability with a simple query
-    const result = db.prepare('SELECT 1 as health_check').get() as { health_check: number };
+    const result = db.prepare("SELECT 1 as health_check").get() as { health_check: number };
 
     if (result.health_check !== 1) {
-      throw new Error('Database returned unexpected result');
+      throw new Error("Database returned unexpected result");
     }
 
     // Test write capability with a transaction (verifies not read-only)
-    db.prepare('BEGIN').run();
-    db.prepare('ROLLBACK').run();
+    db.prepare("BEGIN").run();
+    db.prepare("ROLLBACK").run();
 
     return {
-      name: 'database',
-      status: 'healthy',
+      name: "database",
+      status: "healthy",
       latency: Date.now() - start,
     };
   } catch (error) {
     return {
-      name: 'database',
-      status: 'unhealthy',
+      name: "database",
+      status: "unhealthy",
       latency: Date.now() - start,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
@@ -123,10 +139,10 @@ async function checkWorkers(): Promise<ReadinessCheck> {
     // System is unhealthy if no workers are running
     if (workerInfo.activeWorkers === 0) {
       return {
-        name: 'workers',
-        status: 'unhealthy',
+        name: "workers",
+        status: "unhealthy",
         latency: Date.now() - start,
-        error: 'No active workers found',
+        error: "No active workers found",
         details: {
           activeWorkers: 0,
           waitingJobs: workerInfo.waitingJobs,
@@ -135,8 +151,8 @@ async function checkWorkers(): Promise<ReadinessCheck> {
     }
 
     return {
-      name: 'workers',
-      status: 'healthy',
+      name: "workers",
+      status: "healthy",
       latency: Date.now() - start,
       details: {
         activeWorkers: workerInfo.activeWorkers,
@@ -155,10 +171,10 @@ async function checkWorkers(): Promise<ReadinessCheck> {
     }
 
     return {
-      name: 'workers',
-      status: 'unhealthy',
+      name: "workers",
+      status: "unhealthy",
       latency: Date.now() - start,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

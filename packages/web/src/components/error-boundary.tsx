@@ -1,24 +1,40 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import React from 'react'
-import { trackError, posthog, isPostHogEnabled } from '@/lib/posthog-client'
-import { createLogger } from '@/lib/logger'
+"use client";
 
-const logger = createLogger('GlobalErrorHandler')
+import React from "react";
+import { trackError, posthog, isPostHogEnabled } from "@/lib/posthog-client";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("GlobalErrorHandler");
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode
-  fallback?: React.ReactNode
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
   /** Enable automatic GitHub issue creation for errors */
-  reportToGitHub?: boolean
+  reportToGitHub?: boolean;
 }
 
 interface ErrorBoundaryState {
-  hasError: boolean
-  error: Error | null
-  errorInfo: React.ErrorInfo | null
-  gitHubIssueUrl?: string
-  isReportingToGitHub: boolean
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: React.ErrorInfo | null;
+  gitHubIssueUrl?: string;
+  isReportingToGitHub: boolean;
 }
 
 /**
@@ -29,83 +45,89 @@ interface ErrorBoundaryState {
  */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
-    super(props)
-    this.state = { hasError: false, error: null, errorInfo: null, isReportingToGitHub: false }
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null, isReportingToGitHub: false };
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({ errorInfo })
+    this.setState({ errorInfo });
 
     // Track error in PostHog
     trackError(error, {
       component_stack: errorInfo.componentStack,
-      source: 'error_boundary',
-    })
+      source: "error_boundary",
+    });
 
     // Also capture in PostHog's exception tracking if enabled
     if (isPostHogEnabled()) {
-      posthog.capture('$exception', {
+      posthog.capture("$exception", {
         $exception_message: error.message,
         $exception_type: error.name,
         $exception_stack_trace_raw: error.stack,
-        $exception_source: 'react_error_boundary',
-      })
+        $exception_source: "react_error_boundary",
+      });
     }
 
     // Report to GitHub Issues if enabled
     if (this.props.reportToGitHub !== false) {
-      this.reportToGitHub(error, errorInfo)
+      this.reportToGitHub(error, errorInfo);
     }
 
     // Log to console for development
-    console.error('Error caught by ErrorBoundary:', error, errorInfo)
+    console.error("Error caught by ErrorBoundary:", error, errorInfo);
   }
 
   async reportToGitHub(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({ isReportingToGitHub: true })
+    this.setState({ isReportingToGitHub: true });
 
     try {
-      const response = await fetch('/api/errors/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/errors/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           errorMessage: error.message,
           errorStack: error.stack,
           componentStack: errorInfo.componentStack,
-          source: 'error_boundary',
-          url: typeof window !== 'undefined' ? window.location.href : undefined,
+          source: "error_boundary",
+          url: typeof window !== "undefined" ? window.location.href : undefined,
           timestamp: new Date().toISOString(),
           context: {
-            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
           },
         }),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (result.success && result.issueUrl) {
-        this.setState({ gitHubIssueUrl: result.issueUrl })
+        this.setState({ gitHubIssueUrl: result.issueUrl });
       }
     } catch (reportError) {
-      console.error('Failed to report error to GitHub:', reportError)
+      console.error("Failed to report error to GitHub:", reportError);
     } finally {
-      this.setState({ isReportingToGitHub: false })
+      this.setState({ isReportingToGitHub: false });
     }
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null, gitHubIssueUrl: undefined, isReportingToGitHub: false })
-  }
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      gitHubIssueUrl: undefined,
+      isReportingToGitHub: false,
+    });
+  };
 
   render() {
     if (this.state.hasError) {
       // Custom fallback or default error UI
       if (this.props.fallback) {
-        return this.props.fallback
+        return this.props.fallback;
       }
 
       return (
@@ -133,14 +155,14 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               </div>
             </div>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {process.env.NODE_ENV === "development" && this.state.error && (
               <div className="mb-4 p-3 bg-gray-50 rounded-md overflow-auto">
                 <p className="text-xs font-mono text-red-600 break-all">
                   {this.state.error.message}
                 </p>
                 {this.state.error.stack && (
                   <pre className="mt-2 text-xs text-gray-500 whitespace-pre-wrap">
-                    {this.state.error.stack.split('\n').slice(1, 5).join('\n')}
+                    {this.state.error.stack.split("\n").slice(1, 5).join("\n")}
                   </pre>
                 )}
               </div>
@@ -150,8 +172,19 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             {this.state.isReportingToGitHub && (
               <div className="mb-4 p-3 bg-blue-50 rounded-md flex items-center gap-2">
                 <svg className="w-4 h-4 text-blue-600 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
                 <span className="text-xs text-blue-700">Creating GitHub issue...</span>
               </div>
@@ -160,8 +193,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             {this.state.gitHubIssueUrl && (
               <div className="mb-4 p-3 bg-green-50 rounded-md">
                 <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="w-4 h-4 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   <span className="text-xs font-medium text-green-700">Issue reported</span>
                 </div>
@@ -192,10 +235,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             </div>
           </div>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
@@ -204,66 +247,69 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
  * Use this for errors caught in try/catch blocks
  */
 export function useErrorReporter() {
-  const [isReporting, setIsReporting] = React.useState(false)
-  const [lastIssueUrl, setLastIssueUrl] = React.useState<string | undefined>()
+  const [isReporting, setIsReporting] = React.useState(false);
+  const [lastIssueUrl, setLastIssueUrl] = React.useState<string | undefined>();
 
-  const reportError = React.useCallback(async (
-    error: Error | string,
-    context?: Record<string, unknown>,
-    options?: { reportToGitHub?: boolean }
-  ) => {
-    // Track in PostHog
-    trackError(error, context)
+  const reportError = React.useCallback(
+    async (
+      error: Error | string,
+      context?: Record<string, unknown>,
+      options?: { reportToGitHub?: boolean }
+    ) => {
+      // Track in PostHog
+      trackError(error, context);
 
-    // Report to GitHub if requested
-    if (options?.reportToGitHub) {
-      setIsReporting(true)
-      try {
-        const response = await fetch('/api/errors/report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            errorMessage: typeof error === 'string' ? error : error.message,
-            errorStack: typeof error === 'string' ? undefined : error.stack,
-            source: 'manual_report',
-            url: typeof window !== 'undefined' ? window.location.href : undefined,
-            timestamp: new Date().toISOString(),
-            context: {
-              ...context,
-              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-            },
-          }),
-        })
+      // Report to GitHub if requested
+      if (options?.reportToGitHub) {
+        setIsReporting(true);
+        try {
+          const response = await fetch("/api/errors/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              errorMessage: typeof error === "string" ? error : error.message,
+              errorStack: typeof error === "string" ? undefined : error.stack,
+              source: "manual_report",
+              url: typeof window !== "undefined" ? window.location.href : undefined,
+              timestamp: new Date().toISOString(),
+              context: {
+                ...context,
+                userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+              },
+            }),
+          });
 
-        const result = await response.json()
-        if (result.success && result.issueUrl) {
-          setLastIssueUrl(result.issueUrl)
+          const result = await response.json();
+          if (result.success && result.issueUrl) {
+            setLastIssueUrl(result.issueUrl);
+          }
+        } catch (reportError) {
+          console.error("Failed to report error to GitHub:", reportError);
+        } finally {
+          setIsReporting(false);
         }
-      } catch (reportError) {
-        console.error('Failed to report error to GitHub:', reportError)
-      } finally {
-        setIsReporting(false)
       }
-    }
-  }, [])
+    },
+    []
+  );
 
-  return { reportError, isReporting, lastIssueUrl }
+  return { reportError, isReporting, lastIssueUrl };
 }
 
 // Patterns that indicate hydration-related errors
 const HYDRATION_ERROR_PATTERNS = [
-  'hydration',
-  'Hydration',
-  'Text content does not match',
-  'server-rendered HTML',
-  'did not match',
-  'Minified React error #418',
-  'Minified React error #423',
-  'Minified React error #425',
-]
+  "hydration",
+  "Hydration",
+  "Text content does not match",
+  "server-rendered HTML",
+  "did not match",
+  "Minified React error #418",
+  "Minified React error #423",
+  "Minified React error #425",
+];
 
 function isHydrationError(message: string): boolean {
-  return HYDRATION_ERROR_PATTERNS.some(pattern => message.includes(pattern))
+  return HYDRATION_ERROR_PATTERNS.some((pattern) => message.includes(pattern));
 }
 
 /**
@@ -275,154 +321,159 @@ function isHydrationError(message: string): boolean {
  */
 export function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
-    logger.debug('Loaded and active')
+    logger.debug("Loaded and active");
 
-    const reportGlobalError = async (error: Error, source: string, context?: Record<string, unknown>) => {
-      logger.debug('Attempting to report error', {
+    const reportGlobalError = async (
+      error: Error,
+      source: string,
+      context?: Record<string, unknown>
+    ) => {
+      logger.debug("Attempting to report error", {
         source,
         messagePreview: error.message.slice(0, 100),
         hasStack: !!error.stack,
-      })
+      });
 
       // Track in PostHog
-      trackError(error, { source, ...context })
+      trackError(error, { source, ...context });
 
       // Report to GitHub
       try {
-        const response = await fetch('/api/errors/report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/errors/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             errorMessage: error.message,
             errorStack: error.stack,
             source,
-            url: typeof window !== 'undefined' ? window.location.href : undefined,
+            url: typeof window !== "undefined" ? window.location.href : undefined,
             timestamp: new Date().toISOString(),
             context: {
-              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
               ...context,
             },
           }),
-        })
+        });
 
-        const result = await response.json()
-        logger.debug('GitHub report response', {
+        const result = await response.json();
+        logger.debug("GitHub report response", {
           status: response.status,
           success: result.success,
           reported: result.reported,
           deduplicated: result.deduplicated,
           rateLimited: result.rateLimited,
           issueUrl: result.issueUrl,
-        })
+        });
       } catch (reportError) {
-        logger.error('Failed to report global error to GitHub', reportError)
+        logger.error("Failed to report global error to GitHub", reportError);
       }
-    }
+    };
 
     // Handle unhandled errors
     const handleError = (event: ErrorEvent) => {
-      const error = event.error || new Error(event.message)
-      const isHydration = isHydrationError(error.message || event.message || '')
+      const error = event.error || new Error(event.message);
+      const isHydration = isHydrationError(error.message || event.message || "");
 
-      console.error('Global error caught:', error)
+      console.error("Global error caught:", error);
       reportGlobalError(
         error,
-        isHydration ? 'hydration_error' : 'global_error',
-        isHydration ? { errorType: 'hydration' } : undefined
-      )
-    }
+        isHydration ? "hydration_error" : "global_error",
+        isHydration ? { errorType: "hydration" } : undefined
+      );
+    };
 
     // Handle unhandled promise rejections
     const handleRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection:', event.reason)
+      console.error("Unhandled promise rejection:", event.reason);
 
-      let error: Error
-      const reason = event.reason
+      let error: Error;
+      const reason = event.reason;
 
       if (reason instanceof Error) {
-        error = reason
+        error = reason;
       } else if (reason instanceof Event) {
         // Extract meaningful info from Event objects
-        const eventType = reason.type || 'unknown'
-        const eventTarget = reason.target instanceof Element
-          ? `${reason.target.tagName}${reason.target.id ? `#${reason.target.id}` : ''}`
-          : reason.target?.constructor?.name || 'unknown'
-        error = new Error(`Unhandled event: ${eventType} on ${eventTarget}`)
-        error.stack = `Event: ${eventType}\nTarget: ${eventTarget}\nTimestamp: ${reason.timeStamp || 'unknown'}`
-      } else if (typeof reason === 'object' && reason !== null) {
+        const eventType = reason.type || "unknown";
+        const eventTarget =
+          reason.target instanceof Element
+            ? `${reason.target.tagName}${reason.target.id ? `#${reason.target.id}` : ""}`
+            : reason.target?.constructor?.name || "unknown";
+        error = new Error(`Unhandled event: ${eventType} on ${eventTarget}`);
+        error.stack = `Event: ${eventType}\nTarget: ${eventTarget}\nTimestamp: ${reason.timeStamp || "unknown"}`;
+      } else if (typeof reason === "object" && reason !== null) {
         // Try to extract useful info from objects
-        const reasonStr = JSON.stringify(reason, null, 2).slice(0, 500)
-        error = new Error(`Promise rejected with object: ${reasonStr}`)
+        const reasonStr = JSON.stringify(reason, null, 2).slice(0, 500);
+        error = new Error(`Promise rejected with object: ${reasonStr}`);
       } else {
         // Fallback for primitives
-        error = new Error(String(reason))
+        error = new Error(String(reason));
       }
 
-      const isHydration = isHydrationError(error.message || '')
+      const isHydration = isHydrationError(error.message || "");
       reportGlobalError(
         error,
-        isHydration ? 'hydration_error' : 'unhandled_rejection',
-        isHydration ? { errorType: 'hydration', reasonType: typeof reason } : { reasonType: typeof reason }
-      )
-    }
+        isHydration ? "hydration_error" : "unhandled_rejection",
+        isHydration
+          ? { errorType: "hydration", reasonType: typeof reason }
+          : { reasonType: typeof reason }
+      );
+    };
 
     // Intercept console.error to catch React hydration warnings
     // React logs hydration mismatches as warnings/errors to console before throwing
-    const originalConsoleError = console.error
-    const reportedMessages = new Set<string>() // Dedupe within session
+    const originalConsoleError = console.error;
+    const reportedMessages = new Set<string>(); // Dedupe within session
 
-    logger.debug('console.error interception installed')
+    logger.debug("console.error interception installed");
 
     console.error = (...args: unknown[]) => {
       // Call original first
-      originalConsoleError.apply(console, args)
+      originalConsoleError.apply(console, args);
 
       // Check if this looks like a hydration error
-      const message = args.map(arg =>
-        typeof arg === 'string' ? arg : (arg instanceof Error ? arg.message : String(arg))
-      ).join(' ')
+      const message = args
+        .map((arg) =>
+          typeof arg === "string" ? arg : arg instanceof Error ? arg.message : String(arg)
+        )
+        .join(" ");
 
-      const isHydration = isHydrationError(message)
-      const messageKey = message.slice(0, 200)
-      const alreadyReported = reportedMessages.has(messageKey)
+      const isHydration = isHydrationError(message);
+      const messageKey = message.slice(0, 200);
+      const alreadyReported = reportedMessages.has(messageKey);
 
       if (isHydration) {
-        logger.debug('Hydration error detected', {
+        logger.debug("Hydration error detected", {
           alreadyReported,
           messagePreview: message.slice(0, 100),
-        })
+        });
       }
 
       if (isHydration && !alreadyReported) {
-        reportedMessages.add(messageKey)
-        logger.info('Reporting hydration error to GitHub')
+        reportedMessages.add(messageKey);
+        logger.info("Reporting hydration error to GitHub");
 
         // Report hydration error to GitHub
-        const error = args.find(arg => arg instanceof Error) as Error | undefined
-        reportGlobalError(
-          error || new Error(message.slice(0, 500)),
-          'hydration_error',
-          {
-            errorType: 'hydration',
-            consoleArgs: message.slice(0, 1000),
-          }
-        )
+        const error = args.find((arg) => arg instanceof Error) as Error | undefined;
+        reportGlobalError(error || new Error(message.slice(0, 500)), "hydration_error", {
+          errorType: "hydration",
+          consoleArgs: message.slice(0, 1000),
+        });
       } else if (isHydration && alreadyReported) {
-        logger.debug('Skipping duplicate hydration error (already reported)')
+        logger.debug("Skipping duplicate hydration error (already reported)");
       }
-    }
+    };
 
-    window.addEventListener('error', handleError)
-    window.addEventListener('unhandledrejection', handleRejection)
-    logger.debug('Event listeners attached')
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+    logger.debug("Event listeners attached");
 
     return () => {
-      logger.debug('Cleaning up and unloading')
-      window.removeEventListener('error', handleError)
-      window.removeEventListener('unhandledrejection', handleRejection)
-      console.error = originalConsoleError
-    }
-  }, [])
+      logger.debug("Cleaning up and unloading");
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+      console.error = originalConsoleError;
+    };
+  }, []);
 
-  return <>{children}</>
+  return <>{children}</>;
 }

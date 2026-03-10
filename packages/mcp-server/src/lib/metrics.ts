@@ -1,4 +1,20 @@
-import { logger } from './logger.js';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { logger } from "./logger.js";
 
 /**
  * Performance metrics collector
@@ -48,7 +64,7 @@ class MetricsCollector {
       metric.count++;
       metric.totalDurationMs += durationMs;
 
-      logger.debug('Request completed', {
+      logger.debug("Request completed", {
         operation,
         durationMs,
         avgDurationMs: Math.round(metric.totalDurationMs / metric.count),
@@ -84,7 +100,7 @@ class MetricsCollector {
     metric.lastError = error;
     metric.lastErrorTime = new Date();
 
-    logger.warn('Request failed', {
+    logger.warn("Request failed", {
       operation,
       error,
       errorRate: metric.count > 0 ? (metric.errors / metric.count) * 100 : 100,
@@ -146,7 +162,7 @@ class MetricsCollector {
   reset(): void {
     this.metrics.clear();
     this.startTimes.clear();
-    logger.info('Metrics reset');
+    logger.info("Metrics reset");
   }
 
   /**
@@ -156,7 +172,7 @@ class MetricsCollector {
     const summary = this.getSummary();
     const allMetrics = this.getAllMetrics();
 
-    logger.info('Performance metrics', {
+    logger.info("Performance metrics", {
       summary,
       operations: allMetrics,
     });

@@ -32,13 +32,13 @@ Before you begin, ensure you have:
 
 ## Cost Estimate
 
-| Resource | Tier | Monthly Cost | Notes |
-|----------|------|--------------|-------|
-| M365 Developer Program | E5 (x3 tenants) | **$0** | Free, renewable every 90 days |
-| Azure Key Vault | Standard | **$5** | For CI/CD secret storage |
-| Azure Redis Cache (optional) | Basic C0 | **$16** | Can use local Docker for dev |
-| **Total (minimal)** | | **$5/month** | Just Key Vault |
-| **Total (recommended)** | | **$21/month** | With Azure Redis |
+| Resource                     | Tier            | Monthly Cost  | Notes                         |
+| ---------------------------- | --------------- | ------------- | ----------------------------- |
+| M365 Developer Program       | E5 (x3 tenants) | **$0**        | Free, renewable every 90 days |
+| Azure Key Vault              | Standard        | **$5**        | For CI/CD secret storage      |
+| Azure Redis Cache (optional) | Basic C0        | **$16**       | Can use local Docker for dev  |
+| **Total (minimal)**          |                 | **$5/month**  | Just Key Vault                |
+| **Total (recommended)**      |                 | **$21/month** | With Azure Redis              |
 
 **Budget-conscious option:** Start with $5/month (Key Vault only) and use local Docker Redis for development.
 
@@ -71,6 +71,7 @@ agentsync-sandbox.onmicrosoft.com
 ```
 
 **Record these values** (you'll need them later):
+
 - **Tenant ID**: Find in Azure Portal > Azure Active Directory > Overview
 - **Tenant Domain**: e.g., `agentsync-sandbox.onmicrosoft.com`
 - **Admin Username**: e.g., `admin@agentsync-sandbox.onmicrosoft.com`
@@ -87,6 +88,7 @@ agentsync-sandbox.onmicrosoft.com
 5. Click **"Register"**
 
 **Record these values:**
+
 - **Application (client) ID**: Found on the app overview page
 - **Directory (tenant) ID**: Found on the app overview page
 
@@ -98,12 +100,14 @@ Still in your app registration:
 2. Click **"Add a permission"**
 
 **Add Microsoft Graph API permissions:**
+
 - Click **Microsoft Graph** > **Application permissions**
 - Search and add:
   - `Directory.Read.All` (to read tenant info)
   - `DelegatedAdminRelationship.Read.All` (for GDAP - if available)
 
 **Add Dynamics CRM permissions:**
+
 - Click **APIs my organization uses**
 - Search for **"Dynamics CRM"** or **"Common Data Service"**
 - Select **Delegated permissions**
@@ -122,6 +126,7 @@ Still in your app registration:
 5. **IMPORTANT:** Copy the secret **Value** immediately (you can't see it again!)
 
 **Record this value:**
+
 - **Client Secret**: The generated secret value
 
 ---
@@ -151,6 +156,7 @@ This is where you'll develop and store your test Copilot agents.
 4. Wait 5-10 minutes for provisioning
 
 **Alternative (using CLI):**
+
 ```bash
 pac admin create \
   --name "AgentSync Dev Source" \
@@ -160,6 +166,7 @@ pac admin create \
 ```
 
 **Record this value:**
+
 - **Environment URL**: e.g., `https://orgxxxxx.crm.dynamics.com`
   - Find in Environment details > Environment URL
 
@@ -168,6 +175,7 @@ pac admin create \
 Create 3 customer test environments for deployment testing.
 
 **Tenant 1: Contoso Sandbox** (Happy path)
+
 ```bash
 pac admin create \
   --name "Contoso Sandbox" \
@@ -176,6 +184,7 @@ pac admin create \
 ```
 
 **Tenant 2: Fabrikam Sandbox** (Failure testing)
+
 ```bash
 pac admin create \
   --name "Fabrikam Sandbox" \
@@ -184,6 +193,7 @@ pac admin create \
 ```
 
 **Tenant 3: Adventure Works Sandbox** (Disabled scenarios)
+
 ```bash
 pac admin create \
   --name "Adventure Works Sandbox" \
@@ -194,11 +204,13 @@ pac admin create \
 **Wait 10-15 minutes for all environments to provision.**
 
 **Record these values for each environment:**
+
 - Environment ID
 - Environment URL
 - Environment Name
 
 You can list all environments with:
+
 ```bash
 pac admin list
 ```
@@ -217,6 +229,7 @@ Now let's create a minimal test agent in your source environment.
 5. Click **"Create"**
 
 **Add a simple topic:**
+
 1. Go to **Topics** tab
 2. Create a new topic: "Test Greeting"
 3. Add trigger phrase: "hello"
@@ -224,6 +237,7 @@ Now let's create a minimal test agent in your source environment.
 5. **Save**
 
 **Optional - Add connection references (for advanced testing):**
+
 1. Add a **SharePoint** connection (if available)
 2. Add an **Outlook** connection (if available)
 
@@ -247,6 +261,7 @@ Now let's create a minimal test agent in your source environment.
     ```
 
 **Create the test-solutions directory:**
+
 ```bash
 mkdir -p /path/to/agentsync/test-solutions
 ```
@@ -273,6 +288,7 @@ If you have an Azure subscription:
 6. Click **"Review + create"** > **"Create"**
 
 **Grant yourself access:**
+
 1. Once created, go to the Key Vault
 2. Go to **"Access policies"**
 3. Click **"Create"**
@@ -299,6 +315,7 @@ az keyvault secret set \
 ```
 
 **Record this value:**
+
 - **Key Vault URL**: e.g., `https://agentsync-sandbox-kv.vault.azure.net`
 
 ### Step 3.2: Redis Strategy Decision
@@ -338,12 +355,14 @@ Use connection string: `redis://localhost:6379`
 ### Step 4.1: Configure Environment Variables
 
 1. Copy the example file:
+
    ```bash
    cd /path/to/agentsync
    cp .env.sandbox.example .env.sandbox
    ```
 
 2. Edit `.env.sandbox` with your actual values:
+
    ```bash
    # Open in your editor
    code .env.sandbox  # or vim/nano
@@ -361,11 +380,13 @@ Use connection string: `redis://localhost:6379`
 ### Step 4.2: Configure Tenant YAML
 
 1. Copy the example file:
+
    ```bash
    cp config/tenants.sandbox.example.yaml config/tenants.sandbox.yaml
    ```
 
 2. Edit with your environment details:
+
    ```bash
    code config/tenants.sandbox.yaml
    ```
@@ -404,6 +425,7 @@ pnpm worker
 ```
 
 Use the `.env.sandbox` file:
+
 ```bash
 # Load sandbox environment
 export $(cat .env.sandbox | xargs)
@@ -423,6 +445,7 @@ pnpm cli deploy \
 ```
 
 **Expected output:**
+
 ```
 🚀 Starting deployment...
 📦 Solution: CustomerServiceAgent
@@ -452,6 +475,7 @@ Deploying to Contoso Sandbox...
 7. You should see your agent deployed
 
 **If deployment fails:**
+
 - Check logs: `pnpm cli logs` or view worker console output
 - Verify authentication: `pnpm cli tenants list`
 - See [Troubleshooting](#troubleshooting) section below
@@ -476,6 +500,7 @@ Once manual deployments work, set up automated testing.
    - `SANDBOX_SOURCE_ENV_URL`
 
 **To create Azure credentials for GitHub:**
+
 ```bash
 az ad sp create-for-rbac \
   --name "GitHub Actions AgentSync Sandbox" \
@@ -496,6 +521,7 @@ The sandbox E2E workflow is already created. To run it:
 4. Wait for tests to complete (10-20 minutes)
 
 **Or trigger via label on PR:**
+
 1. Create a pull request
 2. Add label: `e2e-test`
 3. Workflow will run automatically
@@ -509,6 +535,7 @@ The sandbox E2E workflow is already created. To run it:
 **Error:** `AADSTS7000215: Invalid client secret provided`
 
 **Solution:**
+
 - Verify `PARTNER_CLIENT_SECRET` in `.env.sandbox` is correct
 - Check if secret has expired (regenerate in Azure Portal)
 - Ensure no extra spaces or quotes around the secret
@@ -518,6 +545,7 @@ The sandbox E2E workflow is already created. To run it:
 **Error:** `AADSTS50076: Due to a configuration change made by your administrator...`
 
 **Solution:**
+
 - Your Azure AD might require MFA
 - Use a service principal instead of user credentials
 - Or disable MFA for the sandbox tenant (not recommended for production)
@@ -529,6 +557,7 @@ The sandbox E2E workflow is already created. To run it:
 **Error:** `Failed to import solution: Missing privilege 'prvWriteContact'`
 
 **Solution:**
+
 - Your service principal lacks required permissions
 - Grant "Power Platform Administrator" role in Power Platform Admin Center:
   1. Go to https://admin.powerplatform.microsoft.com
@@ -541,6 +570,7 @@ The sandbox E2E workflow is already created. To run it:
 **Error:** `Environment not found or access denied`
 
 **Solution:**
+
 - Verify `environmentUrl` in `tenants.sandbox.yaml` is correct
 - Check format: `https://orgname.crm.dynamics.com` (no trailing slash)
 - Ensure environment is in the same region as your tenant
@@ -552,6 +582,7 @@ The sandbox E2E workflow is already created. To run it:
 **Error:** `Connection reference 'cr_sharepoint_connection' not found`
 
 **Solution:**
+
 1. Create the connection in target environment:
    - Go to https://make.powerapps.com
    - Select target environment
@@ -570,6 +601,7 @@ The sandbox E2E workflow is already created. To run it:
 **Error:** `Error: connect ECONNREFUSED 127.0.0.1:6379`
 
 **Solution:**
+
 ```bash
 # Check if Redis is running
 docker ps | grep redis
@@ -588,6 +620,7 @@ docker run -d --name agentsync-sandbox-redis -p 6379:6379 redis:7-alpine
 **Error:** `Azure Key Vault: Access denied`
 
 **Solution:**
+
 ```bash
 # Grant your user access
 az keyvault set-policy \
@@ -655,8 +688,8 @@ If you encounter issues not covered here:
 
 1. Check the [main README](../README.md)
 2. Review [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) (if available)
-3. Check GitHub Issues
-4. Ask in team chat/Slack
+3. Search [GitHub Issues](https://github.com/pax8labs/agentsync/issues)
+4. Open a new issue or start a discussion
 
 ---
 

@@ -1,83 +1,112 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useEffect, useState } from 'react'
-import useSWR from 'swr'
-import Link from 'next/link'
-import { DeploymentCard } from '@/components/DeploymentCard'
-import { StatsCard } from '@/components/StatsCard'
-import { FlaskSpinner } from '@/components/ui/flask-spinner'
-import { AgentUploadModal } from '@/components/agents/AgentUploadModal'
-import { useLocalStorage } from '@/hooks/useLocalStorage'
-import type { DeploymentJob } from '@agentsync/core'
-import type { Agent } from '@/types/agent'
+"use client";
+
+import { useEffect, useState } from "react";
+import useSWR from "swr";
+import Link from "next/link";
+import { DeploymentCard } from "@/components/DeploymentCard";
+import { StatsCard } from "@/components/StatsCard";
+import { FlaskSpinner } from "@/components/ui/flask-spinner";
+import { AgentUploadModal } from "@/components/agents/AgentUploadModal";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import type { DeploymentJob } from "@agentsync/core";
+import type { Agent } from "@/types/agent";
 
 const fetcher = async (url: string) => {
-  const res = await fetch(url)
+  const res = await fetch(url);
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: { message: 'Unknown error' } }))
-    throw new Error(error.error?.message || `HTTP ${res.status}`)
+    const error = await res.json().catch(() => ({ error: { message: "Unknown error" } }));
+    throw new Error(error.error?.message || `HTTP ${res.status}`);
   }
-  return res.json()
-}
+  return res.json();
+};
 
 // Delay before showing loading spinner to avoid flash on fast loads
-const LOADING_DELAY_MS = 200
+const LOADING_DELAY_MS = 200;
 
 export default function Dashboard() {
-  const [showSpinner, setShowSpinner] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [dismissedWelcome, setDismissedWelcome, welcomeHydrated] = useLocalStorage('welcomeBannerDismissed', false)
-  const [dismissedClaudeBanner, setDismissedClaudeBanner, claudeHydrated] = useLocalStorage('claudeBannerDismissed', false)
+  const [showSpinner, setShowSpinner] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [dismissedWelcome, setDismissedWelcome, welcomeHydrated] = useLocalStorage(
+    "welcomeBannerDismissed",
+    false
+  );
+  const [dismissedClaudeBanner, setDismissedClaudeBanner, claudeHydrated] = useLocalStorage(
+    "claudeBannerDismissed",
+    false
+  );
 
-  const { data: stats, error: statsError, isLoading: statsLoading } = useSWR('/api/stats', fetcher, {
+  const {
+    data: stats,
+    error: statsError,
+    isLoading: statsLoading,
+  } = useSWR("/api/stats", fetcher, {
     refreshInterval: 5000,
-  })
+  });
 
-  const { data: recentDeployments, error: deploymentsError, isLoading: deploymentsLoading } = useSWR(
-    '/api/deployments?limit=5',
-    fetcher,
-    { refreshInterval: 5000 }
-  )
+  const {
+    data: recentDeployments,
+    error: deploymentsError,
+    isLoading: deploymentsLoading,
+  } = useSWR("/api/deployments?limit=5", fetcher, { refreshInterval: 5000 });
 
-  const { data: agentsData, isLoading: agentsLoading } = useSWR('/api/agents', fetcher)
+  const { data: agentsData, isLoading: agentsLoading } = useSWR("/api/agents", fetcher);
 
   // Fetch pending approvals - deployments awaiting approval
-  const { data: pendingApprovals } = useSWR('/api/deployments?status=awaiting_approval', fetcher, {
+  const { data: pendingApprovals } = useSWR("/api/deployments?status=awaiting_approval", fetcher, {
     refreshInterval: 5000,
-  })
+  });
 
-  const deployments = recentDeployments?.deployments ?? []
+  const deployments = recentDeployments?.deployments ?? [];
 
   // Check if user has any custom agents (indicates they've actually used the app)
-  const hasCustomAgents = agentsData?.agents?.some((a: Agent) => a.isCustom) ?? false
+  const hasCustomAgents = agentsData?.agents?.some((a: Agent) => a.isCustom) ?? false;
 
   // Check if there are any real (non-demo-hist) deployments
-  const hasRealDeployments = deployments.some((d: DeploymentJob) => !d.id?.startsWith('demo-hist-'))
+  const hasRealDeployments = deployments.some(
+    (d: DeploymentJob) => !d.id?.startsWith("demo-hist-")
+  );
 
   // Wait for all data to load before deciding on welcome banner
-  const isLoading = statsLoading || deploymentsLoading || agentsLoading
+  const isLoading = statsLoading || deploymentsLoading || agentsLoading;
 
   // Mount flag to prevent hydration mismatch
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   // Delay showing spinner to avoid flash on fast loads
   useEffect(() => {
     if (isLoading) {
-      const timer = setTimeout(() => setShowSpinner(true), LOADING_DELAY_MS)
-      return () => clearTimeout(timer)
+      const timer = setTimeout(() => setShowSpinner(true), LOADING_DELAY_MS);
+      return () => clearTimeout(timer);
     } else {
-      setShowSpinner(false)
+      setShowSpinner(false);
     }
-  }, [isLoading])
+  }, [isLoading]);
 
   // Show welcome banner if no custom agents and no real deployments
-  const isNewUser = !isLoading && !hasCustomAgents && !hasRealDeployments && !statsError && !deploymentsError
+  const isNewUser =
+    !isLoading && !hasCustomAgents && !hasRealDeployments && !statsError && !deploymentsError;
 
   // Both banners are now hydrated - ready to render
-  const isBannersReady = welcomeHydrated && claudeHydrated
+  const isBannersReady = welcomeHydrated && claudeHydrated;
 
   // Show loading state while data is being fetched (only after delay)
   if (isLoading && showSpinner) {
@@ -85,12 +114,12 @@ export default function Dashboard() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <FlaskSpinner size="lg" message="Loading dashboard..." />
       </div>
-    )
+    );
   }
 
   // Show nothing during initial load delay (prevents flash)
   if (isLoading) {
-    return <div className="min-h-[60vh]" />
+    return <div className="min-h-[60vh]" />;
   }
 
   return (
@@ -103,7 +132,12 @@ export default function Dashboard() {
           className="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
           </svg>
           Getting started
         </Link>
@@ -118,13 +152,28 @@ export default function Dashboard() {
             aria-label="Dismiss"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
           <div className="flex items-start gap-2 pr-6">
             <div className="flex-shrink-0 w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded flex items-center justify-center">
-              <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <svg
+                className="w-4 h-4 text-purple-600 dark:text-purple-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
@@ -137,7 +186,10 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-1.5">
-                Use natural language to manage deployments. Try <span className="font-mono text-[10px] bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">"Show failed deployments"</span>
+                Use natural language to manage deployments. Try{" "}
+                <span className="font-mono text-[10px] bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">
+                  "Show failed deployments"
+                </span>
               </p>
               <a
                 href="https://github.com/pax8labs/agentsync#-claude-code-integration"
@@ -161,20 +213,37 @@ export default function Dashboard() {
             aria-label="Dismiss"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              <svg
+                className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
               </svg>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Welcome to AgentSync!</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
+                Welcome to AgentSync!
+              </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                Deploy Copilot Studio agents to multiple Microsoft 365 tenants simultaneously.
-                Set up takes 5-10 minutes, then each deployment is just 2-3 minutes.
+                Deploy Copilot Studio agents to multiple Microsoft 365 tenants simultaneously. Set
+                up takes 5-10 minutes, then each deployment is just 2-3 minutes.
               </p>
               <div className="flex gap-3">
                 <Link
@@ -182,7 +251,12 @@ export default function Dashboard() {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
                   </svg>
                   Get Started
                 </Link>
@@ -202,128 +276,206 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <StatsCard
           title="Total Tenants"
-          value={mounted ? (stats?.totalTenants ?? '-') : '-'}
+          value={mounted ? (stats?.totalTenants ?? "-") : "-"}
           color="blue"
           href="/tenants"
         />
         <StatsCard
           title="Active Deployments"
-          value={mounted ? (stats?.activeDeployments ?? '-') : '-'}
+          value={mounted ? (stats?.activeDeployments ?? "-") : "-"}
           color="yellow"
           href="/deployments?filter=active&view=tenants"
         />
         <StatsCard
           title="Completed Today"
-          value={mounted ? (stats?.completedToday ?? '-') : '-'}
+          value={mounted ? (stats?.completedToday ?? "-") : "-"}
           color="green"
           href="/deployments"
         />
         <StatsCard
           title="Issues"
-          value={mounted ? (stats?.batchesWithFailures ?? '-') : '-'}
+          value={mounted ? (stats?.batchesWithFailures ?? "-") : "-"}
           color="red"
           href="/deployments?filter=issues&view=tenants"
         />
       </div>
 
       {/* Consolidated Attention Required Section */}
-      {mounted && ((stats?.versionDriftCount > 0 || stats?.dependencyIssuesCount > 0 || pendingApprovals?.deployments?.length > 0)) && (
-        <div className="mb-6 bg-white dark:bg-gray-800 shadow-md rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Attention Required</h2>
-              <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full">
-                {(stats?.versionDriftCount || 0) + (stats?.dependencyIssuesCount || 0) + (pendingApprovals?.deployments?.length || 0)}
-              </span>
+      {mounted &&
+        (stats?.versionDriftCount > 0 ||
+          stats?.dependencyIssuesCount > 0 ||
+          pendingApprovals?.deployments?.length > 0) && (
+          <div className="mb-6 bg-white dark:bg-gray-800 shadow-md rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-amber-600 dark:text-amber-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+                <h2 className="font-semibold text-gray-900 dark:text-white">Attention Required</h2>
+                <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full">
+                  {(stats?.versionDriftCount || 0) +
+                    (stats?.dependencyIssuesCount || 0) +
+                    (pendingApprovals?.deployments?.length || 0)}
+                </span>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {/* Version Drift */}
+              {stats?.versionDriftCount > 0 && (
+                <Link
+                  href="/tenants?health=version_drift"
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg
+                        className="w-4 h-4 text-amber-600 dark:text-amber-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {stats.versionDriftCount} tenant{stats.versionDriftCount !== 1 ? "s" : ""}{" "}
+                        with outdated agents
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Not running expected version
+                      </p>
+                    </div>
+                  </div>
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </Link>
+              )}
+
+              {/* Dependency Issues */}
+              {stats?.dependencyIssuesCount > 0 && (
+                <Link
+                  href="/tenants?health=dependency_issues"
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg
+                        className="w-4 h-4 text-red-600 dark:text-red-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {stats.dependencyIssuesCount} tenant
+                        {stats.dependencyIssuesCount !== 1 ? "s" : ""} with missing dependencies
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Missing connection references or environment variables
+                      </p>
+                    </div>
+                  </div>
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </Link>
+              )}
+
+              {/* Pending Approvals */}
+              {pendingApprovals?.deployments?.length > 0 && (
+                <Link
+                  href="/deployments?status=awaiting_approval"
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg
+                        className="w-4 h-4 text-purple-600 dark:text-purple-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {pendingApprovals.deployments.length} deployment
+                        {pendingApprovals.deployments.length !== 1 ? "s" : ""} awaiting approval
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Review and approve to continue
+                      </p>
+                    </div>
+                  </div>
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </Link>
+              )}
             </div>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {/* Version Drift */}
-            {stats?.versionDriftCount > 0 && (
-              <Link
-                href="/tenants?health=version_drift"
-                className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {stats.versionDriftCount} tenant{stats.versionDriftCount !== 1 ? 's' : ''} with outdated agents
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Not running expected version
-                    </p>
-                  </div>
-                </div>
-                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            )}
-
-            {/* Dependency Issues */}
-            {stats?.dependencyIssuesCount > 0 && (
-              <Link
-                href="/tenants?health=dependency_issues"
-                className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {stats.dependencyIssuesCount} tenant{stats.dependencyIssuesCount !== 1 ? 's' : ''} with missing dependencies
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Missing connection references or environment variables
-                    </p>
-                  </div>
-                </div>
-                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            )}
-
-            {/* Pending Approvals */}
-            {pendingApprovals?.deployments?.length > 0 && (
-              <Link
-                href="/deployments?status=awaiting_approval"
-                className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {pendingApprovals.deployments.length} deployment{pendingApprovals.deployments.length !== 1 ? 's' : ''} awaiting approval
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Review and approve to continue
-                    </p>
-                  </div>
-                </div>
-                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
+        )}
 
       {/* Legacy Pending Approvals Alert - Remove this whole block */}
       {false && pendingApprovals?.deployments?.length > 0 && (
@@ -331,13 +483,24 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-5 h-5 text-purple-600 dark:text-purple-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <div>
                 <h3 className="font-medium text-purple-900 dark:text-purple-100">
-                  {pendingApprovals.deployments.length} deployment{pendingApprovals.deployments.length !== 1 ? 's' : ''} awaiting approval
+                  {pendingApprovals.deployments.length} deployment
+                  {pendingApprovals.deployments.length !== 1 ? "s" : ""} awaiting approval
                 </h3>
                 <p className="text-sm text-purple-700 dark:text-purple-300">
                   Review and approve these deployments to continue
@@ -360,9 +523,11 @@ export default function Dashboard() {
                 className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-900 hover:border-purple-300 dark:hover:border-purple-700 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">{d.solutionName}</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    {d.solutionName}
+                  </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {d.totalTenants} tenant{d.totalTenants !== 1 ? 's' : ''}
+                    {d.totalTenants} tenant{d.totalTenants !== 1 ? "s" : ""}
                   </span>
                 </div>
                 <span className="text-xs text-purple-600 dark:text-purple-400">Review →</span>
@@ -408,9 +573,7 @@ export default function Dashboard() {
       {/* Recent Deployments */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-            Recent Deployments
-          </h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent Deployments</h2>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {deploymentsError ? (
@@ -440,11 +603,11 @@ export default function Dashboard() {
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onSuccess={() => {
-          setShowUploadModal(false)
+          setShowUploadModal(false);
           // Refresh agents list
-          window.location.href = '/agents'
+          window.location.href = "/agents";
         }}
       />
     </div>
-  )
+  );
 }

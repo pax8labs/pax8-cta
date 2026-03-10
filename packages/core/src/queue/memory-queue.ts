@@ -1,4 +1,20 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * In-memory job queue for simple single-process deployments
  *
  * This provides a Redis-free alternative for:
@@ -17,7 +33,7 @@ import { coreLogger } from "../services/logger.js";
 
 const logger = coreLogger;
 
-export type JobStatus = 'pending' | 'active' | 'completed' | 'failed';
+export type JobStatus = "pending" | "active" | "completed" | "failed";
 
 export interface MemoryJob<T = unknown, R = unknown> {
   id: string;
@@ -51,7 +67,10 @@ export class MemoryQueue<T = unknown, R = unknown> {
   private maxRetries: number;
   private retryDelay: number;
   private isRunning = false;
-  private eventListeners: Map<string, ((job: MemoryJob<T, R>, result?: R, error?: Error) => void)[]> = new Map();
+  private eventListeners: Map<
+    string,
+    ((job: MemoryJob<T, R>, result?: R, error?: Error) => void)[]
+  > = new Map();
 
   constructor(
     public readonly name: string,
@@ -70,7 +89,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
       id: crypto.randomUUID(),
       name,
       data,
-      status: 'pending',
+      status: "pending",
       progress: 0,
       createdAt: new Date(),
       attempts: 0,
@@ -80,7 +99,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
     this.jobs.set(job.id, job);
     this.queue.push(job.id);
 
-    this.emit('waiting', job);
+    this.emit("waiting", job);
 
     // Process if we have capacity
     this.processNext();
@@ -92,7 +111,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
    * Add multiple jobs at once
    */
   async addBulk(jobs: { name: string; data: T }[]): Promise<MemoryJob<T, R>[]> {
-    return Promise.all(jobs.map(j => this.add(j.name, j.data)));
+    return Promise.all(jobs.map((j) => this.add(j.name, j.data)));
   }
 
   /**
@@ -117,7 +136,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
   getJobs(status?: JobStatus): MemoryJob<T, R>[] {
     const jobs = Array.from(this.jobs.values());
     if (status) {
-      return jobs.filter(j => j.status === status);
+      return jobs.filter((j) => j.status === status);
     }
     return jobs;
   }
@@ -128,10 +147,10 @@ export class MemoryQueue<T = unknown, R = unknown> {
   getCounts(): { pending: number; active: number; completed: number; failed: number } {
     const jobs = Array.from(this.jobs.values());
     return {
-      pending: jobs.filter(j => j.status === 'pending').length,
-      active: jobs.filter(j => j.status === 'active').length,
-      completed: jobs.filter(j => j.status === 'completed').length,
-      failed: jobs.filter(j => j.status === 'failed').length,
+      pending: jobs.filter((j) => j.status === "pending").length,
+      active: jobs.filter((j) => j.status === "active").length,
+      completed: jobs.filter((j) => j.status === "completed").length,
+      failed: jobs.filter((j) => j.status === "failed").length,
     };
   }
 
@@ -142,7 +161,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
     const job = this.jobs.get(jobId);
     if (job) {
       job.progress = progress;
-      this.emit('progress', job);
+      this.emit("progress", job);
     }
   }
 
@@ -150,7 +169,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
    * Listen to queue events
    */
   on(
-    event: 'waiting' | 'active' | 'completed' | 'failed' | 'progress',
+    event: "waiting" | "active" | "completed" | "failed" | "progress",
     listener: (job: MemoryJob<T, R>, result?: R, error?: Error) => void
   ): void {
     const listeners = this.eventListeners.get(event) ?? [];
@@ -159,7 +178,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
   }
 
   private emit(
-    event: 'waiting' | 'active' | 'completed' | 'failed' | 'progress',
+    event: "waiting" | "active" | "completed" | "failed" | "progress",
     job: MemoryJob<T, R>,
     result?: R,
     error?: Error
@@ -169,10 +188,14 @@ export class MemoryQueue<T = unknown, R = unknown> {
       try {
         listener(job, result, error);
       } catch (e) {
-        logger.error("Error in queue event listener", e instanceof Error ? e : new Error(String(e)), {
-          event,
-          jobId: job.id,
-        });
+        logger.error(
+          "Error in queue event listener",
+          e instanceof Error ? e : new Error(String(e)),
+          {
+            event,
+            jobId: job.id,
+          }
+        );
       }
     }
   }
@@ -205,25 +228,25 @@ export class MemoryQueue<T = unknown, R = unknown> {
     if (!job) return;
 
     this.processing.add(jobId);
-    job.status = 'active';
+    job.status = "active";
     job.startedAt = new Date();
     job.attempts++;
 
-    this.emit('active', job);
+    this.emit("active", job);
 
     try {
       const result = await this.processor(job);
-      job.status = 'completed';
+      job.status = "completed";
       job.result = result;
       job.completedAt = new Date();
       job.progress = 100;
-      this.emit('completed', job, result);
+      this.emit("completed", job, result);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
 
       if (job.attempts < job.maxAttempts) {
         // Retry
-        job.status = 'pending';
+        job.status = "pending";
         job.error = err.message;
         setTimeout(() => {
           this.queue.push(jobId);
@@ -231,10 +254,10 @@ export class MemoryQueue<T = unknown, R = unknown> {
         }, this.retryDelay);
       } else {
         // Failed permanently
-        job.status = 'failed';
+        job.status = "failed";
         job.error = err.message;
         job.completedAt = new Date();
-        this.emit('failed', job, undefined, err);
+        this.emit("failed", job, undefined, err);
       }
     } finally {
       this.processing.delete(jobId);
@@ -247,7 +270,7 @@ export class MemoryQueue<T = unknown, R = unknown> {
 const queueCache = new Map<string, MemoryQueue<unknown, unknown>>();
 
 export function getMemoryQueue<T = unknown, R = unknown>(
-  name: string = 'default',
+  name: string = "default",
   options?: MemoryQueueOptions
 ): MemoryQueue<T, R> {
   let queue = queueCache.get(name);

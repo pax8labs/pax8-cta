@@ -1,74 +1,90 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+"use client";
 
 /**
  * Deployment Risk Assessment Component
  * Displays risk analysis results with color-coded severity
  */
 
-import { AlertCircle, AlertTriangle, CheckCircle, Info, Clock, TrendingUp } from 'lucide-react'
-import type { RiskAnalysis, RiskIssue } from '@agentsync/core'
+import { AlertCircle, AlertTriangle, CheckCircle, Info, Clock, TrendingUp } from "lucide-react";
+import type { RiskAnalysis, RiskIssue } from "@agentsync/core";
 
 interface RiskAssessmentProps {
-  analysis: RiskAnalysis
-  onProceed?: () => void
-  onCancel?: () => void
-  onFixIssues?: () => void
-  loading?: boolean
+  analysis: RiskAnalysis;
+  onProceed?: () => void;
+  onCancel?: () => void;
+  onFixIssues?: () => void;
+  loading?: boolean;
 }
 
 const SCORE_CONFIG = {
   critical: {
-    color: 'bg-red-100 border-red-500 text-red-900',
+    color: "bg-red-100 border-red-500 text-red-900",
     icon: AlertCircle,
-    iconColor: 'text-red-600',
-    label: 'CRITICAL RISK',
+    iconColor: "text-red-600",
+    label: "CRITICAL RISK",
   },
   high: {
-    color: 'bg-orange-100 border-orange-500 text-orange-900',
+    color: "bg-orange-100 border-orange-500 text-orange-900",
     icon: AlertTriangle,
-    iconColor: 'text-orange-600',
-    label: 'HIGH RISK',
+    iconColor: "text-orange-600",
+    label: "HIGH RISK",
   },
   medium: {
-    color: 'bg-yellow-100 border-yellow-500 text-yellow-900',
+    color: "bg-yellow-100 border-yellow-500 text-yellow-900",
     icon: AlertTriangle,
-    iconColor: 'text-yellow-600',
-    label: 'MEDIUM RISK',
+    iconColor: "text-yellow-600",
+    label: "MEDIUM RISK",
   },
   low: {
-    color: 'bg-green-100 border-green-500 text-green-900',
+    color: "bg-green-100 border-green-500 text-green-900",
     icon: CheckCircle,
-    iconColor: 'text-green-600',
-    label: 'LOW RISK',
+    iconColor: "text-green-600",
+    label: "LOW RISK",
   },
-}
+};
 
 const SEVERITY_CONFIG = {
   critical: {
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
+    color: "text-red-600",
+    bgColor: "bg-red-50",
     icon: AlertCircle,
-    label: '🔴 BLOCKER',
+    label: "🔴 BLOCKER",
   },
   error: {
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
+    color: "text-red-600",
+    bgColor: "bg-red-50",
     icon: AlertCircle,
-    label: '🔴 ERROR',
+    label: "🔴 ERROR",
   },
   warning: {
-    color: 'text-yellow-700',
-    bgColor: 'bg-yellow-50',
+    color: "text-yellow-700",
+    bgColor: "bg-yellow-50",
     icon: AlertTriangle,
-    label: '🟡 WARNING',
+    label: "🟡 WARNING",
   },
   info: {
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
     icon: Info,
-    label: 'ℹ️ INFO',
+    label: "ℹ️ INFO",
   },
-}
+};
 
 export function RiskAssessment({
   analysis,
@@ -77,12 +93,14 @@ export function RiskAssessment({
   onFixIssues,
   loading = false,
 }: RiskAssessmentProps) {
-  const config = SCORE_CONFIG[analysis.score]
-  const Icon = config.icon
+  const config = SCORE_CONFIG[analysis.score];
+  const Icon = config.icon;
 
-  const criticalIssues = analysis.issues.filter(i => i.severity === 'critical' || i.severity === 'error')
-  const warnings = analysis.issues.filter(i => i.severity === 'warning')
-  const infos = analysis.issues.filter(i => i.severity === 'info')
+  const criticalIssues = analysis.issues.filter(
+    (i) => i.severity === "critical" || i.severity === "error"
+  );
+  const warnings = analysis.issues.filter((i) => i.severity === "warning");
+  const infos = analysis.issues.filter((i) => i.severity === "info");
 
   return (
     <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto">
@@ -104,7 +122,9 @@ export function RiskAssessment({
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-4 p-6 border-b">
         <div className="text-center">
-          <div className="text-2xl font-bold text-gray-900">{analysis.estimatedDuration.min}-{analysis.estimatedDuration.max}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {analysis.estimatedDuration.min}-{analysis.estimatedDuration.max}
+          </div>
           <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
             <Clock className="h-4 w-4" />
             Minutes
@@ -130,9 +150,12 @@ export function RiskAssessment({
       {analysis.issues.length > 0 && (
         <div className="p-6 space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            {criticalIssues.length > 0 && `⚠️ ${criticalIssues.length} issue${criticalIssues.length > 1 ? 's' : ''} found`}
-            {criticalIssues.length === 0 && warnings.length > 0 && `⚠️ ${warnings.length} warning${warnings.length > 1 ? 's' : ''}`}
-            {criticalIssues.length === 0 && warnings.length === 0 && '✅ All checks passed'}
+            {criticalIssues.length > 0 &&
+              `⚠️ ${criticalIssues.length} issue${criticalIssues.length > 1 ? "s" : ""} found`}
+            {criticalIssues.length === 0 &&
+              warnings.length > 0 &&
+              `⚠️ ${warnings.length} warning${warnings.length > 1 ? "s" : ""}`}
+            {criticalIssues.length === 0 && warnings.length === 0 && "✅ All checks passed"}
           </h3>
 
           {/* Critical/Error Issues */}
@@ -157,7 +180,7 @@ export function RiskAssessment({
           {infos.length > 0 && (
             <details className="mt-4">
               <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900">
-                Show {infos.length} informational message{infos.length > 1 ? 's' : ''}
+                Show {infos.length} informational message{infos.length > 1 ? "s" : ""}
               </summary>
               <div className="mt-2 space-y-2">
                 {infos.map((issue, idx) => (
@@ -212,10 +235,10 @@ export function RiskAssessment({
             disabled={loading || !analysis.canProceed}
             className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 ${
               analysis.canProceed
-                ? analysis.score === 'low'
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-yellow-600 hover:bg-yellow-700'
-                : 'bg-red-600 cursor-not-allowed'
+                ? analysis.score === "low"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-yellow-600 hover:bg-yellow-700"
+                : "bg-red-600 cursor-not-allowed"
             }`}
           >
             {loading ? (
@@ -224,25 +247,27 @@ export function RiskAssessment({
                 Analyzing...
               </span>
             ) : !analysis.canProceed ? (
-              '❌ Cannot Deploy'
-            ) : analysis.score === 'critical' || analysis.score === 'high' ? (
-              '⚠️ Deploy Anyway'
+              "❌ Cannot Deploy"
+            ) : analysis.score === "critical" || analysis.score === "high" ? (
+              "⚠️ Deploy Anyway"
             ) : (
-              '✅ Proceed with Deployment'
+              "✅ Proceed with Deployment"
             )}
           </button>
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function IssueCard({ issue }: { issue: RiskIssue }) {
-  const config = SEVERITY_CONFIG[issue.severity]
-  const Icon = config.icon
+  const config = SEVERITY_CONFIG[issue.severity];
+  const Icon = config.icon;
 
   return (
-    <div className={`${config.bgColor} border-l-4 border-${issue.severity === 'critical' || issue.severity === 'error' ? 'red' : issue.severity === 'warning' ? 'yellow' : 'blue'}-500 p-4 rounded`}>
+    <div
+      className={`${config.bgColor} border-l-4 border-${issue.severity === "critical" || issue.severity === "error" ? "red" : issue.severity === "warning" ? "yellow" : "blue"}-500 p-4 rounded`}
+    >
       <div className="flex items-start gap-3">
         <Icon className={`${config.color} h-5 w-5 flex-shrink-0 mt-0.5`} />
         <div className="flex-1">
@@ -301,5 +326,5 @@ function IssueCard({ issue }: { issue: RiskIssue }) {
         </div>
       </div>
     </div>
-  )
+  );
 }

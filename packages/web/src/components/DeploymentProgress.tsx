@@ -1,6 +1,22 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   DeploymentStep,
   DeploymentStepId,
@@ -10,13 +26,13 @@ import {
   MIN_STEP_DISPLAY_MS,
   createInitialTenantProgress,
   calculateProgress,
-} from '@agentsync/core'
+} from "@agentsync/core";
 
 interface DeploymentProgressProps {
-  deploymentId: string
-  tenants: Array<{ tenantId: string; tenantName: string }>
-  onComplete?: (results: TenantDeploymentProgress[]) => void
-  autoStart?: boolean
+  deploymentId: string;
+  tenants: Array<{ tenantId: string; tenantName: string }>;
+  onComplete?: (results: TenantDeploymentProgress[]) => void;
+  autoStart?: boolean;
 }
 
 // Simulate a deployment step with minimum display time
@@ -25,10 +41,10 @@ async function simulateStep(
   actualDurationMs: number,
   shouldFail?: boolean
 ): Promise<void> {
-  const displayTime = Math.max(minDisplayMs, actualDurationMs)
-  await new Promise(resolve => setTimeout(resolve, displayTime))
+  const displayTime = Math.max(minDisplayMs, actualDurationMs);
+  await new Promise((resolve) => setTimeout(resolve, displayTime));
   if (shouldFail) {
-    throw new Error('Simulated failure')
+    throw new Error("Simulated failure");
   }
 }
 
@@ -39,78 +55,84 @@ export function DeploymentProgress({
   autoStart = true,
 }: DeploymentProgressProps) {
   const [tenantProgress, setTenantProgress] = useState<Map<string, TenantDeploymentProgress>>(
-    () => new Map(tenants.map(t => [t.tenantId, createInitialTenantProgress(t.tenantId, t.tenantName)]))
-  )
-  const [overallProgress, setOverallProgress] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [isComplete, setIsComplete] = useState(false)
-  const startedRef = useRef(false)
+    () =>
+      new Map(
+        tenants.map((t) => [t.tenantId, createInitialTenantProgress(t.tenantId, t.tenantName)])
+      )
+  );
+  const [overallProgress, setOverallProgress] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const startedRef = useRef(false);
 
   const updateTenantStep = useCallback(
     (tenantId: string, stepId: DeploymentStepId, status: DeploymentStepStatus, error?: string) => {
-      setTenantProgress(prev => {
-        const newMap = new Map(prev)
-        const progress = newMap.get(tenantId)
+      setTenantProgress((prev) => {
+        const newMap = new Map(prev);
+        const progress = newMap.get(tenantId);
         if (progress) {
-          const steps = progress.steps.map(s =>
+          const steps = progress.steps.map((s) =>
             s.id === stepId
               ? {
                   ...s,
                   status,
-                  startedAt: status === 'in_progress' ? new Date().toISOString() : s.startedAt,
-                  completedAt: status === 'completed' || status === 'failed' ? new Date().toISOString() : s.completedAt,
+                  startedAt: status === "in_progress" ? new Date().toISOString() : s.startedAt,
+                  completedAt:
+                    status === "completed" || status === "failed"
+                      ? new Date().toISOString()
+                      : s.completedAt,
                   error,
                 }
               : s
-          )
+          );
           newMap.set(tenantId, {
             ...progress,
             steps,
-            currentStep: status === 'in_progress' ? stepId : progress.currentStep,
+            currentStep: status === "in_progress" ? stepId : progress.currentStep,
             progress: calculateProgress(steps),
-            overallStatus: status === 'failed' ? 'failed' : progress.overallStatus,
+            overallStatus: status === "failed" ? "failed" : progress.overallStatus,
             error: error || progress.error,
-          })
+          });
         }
-        return newMap
-      })
+        return newMap;
+      });
     },
     []
-  )
+  );
 
   const completeTenant = useCallback((tenantId: string, success: boolean) => {
-    setTenantProgress(prev => {
-      const newMap = new Map(prev)
-      const progress = newMap.get(tenantId)
+    setTenantProgress((prev) => {
+      const newMap = new Map(prev);
+      const progress = newMap.get(tenantId);
       if (progress) {
         newMap.set(tenantId, {
           ...progress,
-          overallStatus: success ? 'completed' : 'failed',
+          overallStatus: success ? "completed" : "failed",
           currentStep: null,
           completedAt: new Date().toISOString(),
           progress: success ? 100 : progress.progress,
-        })
+        });
       }
-      return newMap
-    })
-  }, [])
+      return newMap;
+    });
+  }, []);
 
   // Run deployment simulation
   const runDeployment = useCallback(async () => {
-    if (startedRef.current) return
-    startedRef.current = true
-    setIsRunning(true)
+    if (startedRef.current) return;
+    startedRef.current = true;
+    setIsRunning(true);
 
     const stepOrder: DeploymentStepId[] = [
-      'authenticating',
-      'validating',
-      'exporting',
-      'uploading',
-      'importing',
-      'configuring',
-      'verifying',
-      'completing',
-    ]
+      "authenticating",
+      "validating",
+      "exporting",
+      "uploading",
+      "importing",
+      "configuring",
+      "verifying",
+      "completing",
+    ];
 
     const stepDurations: Record<DeploymentStepId, number> = {
       authenticating: 700,
@@ -121,104 +143,112 @@ export function DeploymentProgress({
       configuring: 800,
       verifying: 600,
       completing: 400,
-    }
+    };
 
     // Process tenants with some concurrency but staggered starts
-    const processQueue = [...tenants]
-    const concurrent = 2
-    const inProgress: Promise<void>[] = []
+    const processQueue = [...tenants];
+    const concurrent = 2;
+    const inProgress: Promise<void>[] = [];
 
-    const processTenant = async (tenant: { tenantId: string; tenantName: string }, index: number) => {
+    const processTenant = async (
+      tenant: { tenantId: string; tenantName: string },
+      index: number
+    ) => {
       // Stagger tenant starts for visual effect
-      await new Promise(resolve => setTimeout(resolve, index * 300))
+      await new Promise((resolve) => setTimeout(resolve, index * 300));
 
       // Set tenant to in_progress
-      setTenantProgress(prev => {
-        const newMap = new Map(prev)
-        const progress = newMap.get(tenant.tenantId)
+      setTenantProgress((prev) => {
+        const newMap = new Map(prev);
+        const progress = newMap.get(tenant.tenantId);
         if (progress) {
           newMap.set(tenant.tenantId, {
             ...progress,
-            overallStatus: 'in_progress',
+            overallStatus: "in_progress",
             startedAt: new Date().toISOString(),
-          })
+          });
         }
-        return newMap
-      })
+        return newMap;
+      });
 
       // Simulate failure for some tenants (for demo)
-      const shouldFail = Math.random() < 0.1 // 10% chance
-      const failStep = shouldFail ? stepOrder[Math.floor(Math.random() * 5) + 2] : null
+      const shouldFail = Math.random() < 0.1; // 10% chance
+      const failStep = shouldFail ? stepOrder[Math.floor(Math.random() * 5) + 2] : null;
 
       for (const stepId of stepOrder) {
         // Start step
-        updateTenantStep(tenant.tenantId, stepId, 'in_progress')
+        updateTenantStep(tenant.tenantId, stepId, "in_progress");
 
         try {
           // Simulate with minimum display time
-          const baseDuration = stepDurations[stepId]
-          const variation = Math.random() * 400 - 200 // +/- 200ms
-          await simulateStep(MIN_STEP_DISPLAY_MS, baseDuration + variation, stepId === failStep)
+          const baseDuration = stepDurations[stepId];
+          const variation = Math.random() * 400 - 200; // +/- 200ms
+          await simulateStep(MIN_STEP_DISPLAY_MS, baseDuration + variation, stepId === failStep);
 
           // Complete step
-          updateTenantStep(tenant.tenantId, stepId, 'completed')
+          updateTenantStep(tenant.tenantId, stepId, "completed");
         } catch {
-          updateTenantStep(tenant.tenantId, stepId, 'failed', `Failed during ${DEPLOYMENT_STEPS[stepId].label.toLowerCase()}`)
-          completeTenant(tenant.tenantId, false)
-          return
+          updateTenantStep(
+            tenant.tenantId,
+            stepId,
+            "failed",
+            `Failed during ${DEPLOYMENT_STEPS[stepId].label.toLowerCase()}`
+          );
+          completeTenant(tenant.tenantId, false);
+          return;
         }
       }
 
-      completeTenant(tenant.tenantId, true)
-    }
+      completeTenant(tenant.tenantId, true);
+    };
 
-    let idx = 0
+    let idx = 0;
     while (processQueue.length > 0 || inProgress.length > 0) {
       // Start new tasks up to concurrency limit
       while (inProgress.length < concurrent && processQueue.length > 0) {
-        const tenant = processQueue.shift()!
-        const promise = processTenant(tenant, idx++)
-        inProgress.push(promise)
+        const tenant = processQueue.shift()!;
+        const promise = processTenant(tenant, idx++);
+        inProgress.push(promise);
         // Remove completed promises
         promise.finally(() => {
-          const i = inProgress.indexOf(promise)
-          if (i > -1) inProgress.splice(i, 1)
-        })
+          const i = inProgress.indexOf(promise);
+          if (i > -1) inProgress.splice(i, 1);
+        });
       }
 
       // Wait for at least one to complete
       if (inProgress.length > 0) {
-        await Promise.race(inProgress)
+        await Promise.race(inProgress);
       }
     }
 
-    setIsRunning(false)
-    setIsComplete(true)
+    setIsRunning(false);
+    setIsComplete(true);
 
     if (onComplete) {
-      const results = Array.from(tenantProgress.values())
-      onComplete(results)
+      const results = Array.from(tenantProgress.values());
+      onComplete(results);
     }
-  }, [tenants, updateTenantStep, completeTenant, onComplete, tenantProgress])
+  }, [tenants, updateTenantStep, completeTenant, onComplete, tenantProgress]);
 
   // Auto-start deployment
   useEffect(() => {
     if (autoStart && !startedRef.current) {
-      runDeployment()
+      runDeployment();
     }
-  }, [autoStart, runDeployment])
+  }, [autoStart, runDeployment]);
 
   // Calculate overall progress
   useEffect(() => {
-    const allProgress = Array.from(tenantProgress.values())
-    const totalProgress = allProgress.reduce((sum, p) => sum + p.progress, 0)
-    setOverallProgress(Math.round(totalProgress / allProgress.length))
-  }, [tenantProgress])
+    const allProgress = Array.from(tenantProgress.values());
+    const totalProgress = allProgress.reduce((sum, p) => sum + p.progress, 0);
+    setOverallProgress(Math.round(totalProgress / allProgress.length));
+  }, [tenantProgress]);
 
-  const progressArray = Array.from(tenantProgress.values())
-  const completed = progressArray.filter(p => p.overallStatus === 'completed').length
-  const failed = progressArray.filter(p => p.overallStatus === 'failed').length
-  const pending = progressArray.filter(p => p.overallStatus === 'pending').length
+  const progressArray = Array.from(tenantProgress.values());
+  const completed = progressArray.filter((p) => p.overallStatus === "completed").length;
+  const failed = progressArray.filter((p) => p.overallStatus === "failed").length;
+  const pending = progressArray.filter((p) => p.overallStatus === "pending").length;
 
   return (
     <div className="space-y-6">
@@ -228,7 +258,11 @@ export function DeploymentProgress({
           <div>
             <h3 className="text-lg font-semibold text-slate-900">Deployment Progress</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              {isRunning ? 'Deploying to tenants...' : isComplete ? 'Deployment complete' : 'Preparing deployment...'}
+              {isRunning
+                ? "Deploying to tenants..."
+                : isComplete
+                  ? "Deployment complete"
+                  : "Preparing deployment..."}
             </p>
           </div>
           <div className="text-right">
@@ -266,36 +300,38 @@ export function DeploymentProgress({
           )}
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse" />
-            <span className="text-slate-600">{progressArray.filter(p => p.overallStatus === 'in_progress').length} in progress</span>
+            <span className="text-slate-600">
+              {progressArray.filter((p) => p.overallStatus === "in_progress").length} in progress
+            </span>
           </div>
         </div>
       </div>
 
       {/* Per-Tenant Progress */}
       <div className="space-y-4">
-        {progressArray.map(progress => (
+        {progressArray.map((progress) => (
           <TenantProgressCard key={progress.tenantId} progress={progress} />
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function TenantProgressCard({ progress }: { progress: TenantDeploymentProgress }) {
-  const isActive = progress.overallStatus === 'in_progress'
-  const isCompleted = progress.overallStatus === 'completed'
-  const isFailed = progress.overallStatus === 'failed'
+  const isActive = progress.overallStatus === "in_progress";
+  const isCompleted = progress.overallStatus === "completed";
+  const isFailed = progress.overallStatus === "failed";
 
   return (
     <div
       className={`bg-white rounded-xl border p-5 transition-all duration-300 ${
         isActive
-          ? 'border-blue-300 shadow-md ring-2 ring-blue-100'
+          ? "border-blue-300 shadow-md ring-2 ring-blue-100"
           : isCompleted
-          ? 'border-emerald-200 bg-emerald-50/30'
-          : isFailed
-          ? 'border-rose-200 bg-rose-50/30'
-          : 'border-slate-200'
+            ? "border-emerald-200 bg-emerald-50/30"
+            : isFailed
+              ? "border-rose-200 bg-rose-50/30"
+              : "border-slate-200"
       }`}
     >
       {/* Tenant Header */}
@@ -304,30 +340,71 @@ function TenantProgressCard({ progress }: { progress: TenantDeploymentProgress }
           <div
             className={`w-10 h-10 rounded-lg flex items-center justify-center ${
               isActive
-                ? 'bg-blue-100'
+                ? "bg-blue-100"
                 : isCompleted
-                ? 'bg-emerald-100'
-                : isFailed
-                ? 'bg-rose-100'
-                : 'bg-slate-100'
+                  ? "bg-emerald-100"
+                  : isFailed
+                    ? "bg-rose-100"
+                    : "bg-slate-100"
             }`}
           >
             {isActive ? (
               <svg className="w-5 h-5 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
               </svg>
             ) : isCompleted ? (
-              <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-5 h-5 text-emerald-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             ) : isFailed ? (
-              <svg className="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-5 h-5 text-rose-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             ) : (
-              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-5 h-5 text-slate-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             )}
           </div>
@@ -339,7 +416,7 @@ function TenantProgressCard({ progress }: { progress: TenantDeploymentProgress }
         <div className="text-right">
           <span
             className={`text-lg font-bold ${
-              isCompleted ? 'text-emerald-600' : isFailed ? 'text-rose-600' : 'text-blue-600'
+              isCompleted ? "text-emerald-600" : isFailed ? "text-rose-600" : "text-blue-600"
             }`}
           >
             {progress.progress}%
@@ -361,19 +438,19 @@ function TenantProgressCard({ progress }: { progress: TenantDeploymentProgress }
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function StepRow({ step, index }: { step: DeploymentStep; index: number }) {
-  const isActive = step.status === 'in_progress'
-  const isCompleted = step.status === 'completed'
-  const isFailed = step.status === 'failed'
-  const isPending = step.status === 'pending'
+  const isActive = step.status === "in_progress";
+  const isCompleted = step.status === "completed";
+  const isFailed = step.status === "failed";
+  const isPending = step.status === "pending";
 
   return (
     <div
       className={`flex items-center gap-3 py-2 px-3 rounded-lg transition-all duration-300 ${
-        isActive ? 'bg-blue-50' : ''
+        isActive ? "bg-blue-50" : ""
       }`}
       style={{
         transitionDelay: `${index * 50}ms`,
@@ -384,20 +461,51 @@ function StepRow({ step, index }: { step: DeploymentStep; index: number }) {
         {isActive ? (
           <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
             <svg className="w-3 h-3 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
             </svg>
           </div>
         ) : isCompleted ? (
           <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
-            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-3 h-3 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
         ) : isFailed ? (
           <div className="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center">
-            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-3 h-3 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </div>
         ) : (
@@ -413,20 +521,18 @@ function StepRow({ step, index }: { step: DeploymentStep; index: number }) {
           <span
             className={`text-sm font-medium ${
               isActive
-                ? 'text-blue-700'
+                ? "text-blue-700"
                 : isCompleted
-                ? 'text-emerald-700'
-                : isFailed
-                ? 'text-rose-700'
-                : 'text-slate-500'
+                  ? "text-emerald-700"
+                  : isFailed
+                    ? "text-rose-700"
+                    : "text-slate-500"
             }`}
           >
             {step.label}
           </span>
           {isActive && (
-            <span className="text-xs text-blue-500 animate-pulse">
-              {step.description}
-            </span>
+            <span className="text-xs text-blue-500 animate-pulse">{step.description}</span>
           )}
         </div>
         {step.error && <p className="text-xs text-rose-600 mt-0.5">{step.error}</p>}
@@ -439,13 +545,13 @@ function StepRow({ step, index }: { step: DeploymentStep; index: number }) {
         </span>
       )}
     </div>
-  )
+  );
 }
 
 function formatStepDuration(startedAt: string, completedAt: string): string {
-  const durationMs = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  if (durationMs < 1000) return `${durationMs}ms`
-  return `${(durationMs / 1000).toFixed(1)}s`
+  const durationMs = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (durationMs < 1000) return `${durationMs}ms`;
+  return `${(durationMs / 1000).toFixed(1)}s`;
 }
 
-export default DeploymentProgress
+export default DeploymentProgress;

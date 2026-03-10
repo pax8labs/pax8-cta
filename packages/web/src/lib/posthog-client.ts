@@ -1,33 +1,49 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // PostHog Client-side Analytics
 // This file is safe to import in client components ('use client')
 
-import posthog from 'posthog-js'
-import { createLogger } from './logger'
+import posthog from "posthog-js";
+import { createLogger } from "./logger";
 
-const logger = createLogger('PostHog')
+const logger = createLogger("PostHog");
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY || ''
-const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
+const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY || "";
+const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
 // Check if PostHog is configured
-export const isPostHogEnabled = () => Boolean(POSTHOG_KEY)
+export const isPostHogEnabled = () => Boolean(POSTHOG_KEY);
 
 // ============================================================================
 // Client-side PostHog Initialization
 // ============================================================================
 
-let clientInitialized = false
+let clientInitialized = false;
 
 export function initPostHogClient() {
-  if (typeof window === 'undefined') return
-  if (clientInitialized) return
+  if (typeof window === "undefined") return;
+  if (clientInitialized) return;
   if (!isPostHogEnabled()) {
-    logger.debug('Not configured - analytics disabled')
-    return
+    logger.debug("Not configured - analytics disabled");
+    return;
   }
 
   posthog.init(POSTHOG_KEY, {
@@ -42,18 +58,18 @@ export function initPostHogClient() {
     respect_dnt: true,
     // Disable in development unless explicitly enabled
     loaded: (ph) => {
-      if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_POSTHOG_DEBUG) {
+      if (process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_POSTHOG_DEBUG) {
         // Optionally disable in dev - comment out to test locally
         // ph.opt_out_capturing()
       }
     },
-  })
+  });
 
-  clientInitialized = true
+  clientInitialized = true;
 }
 
 // Re-export posthog for direct use
-export { posthog }
+export { posthog };
 
 // ============================================================================
 // Analytics Event Types
@@ -61,31 +77,31 @@ export { posthog }
 
 export type AnalyticsEvent =
   // Deployment events
-  | 'deployment_created'
-  | 'deployment_started'
-  | 'deployment_completed'
-  | 'deployment_failed'
-  | 'deployment_retried'
-  | 'deployment_cancelled'
+  | "deployment_created"
+  | "deployment_started"
+  | "deployment_completed"
+  | "deployment_failed"
+  | "deployment_retried"
+  | "deployment_cancelled"
   // Tenant events
-  | 'tenant_viewed'
-  | 'tenant_enabled'
-  | 'tenant_disabled'
-  | 'tenants_filtered'
+  | "tenant_viewed"
+  | "tenant_enabled"
+  | "tenant_disabled"
+  | "tenants_filtered"
   // Agent events
-  | 'agent_viewed'
-  | 'agent_selected'
+  | "agent_viewed"
+  | "agent_selected"
   // Navigation events
-  | 'page_viewed'
-  | 'tab_changed'
-  | 'filter_applied'
+  | "page_viewed"
+  | "tab_changed"
+  | "filter_applied"
   // Error events
-  | 'error_occurred'
-  | 'api_error'
+  | "error_occurred"
+  | "api_error"
   // Feature usage
-  | 'bulk_action_used'
-  | 'search_used'
-  | 'export_clicked'
+  | "bulk_action_used"
+  | "search_used"
+  | "export_clicked";
 
 // ============================================================================
 // Client-side tracking helpers
@@ -93,19 +109,19 @@ export type AnalyticsEvent =
 
 interface TrackEventOptions {
   // User identification (optional - PostHog will use anonymous ID if not provided)
-  distinctId?: string
+  distinctId?: string;
   // Event properties
-  properties?: Record<string, unknown>
+  properties?: Record<string, unknown>;
 }
 
 /**
  * Track an event on the client side
  */
 export function trackEvent(event: AnalyticsEvent, options: TrackEventOptions = {}) {
-  if (typeof window === 'undefined') return
-  if (!isPostHogEnabled()) return
+  if (typeof window === "undefined") return;
+  if (!isPostHogEnabled()) return;
 
-  const { properties = {} } = options
+  const { properties = {} } = options;
 
   posthog.capture(event, {
     ...properties,
@@ -113,21 +129,26 @@ export function trackEvent(event: AnalyticsEvent, options: TrackEventOptions = {
     timestamp: new Date().toISOString(),
     path: window.location.pathname,
     referrer: document.referrer || undefined,
-  })
+  });
 }
 
 /**
  * Track a deployment event with standard deployment properties
  */
 export function trackDeployment(
-  event: 'deployment_created' | 'deployment_started' | 'deployment_completed' | 'deployment_failed' | 'deployment_retried',
+  event:
+    | "deployment_created"
+    | "deployment_started"
+    | "deployment_completed"
+    | "deployment_failed"
+    | "deployment_retried",
   deployment: {
-    deploymentId: string
-    solutionName?: string
-    tenantCount?: number
-    status?: string
-    error?: string
-    durationMs?: number
+    deploymentId: string;
+    solutionName?: string;
+    tenantCount?: number;
+    status?: string;
+    error?: string;
+    durationMs?: number;
   }
 ) {
   trackEvent(event, {
@@ -139,41 +160,41 @@ export function trackDeployment(
       error: deployment.error,
       duration_ms: deployment.durationMs,
     },
-  })
+  });
 }
 
 /**
  * Track an error event
  */
 export function trackError(error: Error | string, context?: Record<string, unknown>) {
-  const errorMessage = error instanceof Error ? error.message : error
-  const errorStack = error instanceof Error ? error.stack : undefined
+  const errorMessage = error instanceof Error ? error.message : error;
+  const errorStack = error instanceof Error ? error.stack : undefined;
 
-  trackEvent('error_occurred', {
+  trackEvent("error_occurred", {
     properties: {
       error_message: errorMessage,
       error_stack: errorStack,
       ...context,
     },
-  })
+  });
 }
 
 /**
  * Identify a user (call when user logs in or is identified)
  */
 export function identifyUser(userId: string, properties?: Record<string, unknown>) {
-  if (typeof window === 'undefined') return
-  if (!isPostHogEnabled()) return
+  if (typeof window === "undefined") return;
+  if (!isPostHogEnabled()) return;
 
-  posthog.identify(userId, properties)
+  posthog.identify(userId, properties);
 }
 
 /**
  * Reset user identity (call on logout)
  */
 export function resetUser() {
-  if (typeof window === 'undefined') return
-  if (!isPostHogEnabled()) return
+  if (typeof window === "undefined") return;
+  if (!isPostHogEnabled()) return;
 
-  posthog.reset()
+  posthog.reset();
 }

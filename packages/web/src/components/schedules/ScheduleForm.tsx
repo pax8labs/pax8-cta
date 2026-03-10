@@ -1,94 +1,110 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import React, { useState } from 'react'
-import { X, Save, Loader2 } from 'lucide-react'
-import { CronBuilder } from './CronBuilder'
-import { toast } from 'sonner'
+"use client";
+
+import React, { useState } from "react";
+import { X, Save, Loader2 } from "lucide-react";
+import { CronBuilder } from "./CronBuilder";
+import { toast } from "sonner";
 
 interface ScheduleFormProps {
   schedule?: {
-    id: string
-    name: string
-    cron: string
-    timezone: string
-    solutionPath?: string
-    solutionName?: string
-  }
-  onClose: () => void
-  onSave: () => void
+    id: string;
+    name: string;
+    cron: string;
+    timezone: string;
+    solutionPath?: string;
+    solutionName?: string;
+  };
+  onClose: () => void;
+  onSave: () => void;
 }
 
 const TIMEZONES = [
-  { value: 'UTC', label: 'UTC' },
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'Europe/London', label: 'London (GMT)' },
-  { value: 'Europe/Paris', label: 'Paris (CET)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-  { value: 'Australia/Sydney', label: 'Sydney (AEDT)' },
-]
+  { value: "UTC", label: "UTC" },
+  { value: "America/New_York", label: "Eastern Time (ET)" },
+  { value: "America/Chicago", label: "Central Time (CT)" },
+  { value: "America/Denver", label: "Mountain Time (MT)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "Europe/London", label: "London (GMT)" },
+  { value: "Europe/Paris", label: "Paris (CET)" },
+  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+  { value: "Australia/Sydney", label: "Sydney (AEDT)" },
+];
 
 export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
-  const isEditing = !!schedule
+  const isEditing = !!schedule;
 
   const [formData, setFormData] = useState({
-    name: schedule?.name || '',
-    cron: schedule?.cron || '0 0 * * *',
-    timezone: schedule?.timezone || 'UTC',
-    solutionPath: schedule?.solutionPath || '',
-    solutionName: schedule?.solutionName || '',
+    name: schedule?.name || "",
+    cron: schedule?.cron || "0 0 * * *",
+    timezone: schedule?.timezone || "UTC",
+    solutionPath: schedule?.solutionPath || "",
+    solutionName: schedule?.solutionName || "",
     enabled: true,
-  })
+  });
 
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Schedule name is required'
+      newErrors.name = "Schedule name is required";
     }
 
     if (!formData.cron.trim()) {
-      newErrors.cron = 'Cron expression is required'
+      newErrors.cron = "Cron expression is required";
     } else {
       // Basic cron validation (5 parts separated by spaces)
-      const parts = formData.cron.trim().split(/\s+/)
+      const parts = formData.cron.trim().split(/\s+/);
       if (parts.length !== 5) {
-        newErrors.cron = 'Invalid cron format (must have 5 parts)'
+        newErrors.cron = "Invalid cron format (must have 5 parts)";
       }
     }
 
     if (!formData.solutionPath.trim()) {
-      newErrors.solutionPath = 'Solution path is required'
+      newErrors.solutionPath = "Solution path is required";
     }
 
     if (!formData.solutionName.trim()) {
-      newErrors.solutionName = 'Solution name is required'
+      newErrors.solutionName = "Solution name is required";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!validate()) {
-      toast.error('Please fix validation errors')
-      return
+      toast.error("Please fix validation errors");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/schedules', {
-        method: 'POST',
+      const res = await fetch("/api/schedules", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           solutionPath: formData.solutionPath,
@@ -96,24 +112,24 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
           // Note: The current API expects these in the config, not as body params
           // This may need adjustment based on actual API requirements
         }),
-      })
+      });
 
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Failed to save schedule')
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to save schedule");
       }
 
-      const data = await res.json()
-      toast.success(isEditing ? 'Schedule updated' : 'Schedule created')
-      onSave()
-      onClose()
+      const data = await res.json();
+      toast.success(isEditing ? "Schedule updated" : "Schedule created");
+      onSave();
+      onClose();
     } catch (error) {
-      console.error('Save schedule error:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to save schedule')
+      console.error("Save schedule error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to save schedule");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -121,7 +137,7 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {isEditing ? 'Edit Schedule' : 'Create Schedule'}
+            {isEditing ? "Edit Schedule" : "Create Schedule"}
           </h2>
           <button
             onClick={onClose}
@@ -147,9 +163,7 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.name
-                  ? 'border-red-500'
-                  : 'border-gray-300 dark:border-gray-700'
+                errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-700"
               }`}
               placeholder="e.g., Nightly Production Deployment"
             />
@@ -209,9 +223,7 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
               value={formData.solutionPath}
               onChange={(e) => setFormData({ ...formData, solutionPath: e.target.value })}
               className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.solutionPath
-                  ? 'border-red-500'
-                  : 'border-gray-300 dark:border-gray-700'
+                errors.solutionPath ? "border-red-500" : "border-gray-300 dark:border-gray-700"
               }`}
               placeholder="./solutions/my-agent_managed.zip"
             />
@@ -237,9 +249,7 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
               value={formData.solutionName}
               onChange={(e) => setFormData({ ...formData, solutionName: e.target.value })}
               className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.solutionName
-                  ? 'border-red-500'
-                  : 'border-gray-300 dark:border-gray-700'
+                errors.solutionName ? "border-red-500" : "border-gray-300 dark:border-gray-700"
               }`}
               placeholder="MyAgent"
             />
@@ -254,7 +264,16 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
           {/* Note about config */}
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              <strong>Note:</strong> This form registers a schedule with the deployment queue. The actual schedule configuration (cron, timezone) is managed in your <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 rounded">config/tenants.yaml</code> file under <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 rounded">settings.schedule</code>.
+              <strong>Note:</strong> This form registers a schedule with the deployment queue. The
+              actual schedule configuration (cron, timezone) is managed in your{" "}
+              <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 rounded">
+                config/tenants.yaml
+              </code>{" "}
+              file under{" "}
+              <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 rounded">
+                settings.schedule
+              </code>
+              .
             </p>
           </div>
 
@@ -281,7 +300,7 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  {isEditing ? 'Update Schedule' : 'Create Schedule'}
+                  {isEditing ? "Update Schedule" : "Create Schedule"}
                 </>
               )}
             </button>
@@ -289,5 +308,5 @@ export function ScheduleForm({ schedule, onClose, onSave }: ScheduleFormProps) {
         </form>
       </div>
     </div>
-  )
+  );
 }

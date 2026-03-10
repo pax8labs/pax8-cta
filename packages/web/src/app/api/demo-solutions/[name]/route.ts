@@ -1,10 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { DEMO_SOLUTIONS } from '@agentsync/core'
-import { demoCustomAgents } from '@/lib/demo-store'
-import JSZip from 'jszip'
-import { notFound } from '@/lib/errors'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-export const dynamic = 'force-dynamic'
+import { NextRequest, NextResponse } from "next/server";
+import { DEMO_SOLUTIONS } from "@agentsync/core";
+import { demoCustomAgents } from "@/lib/demo-store";
+import JSZip from "jszip";
+import { notFound } from "@/lib/errors";
+
+export const dynamic = "force-dynamic";
 
 /**
  * Generate and download a demo solution zip file
@@ -14,42 +30,42 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ name: string }> }
 ) {
-  const { name } = await params
+  const { name } = await params;
 
   // Define a minimal solution type for what we need
   type SolutionInfo = {
-    uniqueName: string
-    friendlyName: string
-    version: string
-    description: string
-    publisherName: string
-    isManaged: boolean
-  }
+    uniqueName: string;
+    friendlyName: string;
+    version: string;
+    description: string;
+    publisherName: string;
+    isManaged: boolean;
+  };
 
   // Find the requested solution in built-in demos first
-  let solution: SolutionInfo | undefined = DEMO_SOLUTIONS.find(s => s.uniqueName === name)
+  let solution: SolutionInfo | undefined = DEMO_SOLUTIONS.find((s) => s.uniqueName === name);
 
   // If not found, check custom imported agents
   if (!solution) {
-    const customAgent = demoCustomAgents.get(name)
+    const customAgent = demoCustomAgents.get(name);
     if (customAgent) {
       solution = {
         uniqueName: customAgent.uniqueName,
         friendlyName: customAgent.friendlyName,
         version: customAgent.version,
-        description: customAgent.description || 'Imported agent',
-        publisherName: customAgent.publisherName || 'Imported',
+        description: customAgent.description || "Imported agent",
+        publisherName: customAgent.publisherName || "Imported",
         isManaged: customAgent.isManaged,
-      }
+      };
     }
   }
 
   if (!solution) {
-    return notFound('Solution', name)
+    return notFound("Solution", name);
   }
 
   // Create a mock solution zip file
-  const zip = new JSZip()
+  const zip = new JSZip();
 
   // Add solution.xml (required by Power Platform)
   const solutionXml = `<?xml version="1.0" encoding="utf-8"?>
@@ -63,7 +79,7 @@ export async function GET(
       <Description description="${solution.description}" languagecode="1033" />
     </Descriptions>
     <Version>${solution.version}</Version>
-    <Managed>${solution.isManaged ? '1' : '0'}</Managed>
+    <Managed>${solution.isManaged ? "1" : "0"}</Managed>
     <Publisher>
       <UniqueName>contosoISV</UniqueName>
       <LocalizedNames>
@@ -74,18 +90,18 @@ export async function GET(
       <RootComponent type="10102" behavior="0" />
     </RootComponents>
   </SolutionManifest>
-</ImportExportXml>`
+</ImportExportXml>`;
 
-  zip.file('solution.xml', solutionXml)
+  zip.file("solution.xml", solutionXml);
 
   // Add [Content_Types].xml (required for solution packages)
   const contentTypesXml = `<?xml version="1.0" encoding="utf-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="xml" ContentType="application/xml" />
   <Default Extension="json" ContentType="application/json" />
-</Types>`
+</Types>`;
 
-  zip.file('[Content_Types].xml', contentTypesXml)
+  zip.file("[Content_Types].xml", contentTypesXml);
 
   // Add a customizations.xml placeholder
   const customizationsXml = `<?xml version="1.0" encoding="utf-8"?>
@@ -100,50 +116,50 @@ export async function GET(
   <CustomControls />
   <EntityMaps />
   <EntityDataProviders />
-</ImportExportXml>`
+</ImportExportXml>`;
 
-  zip.file('customizations.xml', customizationsXml)
+  zip.file("customizations.xml", customizationsXml);
 
   // Add a mock bot definition (Copilot Studio specific)
   const botDefinition = {
-    schemaVersion: '1.2',
+    schemaVersion: "1.2",
     name: solution.friendlyName,
     description: solution.description,
-    language: 'en-us',
+    language: "en-us",
     topics: [
       {
-        id: 'greeting',
-        name: 'Greeting',
-        triggerPhrases: ['hello', 'hi', 'hey'],
+        id: "greeting",
+        name: "Greeting",
+        triggerPhrases: ["hello", "hi", "hey"],
       },
       {
-        id: 'fallback',
-        name: 'Fallback',
+        id: "fallback",
+        name: "Fallback",
         triggerPhrases: [],
       },
     ],
     variables: [],
     entities: [],
-  }
+  };
 
-  zip.file('bot/botdefinition.json', JSON.stringify(botDefinition, null, 2))
+  zip.file("bot/botdefinition.json", JSON.stringify(botDefinition, null, 2));
 
   // Generate the zip buffer
   const zipBuffer = await zip.generateAsync({
-    type: 'arraybuffer',
-    compression: 'DEFLATE',
+    type: "arraybuffer",
+    compression: "DEFLATE",
     compressionOptions: { level: 9 },
-  })
+  });
 
   // Return the zip file
-  const filename = `${solution.uniqueName}_${solution.version.replace(/\./g, '_')}_managed.zip`
+  const filename = `${solution.uniqueName}_${solution.version.replace(/\./g, "_")}_managed.zip`;
 
   return new NextResponse(zipBuffer, {
     status: 200,
     headers: {
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': zipBuffer.byteLength.toString(),
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": zipBuffer.byteLength.toString(),
     },
-  })
+  });
 }

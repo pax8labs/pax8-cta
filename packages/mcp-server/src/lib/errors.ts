@@ -1,4 +1,20 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Base error class for all MCP server errors
  */
 export class MCPError extends Error {
@@ -29,7 +45,7 @@ export class MCPError extends Error {
  */
 export class APIError extends MCPError {
   constructor(message: string, statusCode?: number, details?: unknown) {
-    super(message, 'API_ERROR', statusCode, details);
+    super(message, "API_ERROR", statusCode, details);
   }
 }
 
@@ -38,7 +54,7 @@ export class APIError extends MCPError {
  */
 export class NetworkError extends MCPError {
   constructor(message: string, details?: unknown) {
-    super(message, 'NETWORK_ERROR', undefined, details);
+    super(message, "NETWORK_ERROR", undefined, details);
   }
 }
 
@@ -47,7 +63,7 @@ export class NetworkError extends MCPError {
  */
 export class TimeoutError extends MCPError {
   constructor(message: string, timeoutMs: number) {
-    super(message, 'TIMEOUT_ERROR', undefined, { timeoutMs });
+    super(message, "TIMEOUT_ERROR", undefined, { timeoutMs });
   }
 }
 
@@ -56,7 +72,7 @@ export class TimeoutError extends MCPError {
  */
 export class ValidationError extends MCPError {
   constructor(message: string, details?: unknown) {
-    super(message, 'VALIDATION_ERROR', 400, details);
+    super(message, "VALIDATION_ERROR", 400, details);
   }
 }
 
@@ -65,12 +81,7 @@ export class ValidationError extends MCPError {
  */
 export class NotFoundError extends MCPError {
   constructor(resource: string, identifier: string) {
-    super(
-      `${resource} not found: ${identifier}`,
-      'NOT_FOUND',
-      404,
-      { resource, identifier }
-    );
+    super(`${resource} not found: ${identifier}`, "NOT_FOUND", 404, { resource, identifier });
   }
 }
 
@@ -79,7 +90,7 @@ export class NotFoundError extends MCPError {
  */
 export class AuthError extends MCPError {
   constructor(message: string) {
-    super(message, 'AUTH_ERROR', 401);
+    super(message, "AUTH_ERROR", 401);
   }
 }
 
@@ -88,7 +99,7 @@ export class AuthError extends MCPError {
  */
 export class CircuitBreakerError extends MCPError {
   constructor(message: string) {
-    super(message, 'CIRCUIT_BREAKER_OPEN', 503);
+    super(message, "CIRCUIT_BREAKER_OPEN", 503);
   }
 }
 
@@ -97,6 +108,6 @@ export class CircuitBreakerError extends MCPError {
  */
 export class RateLimitError extends MCPError {
   constructor(message: string, retryAfter?: number) {
-    super(message, 'RATE_LIMIT_EXCEEDED', 429, { retryAfter });
+    super(message, "RATE_LIMIT_EXCEEDED", 429, { retryAfter });
   }
 }

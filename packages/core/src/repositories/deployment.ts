@@ -1,13 +1,29 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Deployment Repository
  * Shared database operations for deployment status tracking
  * Used by both web and worker packages
  */
 
-import Database from 'better-sqlite3';
-import { mkdirSync, existsSync } from 'fs';
-import { dirname } from 'path';
-import { getDatabasePath, logDatabaseConfig } from '../config/database.js';
+import Database from "better-sqlite3";
+import { mkdirSync, existsSync } from "fs";
+import { dirname } from "path";
+import { getDatabasePath, logDatabaseConfig } from "../config/database.js";
 
 // Database file location (shared across web and worker)
 const DB_PATH = getDatabasePath();
@@ -28,8 +44,9 @@ function retryDatabaseOperation<T>(operation: () => T, maxRetries = 3): T {
       return operation();
     } catch (error) {
       lastError = error as Error;
-      const isBusyError = lastError.message?.includes('SQLITE_BUSY') ||
-                          lastError.message?.includes('database is locked');
+      const isBusyError =
+        lastError.message?.includes("SQLITE_BUSY") ||
+        lastError.message?.includes("database is locked");
 
       // Only retry on lock contention errors
       if (!isBusyError || attempt === maxRetries - 1) {
@@ -38,7 +55,9 @@ function retryDatabaseOperation<T>(operation: () => T, maxRetries = 3): T {
 
       // Exponential backoff: 100ms, 200ms, 400ms
       const delayMs = 100 * Math.pow(2, attempt);
-      console.warn(`[Database] Retry attempt ${attempt + 1}/${maxRetries} after ${delayMs}ms due to: ${lastError.message}`);
+      console.warn(
+        `[Database] Retry attempt ${attempt + 1}/${maxRetries} after ${delayMs}ms due to: ${lastError.message}`
+      );
 
       // Synchronous sleep (acceptable for short retry delays)
       const start = Date.now();
@@ -59,13 +78,13 @@ function getDatabase(): Database.Database {
   if (!db) {
     // Log database configuration on first access
     if (!dbLoggedOnce) {
-      console.log('[Worker] Initializing database connection');
+      console.log("[Worker] Initializing database connection");
       logDatabaseConfig();
 
       // Warn about SQLite limitations
-      console.warn('[Database] SQLite is suitable for development and small deployments');
-      console.warn('[Database] Worker concurrency limited to 3 to prevent lock contention');
-      console.warn('[Database] For production with >3 concurrent workers, use PostgreSQL');
+      console.warn("[Database] SQLite is suitable for development and small deployments");
+      console.warn("[Database] Worker concurrency limited to 3 to prevent lock contention");
+      console.warn("[Database] For production with >3 concurrent workers, use PostgreSQL");
 
       dbLoggedOnce = true;
     }
@@ -78,9 +97,9 @@ function getDatabase(): Database.Database {
 
     // Create database with WAL mode for better concurrency
     db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    db.pragma('busy_timeout = 10000'); // 10 second timeout for lock contention (increased for higher concurrency)
+    db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
+    db.pragma("busy_timeout = 10000"); // 10 second timeout for lock contention (increased for higher concurrency)
   }
 
   return db;
@@ -92,31 +111,36 @@ function getDatabase(): Database.Database {
  */
 export function updateDeploymentStatus(
   deploymentId: string,
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'rolled_back',
+  status: "pending" | "in_progress" | "completed" | "failed" | "cancelled" | "rolled_back",
   error?: string
 ): void {
   const database = getDatabase();
   const now = new Date().toISOString();
 
-  let query = 'UPDATE deployments SET status = ?, updated_at = ?';
+  let query = "UPDATE deployments SET status = ?, updated_at = ?";
   const params: (string | null)[] = [status, now];
 
   if (error !== undefined) {
-    query += ', error = ?';
+    query += ", error = ?";
     params.push(error);
   }
 
-  if (status === 'in_progress') {
-    query += ', started_at = COALESCE(started_at, ?)';
+  if (status === "in_progress") {
+    query += ", started_at = COALESCE(started_at, ?)";
     params.push(now);
   }
 
-  if (status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'rolled_back') {
-    query += ', completed_at = ?';
+  if (
+    status === "completed" ||
+    status === "failed" ||
+    status === "cancelled" ||
+    status === "rolled_back"
+  ) {
+    query += ", completed_at = ?";
     params.push(now);
   }
 
-  query += ' WHERE id = ?';
+  query += " WHERE id = ?";
   params.push(deploymentId);
 
   retryDatabaseOperation(() => {
@@ -130,36 +154,36 @@ export function updateDeploymentStatus(
  */
 export function updateBatchStatus(
   batchId: string,
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled',
+  status: "pending" | "in_progress" | "completed" | "failed" | "cancelled",
   counts?: { completed?: number; failed?: number }
 ): void {
   const database = getDatabase();
   const now = new Date().toISOString();
 
-  let query = 'UPDATE deployment_batches SET status = ?, updated_at = ?';
+  let query = "UPDATE deployment_batches SET status = ?, updated_at = ?";
   const params: (string | number)[] = [status, now];
 
   if (counts?.completed !== undefined) {
-    query += ', completed_deployments = ?';
+    query += ", completed_deployments = ?";
     params.push(counts.completed);
   }
 
   if (counts?.failed !== undefined) {
-    query += ', failed_deployments = ?';
+    query += ", failed_deployments = ?";
     params.push(counts.failed);
   }
 
-  if (status === 'in_progress') {
-    query += ', started_at = COALESCE(started_at, ?)';
+  if (status === "in_progress") {
+    query += ", started_at = COALESCE(started_at, ?)";
     params.push(now);
   }
 
-  if (status === 'completed' || status === 'failed' || status === 'cancelled') {
-    query += ', completed_at = ?';
+  if (status === "completed" || status === "failed" || status === "cancelled") {
+    query += ", completed_at = ?";
     params.push(now);
   }
 
-  query += ' WHERE id = ?';
+  query += " WHERE id = ?";
   params.push(batchId);
 
   retryDatabaseOperation(() => {

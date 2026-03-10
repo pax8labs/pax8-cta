@@ -1,105 +1,121 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import React, { useState } from 'react'
-import useSWR from 'swr'
-import Link from 'next/link'
-import { toast } from 'sonner'
-import { trackEvent, trackError } from '@/lib/posthog-client'
-import { FlaskSpinner } from '@/components/ui/flask-spinner'
-import { ScheduleForm } from '@/components/schedules/ScheduleForm'
-import { Clock, Plus, Trash2, Edit, Play, Pause, Calendar } from 'lucide-react'
+"use client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+import React, { useState } from "react";
+import useSWR from "swr";
+import Link from "next/link";
+import { toast } from "sonner";
+import { trackEvent, trackError } from "@/lib/posthog-client";
+import { FlaskSpinner } from "@/components/ui/flask-spinner";
+import { ScheduleForm } from "@/components/schedules/ScheduleForm";
+import { Clock, Plus, Trash2, Edit, Play, Pause, Calendar } from "lucide-react";
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 interface Schedule {
-  id: string
-  name: string
-  cron: string
-  timezone: string
-  nextRun: string | null
-  enabled?: boolean
-  lastRun?: string | null
-  status?: 'active' | 'paused'
+  id: string;
+  name: string;
+  cron: string;
+  timezone: string;
+  nextRun: string | null;
+  enabled?: boolean;
+  lastRun?: string | null;
+  status?: "active" | "paused";
 }
 
 interface SchedulesResponse {
-  enabled: boolean
-  cron?: string
-  cronDescription?: string
-  timezone?: string
-  nextRuns?: string[]
-  registeredSchedules: Schedule[]
-  message?: string
+  enabled: boolean;
+  cron?: string;
+  cronDescription?: string;
+  timezone?: string;
+  nextRuns?: string[];
+  registeredSchedules: Schedule[];
+  message?: string;
 }
 
 function formatDateTime(dateString: string | null) {
-  if (!dateString) return '—'
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
     hour12: true,
-  }).format(date)
+  }).format(date);
 }
 
 function formatRelativeTime(dateString: string | null) {
-  if (!dateString) return '—'
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = date.getTime() - now.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 0) return 'Past due'
-  if (diffMins < 60) return `in ${diffMins}m`
-  if (diffHours < 24) return `in ${diffHours}h`
-  if (diffDays < 7) return `in ${diffDays}d`
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (diffMins < 0) return "Past due";
+  if (diffMins < 60) return `in ${diffMins}m`;
+  if (diffHours < 24) return `in ${diffHours}h`;
+  if (diffDays < 7) return `in ${diffDays}d`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export default function SchedulesPage() {
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const { data, error, mutate, isLoading } = useSWR<SchedulesResponse>('/api/schedules', fetcher, {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const { data, error, mutate, isLoading } = useSWR<SchedulesResponse>("/api/schedules", fetcher, {
     refreshInterval: 30000, // Refresh every 30 seconds
-  })
+  });
 
   const handleDeleteSchedule = async (scheduleId: string, scheduleName: string) => {
     if (!confirm(`Are you sure you want to delete schedule "${scheduleName}"?`)) {
-      return
+      return;
     }
 
     try {
-      const res = await fetch('/api/schedules', {
-        method: 'DELETE',
-      })
+      const res = await fetch("/api/schedules", {
+        method: "DELETE",
+      });
 
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Failed to delete schedule')
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to delete schedule");
       }
 
-      toast.success(`Schedule "${scheduleName}" deleted`)
-      trackEvent('schedule_deleted' as any)
-      mutate()
+      toast.success(`Schedule "${scheduleName}" deleted`);
+      trackEvent("schedule_deleted" as any);
+      mutate();
     } catch (error) {
-      console.error('Delete schedule error:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to delete schedule')
+      console.error("Delete schedule error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to delete schedule");
       trackError(error instanceof Error ? error : String(error), {
-        action: 'delete_schedule',
+        action: "delete_schedule",
         scheduleId,
-      })
+      });
     }
-  }
+  };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <FlaskSpinner />
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -113,11 +129,11 @@ export default function SchedulesPage() {
           Retry
         </button>
       </div>
-    )
+    );
   }
 
-  const schedules = data?.registeredSchedules || []
-  const hasSchedules = schedules.length > 0
+  const schedules = data?.registeredSchedules || [];
+  const hasSchedules = schedules.length > 0;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -225,23 +241,23 @@ export default function SchedulesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {schedule.lastRun ? formatDateTime(schedule.lastRun) : 'Never'}
+                      {schedule.lastRun ? formatDateTime(schedule.lastRun) : "Never"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
                         schedule.enabled !== false
-                          ? 'bg-emerald-50 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                          ? "bg-emerald-50 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
+                          : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                       }`}
                     >
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          schedule.enabled !== false ? 'bg-emerald-500' : 'bg-gray-400'
+                          schedule.enabled !== false ? "bg-emerald-500" : "bg-gray-400"
                         }`}
                       />
-                      {schedule.enabled !== false ? 'Active' : 'Paused'}
+                      {schedule.enabled !== false ? "Active" : "Paused"}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -254,7 +270,7 @@ export default function SchedulesPage() {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteSchedule(schedule.id, schedule.name || '')}
+                        onClick={() => handleDeleteSchedule(schedule.id, schedule.name || "")}
                         className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                         title="Delete schedule"
                       >
@@ -274,8 +290,8 @@ export default function SchedulesPage() {
         <ScheduleForm
           onClose={() => setShowCreateForm(false)}
           onSave={() => {
-            mutate()
-            setShowCreateForm(false)
+            mutate();
+            setShowCreateForm(false);
           }}
         />
       )}
@@ -292,7 +308,10 @@ export default function SchedulesPage() {
                 Global Schedule Configuration
               </h3>
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Cron:</strong> <code className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 rounded">{data.cron}</code>
+                <strong>Cron:</strong>{" "}
+                <code className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 rounded">
+                  {data.cron}
+                </code>
               </p>
               <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                 {data.cronDescription}
@@ -319,5 +338,5 @@ export default function SchedulesPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

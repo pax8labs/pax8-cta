@@ -1,4 +1,20 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+"use client";
 
 /**
  * Test page to intentionally trigger hydration errors
@@ -15,9 +31,7 @@ export default function TestHydrationPage() {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             This will show different timestamps on server vs client:
           </p>
-          <p className="mt-2 font-mono text-sm">
-            Current time: {new Date().toISOString()}
-          </p>
+          <p className="mt-2 font-mono text-sm">Current time: {new Date().toISOString()}</p>
         </div>
 
         <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
@@ -25,17 +39,19 @@ export default function TestHydrationPage() {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             This will show different random numbers on server vs client:
           </p>
-          <p className="mt-2 font-mono text-sm">
-            Random: {Math.random()}
-          </p>
+          <p className="mt-2 font-mono text-sm">Random: {Math.random()}</p>
         </div>
 
         <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
           <h2 className="font-semibold mb-2">Instructions</h2>
           <ol className="list-decimal list-inside text-sm space-y-1">
             <li>Open browser DevTools console (F12)</li>
-            <li>Look for logs starting with <code className="bg-gray-200 px-1">[GlobalErrorHandler]</code></li>
-            <li>You should see:
+            <li>
+              Look for logs starting with{" "}
+              <code className="bg-gray-200 px-1">[GlobalErrorHandler]</code>
+            </li>
+            <li>
+              You should see:
               <ul className="list-disc list-inside ml-4 mt-1">
                 <li>🟢 Loaded and active</li>
                 <li>🎣 console.error interception installed</li>
@@ -61,5 +77,5 @@ export default function TestHydrationPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

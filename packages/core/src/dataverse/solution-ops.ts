@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { writeFile, readFile } from "node:fs/promises";
 import { DataverseClient, SolutionRecord } from "./client.js";
 import { SolutionMetadata } from "../config/schema.js";
@@ -94,10 +110,7 @@ export class SolutionOperations {
   /**
    * Export a solution to a zip file
    */
-  async exportSolution(
-    solutionName: string,
-    options: ExportOptions
-  ): Promise<SolutionMetadata> {
+  async exportSolution(solutionName: string, options: ExportOptions): Promise<SolutionMetadata> {
     // First, verify the solution exists
     const solution = await this.getSolution(solutionName);
     if (!solution) {
@@ -109,10 +122,10 @@ export class SolutionOperations {
       Managed: options.managed ?? true, // Default to managed for deployment
     };
 
-    const response = await this.client.executeAction<
-      ExportSolutionRequest,
-      ExportSolutionResponse
-    >("ExportSolution", request);
+    const response = await this.client.executeAction<ExportSolutionRequest, ExportSolutionResponse>(
+      "ExportSolution",
+      request
+    );
 
     // Decode base64 and write to file
     const solutionBuffer = Buffer.from(response.ExportSolutionFile, "base64");
@@ -130,10 +143,7 @@ export class SolutionOperations {
   /**
    * Import a solution from a zip file
    */
-  async importSolution(
-    solutionPath: string,
-    options: ImportOptions = {}
-  ): Promise<ImportResult> {
+  async importSolution(solutionPath: string, options: ImportOptions = {}): Promise<ImportResult> {
     // Read and encode the solution file
     const solutionBuffer = await readFile(solutionPath);
     const base64Solution = solutionBuffer.toString("base64");
@@ -149,10 +159,7 @@ export class SolutionOperations {
     };
 
     try {
-      await this.client.executeAction<ImportSolutionRequest, void>(
-        "ImportSolution",
-        request
-      );
+      await this.client.executeAction<ImportSolutionRequest, void>("ImportSolution", request);
 
       return {
         success: true,
@@ -171,10 +178,7 @@ export class SolutionOperations {
    * Import a solution asynchronously and return immediately
    * Use checkImportStatus to poll for completion
    */
-  async importSolutionAsync(
-    solutionPath: string,
-    options: ImportOptions = {}
-  ): Promise<string> {
+  async importSolutionAsync(solutionPath: string, options: ImportOptions = {}): Promise<string> {
     const solutionBuffer = await readFile(solutionPath);
     const base64Solution = solutionBuffer.toString("base64");
 
@@ -201,13 +205,10 @@ export class SolutionOperations {
     error?: string;
   }> {
     try {
-      const result = await this.client.get<{ value: ImportJobStatus[] }>(
-        "/importjobs",
-        {
-          $filter: `importjobid eq '${importJobId}'`,
-          $select: "importjobid,solutionname,progress,completedon,startedon,data",
-        }
-      );
+      const result = await this.client.get<{ value: ImportJobStatus[] }>("/importjobs", {
+        $filter: `importjobid eq '${importJobId}'`,
+        $select: "importjobid,solutionname,progress,completedon,startedon,data",
+      });
 
       if (result.value.length === 0) {
         return {
@@ -228,8 +229,7 @@ export class SolutionOperations {
       if (completed && job.data) {
         // The data field contains XML with import results
         // A successful import has no error elements
-        if (job.data.includes("<result result=\"failure\"") ||
-            job.data.includes("<errortext>")) {
+        if (job.data.includes('<result result="failure"') || job.data.includes("<errortext>")) {
           success = false;
           // Extract error message if present
           const errorMatch = job.data.match(/<errortext>([^<]+)<\/errortext>/);

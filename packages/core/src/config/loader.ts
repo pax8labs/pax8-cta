@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
@@ -32,7 +48,7 @@ function loadConfigFromEnv(): Config | null {
   if (!partnerTenantId || !partnerClientId || !sourceTenantId || !sourceEnvironmentUrl) {
     throw new ConfigError(
       "Incomplete environment configuration. When using env vars, you must set all of: " +
-      "PARTNER_TENANT_ID, PARTNER_CLIENT_ID, SOURCE_TENANT_ID, SOURCE_ENVIRONMENT_URL"
+        "PARTNER_TENANT_ID, PARTNER_CLIENT_ID, SOURCE_TENANT_ID, SOURCE_ENVIRONMENT_URL"
     );
   }
 
@@ -87,8 +103,8 @@ export async function loadConfig(configPath: string): Promise<Config> {
   if (!existsSync(configPath)) {
     throw new ConfigError(
       `Config file not found: ${configPath}\n` +
-      "Either create the config file or set environment variables:\n" +
-      "  PARTNER_TENANT_ID, PARTNER_CLIENT_ID, SOURCE_TENANT_ID, SOURCE_ENVIRONMENT_URL"
+        "Either create the config file or set environment variables:\n" +
+        "  PARTNER_TENANT_ID, PARTNER_CLIENT_ID, SOURCE_TENANT_ID, SOURCE_ENVIRONMENT_URL"
     );
   }
 
@@ -123,9 +139,7 @@ export async function loadConfig(configPath: string): Promise<Config> {
 export function getClientSecret(envVar: string = "PARTNER_CLIENT_SECRET"): string {
   const secret = process.env[envVar];
   if (!secret) {
-    throw new ConfigError(
-      `Missing client secret. Set the ${envVar} environment variable.`
-    );
+    throw new ConfigError(`Missing client secret. Set the ${envVar} environment variable.`);
   }
   return secret;
 }
@@ -133,42 +147,29 @@ export function getClientSecret(envVar: string = "PARTNER_CLIENT_SECRET"): strin
 /**
  * Filter tenants by tags
  */
-export function filterTenantsByTags(
-  config: Config,
-  tags: string[]
-): Config["tenants"] {
+export function filterTenantsByTags(config: Config, tags: string[]): Config["tenants"] {
   if (tags.length === 0) {
     return config.tenants.filter((t) => t.enabled);
   }
 
   return config.tenants.filter(
-    (tenant) =>
-      tenant.enabled &&
-      tags.some((tag) => tenant.tags?.includes(tag))
+    (tenant) => tenant.enabled && tags.some((tag) => tenant.tags?.includes(tag))
   );
 }
 
 /**
  * Filter tenants by name (partial match)
  */
-export function filterTenantsByName(
-  config: Config,
-  namePattern: string
-): Config["tenants"] {
+export function filterTenantsByName(config: Config, namePattern: string): Config["tenants"] {
   const pattern = namePattern.toLowerCase();
   return config.tenants.filter(
-    (tenant) =>
-      tenant.enabled &&
-      tenant.name.toLowerCase().includes(pattern)
+    (tenant) => tenant.enabled && tenant.name.toLowerCase().includes(pattern)
   );
 }
 
 /**
  * Get a single tenant by ID
  */
-export function getTenantById(
-  config: Config,
-  tenantId: string
-): Config["tenants"][0] | undefined {
+export function getTenantById(config: Config, tenantId: string): Config["tenants"][0] | undefined {
   return config.tenants.find((t) => t.tenantId === tenantId);
 }

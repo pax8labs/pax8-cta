@@ -1,23 +1,39 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+"use client";
 
 /**
  * Risk Assessment Modal Wrapper
  * Easy-to-integrate modal for showing deployment risk analysis
  */
 
-import { useEffect } from 'react'
-import { X } from 'lucide-react'
-import { RiskAssessment } from './RiskAssessment'
-import { useRiskAnalysis } from '@/hooks/useRiskAnalysis'
+import { useEffect } from "react";
+import { X } from "lucide-react";
+import { RiskAssessment } from "./RiskAssessment";
+import { useRiskAnalysis } from "@/hooks/useRiskAnalysis";
 
 interface RiskAssessmentModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onProceed: () => void
-  tenantIds: string[]
-  solutionFile?: string
-  solutionSize?: number
-  isProduction?: boolean
+  isOpen: boolean;
+  onClose: () => void;
+  onProceed: () => void;
+  tenantIds: string[];
+  solutionFile?: string;
+  solutionSize?: number;
+  isProduction?: boolean;
 }
 
 export function RiskAssessmentModal({
@@ -29,7 +45,7 @@ export function RiskAssessmentModal({
   solutionSize,
   isProduction = false,
 }: RiskAssessmentModalProps) {
-  const { analysis, loading, error, analyze, reset } = useRiskAnalysis()
+  const { analysis, loading, error, analyze, reset } = useRiskAnalysis();
 
   // Auto-analyze when modal opens
   useEffect(() => {
@@ -39,23 +55,20 @@ export function RiskAssessmentModal({
         solutionFile,
         solutionSize,
         isProduction,
-      })
+      });
     }
 
     if (!isOpen) {
-      reset()
+      reset();
     }
-  }, [isOpen, tenantIds, solutionFile, solutionSize, isProduction, analyze, reset])
+  }, [isOpen, tenantIds, solutionFile, solutionSize, isProduction, analyze, reset]);
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -74,7 +87,7 @@ export function RiskAssessmentModal({
               <div className="animate-spin inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full" />
               <p className="mt-4 text-gray-600 dark:text-gray-400">Analyzing deployment risk...</p>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
-                Checking {tenantIds.length} tenant{tenantIds.length > 1 ? 's' : ''}
+                Checking {tenantIds.length} tenant{tenantIds.length > 1 ? "s" : ""}
               </p>
             </div>
           )}
@@ -115,8 +128,8 @@ export function RiskAssessmentModal({
             <RiskAssessment
               analysis={analysis}
               onProceed={() => {
-                onClose()
-                onProceed()
+                onClose();
+                onProceed();
               }}
               onCancel={onClose}
             />
@@ -124,5 +137,5 @@ export function RiskAssessmentModal({
         </div>
       </div>
     </>
-  )
+  );
 }

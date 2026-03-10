@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { HealthCheck, parseDuration, TenantConfig } from "../config/schema.js";
 import { DataverseClient } from "../dataverse/client.js";
 
@@ -62,15 +78,10 @@ export class HealthCheckService {
       };
     }
 
-    const timeout = healthSettings.timeout
-      ? parseDuration(healthSettings.timeout)
-      : 30000;
+    const timeout = healthSettings.timeout ? parseDuration(healthSettings.timeout) : 30000;
 
     // Check 1: Dataverse connectivity
-    const dataverseCheck = await this.checkDataverseConnectivity(
-      client,
-      timeout
-    );
+    const dataverseCheck = await this.checkDataverseConnectivity(client, timeout);
     checks.push(dataverseCheck);
 
     // Check 2: Custom endpoint if configured
@@ -117,9 +128,7 @@ export class HealthCheckService {
       // Query WhoAmI to verify authentication and connectivity
       const result = await Promise.race([
         client.get<{ UserId: string; OrganizationId: string }>("/WhoAmI"),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), timeout)
-        ),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeout)),
       ]);
 
       clearTimeout(timeoutId);
@@ -175,8 +184,7 @@ export class HealthCheckService {
 
         lastError = `Unexpected status: ${response.status} (expected ${expectedStatus})`;
       } catch (error) {
-        lastError =
-          error instanceof Error ? error.message : String(error);
+        lastError = error instanceof Error ? error.message : String(error);
       }
 
       // Wait before retry
@@ -210,9 +218,7 @@ export class HealthCheckService {
           $top: "1",
           $select: "importjobid",
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), timeout)
-        ),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeout)),
       ]);
 
       return {
@@ -225,9 +231,7 @@ export class HealthCheckService {
       return {
         name: "solution_import_capability",
         passed: false,
-        message: `Access check failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        message: `Access check failed: ${error instanceof Error ? error.message : String(error)}`,
         durationMs: Date.now() - startTime,
       };
     }

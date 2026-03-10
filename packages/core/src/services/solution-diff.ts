@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { readFile } from "node:fs/promises";
 import * as crypto from "node:crypto";
 import { DataverseClient, SolutionOperations } from "../dataverse/index.js";
@@ -133,10 +149,7 @@ export class SolutionDiffService {
 
     // For a proper diff, we would need to extract components from the zip file
     // This is a simplified version that compares versions and basic info
-    const isUpgrade = this.compareVersions(
-      sourceMetadata.version,
-      installedSolution.version
-    ) > 0;
+    const isUpgrade = this.compareVersions(sourceMetadata.version, installedSolution.version) > 0;
 
     return {
       source: {
@@ -168,13 +181,10 @@ export class SolutionDiffService {
     client: DataverseClient,
     solutionId: string
   ): Promise<SolutionComponentRecord[]> {
-    const result = await client.get<{ value: SolutionComponentRecord[] }>(
-      "/solutioncomponents",
-      {
-        $filter: `_solutionid_value eq '${solutionId}'`,
-        $select: "solutioncomponentid,componenttype,objectid,rootsolutioncomponentid,ismetadata",
-      }
-    );
+    const result = await client.get<{ value: SolutionComponentRecord[] }>("/solutioncomponents", {
+      $filter: `_solutionid_value eq '${solutionId}'`,
+      $select: "solutioncomponentid,componenttype,objectid,rootsolutioncomponentid,ismetadata",
+    });
 
     return result.value;
   }
@@ -182,9 +192,7 @@ export class SolutionDiffService {
   /**
    * Parse solution.xml from a solution zip file
    */
-  async parseSolutionFile(
-    solutionPath: string
-  ): Promise<{
+  async parseSolutionFile(solutionPath: string): Promise<{
     uniqueName: string;
     version: string;
     friendlyName: string;
@@ -318,15 +326,15 @@ export class SolutionDiffService {
       return {
         valid: false,
         checksum: "",
-        errors: [`Failed to read solution file: ${error instanceof Error ? error.message : String(error)}`],
+        errors: [
+          `Failed to read solution file: ${error instanceof Error ? error.message : String(error)}`,
+        ],
       };
     }
 
     // Verify checksum if provided
     if (expectedChecksum && checksum !== expectedChecksum) {
-      errors.push(
-        `Checksum mismatch: expected ${expectedChecksum}, got ${checksum}`
-      );
+      errors.push(`Checksum mismatch: expected ${expectedChecksum}, got ${checksum}`);
     }
 
     // Try to parse the solution
@@ -345,9 +353,7 @@ export class SolutionDiffService {
   /**
    * Get summary of solution contents (for display purposes)
    */
-  async getSolutionSummary(
-    solutionPath: string
-  ): Promise<{
+  async getSolutionSummary(solutionPath: string): Promise<{
     uniqueName: string;
     version: string;
     friendlyName: string;

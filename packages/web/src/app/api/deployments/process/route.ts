@@ -1,4 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
 import {
   TokenManager,
   DataverseClient,
@@ -9,8 +25,8 @@ import {
   getEffectiveConnectionMappings,
   getEffectiveEnvironmentVariables,
   TenantConfig,
-} from '@agentsync/core';
-import { invalidRequest, internalError } from '@/lib/errors';
+} from "@agentsync/core";
+import { invalidRequest, internalError } from "@/lib/errors";
 
 /**
  * In-process deployment endpoint for simple/serverless deployments
@@ -26,7 +42,7 @@ import { invalidRequest, internalError } from '@/lib/errors';
  */
 
 export const maxDuration = 300; // 5 minute timeout for Vercel Pro
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 interface DeploymentRequest {
   tenantIds: string[];
@@ -45,24 +61,24 @@ interface TenantResult {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as DeploymentRequest;
+    const body = (await request.json()) as DeploymentRequest;
     const { tenantIds, solutionPath, solutionName } = body;
 
     if (!tenantIds?.length || !solutionPath) {
-      return invalidRequest('Missing required fields: tenantIds, solutionPath');
+      return invalidRequest("Missing required fields: tenantIds, solutionPath");
     }
 
     // Load config
-    const configPath = process.env.CONFIG_PATH || './config/tenants.yaml';
+    const configPath = process.env.CONFIG_PATH || "./config/tenants.yaml";
     const config = await loadConfig(configPath);
 
     // Filter to requested tenants
     const tenantsToProcess = config.tenants.filter(
-      t => tenantIds.includes(t.tenantId) && t.enabled !== false
+      (t) => tenantIds.includes(t.tenantId) && t.enabled !== false
     );
 
     if (tenantsToProcess.length === 0) {
-      return invalidRequest('No enabled tenants found matching the provided IDs');
+      return invalidRequest("No enabled tenants found matching the provided IDs");
     }
 
     // Process each tenant sequentially (for simplicity in serverless)
@@ -73,29 +89,31 @@ export async function POST(request: NextRequest) {
       const result = await deployToTenant(
         tenant,
         solutionPath,
-        solutionName || 'Unknown',
+        solutionName || "Unknown",
         config.partner.clientId,
         config
       );
       results.push(result);
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const failedCount = results.filter(r => !r.success).length;
+    const successCount = results.filter((r) => r.success).length;
+    const failedCount = results.filter((r) => !r.success).length;
 
     return NextResponse.json({
       deploymentId,
-      status: failedCount === 0 ? 'completed' : 'partial',
+      status: failedCount === 0 ? "completed" : "partial",
       totalTenants: tenantsToProcess.length,
       successCount,
       failedCount,
       results,
     });
   } catch (error) {
-    console.error('Deployment error:', error);
+    console.error("Deployment error:", error);
     return internalError(
-      'Failed to process deployment',
-      process.env.NODE_ENV === 'development' && error instanceof Error ? { error: error.message } : undefined
+      "Failed to process deployment",
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? { error: error.message }
+        : undefined
     );
   }
 }
@@ -143,7 +161,7 @@ async function deployToTenant(
         tenantId: tenant.tenantId,
         tenantName: tenant.name,
         success: false,
-        error: result.error || 'Import failed',
+        error: result.error || "Import failed",
         importJobId,
         durationMs: Date.now() - startTime,
       };

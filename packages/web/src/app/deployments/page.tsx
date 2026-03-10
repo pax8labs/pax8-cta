@@ -1,56 +1,79 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import React, { Suspense, useState, useMemo, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import useSWR from 'swr'
-import Link from 'next/link'
-import { toast } from 'sonner'
-import { trackEvent, trackDeployment, trackError } from '@/lib/posthog-client'
-import { DEPLOYMENT_STATUS_CATEGORIES, DeploymentJob, TenantDeploymentResult } from '@agentsync/core/client'
-import { FlaskSpinner } from '@/components/ui/flask-spinner'
+"use client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+import React, { Suspense, useState, useMemo, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import useSWR from "swr";
+import Link from "next/link";
+import { toast } from "sonner";
+import { trackEvent, trackDeployment, trackError } from "@/lib/posthog-client";
+import {
+  DEPLOYMENT_STATUS_CATEGORIES,
+  DeploymentJob,
+  TenantDeploymentResult,
+} from "@agentsync/core/client";
+import { FlaskSpinner } from "@/components/ui/flask-spinner";
 
-type StatusFilter = 'all' | 'active' | 'pending' | 'issues'
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+type StatusFilter = "all" | "active" | "pending" | "issues";
 
 // Map URL param values to internal filter values
 const filterUrlMap: Record<string, StatusFilter> = {
-  'all': 'all',
-  'active': 'active',
-  'pending': 'pending',
-  'issues': 'issues',
-}
+  all: "all",
+  active: "active",
+  pending: "pending",
+  issues: "issues",
+};
 
 interface DeploymentRecord {
-  tenantId: string
-  tenantName: string
-  agentName: string
-  agentVersion?: string
-  status: string
-  deployedAt?: string
-  deploymentId: string
-  error?: string
+  tenantId: string;
+  tenantName: string;
+  agentName: string;
+  agentVersion?: string;
+  status: string;
+  deployedAt?: string;
+  deploymentId: string;
+  error?: string;
 }
 
 // Extract tenant-agent deployment records from deployment jobs
 // When deduplicate=true (default), keeps only the most recent record per tenant-agent pair
 // When deduplicate=false, returns all records (useful for Issues view to show all failed deployments)
-function extractDeploymentRecords(deployments: DeploymentJob[], deduplicate: boolean = true): DeploymentRecord[] {
-  const records: DeploymentRecord[] = []
+function extractDeploymentRecords(
+  deployments: DeploymentJob[],
+  deduplicate: boolean = true
+): DeploymentRecord[] {
+  const records: DeploymentRecord[] = [];
 
   // Track seen tenant-agent pairs to only keep most recent
-  const seen = new Set<string>()
+  const seen = new Set<string>();
 
   // Process newest first
-  const sorted = [...deployments].sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  )
+  const sorted = [...deployments].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
   for (const deployment of sorted) {
     for (const result of deployment.tenantResults || []) {
-      const key = `${result.tenantId}-${deployment.solutionName}`
+      const key = `${result.tenantId}-${deployment.solutionName}`;
       if (!deduplicate || !seen.has(key)) {
-        seen.add(key)
+        seen.add(key);
         records.push({
           tenantId: result.tenantId,
           tenantName: result.tenantName,
@@ -60,65 +83,125 @@ function extractDeploymentRecords(deployments: DeploymentJob[], deduplicate: boo
           deployedAt: result.completedAt || result.startedAt || deployment.createdAt,
           deploymentId: deployment.id,
           error: result.error,
-        })
+        });
       }
     }
   }
 
-  return records
+  return records;
 }
 
 function formatTimeAgo(dateString?: string) {
-  if (!dateString) return '—'
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 const statusStyles: Record<string, { bg: string; text: string; dot: string; label: string }> = {
   // Active/completed states
-  completed: { bg: 'bg-emerald-50 dark:bg-emerald-900', text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', label: 'deployed' },
-  in_progress: { bg: 'bg-blue-50 dark:bg-blue-900', text: 'text-blue-700 dark:text-blue-300', dot: 'bg-blue-500', label: 'deploying' },
+  completed: {
+    bg: "bg-emerald-50 dark:bg-emerald-900",
+    text: "text-emerald-700 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    label: "deployed",
+  },
+  in_progress: {
+    bg: "bg-blue-50 dark:bg-blue-900",
+    text: "text-blue-700 dark:text-blue-300",
+    dot: "bg-blue-500",
+    label: "deploying",
+  },
 
   // Pending action states
-  pending: { bg: 'bg-slate-50 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300', dot: 'bg-slate-400', label: 'pending' },
-  scheduled: { bg: 'bg-purple-50 dark:bg-purple-900', text: 'text-purple-700 dark:text-purple-300', dot: 'bg-purple-500', label: 'scheduled' },
-  awaiting_approval: { bg: 'bg-amber-50 dark:bg-amber-900', text: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500', label: 'needs approval' },
-  approved: { bg: 'bg-teal-50 dark:bg-teal-900', text: 'text-teal-700 dark:text-teal-300', dot: 'bg-teal-500', label: 'approved' },
+  pending: {
+    bg: "bg-slate-50 dark:bg-slate-800",
+    text: "text-slate-600 dark:text-slate-300",
+    dot: "bg-slate-400",
+    label: "pending",
+  },
+  scheduled: {
+    bg: "bg-purple-50 dark:bg-purple-900",
+    text: "text-purple-700 dark:text-purple-300",
+    dot: "bg-purple-500",
+    label: "scheduled",
+  },
+  awaiting_approval: {
+    bg: "bg-amber-50 dark:bg-amber-900",
+    text: "text-amber-700 dark:text-amber-300",
+    dot: "bg-amber-500",
+    label: "needs approval",
+  },
+  approved: {
+    bg: "bg-teal-50 dark:bg-teal-900",
+    text: "text-teal-700 dark:text-teal-300",
+    dot: "bg-teal-500",
+    label: "approved",
+  },
 
   // Terminal failure states
-  failed: { bg: 'bg-rose-50 dark:bg-rose-900', text: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500', label: 'failed' },
-  rejected: { bg: 'bg-rose-50 dark:bg-rose-900', text: 'text-rose-600 dark:text-rose-300', dot: 'bg-rose-400', label: 'rejected' },
-  cancelled: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300', dot: 'bg-slate-500', label: 'cancelled' },
+  failed: {
+    bg: "bg-rose-50 dark:bg-rose-900",
+    text: "text-rose-700 dark:text-rose-300",
+    dot: "bg-rose-500",
+    label: "failed",
+  },
+  rejected: {
+    bg: "bg-rose-50 dark:bg-rose-900",
+    text: "text-rose-600 dark:text-rose-300",
+    dot: "bg-rose-400",
+    label: "rejected",
+  },
+  cancelled: {
+    bg: "bg-slate-100 dark:bg-slate-800",
+    text: "text-slate-600 dark:text-slate-300",
+    dot: "bg-slate-500",
+    label: "cancelled",
+  },
 
   // Rollback states
-  rolling_back: { bg: 'bg-orange-50 dark:bg-orange-900', text: 'text-orange-700 dark:text-orange-300', dot: 'bg-orange-500', label: 'rolling back' },
-  rolled_back: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-700 dark:text-slate-300', dot: 'bg-slate-500', label: 'rolled back' },
-}
+  rolling_back: {
+    bg: "bg-orange-50 dark:bg-orange-900",
+    text: "text-orange-700 dark:text-orange-300",
+    dot: "bg-orange-500",
+    label: "rolling back",
+  },
+  rolled_back: {
+    bg: "bg-slate-100 dark:bg-slate-800",
+    text: "text-slate-700 dark:text-slate-300",
+    dot: "bg-slate-500",
+    label: "rolled back",
+  },
+};
 
 function StatusBadge({ status, error }: { status: string; error?: string }) {
-  const style = statusStyles[status] || statusStyles.pending
-  const hasError = error && FAILED_STATUSES.includes(status)
+  const style = statusStyles[status] || statusStyles.pending;
+  const hasError = error && FAILED_STATUSES.includes(status);
 
   return (
     <span className="relative group inline-flex items-center">
       <span
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${style.bg} ${style.text} ${hasError ? 'cursor-help' : ''}`}
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${style.bg} ${style.text} ${hasError ? "cursor-help" : ""}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
         {style.label}
         {hasError && (
           <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         )}
       </span>
@@ -129,75 +212,98 @@ function StatusBadge({ status, error }: { status: string; error?: string }) {
         </span>
       )}
     </span>
-  )
+  );
 }
 
 // Status categories imported from @agentsync/core for consistency across the app
-const ACTIVE_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.ACTIVE as readonly string[]
-const PENDING_ACTION_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.PENDING_ACTION as readonly string[]
-const FAILED_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.FAILED as readonly string[]
-const RETRYABLE_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE as readonly string[]
+const ACTIVE_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.ACTIVE as readonly string[];
+const PENDING_ACTION_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.PENDING_ACTION as readonly string[];
+const FAILED_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.FAILED as readonly string[];
+const RETRYABLE_STATUSES = DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE as readonly string[];
 
 // Types for deployment progress tracking
 type DeploymentStepId =
-  | 'authenticating'
-  | 'validating'
-  | 'exporting'
-  | 'uploading'
-  | 'importing'
-  | 'configuring'
-  | 'verifying'
-  | 'completing'
+  | "authenticating"
+  | "validating"
+  | "exporting"
+  | "uploading"
+  | "importing"
+  | "configuring"
+  | "verifying"
+  | "completing";
 
 interface TenantProgress {
-  tenantId: string
-  tenantName: string
-  environmentUrl?: string
-  status: 'pending' | 'in_progress' | 'completed' | 'failed'
-  currentStep: DeploymentStepId | null
-  steps: Record<DeploymentStepId, { status: 'pending' | 'in_progress' | 'completed' | 'failed'; startedAt?: string; completedAt?: string; error?: string }>
-  error?: string
-  startedAt?: string
-  completedAt?: string
+  tenantId: string;
+  tenantName: string;
+  environmentUrl?: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  currentStep: DeploymentStepId | null;
+  steps: Record<
+    DeploymentStepId,
+    {
+      status: "pending" | "in_progress" | "completed" | "failed";
+      startedAt?: string;
+      completedAt?: string;
+      error?: string;
+    }
+  >;
+  error?: string;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 const DEPLOYMENT_STEPS: Record<DeploymentStepId, { label: string; description: string }> = {
-  authenticating: { label: 'Authenticating', description: 'Connecting to tenant with GDAP credentials' },
-  validating: { label: 'Validating', description: 'Checking environment compatibility and permissions' },
-  exporting: { label: 'Exporting', description: 'Exporting solution from source environment' },
-  uploading: { label: 'Uploading', description: 'Transferring solution package to target' },
-  importing: { label: 'Importing', description: 'Installing solution in target environment' },
-  configuring: { label: 'Configuring', description: 'Setting up connection references and variables' },
-  verifying: { label: 'Verifying', description: 'Confirming deployment was successful' },
-  completing: { label: 'Completing', description: 'Finalizing deployment and cleaning up' },
-}
+  authenticating: {
+    label: "Authenticating",
+    description: "Connecting to tenant with GDAP credentials",
+  },
+  validating: {
+    label: "Validating",
+    description: "Checking environment compatibility and permissions",
+  },
+  exporting: { label: "Exporting", description: "Exporting solution from source environment" },
+  uploading: { label: "Uploading", description: "Transferring solution package to target" },
+  importing: { label: "Importing", description: "Installing solution in target environment" },
+  configuring: {
+    label: "Configuring",
+    description: "Setting up connection references and variables",
+  },
+  verifying: { label: "Verifying", description: "Confirming deployment was successful" },
+  completing: { label: "Completing", description: "Finalizing deployment and cleaning up" },
+};
 
 const STEP_ORDER: DeploymentStepId[] = [
-  'authenticating', 'validating', 'exporting', 'uploading',
-  'importing', 'configuring', 'verifying', 'completing',
-]
+  "authenticating",
+  "validating",
+  "exporting",
+  "uploading",
+  "importing",
+  "configuring",
+  "verifying",
+  "completing",
+];
 
 function calculateDuration(startedAt?: string, completedAt?: string): string {
-  if (!startedAt) return '-'
-  const start = new Date(startedAt).getTime()
-  const end = completedAt ? new Date(completedAt).getTime() : Date.now()
-  const durationMs = end - start
-  if (durationMs < 1000) return `${durationMs}ms`
-  if (durationMs < 60000) return `${Math.round(durationMs / 1000)}s`
-  return `${Math.round(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`
+  if (!startedAt) return "-";
+  const start = new Date(startedAt).getTime();
+  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+  const durationMs = end - start;
+  if (durationMs < 1000) return `${durationMs}ms`;
+  if (durationMs < 60000) return `${Math.round(durationMs / 1000)}s`;
+  return `${Math.round(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`;
 }
 
 function getDetailedLogMessage(
   stepId: DeploymentStepId,
   tenant: TenantProgress,
-  status: 'started' | 'completed' | 'failed',
+  status: "started" | "completed" | "failed",
   solutionName?: string
 ): string {
-  const tenantShort = tenant.tenantId.slice(0, 8)
+  const tenantShort = tenant.tenantId.slice(0, 8);
   const envDomain = tenant.environmentUrl
-    ? new URL(tenant.environmentUrl).hostname.split('.')[0]
-    : 'environment'
-  const solution = solutionName || 'solution'
+    ? new URL(tenant.environmentUrl).hostname.split(".")[0]
+    : "environment";
+  const solution = solutionName || "solution";
 
   const messages: Record<DeploymentStepId, { started: string; completed: string }> = {
     authenticating: {
@@ -232,22 +338,22 @@ function getDetailedLogMessage(
       started: `Finalizing ${solution} deployment...`,
       completed: `${solution} deployed to ${tenant.tenantName}`,
     },
-  }
+  };
 
-  const stepMessages = messages[stepId]
-  return status === 'started' ? stepMessages.started : stepMessages.completed
+  const stepMessages = messages[stepId];
+  return status === "started" ? stepMessages.started : stepMessages.completed;
 }
 
 // SSE Message types for type-safe parsing
 interface SSEMessage {
-  type: string
-  tenantId?: string
-  tenantName?: string
-  environmentUrl?: string
-  timestamp?: string
-  stepId?: string
-  error?: string
-  message?: string
+  type: string;
+  tenantId?: string;
+  tenantName?: string;
+  environmentUrl?: string;
+  timestamp?: string;
+  stepId?: string;
+  error?: string;
+  message?: string;
 }
 
 // Retry Progress Modal - shows live terminal log when retrying deployments
@@ -257,230 +363,248 @@ function RetryProgressModal({
   deploymentIds,
   onComplete,
 }: {
-  isOpen: boolean
-  onClose: () => void
-  deploymentIds: string[]
-  onComplete: () => void
+  isOpen: boolean;
+  onClose: () => void;
+  deploymentIds: string[];
+  onComplete: () => void;
 }) {
-  const [tenantProgress, setTenantProgress] = React.useState<Map<string, TenantProgress>>(new Map())
-  const [deploymentStatus, setDeploymentStatus] = React.useState<'connecting' | 'in_progress' | 'completed' | 'failed'>('connecting')
-  const [selectedTenantId, setSelectedTenantId] = React.useState<string | null>(null)
-  const eventSourceRef = React.useRef<EventSource | null>(null)
-  const [completedDeployments, setCompletedDeployments] = React.useState(0)
-  const mountedRef = React.useRef(true)
+  const [tenantProgress, setTenantProgress] = React.useState<Map<string, TenantProgress>>(
+    new Map()
+  );
+  const [deploymentStatus, setDeploymentStatus] = React.useState<
+    "connecting" | "in_progress" | "completed" | "failed"
+  >("connecting");
+  const [selectedTenantId, setSelectedTenantId] = React.useState<string | null>(null);
+  const eventSourceRef = React.useRef<EventSource | null>(null);
+  const [completedDeployments, setCompletedDeployments] = React.useState(0);
+  const mountedRef = React.useRef(true);
 
   // Track mounted state to prevent state updates after unmount
   React.useEffect(() => {
-    mountedRef.current = true
+    mountedRef.current = true;
     return () => {
-      mountedRef.current = false
-    }
-  }, [])
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Connect to SSE for each deployment being retried
   React.useEffect(() => {
-    if (!isOpen || deploymentIds.length === 0) return
+    if (!isOpen || deploymentIds.length === 0) return;
 
-    setDeploymentStatus('connecting')
-    setTenantProgress(new Map())
-    setCompletedDeployments(0)
+    setDeploymentStatus("connecting");
+    setTenantProgress(new Map());
+    setCompletedDeployments(0);
 
-    let completedCount = 0
+    let completedCount = 0;
 
     // For now, just connect to the first deployment's progress
     // (Multi-deployment support can be added later)
-    const deploymentId = deploymentIds[0]
-    const eventSource = new EventSource(`/api/deployments/${deploymentId}/progress?k=${Date.now()}`)
-    eventSourceRef.current = eventSource
+    const deploymentId = deploymentIds[0];
+    const eventSource = new EventSource(
+      `/api/deployments/${deploymentId}/progress?k=${Date.now()}`
+    );
+    eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
       if (mountedRef.current) {
-        setDeploymentStatus('in_progress')
+        setDeploymentStatus("in_progress");
       }
-    }
+    };
 
     eventSource.onmessage = (event) => {
       // Don't process messages if component is unmounted
-      if (!mountedRef.current) return
+      if (!mountedRef.current) return;
 
       // Parse SSE data with error handling
-      let data: SSEMessage
+      let data: SSEMessage;
       try {
-        data = JSON.parse(event.data) as SSEMessage
+        data = JSON.parse(event.data) as SSEMessage;
       } catch (parseError) {
-        console.error('Failed to parse SSE message:', parseError, event.data)
-        return
+        console.error("Failed to parse SSE message:", parseError, event.data);
+        return;
       }
 
       // Validate required fields for tenant events
-      const tenantId = data.tenantId
-      if (!tenantId && data.type !== 'deployment_completed' && data.type !== 'error') {
-        console.warn('SSE message missing tenantId:', data)
-        return
+      const tenantId = data.tenantId;
+      if (!tenantId && data.type !== "deployment_completed" && data.type !== "error") {
+        console.warn("SSE message missing tenantId:", data);
+        return;
       }
 
       switch (data.type) {
-        case 'tenant_started':
-          if (!tenantId) return
-          setTenantProgress(prev => {
-            const newMap = new Map(prev)
+        case "tenant_started":
+          if (!tenantId) return;
+          setTenantProgress((prev) => {
+            const newMap = new Map(prev);
             newMap.set(tenantId, {
               tenantId,
-              tenantName: data.tenantName || 'Unknown',
+              tenantName: data.tenantName || "Unknown",
               environmentUrl: data.environmentUrl,
-              status: 'in_progress',
+              status: "in_progress",
               currentStep: null,
               startedAt: data.timestamp,
-              steps: Object.keys(DEPLOYMENT_STEPS).reduce((acc, key) => ({
-                ...acc,
-                [key]: { status: 'pending' }
-              }), {} as TenantProgress['steps'])
-            })
+              steps: Object.keys(DEPLOYMENT_STEPS).reduce(
+                (acc, key) => ({
+                  ...acc,
+                  [key]: { status: "pending" },
+                }),
+                {} as TenantProgress["steps"]
+              ),
+            });
             // Auto-select first tenant
-            setSelectedTenantId(prev => prev || tenantId)
-            return newMap
-          })
-          break
+            setSelectedTenantId((prev) => prev || tenantId);
+            return newMap;
+          });
+          break;
 
-        case 'step_started':
-          if (!tenantId) return
-          setTenantProgress(prev => {
-            const newMap = new Map(prev)
-            const tenant = newMap.get(tenantId)
+        case "step_started":
+          if (!tenantId) return;
+          setTenantProgress((prev) => {
+            const newMap = new Map(prev);
+            const tenant = newMap.get(tenantId);
             if (tenant && data.stepId) {
               newMap.set(tenantId, {
                 ...tenant,
                 currentStep: data.stepId as DeploymentStepId,
                 steps: {
                   ...tenant.steps,
-                  [data.stepId]: { status: 'in_progress', startedAt: data.timestamp }
-                }
-              })
+                  [data.stepId]: { status: "in_progress", startedAt: data.timestamp },
+                },
+              });
             }
-            return newMap
-          })
-          break
+            return newMap;
+          });
+          break;
 
-        case 'step_completed':
-          if (!tenantId) return
-          setTenantProgress(prev => {
-            const newMap = new Map(prev)
-            const tenant = newMap.get(tenantId)
+        case "step_completed":
+          if (!tenantId) return;
+          setTenantProgress((prev) => {
+            const newMap = new Map(prev);
+            const tenant = newMap.get(tenantId);
             if (tenant && data.stepId) {
               newMap.set(tenantId, {
                 ...tenant,
                 steps: {
                   ...tenant.steps,
-                  [data.stepId]: { status: 'completed', startedAt: tenant.steps[data.stepId as DeploymentStepId]?.startedAt, completedAt: data.timestamp }
-                }
-              })
+                  [data.stepId]: {
+                    status: "completed",
+                    startedAt: tenant.steps[data.stepId as DeploymentStepId]?.startedAt,
+                    completedAt: data.timestamp,
+                  },
+                },
+              });
             }
-            return newMap
-          })
-          break
+            return newMap;
+          });
+          break;
 
-        case 'step_failed':
-          if (!tenantId) return
-          setTenantProgress(prev => {
-            const newMap = new Map(prev)
-            const tenant = newMap.get(tenantId)
+        case "step_failed":
+          if (!tenantId) return;
+          setTenantProgress((prev) => {
+            const newMap = new Map(prev);
+            const tenant = newMap.get(tenantId);
             if (tenant && data.stepId) {
               newMap.set(tenantId, {
                 ...tenant,
-                status: 'failed',
+                status: "failed",
                 error: data.error,
                 steps: {
                   ...tenant.steps,
-                  [data.stepId]: { status: 'failed', error: data.error, startedAt: tenant.steps[data.stepId as DeploymentStepId]?.startedAt, completedAt: data.timestamp }
-                }
-              })
+                  [data.stepId]: {
+                    status: "failed",
+                    error: data.error,
+                    startedAt: tenant.steps[data.stepId as DeploymentStepId]?.startedAt,
+                    completedAt: data.timestamp,
+                  },
+                },
+              });
             }
-            return newMap
-          })
-          break
+            return newMap;
+          });
+          break;
 
-        case 'tenant_completed':
-          if (!tenantId) return
-          setTenantProgress(prev => {
-            const newMap = new Map(prev)
-            const tenant = newMap.get(tenantId)
+        case "tenant_completed":
+          if (!tenantId) return;
+          setTenantProgress((prev) => {
+            const newMap = new Map(prev);
+            const tenant = newMap.get(tenantId);
             if (tenant) {
               newMap.set(tenantId, {
                 ...tenant,
-                status: 'completed',
+                status: "completed",
                 completedAt: data.timestamp,
                 currentStep: null,
-              })
+              });
             }
-            return newMap
-          })
-          break
+            return newMap;
+          });
+          break;
 
-        case 'tenant_failed':
-          if (!tenantId) return
-          setTenantProgress(prev => {
-            const newMap = new Map(prev)
-            const tenant = newMap.get(tenantId)
+        case "tenant_failed":
+          if (!tenantId) return;
+          setTenantProgress((prev) => {
+            const newMap = new Map(prev);
+            const tenant = newMap.get(tenantId);
             if (tenant) {
               newMap.set(tenantId, {
                 ...tenant,
-                status: 'failed',
+                status: "failed",
                 error: data.error,
                 completedAt: data.timestamp,
                 currentStep: null,
-              })
+              });
             }
-            return newMap
-          })
-          break
+            return newMap;
+          });
+          break;
 
-        case 'deployment_completed':
-          completedCount++
-          setCompletedDeployments(completedCount)
+        case "deployment_completed":
+          completedCount++;
+          setCompletedDeployments(completedCount);
           if (completedCount >= deploymentIds.length) {
-            setDeploymentStatus('completed')
+            setDeploymentStatus("completed");
           }
-          break
+          break;
 
-        case 'error':
-          console.error('SSE error:', data.message)
-          break
+        case "error":
+          console.error("SSE error:", data.message);
+          break;
       }
-    }
+    };
 
     eventSource.onerror = () => {
-      eventSource.close()
+      eventSource.close();
       // If we never got past connecting, mark as failed
       if (mountedRef.current) {
-        setDeploymentStatus(prev => prev === 'connecting' ? 'failed' : prev)
+        setDeploymentStatus((prev) => (prev === "connecting" ? "failed" : prev));
       }
-    }
+    };
 
     return () => {
-      eventSource.close()
-      eventSourceRef.current = null
-    }
-  }, [isOpen, deploymentIds])
+      eventSource.close();
+      eventSourceRef.current = null;
+    };
+  }, [isOpen, deploymentIds]);
 
   // Get current tenant progress
-  const tenants = Array.from(tenantProgress.values())
-  const selectedTenant = selectedTenantId ? tenantProgress.get(selectedTenantId) : tenants[0]
-  const completedTenants = tenants.filter(t => t.status === 'completed').length
-  const failedTenants = tenants.filter(t => t.status === 'failed').length
-  const inProgressTenants = tenants.filter(t => t.status === 'in_progress').length
-  const isComplete = deploymentStatus === 'completed' || deploymentStatus === 'failed'
+  const tenants = Array.from(tenantProgress.values());
+  const selectedTenant = selectedTenantId ? tenantProgress.get(selectedTenantId) : tenants[0];
+  const completedTenants = tenants.filter((t) => t.status === "completed").length;
+  const failedTenants = tenants.filter((t) => t.status === "failed").length;
+  const inProgressTenants = tenants.filter((t) => t.status === "in_progress").length;
+  const isComplete = deploymentStatus === "completed" || deploymentStatus === "failed";
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   const formatLogTime = (timestamp?: string) => {
-    if (!timestamp) return ''
-    return new Date(timestamp).toLocaleTimeString('en-US', {
+    if (!timestamp) return "";
+    return new Date(timestamp).toLocaleTimeString("en-US", {
       hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-  }
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -502,9 +626,7 @@ function RetryProgressModal({
                 <div className="w-3 h-3 rounded-full bg-yellow-500" />
                 <div className="w-3 h-3 rounded-full bg-green-500" />
               </div>
-              <span className="ml-3 text-slate-400 text-sm font-medium">
-                Retry Progress
-              </span>
+              <span className="ml-3 text-slate-400 text-sm font-medium">Retry Progress</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500">
               {inProgressTenants > 0 && (
@@ -513,32 +635,37 @@ function RetryProgressModal({
               {completedTenants > 0 && (
                 <span className="text-emerald-400">{completedTenants} done</span>
               )}
-              {failedTenants > 0 && (
-                <span className="text-red-400">{failedTenants} failed</span>
-              )}
+              {failedTenants > 0 && <span className="text-red-400">{failedTenants} failed</span>}
             </div>
           </div>
 
           {/* Tenant tabs */}
           {tenants.length > 1 && (
             <div className="flex gap-1 px-4 pt-2 bg-slate-850 border-b border-slate-700 overflow-x-auto">
-              {tenants.map(tenant => (
+              {tenants.map((tenant) => (
                 <button
                   key={tenant.tenantId}
                   onClick={() => setSelectedTenantId(tenant.tenantId)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-t transition-colors flex items-center gap-1.5 ${
                     selectedTenantId === tenant.tenantId
-                      ? 'bg-slate-900 text-slate-200'
-                      : 'bg-slate-800 text-slate-400 hover:text-slate-300'
+                      ? "bg-slate-900 text-slate-200"
+                      : "bg-slate-800 text-slate-400 hover:text-slate-300"
                   }`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${
-                    tenant.status === 'completed' ? 'bg-emerald-400' :
-                    tenant.status === 'failed' ? 'bg-red-400' :
-                    tenant.status === 'in_progress' ? 'bg-yellow-400 animate-pulse' :
-                    'bg-slate-500'
-                  }`} />
-                  {tenant.tenantName.length > 20 ? tenant.tenantName.slice(0, 20) + '...' : tenant.tenantName}
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      tenant.status === "completed"
+                        ? "bg-emerald-400"
+                        : tenant.status === "failed"
+                          ? "bg-red-400"
+                          : tenant.status === "in_progress"
+                            ? "bg-yellow-400 animate-pulse"
+                            : "bg-slate-500"
+                    }`}
+                  />
+                  {tenant.tenantName.length > 20
+                    ? tenant.tenantName.slice(0, 20) + "..."
+                    : tenant.tenantName}
                 </button>
               ))}
             </div>
@@ -546,7 +673,7 @@ function RetryProgressModal({
 
           {/* Terminal content */}
           <div className="p-4 font-mono text-sm min-h-[300px] max-h-[400px] overflow-y-auto">
-            {deploymentStatus === 'connecting' ? (
+            {deploymentStatus === "connecting" ? (
               <div className="flex items-center justify-center h-full text-slate-500">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
@@ -563,17 +690,19 @@ function RetryProgressModal({
                 <div className="flex items-center gap-2 mb-3 text-slate-400">
                   <span className="text-blue-400">$</span>
                   <span>
-                    agentsync deploy <span className="text-emerald-400">solution</span>{' '}
-                    --tenant <span className="text-cyan-400">{selectedTenant.tenantId.slice(0, 8)}</span>{' '}
+                    agentsync deploy <span className="text-emerald-400">solution</span> --tenant{" "}
+                    <span className="text-cyan-400">{selectedTenant.tenantId.slice(0, 8)}</span>{" "}
                     <span className="text-slate-500"># {selectedTenant.tenantName}</span>
                   </span>
                   {selectedTenant.startedAt && (
-                    <span className="ml-auto text-slate-500">[{calculateDuration(selectedTenant.startedAt, selectedTenant.completedAt)}]</span>
+                    <span className="ml-auto text-slate-500">
+                      [{calculateDuration(selectedTenant.startedAt, selectedTenant.completedAt)}]
+                    </span>
                   )}
                 </div>
 
                 {/* Error banner if failed */}
-                {selectedTenant.status === 'failed' && selectedTenant.error && (
+                {selectedTenant.status === "failed" && selectedTenant.error && (
                   <div className="mb-3 px-3 py-2 bg-red-950/50 border border-red-800/50 rounded text-red-300">
                     <span className="text-red-400">ERROR:</span> {selectedTenant.error}
                   </div>
@@ -581,25 +710,25 @@ function RetryProgressModal({
 
                 {/* Step logs */}
                 <div className="space-y-1">
-                  {STEP_ORDER.map(stepId => {
-                    const step = selectedTenant.steps[stepId]
-                    const isStepActive = step?.status === 'in_progress'
-                    const isStepDone = step?.status === 'completed'
-                    const isStepFailed = step?.status === 'failed'
-                    const isPending = !step || step.status === 'pending'
+                  {STEP_ORDER.map((stepId) => {
+                    const step = selectedTenant.steps[stepId];
+                    const isStepActive = step?.status === "in_progress";
+                    const isStepDone = step?.status === "completed";
+                    const isStepFailed = step?.status === "failed";
+                    const isPending = !step || step.status === "pending";
 
-                    if (isPending) return null
+                    if (isPending) return null;
 
                     const logMessage = getDetailedLogMessage(
                       stepId,
                       selectedTenant,
-                      isStepActive ? 'started' : isStepDone ? 'completed' : 'failed'
-                    )
+                      isStepActive ? "started" : isStepDone ? "completed" : "failed"
+                    );
 
                     return (
                       <div key={stepId} className="flex items-start gap-3">
                         <span className="text-slate-600 shrink-0 w-16">
-                          {step?.startedAt ? formatLogTime(step.startedAt) : ''}
+                          {step?.startedAt ? formatLogTime(step.startedAt) : ""}
                         </span>
                         <span className="shrink-0 w-4">
                           {isStepActive ? (
@@ -610,22 +739,27 @@ function RetryProgressModal({
                             <span className="text-red-400">✗</span>
                           ) : null}
                         </span>
-                        <span className={`flex-1 ${
-                          isStepActive ? 'text-yellow-200' :
-                          isStepDone ? 'text-slate-400' :
-                          isStepFailed ? 'text-red-300' :
-                          'text-slate-500'
-                        }`}>
+                        <span
+                          className={`flex-1 ${
+                            isStepActive
+                              ? "text-yellow-200"
+                              : isStepDone
+                                ? "text-slate-400"
+                                : isStepFailed
+                                  ? "text-red-300"
+                                  : "text-slate-500"
+                          }`}
+                        >
                           {logMessage}
                           {isStepActive && <span className="animate-pulse">...</span>}
                         </span>
                       </div>
-                    )
+                    );
                   })}
                 </div>
 
                 {/* Blinking cursor when active */}
-                {selectedTenant.status === 'in_progress' && (
+                {selectedTenant.status === "in_progress" && (
                   <div className="flex items-center gap-3 mt-3 text-slate-500">
                     <span className="w-16"></span>
                     <span className="w-4"></span>
@@ -634,10 +768,8 @@ function RetryProgressModal({
                 )}
 
                 {/* Completion message */}
-                {selectedTenant.status === 'completed' && (
-                  <div className="mt-3 text-emerald-400">
-                    ✓ Deployment completed successfully
-                  </div>
+                {selectedTenant.status === "completed" && (
+                  <div className="mt-3 text-emerald-400">✓ Deployment completed successfully</div>
                 )}
               </div>
             ) : null}
@@ -650,356 +782,390 @@ function RetryProgressModal({
                 completedTenants === tenants.length ? (
                   <span className="text-emerald-400">All deployments completed successfully</span>
                 ) : failedTenants > 0 ? (
-                  <span className="text-amber-400">{completedTenants} succeeded, {failedTenants} failed</span>
+                  <span className="text-amber-400">
+                    {completedTenants} succeeded, {failedTenants} failed
+                  </span>
                 ) : (
                   <span>Deployment finished</span>
                 )
               ) : (
-                <span>Deploying to {tenants.length} tenant{tenants.length !== 1 ? 's' : ''}...</span>
+                <span>
+                  Deploying to {tenants.length} tenant{tenants.length !== 1 ? "s" : ""}...
+                </span>
               )}
             </div>
             <button
               onClick={() => {
-                onClose()
-                if (isComplete) onComplete()
+                onClose();
+                if (isComplete) onComplete();
               }}
               className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${
                 isComplete
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-slate-700 hover:bg-slate-600 text-slate-300"
               }`}
             >
-              {isComplete ? 'Done' : 'Close'}
+              {isComplete ? "Done" : "Close"}
             </button>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-type ViewMode = 'tenants' | 'batches'
+type ViewMode = "tenants" | "batches";
 
 // Delay before showing loading spinner to avoid flash on fast loads
-const LOADING_DELAY_MS = 200
+const LOADING_DELAY_MS = 200;
 
 function DeploymentsContent() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Initialize filter from URL param
-  const initialFilter = filterUrlMap[searchParams.get('filter') || ''] || 'all'
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter)
+  const initialFilter = filterUrlMap[searchParams.get("filter") || ""] || "all";
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilter);
   // Initialize view mode from URL param
-  const initialView = (searchParams.get('view') === 'tenants' ? 'tenants' : 'batches') as ViewMode
-  const [viewMode, setViewMode] = useState<ViewMode>(initialView)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set())
-  const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set())
-  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set())
-  const [bulkRetrying, setBulkRetrying] = useState(false)
-  const [bulkMessage, setBulkMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [retryModalOpen, setRetryModalOpen] = useState(false)
-  const [retryDeploymentIds, setRetryDeploymentIds] = useState<string[]>([])
-  const [showSpinner, setShowSpinner] = useState(false)
+  const initialView = (searchParams.get("view") === "tenants" ? "tenants" : "batches") as ViewMode;
+  const [viewMode, setViewMode] = useState<ViewMode>(initialView);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
+  const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+  const [bulkRetrying, setBulkRetrying] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [retryModalOpen, setRetryModalOpen] = useState(false);
+  const [retryDeploymentIds, setRetryDeploymentIds] = useState<string[]>([]);
+  const [showSpinner, setShowSpinner] = useState(false);
 
   // Sync URL with filter and view mode changes
   useEffect(() => {
-    const currentFilterParam = searchParams.get('filter')
-    const expectedFilterParam = statusFilter === 'all' ? null : statusFilter
-    const currentViewParam = searchParams.get('view')
-    const expectedViewParam = viewMode === 'batches' ? null : viewMode
+    const currentFilterParam = searchParams.get("filter");
+    const expectedFilterParam = statusFilter === "all" ? null : statusFilter;
+    const currentViewParam = searchParams.get("view");
+    const expectedViewParam = viewMode === "batches" ? null : viewMode;
 
     if (currentFilterParam !== expectedFilterParam || currentViewParam !== expectedViewParam) {
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams.toString());
       if (expectedFilterParam) {
-        params.set('filter', expectedFilterParam)
+        params.set("filter", expectedFilterParam);
       } else {
-        params.delete('filter')
+        params.delete("filter");
       }
       if (expectedViewParam) {
-        params.set('view', expectedViewParam)
+        params.set("view", expectedViewParam);
       } else {
-        params.delete('view')
+        params.delete("view");
       }
-      router.replace(`/deployments${params.toString() ? '?' + params.toString() : ''}`, { scroll: false })
+      router.replace(`/deployments${params.toString() ? "?" + params.toString() : ""}`, {
+        scroll: false,
+      });
     }
-  }, [statusFilter, viewMode, searchParams, router])
+  }, [statusFilter, viewMode, searchParams, router]);
 
   // Auto-switch to tenants view when Issues filter is selected (retry UI is only in tenants view)
   useEffect(() => {
-    if (statusFilter === 'issues') {
-      setViewMode('tenants')
+    if (statusFilter === "issues") {
+      setViewMode("tenants");
     }
-  }, [statusFilter])
+  }, [statusFilter]);
 
   // Disable auto-refresh on Issues tab to prevent confusion after retries
-  const refreshInterval = statusFilter === 'issues' ? 30000 : 5000
-  const { data, error, isLoading, mutate } = useSWR('/api/deployments?limit=100', fetcher, { refreshInterval })
-  const deployments = data?.deployments ?? []
+  const refreshInterval = statusFilter === "issues" ? 30000 : 5000;
+  const { data, error, isLoading, mutate } = useSWR("/api/deployments?limit=100", fetcher, {
+    refreshInterval,
+  });
+  const deployments = data?.deployments ?? [];
 
   // Delay showing spinner to avoid flash on fast loads
   useEffect(() => {
     if (isLoading) {
-      const timer = setTimeout(() => setShowSpinner(true), LOADING_DELAY_MS)
-      return () => clearTimeout(timer)
+      const timer = setTimeout(() => setShowSpinner(true), LOADING_DELAY_MS);
+      return () => clearTimeout(timer);
     } else {
-      setShowSpinner(false)
+      setShowSpinner(false);
     }
-  }, [isLoading])
+  }, [isLoading]);
 
   // For Issues filter, don't deduplicate so we show ALL failed deployments (even if later succeeded)
   // For other filters, deduplicate to show current state per tenant-agent pair
-  const records = useMemo(() => extractDeploymentRecords(deployments, true), [deployments])
+  const records = useMemo(() => extractDeploymentRecords(deployments, true), [deployments]);
   const allFailedRecords = useMemo(() => {
     // Extract all records without deduplication, then filter to only failed ones
-    return extractDeploymentRecords(deployments, false).filter(r => FAILED_STATUSES.includes(r.status))
-  }, [deployments])
+    return extractDeploymentRecords(deployments, false).filter((r) =>
+      FAILED_STATUSES.includes(r.status)
+    );
+  }, [deployments]);
 
   const filteredRecords = useMemo(() => {
     // For Issues filter, use the non-deduplicated failed records
-    if (statusFilter === 'issues') {
-      let issueRecords = allFailedRecords
+    if (statusFilter === "issues") {
+      let issueRecords = allFailedRecords;
       // Apply search filter
       if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        issueRecords = issueRecords.filter(r =>
-          r.tenantName.toLowerCase().includes(q) || r.agentName.toLowerCase().includes(q)
-        )
+        const q = searchQuery.toLowerCase();
+        issueRecords = issueRecords.filter(
+          (r) => r.tenantName.toLowerCase().includes(q) || r.agentName.toLowerCase().includes(q)
+        );
       }
-      return issueRecords
+      return issueRecords;
     }
 
     // For other filters, use deduplicated records
-    return records.filter(r => {
+    return records.filter((r) => {
       // Status filter - using category groupings
-      if (statusFilter === 'active' && !ACTIVE_STATUSES.includes(r.status)) return false
-      if (statusFilter === 'pending' && !PENDING_ACTION_STATUSES.includes(r.status)) return false
+      if (statusFilter === "active" && !ACTIVE_STATUSES.includes(r.status)) return false;
+      if (statusFilter === "pending" && !PENDING_ACTION_STATUSES.includes(r.status)) return false;
 
       // Search filter
       if (searchQuery) {
-        const q = searchQuery.toLowerCase()
+        const q = searchQuery.toLowerCase();
         if (!r.tenantName.toLowerCase().includes(q) && !r.agentName.toLowerCase().includes(q)) {
-          return false
+          return false;
         }
       }
 
-      return true
-    })
-  }, [records, allFailedRecords, statusFilter, searchQuery])
+      return true;
+    });
+  }, [records, allFailedRecords, statusFilter, searchQuery]);
 
   // Get retryable records (failed or cancelled)
   const retryableRecords = useMemo(() => {
-    return filteredRecords.filter(r => RETRYABLE_STATUSES.includes(r.status))
-  }, [filteredRecords])
+    return filteredRecords.filter((r) => RETRYABLE_STATUSES.includes(r.status));
+  }, [filteredRecords]);
 
   // Stats using category groupings
   const stats = useMemo(() => {
-    const active = records.filter(r => ACTIVE_STATUSES.includes(r.status)).length
-    const pendingAction = records.filter(r => PENDING_ACTION_STATUSES.includes(r.status)).length
-    const failed = records.filter(r => FAILED_STATUSES.includes(r.status)).length
-    return { active, pendingAction, failed, total: records.length }
-  }, [records])
+    const active = records.filter((r) => ACTIVE_STATUSES.includes(r.status)).length;
+    const pendingAction = records.filter((r) => PENDING_ACTION_STATUSES.includes(r.status)).length;
+    const failed = records.filter((r) => FAILED_STATUSES.includes(r.status)).length;
+    return { active, pendingAction, failed, total: records.length };
+  }, [records]);
 
   // Batch-level stats
   const batchStats = useMemo(() => {
-    const inProgress = deployments.filter((d: DeploymentJob) => d.status === 'in_progress').length
-    const completed = deployments.filter((d: DeploymentJob) => d.status === 'completed').length
+    const inProgress = deployments.filter((d: DeploymentJob) => d.status === "in_progress").length;
+    const completed = deployments.filter((d: DeploymentJob) => d.status === "completed").length;
     // Count batches with any failures (matches Issues filter logic)
     const withFailures = deployments.filter((d: DeploymentJob) =>
       d.tenantResults?.some((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status))
-    ).length
-    return { inProgress, completed, withFailures, total: deployments.length }
-  }, [deployments])
+    ).length;
+    return { inProgress, completed, withFailures, total: deployments.length };
+  }, [deployments]);
 
   // Filter batches based on status filter
   const filteredBatches = useMemo(() => {
-    return deployments.filter((d: DeploymentJob) => {
-      if (statusFilter === 'all') return true
-      if (statusFilter === 'active') return d.status === 'in_progress' || d.status === 'completed'
-      if (statusFilter === 'pending') return d.status === 'pending' || d.status === 'scheduled'
-      if (statusFilter === 'issues') {
-        return d.tenantResults?.some((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status))
-      }
-      return true
-    }).filter((d: DeploymentJob) => {
-      if (!searchQuery) return true
-      const q = searchQuery.toLowerCase()
-      return d.solutionName?.toLowerCase().includes(q) ||
-        d.tenantResults?.some((r: TenantDeploymentResult) => r.tenantName?.toLowerCase().includes(q))
-    })
-  }, [deployments, statusFilter, searchQuery])
+    return deployments
+      .filter((d: DeploymentJob) => {
+        if (statusFilter === "all") return true;
+        if (statusFilter === "active")
+          return d.status === "in_progress" || d.status === "completed";
+        if (statusFilter === "pending") return d.status === "pending" || d.status === "scheduled";
+        if (statusFilter === "issues") {
+          return d.tenantResults?.some((r: TenantDeploymentResult) =>
+            FAILED_STATUSES.includes(r.status)
+          );
+        }
+        return true;
+      })
+      .filter((d: DeploymentJob) => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+          d.solutionName?.toLowerCase().includes(q) ||
+          d.tenantResults?.some((r: TenantDeploymentResult) =>
+            r.tenantName?.toLowerCase().includes(q)
+          )
+        );
+      });
+  }, [deployments, statusFilter, searchQuery]);
 
-  const statusOptions: { value: StatusFilter; label: string; count: number }[] = viewMode === 'tenants' ? [
-    { value: 'all', label: 'All', count: stats.total },
-    { value: 'active', label: 'Active', count: stats.active },
-    { value: 'pending', label: 'Pending', count: stats.pendingAction },
-    { value: 'issues', label: 'Issues', count: stats.failed },
-  ] : [
-    { value: 'all', label: 'All', count: batchStats.total },
-    { value: 'active', label: 'Active', count: batchStats.inProgress + batchStats.completed },
-    { value: 'pending', label: 'Pending', count: deployments.filter((d: DeploymentJob) => d.status === 'pending').length },
-    { value: 'issues', label: 'Issues', count: batchStats.withFailures },
-  ]
+  const statusOptions: { value: StatusFilter; label: string; count: number }[] =
+    viewMode === "tenants"
+      ? [
+          { value: "all", label: "All", count: stats.total },
+          { value: "active", label: "Active", count: stats.active },
+          { value: "pending", label: "Pending", count: stats.pendingAction },
+          { value: "issues", label: "Issues", count: stats.failed },
+        ]
+      : [
+          { value: "all", label: "All", count: batchStats.total },
+          { value: "active", label: "Active", count: batchStats.inProgress + batchStats.completed },
+          {
+            value: "pending",
+            label: "Pending",
+            count: deployments.filter((d: DeploymentJob) => d.status === "pending").length,
+          },
+          { value: "issues", label: "Issues", count: batchStats.withFailures },
+        ];
 
   // Clear selection when filter changes
   const handleFilterChange = (filter: StatusFilter) => {
-    setStatusFilter(filter)
-    setSelectedRecords(new Set())
-    setBulkMessage(null)
+    setStatusFilter(filter);
+    setSelectedRecords(new Set());
+    setBulkMessage(null);
 
     // Track filter change
-    trackEvent('filter_applied', {
+    trackEvent("filter_applied", {
       properties: {
-        filter_type: 'status',
+        filter_type: "status",
         filter_value: filter,
-        result_count: filter === 'all' ? stats.total :
-          filter === 'active' ? stats.active :
-          filter === 'pending' ? stats.pendingAction : stats.failed,
+        result_count:
+          filter === "all"
+            ? stats.total
+            : filter === "active"
+              ? stats.active
+              : filter === "pending"
+                ? stats.pendingAction
+                : stats.failed,
       },
-    })
-  }
+    });
+  };
 
   // Toggle record selection
   const toggleRecord = (recordKey: string) => {
-    setSelectedRecords(prev => {
-      const next = new Set(prev)
+    setSelectedRecords((prev) => {
+      const next = new Set(prev);
       if (next.has(recordKey)) {
-        next.delete(recordKey)
+        next.delete(recordKey);
       } else {
-        next.add(recordKey)
+        next.add(recordKey);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   // Toggle expanded row (for showing error details)
   const toggleExpanded = (recordKey: string) => {
-    setExpandedRecords(prev => {
-      const next = new Set(prev)
+    setExpandedRecords((prev) => {
+      const next = new Set(prev);
       if (next.has(recordKey)) {
-        next.delete(recordKey)
+        next.delete(recordKey);
       } else {
-        next.add(recordKey)
+        next.add(recordKey);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   // Toggle expanded batch
   const toggleBatchExpanded = (batchId: string) => {
-    setExpandedBatches(prev => {
-      const next = new Set(prev)
+    setExpandedBatches((prev) => {
+      const next = new Set(prev);
       if (next.has(batchId)) {
-        next.delete(batchId)
+        next.delete(batchId);
       } else {
-        next.add(batchId)
+        next.add(batchId);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   // Select all retryable records
   const selectAllRetryable = () => {
     if (selectedRecords.size === retryableRecords.length) {
-      setSelectedRecords(new Set())
+      setSelectedRecords(new Set());
     } else {
-      setSelectedRecords(new Set(retryableRecords.map(r => `${r.deploymentId}:${r.tenantId}`)))
+      setSelectedRecords(new Set(retryableRecords.map((r) => `${r.deploymentId}:${r.tenantId}`)));
     }
-  }
+  };
 
   // Bulk retry selected deployments
   const handleBulkRetry = async () => {
-    if (selectedRecords.size === 0) return
+    if (selectedRecords.size === 0) return;
 
-    setBulkRetrying(true)
-    setBulkMessage(null)
+    setBulkRetrying(true);
+    setBulkMessage(null);
 
     // Group selected records by deploymentId
     // Key format is "deploymentId:tenantId" (using colon as separator since IDs can contain hyphens)
-    const byDeployment = new Map<string, string[]>()
+    const byDeployment = new Map<string, string[]>();
     for (const key of selectedRecords) {
-      const separatorIndex = key.lastIndexOf(':')
-      if (separatorIndex === -1) continue
-      const deploymentId = key.substring(0, separatorIndex)
-      const tenantId = key.substring(separatorIndex + 1)
+      const separatorIndex = key.lastIndexOf(":");
+      if (separatorIndex === -1) continue;
+      const deploymentId = key.substring(0, separatorIndex);
+      const tenantId = key.substring(separatorIndex + 1);
       if (!byDeployment.has(deploymentId)) {
-        byDeployment.set(deploymentId, [])
+        byDeployment.set(deploymentId, []);
       }
-      byDeployment.get(deploymentId)!.push(tenantId)
+      byDeployment.get(deploymentId)!.push(tenantId);
     }
 
-    const deploymentIds = Array.from(byDeployment.keys())
-    let successCount = 0
-    let errorCount = 0
-    const errors: string[] = []
-    const successfulIds: string[] = []
+    const deploymentIds = Array.from(byDeployment.keys());
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+    const successfulIds: string[] = [];
 
     // Retry each deployment
     for (const deploymentId of deploymentIds) {
       try {
-        const response = await fetch(`/api/deployments/${deploymentId}/retry`, { method: 'POST' })
+        const response = await fetch(`/api/deployments/${deploymentId}/retry`, { method: "POST" });
         if (response.ok) {
-          successCount++
-          successfulIds.push(deploymentId)
+          successCount++;
+          successfulIds.push(deploymentId);
         } else {
-          errorCount++
-          const data = await response.json().catch(() => ({}))
-          errors.push(data.error || `Failed to retry ${deploymentId}`)
+          errorCount++;
+          const data = await response.json().catch(() => ({}));
+          errors.push(data.error || `Failed to retry ${deploymentId}`);
         }
       } catch (err) {
-        errorCount++
-        errors.push(err instanceof Error ? err.message : 'Network error')
+        errorCount++;
+        errors.push(err instanceof Error ? err.message : "Network error");
       }
     }
 
     // Log errors for debugging
     if (errors.length > 0) {
-      console.error('Retry errors:', errors)
+      console.error("Retry errors:", errors);
     }
 
-    setBulkRetrying(false)
-    setSelectedRecords(new Set())
+    setBulkRetrying(false);
+    setSelectedRecords(new Set());
 
     // Track bulk retry action
-    trackEvent('bulk_action_used', {
+    trackEvent("bulk_action_used", {
       properties: {
-        action: 'retry',
+        action: "retry",
         total_count: byDeployment.size,
         success_count: successCount,
         error_count: errorCount,
       },
-    })
+    });
 
     // If we had successful retries, show the progress modal
     if (successfulIds.length > 0) {
-      setRetryDeploymentIds(successfulIds)
-      setRetryModalOpen(true)
+      setRetryDeploymentIds(successfulIds);
+      setRetryModalOpen(true);
       if (errorCount > 0) {
-        toast.warning(`Retrying ${successCount} deployments. ${errorCount} failed to start.`)
+        toast.warning(`Retrying ${successCount} deployments. ${errorCount} failed to start.`);
       } else {
-        toast.success(`Retrying ${successCount} deployment${successCount > 1 ? 's' : ''}`)
+        toast.success(`Retrying ${successCount} deployment${successCount > 1 ? "s" : ""}`);
       }
     } else if (errorCount > 0) {
       // Only show error message if all retries failed
-      const errorDetail = errors[0] || 'Unknown error'
-      toast.error(`Failed to retry: ${errorDetail}`)
-      trackError('Bulk retry failed', { deployment_count: errorCount, first_error: errorDetail })
+      const errorDetail = errors[0] || "Unknown error";
+      toast.error(`Failed to retry: ${errorDetail}`);
+      trackError("Bulk retry failed", { deployment_count: errorCount, first_error: errorDetail });
     }
-  }
+  };
 
   // Handle modal close and refresh
   const handleRetryModalClose = () => {
-    setRetryModalOpen(false)
-    setRetryDeploymentIds([])
-  }
+    setRetryModalOpen(false);
+    setRetryDeploymentIds([]);
+  };
 
   const handleRetryComplete = () => {
-    mutate() // Refresh the deployment list
-  }
+    mutate(); // Refresh the deployment list
+  };
 
   // Show selection UI when viewing Issues filter (always show button, but disable when empty)
-  const showSelectionUI = statusFilter === 'issues'
+  const showSelectionUI = statusFilter === "issues";
 
   return (
     <div className="space-y-6">
@@ -1024,28 +1190,38 @@ function DeploymentsContent() {
         {/* View mode toggle */}
         <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
-            onClick={() => setViewMode('batches')}
+            onClick={() => setViewMode("batches")}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-              viewMode === 'batches'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+              viewMode === "batches"
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
+                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
             </svg>
             Batches
           </button>
           <button
-            onClick={() => setViewMode('tenants')}
+            onClick={() => setViewMode("tenants")}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-              viewMode === 'tenants'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+              viewMode === "tenants"
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
+                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+              />
             </svg>
             By Tenant
           </button>
@@ -1061,13 +1237,15 @@ function DeploymentsContent() {
               onClick={() => handleFilterChange(opt.value)}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 statusFilter === opt.value
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
+                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               {opt.label}
               {opt.count > 0 && (
-                <span className={`ml-1.5 ${statusFilter === opt.value ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                <span
+                  className={`ml-1.5 ${statusFilter === opt.value ? "text-gray-500 dark:text-gray-400" : "text-gray-400 dark:text-gray-500"}`}
+                >
                   {opt.count}
                 </span>
               )}
@@ -1081,11 +1259,19 @@ function DeploymentsContent() {
         {showSelectionUI && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { mutate(); setBulkMessage(null); }}
+              onClick={() => {
+                mutate();
+                setBulkMessage(null);
+              }}
               className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
               Refresh
             </button>
@@ -1094,17 +1280,25 @@ function DeploymentsContent() {
               disabled={retryableRecords.length === 0}
               className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {selectedRecords.size === retryableRecords.length && retryableRecords.length > 0 ? 'Deselect All' : `Select All (${retryableRecords.length})`}
+              {selectedRecords.size === retryableRecords.length && retryableRecords.length > 0
+                ? "Deselect All"
+                : `Select All (${retryableRecords.length})`}
             </button>
             <button
               onClick={handleBulkRetry}
               disabled={bulkRetrying || selectedRecords.size === 0}
               className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {bulkRetrying ? 'Retrying...' : selectedRecords.size > 0 ? `Retry ${selectedRecords.size} Selected` : 'Retry Selected'}
+              {bulkRetrying
+                ? "Retrying..."
+                : selectedRecords.size > 0
+                  ? `Retry ${selectedRecords.size} Selected`
+                  : "Retry Selected"}
             </button>
             {bulkMessage && (
-              <span className={`text-sm ${bulkMessage.type === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              <span
+                className={`text-sm ${bulkMessage.type === "error" ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}
+              >
                 {bulkMessage.text}
               </span>
             )}
@@ -1124,7 +1318,9 @@ function DeploymentsContent() {
       {error ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
           <p className="text-rose-600 dark:text-rose-400 font-medium">Failed to load deployments</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Please try refreshing the page</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Please try refreshing the page
+          </p>
         </div>
       ) : isLoading && showSpinner ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
@@ -1132,23 +1328,34 @@ function DeploymentsContent() {
         </div>
       ) : isLoading ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 min-h-[200px]" />
-      ) : (viewMode === 'batches' ? filteredBatches.length : filteredRecords.length) === 0 ? (
+      ) : (viewMode === "batches" ? filteredBatches.length : filteredRecords.length) === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
           <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-            <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <svg
+              className="w-6 h-6 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
             </svg>
           </div>
           <h3 className="font-medium text-gray-900 dark:text-white mb-1">
-            {searchQuery || statusFilter !== 'all' ? 'No matching deployments' : 'No deployments yet'}
+            {searchQuery || statusFilter !== "all"
+              ? "No matching deployments"
+              : "No deployments yet"}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {searchQuery || statusFilter !== 'all'
-              ? 'Try adjusting your filters'
-              : 'Deploy an agent to a tenant to get started'
-            }
+            {searchQuery || statusFilter !== "all"
+              ? "Try adjusting your filters"
+              : "Deploy an agent to a tenant to get started"}
           </p>
-          {!searchQuery && statusFilter === 'all' && (
+          {!searchQuery && statusFilter === "all" && (
             <Link
               href="/deployments/new"
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
@@ -1157,71 +1364,112 @@ function DeploymentsContent() {
             </Link>
           )}
         </div>
-      ) : viewMode === 'batches' ? (
+      ) : viewMode === "batches" ? (
         /* Batch View - Shows deployment jobs with inline progress */
         <div className="space-y-3">
           {filteredBatches.map((deployment: DeploymentJob) => {
-            const isExpanded = expandedBatches.has(deployment.id)
-            const tenantResults = deployment.tenantResults || []
-            const totalTenants = tenantResults.length
-            const completedTenants = tenantResults.filter((r: TenantDeploymentResult) => r.status === 'completed').length
-            const failedTenants = tenantResults.filter((r: TenantDeploymentResult) => FAILED_STATUSES.includes(r.status)).length
-            const pendingTenants = totalTenants - completedTenants - failedTenants
-            const isInProgress = deployment.status === 'in_progress'
-            const hasIssues = failedTenants > 0
+            const isExpanded = expandedBatches.has(deployment.id);
+            const tenantResults = deployment.tenantResults || [];
+            const totalTenants = tenantResults.length;
+            const completedTenants = tenantResults.filter(
+              (r: TenantDeploymentResult) => r.status === "completed"
+            ).length;
+            const failedTenants = tenantResults.filter((r: TenantDeploymentResult) =>
+              FAILED_STATUSES.includes(r.status)
+            ).length;
+            const pendingTenants = totalTenants - completedTenants - failedTenants;
+            const isInProgress = deployment.status === "in_progress";
+            const hasIssues = failedTenants > 0;
 
             return (
-              <div key={deployment.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div
+                key={deployment.id}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+              >
                 {/* Batch header row */}
                 <div
-                  className={`px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${isExpanded ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}
+                  className={`px-4 py-3 flex items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${isExpanded ? "border-b border-gray-200 dark:border-gray-700" : ""}`}
                   onClick={() => toggleBatchExpanded(deployment.id)}
                 >
                   {/* Expand/collapse icon */}
                   <svg
-                    className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                    className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? "rotate-90" : ""}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
                   </svg>
 
                   {/* Agent name and version */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-white">{deployment.solutionName}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {deployment.solutionName}
+                      </span>
                       {deployment.solutionVersion && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">v{deployment.solutionVersion}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                          v{deployment.solutionVersion}
+                        </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" suppressHydrationWarning>
-                      {formatTimeAgo(deployment.createdAt)} · {totalTenants} tenant{totalTenants !== 1 ? 's' : ''}
+                    <p
+                      className="text-xs text-gray-500 dark:text-gray-400 mt-0.5"
+                      suppressHydrationWarning
+                    >
+                      {formatTimeAgo(deployment.createdAt)} · {totalTenants} tenant
+                      {totalTenants !== 1 ? "s" : ""}
                     </p>
                   </div>
 
                   {/* Progress status with icons and labels */}
                   <div className="flex items-center gap-2 text-sm">
                     {completedTenants > 0 && (
-                      <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title={`${completedTenants} completed`}>
+                      <span
+                        className="inline-flex items-center gap-1 text-green-600 dark:text-green-400"
+                        title={`${completedTenants} completed`}
+                      >
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         {completedTenants}
                       </span>
                     )}
                     {failedTenants > 0 && (
-                      <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400" title={`${failedTenants} failed`}>
+                      <span
+                        className="inline-flex items-center gap-1 text-red-600 dark:text-red-400"
+                        title={`${failedTenants} failed`}
+                      >
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         {failedTenants}
                       </span>
                     )}
                     {pendingTenants > 0 && (
-                      <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400" title={`${pendingTenants} pending`}>
+                      <span
+                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                        title={`${pendingTenants} pending`}
+                      >
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         {pendingTenants}
                       </span>
@@ -1251,16 +1499,20 @@ function DeploymentsContent() {
                   <span
                     className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
                       isInProgress
-                        ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                        ? "bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
                         : hasIssues
-                        ? 'bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300'
-                        : 'bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300'
+                          ? "bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300"
+                          : "bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300"
                     }`}
                   >
                     {isInProgress && (
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                     )}
-                    {isInProgress ? 'In Progress' : hasIssues ? `${failedTenants} Failed` : 'Completed'}
+                    {isInProgress
+                      ? "In Progress"
+                      : hasIssues
+                        ? `${failedTenants} Failed`
+                        : "Completed"}
                   </span>
 
                   {/* View details link */}
@@ -1277,32 +1529,40 @@ function DeploymentsContent() {
                 {isExpanded && (
                   <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {tenantResults.map((result: TenantDeploymentResult) => {
-                      const isFailed = FAILED_STATUSES.includes(result.status)
+                      const isFailed = FAILED_STATUSES.includes(result.status);
                       return (
                         <div
                           key={result.tenantId}
-                          className={`px-4 py-2 flex items-center gap-4 ${isFailed ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gray-50 dark:bg-gray-900'}`}
+                          className={`px-4 py-2 flex items-center gap-4 ${isFailed ? "bg-red-50 dark:bg-red-900/20" : "bg-gray-50 dark:bg-gray-900"}`}
                         >
                           <div className="w-4" /> {/* Spacer to align with chevron */}
                           <div className="flex-1">
-                            <span className="text-sm text-gray-900 dark:text-white">{result.tenantName}</span>
+                            <span className="text-sm text-gray-900 dark:text-white">
+                              {result.tenantName}
+                            </span>
                             {isFailed && result.error && (
-                              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 truncate" title={result.error}>
+                              <p
+                                className="text-xs text-red-600 dark:text-red-400 mt-0.5 truncate"
+                                title={result.error}
+                              >
                                 {result.error}
                               </p>
                             )}
                           </div>
                           <StatusBadge status={result.status} error={result.error} />
-                          <span className="text-xs text-gray-400 dark:text-gray-500 w-16 text-right" suppressHydrationWarning>
+                          <span
+                            className="text-xs text-gray-400 dark:text-gray-500 w-16 text-right"
+                            suppressHydrationWarning
+                          >
                             {formatTimeAgo(result.completedAt || result.startedAt)}
                           </span>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 )}
               </div>
-            )
+            );
           })}
         </div>
       ) : (
@@ -1315,7 +1575,10 @@ function DeploymentsContent() {
                   <th className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
-                      checked={selectedRecords.size === retryableRecords.length && retryableRecords.length > 0}
+                      checked={
+                        selectedRecords.size === retryableRecords.length &&
+                        retryableRecords.length > 0
+                      }
                       onChange={selectAllRetryable}
                       className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                     />
@@ -1333,23 +1596,21 @@ function DeploymentsContent() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Deployed
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-
-                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredRecords.map((record, idx) => {
-                const recordKey = `${record.deploymentId}:${record.tenantId}`
-                const isRetryable = RETRYABLE_STATUSES.includes(record.status)
-                const isSelected = selectedRecords.has(recordKey)
-                const isExpanded = expandedRecords.has(recordKey)
-                const hasError = record.error && FAILED_STATUSES.includes(record.status)
+                const recordKey = `${record.deploymentId}:${record.tenantId}`;
+                const isRetryable = RETRYABLE_STATUSES.includes(record.status);
+                const isSelected = selectedRecords.has(recordKey);
+                const isExpanded = expandedRecords.has(recordKey);
+                const hasError = record.error && FAILED_STATUSES.includes(record.status);
 
                 return (
                   <React.Fragment key={recordKey}>
                     <tr
-                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${hasError ? 'cursor-pointer' : ''} ${isExpanded ? 'bg-gray-50 dark:bg-gray-900' : ''}`}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${hasError ? "cursor-pointer" : ""} ${isExpanded ? "bg-gray-50 dark:bg-gray-900" : ""}`}
                       onClick={() => hasError && toggleExpanded(recordKey)}
                     >
                       {showSelectionUI && (
@@ -1370,29 +1631,41 @@ function DeploymentsContent() {
                         <div className="flex items-center gap-2">
                           {hasError && (
                             <svg
-                              className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                              className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? "rotate-90" : ""}`}
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
                             </svg>
                           )}
-                          <span className="font-medium text-gray-900 dark:text-white">{record.tenantName}</span>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {record.tenantName}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="text-gray-900 dark:text-white">{record.agentName}</span>
                           {record.agentVersion && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">v{record.agentVersion}</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                              v{record.agentVersion}
+                            </span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={record.status} error={record.error} />
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" suppressHydrationWarning>
+                      <td
+                        className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
+                        suppressHydrationWarning
+                      >
                         {formatTimeAgo(record.deployedAt)}
                       </td>
                       <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
@@ -1412,9 +1685,13 @@ function DeploymentsContent() {
                             <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 mb-2">
                               <span className="text-blue-400">$</span>
                               <span>
-                                agentsync deploy <span className="text-emerald-400">{record.agentName}</span>{' '}
-                                --tenant <span className="text-cyan-400">{record.tenantId.slice(0, 8)}</span>{' '}
-                                <span className="text-slate-500 dark:text-slate-600"># {record.tenantName}</span>
+                                agentsync deploy{" "}
+                                <span className="text-emerald-400">{record.agentName}</span>{" "}
+                                --tenant{" "}
+                                <span className="text-cyan-400">{record.tenantId.slice(0, 8)}</span>{" "}
+                                <span className="text-slate-500 dark:text-slate-600">
+                                  # {record.tenantName}
+                                </span>
                               </span>
                             </div>
                             <div className="flex items-start gap-2 text-red-300 dark:text-red-400">
@@ -1426,7 +1703,7 @@ function DeploymentsContent() {
                       </tr>
                     )}
                   </React.Fragment>
-                )
+                );
               })}
             </tbody>
           </table>
@@ -1441,7 +1718,7 @@ function DeploymentsContent() {
         onComplete={handleRetryComplete}
       />
     </div>
-  )
+  );
 }
 
 function LoadingFallback() {
@@ -1450,14 +1727,16 @@ function LoadingFallback() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Deployments</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Agent deployments across all tenants</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Agent deployments across all tenants
+          </p>
         </div>
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
         <FlaskSpinner size="md" message="Loading..." className="py-4" />
       </div>
     </div>
-  )
+  );
 }
 
 export default function DeploymentsPage() {
@@ -1465,5 +1744,5 @@ export default function DeploymentsPage() {
     <Suspense fallback={<LoadingFallback />}>
       <DeploymentsContent />
     </Suspense>
-  )
+  );
 }

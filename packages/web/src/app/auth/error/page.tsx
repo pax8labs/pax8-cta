@@ -1,33 +1,51 @@
-'use client';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 function AuthErrorContent() {
   const searchParams = useSearchParams();
-  const error = searchParams.get('error');
+  const error = searchParams.get("error");
 
   const errorMessages: Record<string, { title: string; description: string }> = {
     Configuration: {
-      title: 'Server Configuration Error',
-      description: 'There is a problem with the server configuration. Please contact your administrator.',
+      title: "Server Configuration Error",
+      description:
+        "There is a problem with the server configuration. Please contact your administrator.",
     },
     AccessDenied: {
-      title: 'Access Denied',
-      description: 'You do not have permission to access this application. Please contact your administrator to request access.',
+      title: "Access Denied",
+      description:
+        "You do not have permission to access this application. Please contact your administrator to request access.",
     },
     Verification: {
-      title: 'Verification Error',
-      description: 'The verification token has expired or has already been used.',
+      title: "Verification Error",
+      description: "The verification token has expired or has already been used.",
     },
     Default: {
-      title: 'Authentication Error',
-      description: 'An unexpected error occurred during authentication. Please try again.',
+      title: "Authentication Error",
+      description: "An unexpected error occurred during authentication. Please try again.",
     },
   };
 
-  const { title, description } = errorMessages[error || 'Default'] || errorMessages.Default;
+  const { title, description } = errorMessages[error || "Default"] || errorMessages.Default;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -53,7 +71,10 @@ function AuthErrorContent() {
 
         {error && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Error code: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-300">{error}</code>
+            Error code:{" "}
+            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-300">
+              {error}
+            </code>
           </p>
         )}
 

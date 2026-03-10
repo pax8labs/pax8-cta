@@ -1,121 +1,137 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
+"use client";
+
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 interface ApprovalStatus {
-  requiresApproval: boolean
-  status?: 'pending' | 'approved' | 'rejected'
-  requiredApprovals?: number
-  currentApprovals?: number
-  approvals?: Array<{ approver: string; timestamp: string }>
-  rejections?: Array<{ approver: string; reason: string; timestamp: string }>
-  expiresAt?: string
+  requiresApproval: boolean;
+  status?: "pending" | "approved" | "rejected";
+  requiredApprovals?: number;
+  currentApprovals?: number;
+  approvals?: Array<{ approver: string; timestamp: string }>;
+  rejections?: Array<{ approver: string; reason: string; timestamp: string }>;
+  expiresAt?: string;
 }
 
 interface ApprovalPanelProps {
-  deploymentId: string
-  onStatusChange?: (status: 'approved' | 'rejected') => void
+  deploymentId: string;
+  onStatusChange?: (status: "approved" | "rejected") => void;
 }
 
 export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelProps) {
-  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [approverEmail, setApproverEmail] = useState('')
-  const [rejectReason, setRejectReason] = useState('')
-  const [showRejectForm, setShowRejectForm] = useState(false)
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [approverEmail, setApproverEmail] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectForm, setShowRejectForm] = useState(false);
 
   useEffect(() => {
-    fetchApprovalStatus()
-  }, [deploymentId])
+    fetchApprovalStatus();
+  }, [deploymentId]);
 
   const fetchApprovalStatus = async () => {
     try {
-      const response = await fetch(`/api/deployments/${deploymentId}/approve`)
-      const data = await response.json()
-      setApprovalStatus(data)
+      const response = await fetch(`/api/deployments/${deploymentId}/approve`);
+      const data = await response.json();
+      setApprovalStatus(data);
     } catch (error) {
-      console.error('Failed to fetch approval status:', error)
+      console.error("Failed to fetch approval status:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleApprove = async () => {
     if (!approverEmail.trim()) {
-      toast.error('Please enter your email address')
-      return
+      toast.error("Please enter your email address");
+      return;
     }
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       const response = await fetch(`/api/deployments/${deploymentId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: 'approve',
+          action: "approve",
           approver: approverEmail.trim(),
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.error || 'Failed to approve')
-        return
+        toast.error(data.error || "Failed to approve");
+        return;
       }
 
-      toast.success(data.message)
-      await fetchApprovalStatus()
+      toast.success(data.message);
+      await fetchApprovalStatus();
 
-      if (data.status === 'approved') {
-        onStatusChange?.('approved')
+      if (data.status === "approved") {
+        onStatusChange?.("approved");
       }
     } catch (error) {
-      console.error('Approval error:', error)
-      toast.error('Failed to submit approval')
+      console.error("Approval error:", error);
+      toast.error("Failed to submit approval");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleReject = async () => {
     if (!approverEmail.trim()) {
-      toast.error('Please enter your email address')
-      return
+      toast.error("Please enter your email address");
+      return;
     }
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       const response = await fetch(`/api/deployments/${deploymentId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: 'reject',
+          action: "reject",
           approver: approverEmail.trim(),
-          reason: rejectReason.trim() || 'No reason provided',
+          reason: rejectReason.trim() || "No reason provided",
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.error || 'Failed to reject')
-        return
+        toast.error(data.error || "Failed to reject");
+        return;
       }
 
-      toast.success('Deployment rejected')
-      await fetchApprovalStatus()
-      onStatusChange?.('rejected')
-      setShowRejectForm(false)
+      toast.success("Deployment rejected");
+      await fetchApprovalStatus();
+      onStatusChange?.("rejected");
+      setShowRejectForm(false);
     } catch (error) {
-      console.error('Rejection error:', error)
-      toast.error('Failed to submit rejection')
+      console.error("Rejection error:", error);
+      toast.error("Failed to submit rejection");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -125,53 +141,85 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
           <div className="h-4 w-32 bg-violet-200 rounded"></div>
         </div>
       </div>
-    )
+    );
   }
 
   if (!approvalStatus?.requiresApproval) {
-    return null
+    return null;
   }
 
-  const { status, requiredApprovals, currentApprovals, approvals, rejections, expiresAt } = approvalStatus
+  const { status, requiredApprovals, currentApprovals, approvals, rejections, expiresAt } =
+    approvalStatus;
 
   // Calculate time remaining
-  const timeRemaining = expiresAt ? new Date(expiresAt).getTime() - Date.now() : 0
-  const hoursRemaining = Math.max(0, Math.floor(timeRemaining / (1000 * 60 * 60)))
-  const minutesRemaining = Math.max(0, Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60)))
+  const timeRemaining = expiresAt ? new Date(expiresAt).getTime() - Date.now() : 0;
+  const hoursRemaining = Math.max(0, Math.floor(timeRemaining / (1000 * 60 * 60)));
+  const minutesRemaining = Math.max(
+    0,
+    Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60))
+  );
 
   return (
-    <div className={`border rounded-lg p-4 ${
-      status === 'approved' ? 'bg-emerald-50 border-emerald-200' :
-      status === 'rejected' ? 'bg-rose-50 border-rose-200' :
-      'bg-violet-50 border-violet-200'
-    }`}>
+    <div
+      className={`border rounded-lg p-4 ${
+        status === "approved"
+          ? "bg-emerald-50 border-emerald-200"
+          : status === "rejected"
+            ? "bg-rose-50 border-rose-200"
+            : "bg-violet-50 border-violet-200"
+      }`}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          {status === 'pending' && (
+          {status === "pending" && (
             <span className="w-2 h-2 bg-violet-500 rounded-full animate-pulse"></span>
           )}
-          {status === 'approved' && (
-            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          {status === "approved" && (
+            <svg
+              className="w-5 h-5 text-emerald-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           )}
-          {status === 'rejected' && (
-            <svg className="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          {status === "rejected" && (
+            <svg
+              className="w-5 h-5 text-rose-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           )}
-          <h3 className={`font-medium ${
-            status === 'approved' ? 'text-emerald-800' :
-            status === 'rejected' ? 'text-rose-800' :
-            'text-violet-800'
-          }`}>
-            {status === 'pending' && 'Awaiting Approval'}
-            {status === 'approved' && 'Approved'}
-            {status === 'rejected' && 'Rejected'}
+          <h3
+            className={`font-medium ${
+              status === "approved"
+                ? "text-emerald-800"
+                : status === "rejected"
+                  ? "text-rose-800"
+                  : "text-violet-800"
+            }`}
+          >
+            {status === "pending" && "Awaiting Approval"}
+            {status === "approved" && "Approved"}
+            {status === "rejected" && "Rejected"}
           </h3>
         </div>
 
-        {status === 'pending' && timeRemaining > 0 && (
+        {status === "pending" && timeRemaining > 0 && (
           <span className="text-xs text-violet-600">
             Expires in {hoursRemaining}h {minutesRemaining}m
           </span>
@@ -179,15 +227,20 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
       </div>
 
       {/* Progress indicator */}
-      {status === 'pending' && requiredApprovals && (
+      {status === "pending" && requiredApprovals && (
         <div className="mb-3">
           <div className="flex items-center justify-between text-sm text-violet-700 mb-1">
-            <span>{currentApprovals || 0} of {requiredApprovals} approval{requiredApprovals > 1 ? 's' : ''}</span>
+            <span>
+              {currentApprovals || 0} of {requiredApprovals} approval
+              {requiredApprovals > 1 ? "s" : ""}
+            </span>
           </div>
           <div className="w-full h-2 bg-violet-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-violet-500 transition-all duration-300"
-              style={{ width: `${Math.min(100, ((currentApprovals || 0) / requiredApprovals) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, ((currentApprovals || 0) / requiredApprovals) * 100)}%`,
+              }}
             />
           </div>
         </div>
@@ -201,12 +254,15 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
             {approvals.map((a, i) => (
               <div key={i} className="flex items-center gap-2 text-xs text-emerald-700">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
                 <span>{a.approver}</span>
-                <span className="text-slate-400">
-                  {new Date(a.timestamp).toLocaleString()}
-                </span>
+                <span className="text-slate-400">{new Date(a.timestamp).toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -222,12 +278,15 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
               <div key={i} className="text-xs text-rose-700">
                 <div className="flex items-center gap-2">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                   <span>{r.approver}</span>
-                  <span className="text-slate-400">
-                    {new Date(r.timestamp).toLocaleString()}
-                  </span>
+                  <span className="text-slate-400">{new Date(r.timestamp).toLocaleString()}</span>
                 </div>
                 {r.reason && <p className="ml-5 text-rose-600">{r.reason}</p>}
               </div>
@@ -237,7 +296,7 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
       )}
 
       {/* Approval form */}
-      {status === 'pending' && (
+      {status === "pending" && (
         <div className="border-t border-violet-200 pt-3 mt-3">
           <div className="mb-3">
             <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -274,7 +333,7 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
                   disabled={submitting || !approverEmail.trim()}
                   className="flex-1 px-4 py-2 text-sm font-medium text-white bg-rose-600 rounded hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? 'Submitting...' : 'Confirm Rejection'}
+                  {submitting ? "Submitting..." : "Confirm Rejection"}
                 </button>
                 <button
                   onClick={() => setShowRejectForm(false)}
@@ -292,7 +351,7 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
                 disabled={submitting || !approverEmail.trim()}
                 className="flex-1 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Submitting...' : 'Approve'}
+                {submitting ? "Submitting..." : "Approve"}
               </button>
               <button
                 onClick={() => setShowRejectForm(true)}
@@ -306,5 +365,5 @@ export function ApprovalPanel({ deploymentId, onStatusChange }: ApprovalPanelPro
         </div>
       )}
     </div>
-  )
+  );
 }

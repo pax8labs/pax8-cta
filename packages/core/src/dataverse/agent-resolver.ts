@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { DataverseClient, SolutionRecord } from "./client.js";
 
 /**
@@ -102,7 +118,8 @@ export class AgentResolver {
    */
   async listBots(): Promise<BotRecord[]> {
     const result = await this.client.get<{ value: BotRecord[] }>("/bots", {
-      $select: "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,_solutionid_value,componentstate",
+      $select:
+        "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,_solutionid_value,componentstate",
       $orderby: "modifiedon desc",
     });
     return result.value;
@@ -114,7 +131,8 @@ export class AgentResolver {
   async getBotById(botId: string): Promise<BotRecord | null> {
     try {
       const result = await this.client.get<BotRecord>(`/bots(${botId})`, {
-        $select: "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,_solutionid_value,componentstate",
+        $select:
+          "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,_solutionid_value,componentstate",
       });
       return result;
     } catch (error) {
@@ -233,15 +251,17 @@ export class AgentResolver {
 
     throw new Error(
       `Could not resolve agent URL to a solution. titleId: ${parsed.titleId}\n` +
-      `Tried: direct lookup, pattern matching across ${allBots.length} bots.\n` +
-      `The titleId format may require M365 Graph API access to resolve.`
+        `Tried: direct lookup, pattern matching across ${allBots.length} bots.\n` +
+        `The titleId format may require M365 Graph API access to resolve.`
     );
   }
 
   /**
    * List all bots with their containing solutions
    */
-  async listBotsWithSolutions(): Promise<Array<{ bot: BotRecord; solution: SolutionRecord | null }>> {
+  async listBotsWithSolutions(): Promise<
+    Array<{ bot: BotRecord; solution: SolutionRecord | null }>
+  > {
     const bots = await this.listBots();
     const results: Array<{ bot: BotRecord; solution: SolutionRecord | null }> = [];
 

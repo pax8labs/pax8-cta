@@ -1,4 +1,19 @@
 #!/usr/bin/env node
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 /**
  * AgentSync MCP Server
@@ -7,18 +22,15 @@
  * Supports Claude Desktop, Cline, Cursor, and other MCP-compatible AI assistants
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-import { config } from './lib/config.js';
-import { logger } from './lib/logger.js';
-import { MCPError } from './lib/errors.js';
-import { metrics, trackRequest } from './lib/metrics.js';
-import { tools } from './tools/definitions.js';
+import { config } from "./lib/config.js";
+import { logger } from "./lib/logger.js";
+import { MCPError } from "./lib/errors.js";
+import { metrics, trackRequest } from "./lib/metrics.js";
+import { tools } from "./tools/definitions.js";
 import {
   handleListDeployments,
   handleGetDeploymentStatus,
@@ -29,7 +41,7 @@ import {
   handleMonitorDeployment,
   handleGetDeploymentStats,
   handleRetryDeployment,
-} from './handlers/index.js';
+} from "./handlers/index.js";
 
 /**
  * Create the MCP server
@@ -50,7 +62,7 @@ const server = new Server(
  * Handler for list tools request
  */
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  logger.debug('Handling list tools request');
+  logger.debug("Handling list tools request");
   return { tools };
 });
 
@@ -61,37 +73,37 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   const requestId = `${name}-${Date.now()}`;
 
-  logger.info('Tool invoked', { tool: name, args, requestId });
+  logger.info("Tool invoked", { tool: name, args, requestId });
 
   try {
     // Route to appropriate handler with metrics tracking
     return await trackRequest(name, requestId, async () => {
       switch (name) {
-        case 'list_deployments':
+        case "list_deployments":
           return await handleListDeployments(args);
 
-        case 'get_deployment_status':
+        case "get_deployment_status":
           return await handleGetDeploymentStatus(args);
 
-        case 'list_agents':
+        case "list_agents":
           return await handleListAgents(args);
 
-        case 'list_tenants':
+        case "list_tenants":
           return await handleListTenants(args);
 
-        case 'analyze_deployment_risk':
+        case "analyze_deployment_risk":
           return await handleAnalyzeDeploymentRisk(args);
 
-        case 'create_deployment':
+        case "create_deployment":
           return await handleCreateDeployment(args);
 
-        case 'monitor_deployment':
+        case "monitor_deployment":
           return await handleMonitorDeployment(args);
 
-        case 'get_deployment_stats':
+        case "get_deployment_stats":
           return await handleGetDeploymentStats(args);
 
-        case 'retry_deployment':
+        case "retry_deployment":
           return await handleRetryDeployment(args);
 
         default:
@@ -99,7 +111,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     });
   } catch (error) {
-    logger.error('Tool invocation failed', {
+    logger.error("Tool invocation failed", {
       tool: name,
       requestId,
       error: error instanceof Error ? error.message : String(error),
@@ -111,13 +123,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       error instanceof MCPError
         ? JSON.stringify(error.toJSON(), null, 2)
         : error instanceof Error
-        ? error.message
-        : String(error);
+          ? error.message
+          : String(error);
 
     return {
       content: [
         {
-          type: 'text' as const,
+          type: "text" as const,
           text: errorMessage,
         },
       ],
@@ -132,7 +144,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   try {
     // Validate configuration
-    logger.info('Starting AgentSync MCP Server', {
+    logger.info("Starting AgentSync MCP Server", {
       serverName: config.serverName,
       serverVersion: config.serverVersion,
       apiBaseUrl: config.apiBaseUrl,
@@ -143,12 +155,12 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    logger.info('AgentSync MCP Server started successfully', {
-      transport: 'stdio',
+    logger.info("AgentSync MCP Server started successfully", {
+      transport: "stdio",
       tools: tools.length,
     });
   } catch (error) {
-    logger.error('Fatal error during startup', {
+    logger.error("Fatal error during startup", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
@@ -157,19 +169,22 @@ async function main() {
 }
 
 // Log metrics periodically (every 5 minutes)
-setInterval(() => {
-  metrics.logMetrics();
-}, 5 * 60 * 1000);
+setInterval(
+  () => {
+    metrics.logMetrics();
+  },
+  5 * 60 * 1000
+);
 
 // Handle process termination gracefully
-process.on('SIGINT', () => {
-  logger.info('Received SIGINT, shutting down gracefully');
+process.on("SIGINT", () => {
+  logger.info("Received SIGINT, shutting down gracefully");
   metrics.logMetrics(); // Log final metrics
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
-  logger.info('Received SIGTERM, shutting down gracefully');
+process.on("SIGTERM", () => {
+  logger.info("Received SIGTERM, shutting down gracefully");
   metrics.logMetrics(); // Log final metrics
   process.exit(0);
 });

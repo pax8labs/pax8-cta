@@ -1,13 +1,29 @@
-import fetch, { RequestInit, Response } from 'node-fetch';
-import { config } from './config.js';
-import { logger } from './logger.js';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import fetch, { RequestInit, Response } from "node-fetch";
+import { config } from "./config.js";
+import { logger } from "./logger.js";
 import {
   APIError,
   NetworkError,
   TimeoutError,
   CircuitBreakerError,
   RateLimitError,
-} from './errors.js';
+} from "./errors.js";
 
 /**
  * Circuit breaker state
@@ -28,7 +44,7 @@ class CircuitBreaker {
 
     if (this.failures >= config.circuitBreakerThreshold) {
       this.isOpen = true;
-      logger.warn('Circuit breaker opened', {
+      logger.warn("Circuit breaker opened", {
         failures: this.failures,
         threshold: config.circuitBreakerThreshold,
       });
@@ -39,11 +55,8 @@ class CircuitBreaker {
     if (!this.isOpen) return true;
 
     // Check if we should try to close the circuit
-    if (
-      this.lastFailureTime &&
-      Date.now() - this.lastFailureTime > config.circuitBreakerResetMs
-    ) {
-      logger.info('Circuit breaker attempting reset');
+    if (this.lastFailureTime && Date.now() - this.lastFailureTime > config.circuitBreakerResetMs) {
+      logger.info("Circuit breaker attempting reset");
       this.isOpen = false;
       this.failures = 0;
       return true;
@@ -59,7 +72,7 @@ const circuitBreaker = new CircuitBreaker();
  * Sleep helper for retry delays
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -80,7 +93,7 @@ async function fetchWithTimeout(
     });
     return response;
   } catch (error) {
-    if ((error as Error).name === 'AbortError') {
+    if ((error as Error).name === "AbortError") {
       throw new TimeoutError(`Request timed out after ${timeoutMs}ms`, timeoutMs);
     }
     throw error;
@@ -98,7 +111,7 @@ function isRetryableError(error: unknown): boolean {
   if (error instanceof APIError) {
     // Retry on 5xx errors and 429 (rate limit)
     const status = error.statusCode;
-    return status ? (status >= 500 || status === 429) : false;
+    return status ? status >= 500 || status === 429 : false;
   }
   return false;
 }
@@ -112,9 +125,7 @@ export async function apiRequest<T = unknown>(
 ): Promise<T> {
   // Check circuit breaker
   if (!circuitBreaker.canAttempt()) {
-    throw new CircuitBreakerError(
-      'Circuit breaker is open. Too many recent failures.'
-    );
+    throw new CircuitBreakerError("Circuit breaker is open. Too many recent failures.");
   }
 
   const url = `${config.apiBaseUrl}${endpoint}`;
@@ -123,9 +134,9 @@ export async function apiRequest<T = unknown>(
   // Retry loop
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
-      logger.debug('API request', {
+      logger.debug("API request", {
         url,
-        method: options.method || 'GET',
+        method: options.method || "GET",
         attempt: attempt + 1,
         maxAttempts: config.maxRetries + 1,
       });
@@ -136,7 +147,7 @@ export async function apiRequest<T = unknown>(
         {
           ...options,
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             ...options.headers,
           },
         },
@@ -145,18 +156,15 @@ export async function apiRequest<T = unknown>(
 
       // Handle rate limiting
       if (response.status === 429) {
-        const retryAfter = response.headers.get('retry-after');
+        const retryAfter = response.headers.get("retry-after");
         const retryAfterMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : null;
 
-        logger.warn('Rate limit exceeded', {
+        logger.warn("Rate limit exceeded", {
           url,
           retryAfter: retryAfterMs,
         });
 
-        throw new RateLimitError(
-          'Rate limit exceeded',
-          retryAfterMs || undefined
-        );
+        throw new RateLimitError("Rate limit exceeded", retryAfterMs || undefined);
       }
 
       // Handle error responses
@@ -169,7 +177,7 @@ export async function apiRequest<T = unknown>(
           errorData = { message: errorText };
         }
 
-        logger.warn('API error response', {
+        logger.warn("API error response", {
           url,
           status: response.status,
           error: errorData,
@@ -185,19 +193,18 @@ export async function apiRequest<T = unknown>(
       // Success - parse response
       const data = await response.json();
 
-      logger.debug('API request successful', {
+      logger.debug("API request successful", {
         url,
         attempt: attempt + 1,
       });
 
       circuitBreaker.recordSuccess();
       return data as T;
-
     } catch (error) {
       lastError = error as Error;
 
       // Log the error
-      logger.warn('API request failed', {
+      logger.warn("API request failed", {
         url,
         attempt: attempt + 1,
         error: lastError.message,
@@ -217,10 +224,9 @@ export async function apiRequest<T = unknown>(
       }
 
       // Calculate backoff delay with exponential increase
-      const delayMs =
-        config.retryDelayMs * Math.pow(config.retryBackoffMultiplier, attempt);
+      const delayMs = config.retryDelayMs * Math.pow(config.retryBackoffMultiplier, attempt);
 
-      logger.info('Retrying API request', {
+      logger.info("Retrying API request", {
         url,
         attempt: attempt + 1,
         nextAttempt: attempt + 2,
@@ -233,36 +239,30 @@ export async function apiRequest<T = unknown>(
 
   // This should never be reached, but TypeScript needs it
   circuitBreaker.recordFailure();
-  throw lastError || new Error('Unknown error during API request');
+  throw lastError || new Error("Unknown error during API request");
 }
 
 /**
  * Convenience methods for common HTTP methods
  */
 export async function get<T = unknown>(endpoint: string): Promise<T> {
-  return apiRequest<T>(endpoint, { method: 'GET' });
+  return apiRequest<T>(endpoint, { method: "GET" });
 }
 
-export async function post<T = unknown>(
-  endpoint: string,
-  body: unknown
-): Promise<T> {
+export async function post<T = unknown>(endpoint: string, body: unknown): Promise<T> {
   return apiRequest<T>(endpoint, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(body),
   });
 }
 
-export async function put<T = unknown>(
-  endpoint: string,
-  body: unknown
-): Promise<T> {
+export async function put<T = unknown>(endpoint: string, body: unknown): Promise<T> {
   return apiRequest<T>(endpoint, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(body),
   });
 }
 
 export async function del<T = unknown>(endpoint: string): Promise<T> {
-  return apiRequest<T>(endpoint, { method: 'DELETE' });
+  return apiRequest<T>(endpoint, { method: "DELETE" });
 }

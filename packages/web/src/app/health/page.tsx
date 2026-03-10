@@ -1,86 +1,107 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useEffect, useState } from 'react'
-import { RefreshCw, Search, Filter, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react'
-import type { TenantHealth } from '@agentsync/core'
-import { TenantHealthCard } from '@/components/tenants/TenantHealthCard'
-import { TenantHealthDetail } from '@/components/tenants/TenantHealthDetail'
+"use client";
+
+import { useEffect, useState } from "react";
+import { RefreshCw, Search, Filter, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
+import type { TenantHealth } from "@agentsync/core";
+import { TenantHealthCard } from "@/components/tenants/TenantHealthCard";
+import { TenantHealthDetail } from "@/components/tenants/TenantHealthDetail";
 
 interface HealthResponse {
-  tenants: TenantHealth[]
+  tenants: TenantHealth[];
   summary: {
-    total: number
-    healthy: number
-    warning: number
-    critical: number
-    averageHealthScore: number
-  }
-  timestamp: string
+    total: number;
+    healthy: number;
+    warning: number;
+    critical: number;
+    averageHealthScore: number;
+  };
+  timestamp: string;
 }
 
 export default function HealthPage() {
-  const [data, setData] = useState<HealthResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'healthy' | 'warning' | 'critical'>('all')
-  const [sortBy, setSortBy] = useState<'health' | 'name' | 'recent'>('health')
-  const [selectedTenant, setSelectedTenant] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
+  const [data, setData] = useState<HealthResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "healthy" | "warning" | "critical">(
+    "all"
+  );
+  const [sortBy, setSortBy] = useState<"health" | "name" | "recent">("health");
+  const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchHealth = async () => {
     try {
-      setError(null)
-      const response = await fetch('/api/tenants/health')
+      setError(null);
+      const response = await fetch("/api/tenants/health");
 
       if (!response.ok) {
-        throw new Error('Failed to fetch tenant health')
+        throw new Error("Failed to fetch tenant health");
       }
 
-      const json = await response.json()
-      setData(json)
+      const json = await response.json();
+      setData(json);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchHealth()
+    fetchHealth();
 
-    const interval = setInterval(fetchHealth, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [])
+    const interval = setInterval(fetchHealth, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleRefresh = () => {
-    setRefreshing(true)
-    fetchHealth()
-  }
+    setRefreshing(true);
+    fetchHealth();
+  };
 
-  const filteredTenants = data?.tenants.filter(tenant => {
-    if (searchQuery && !tenant.tenantName.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false
-    }
+  const filteredTenants =
+    data?.tenants
+      .filter((tenant) => {
+        if (searchQuery && !tenant.tenantName.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return false;
+        }
 
-    if (filterStatus !== 'all' && tenant.status !== filterStatus) {
-      return false
-    }
+        if (filterStatus !== "all" && tenant.status !== filterStatus) {
+          return false;
+        }
 
-    return true
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case 'health':
-        return b.healthScore - a.healthScore
-      case 'name':
-        return a.tenantName.localeCompare(b.tenantName)
-      case 'recent':
-        return new Date(b.lastChecked).getTime() - new Date(a.lastChecked).getTime()
-      default:
-        return 0
-    }
-  }) || []
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "health":
+            return b.healthScore - a.healthScore;
+          case "name":
+            return a.tenantName.localeCompare(b.tenantName);
+          case "recent":
+            return new Date(b.lastChecked).getTime() - new Date(a.lastChecked).getTime();
+          default:
+            return 0;
+        }
+      }) || [];
 
   if (loading) {
     return (
@@ -92,7 +113,7 @@ export default function HealthPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -100,7 +121,9 @@ export default function HealthPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">Failed to Load</h2>
+            <h2 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">
+              Failed to Load
+            </h2>
             <p className="text-red-700 dark:text-red-300">{error}</p>
             <button
               onClick={fetchHealth}
@@ -111,7 +134,7 @@ export default function HealthPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -131,7 +154,7 @@ export default function HealthPage() {
                 disabled={refreshing}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
                 Refresh All
               </button>
             </div>
@@ -139,32 +162,42 @@ export default function HealthPage() {
             {data && (
               <div className="grid grid-cols-5 gap-4">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{data.summary.total}</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {data.summary.total}
+                  </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">Total Tenants</div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{data.summary.healthy}</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {data.summary.healthy}
+                  </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                     <CheckCircle className="h-4 w-4" />
                     Healthy
                   </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{data.summary.warning}</div>
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {data.summary.warning}
+                  </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                     <AlertCircle className="h-4 w-4" />
                     Warnings
                   </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">{data.summary.critical}</div>
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    {data.summary.critical}
+                  </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                     <AlertCircle className="h-4 w-4" />
                     Critical
                   </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.summary.averageHealthScore}</div>
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {data.summary.averageHealthScore}
+                  </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                     <TrendingUp className="h-4 w-4" />
                     Avg Score
@@ -182,7 +215,7 @@ export default function HealthPage() {
                   type="text"
                   placeholder="Search tenants..."
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -191,7 +224,7 @@ export default function HealthPage() {
                 <Filter className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                 <select
                   value={filterStatus}
-                  onChange={e => setFilterStatus(e.target.value as any)}
+                  onChange={(e) => setFilterStatus(e.target.value as any)}
                   className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">All Status</option>
@@ -203,7 +236,7 @@ export default function HealthPage() {
 
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as any)}
                 className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="health">Sort by Health Score</option>
@@ -219,7 +252,7 @@ export default function HealthPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredTenants.map(tenant => (
+              {filteredTenants.map((tenant) => (
                 <TenantHealthCard
                   key={tenant.tenantId}
                   tenant={tenant}
@@ -238,11 +271,8 @@ export default function HealthPage() {
       </div>
 
       {selectedTenant && (
-        <TenantHealthDetail
-          tenantId={selectedTenant}
-          onClose={() => setSelectedTenant(null)}
-        />
+        <TenantHealthDetail tenantId={selectedTenant} onClose={() => setSelectedTenant(null)} />
       )}
     </>
-  )
+  );
 }

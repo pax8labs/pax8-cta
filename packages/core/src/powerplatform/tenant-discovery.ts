@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { TokenManager, TokenManagerConfig } from "../auth/token-manager.js";
 import { GdapClient, DelegatedAdminRelationship } from "../auth/gdap-client.js";
 import { PowerPlatformAdminClient, EnvironmentSummary } from "./admin-client.js";
@@ -86,7 +102,7 @@ export class TenantDiscoveryService {
 
     // Discover environments for each tenant in parallel
     const discoveries = await Promise.allSettled(
-      relationships.map(rel => this.discoverTenantEnvironments(rel))
+      relationships.map((rel) => this.discoverTenantEnvironments(rel))
     );
 
     const tenants: DiscoveredTenant[] = discoveries.map((result, index) => {
@@ -129,7 +145,7 @@ export class TenantDiscoveryService {
     // Check for Power Platform Admin role
     const powerPlatformAdminRoleId = "11648597-926c-4cf3-9c36-bcebb0ba8dcc";
     const hasPowerPlatformAdmin = relationship.accessDetails.unifiedRoles.some(
-      role => role.roleDefinitionId === powerPlatformAdminRoleId
+      (role) => role.roleDefinitionId === powerPlatformAdminRoleId
     );
 
     // Create token manager for customer tenant
@@ -146,8 +162,9 @@ export class TenantDiscoveryService {
     const environments = await adminClient.listEnvironmentSummaries();
 
     // Find default/production environment
-    const defaultEnv = environments.find(e => e.isDefault) ||
-      environments.find(e => e.type === "Production") ||
+    const defaultEnv =
+      environments.find((e) => e.isDefault) ||
+      environments.find((e) => e.type === "Production") ||
       environments[0];
 
     return {
@@ -185,8 +202,8 @@ export class TenantDiscoveryService {
 
     // Get tenant info for display name
     const tenants = await this.discoverTenants();
-    const tenant = tenants.find(t => t.tenantId === tenantId);
-    const environment = tenant?.environments.find(e => e.instanceUrl === environmentUrl);
+    const tenant = tenants.find((t) => t.tenantId === tenantId);
+    const environment = tenant?.environments.find((e) => e.instanceUrl === environmentUrl);
 
     // Create Dataverse client for the environment
     const customerTokenManager = new TokenManager({
@@ -202,7 +219,7 @@ export class TenantDiscoveryService {
     // Query solutions
     const solutions = await dataverseClient.querySolutions();
 
-    const discovered: DiscoveredSolution[] = solutions.map(sol => ({
+    const discovered: DiscoveredSolution[] = solutions.map((sol) => ({
       tenantId,
       tenantName: tenant?.displayName || tenantId,
       environmentId: environment?.id || "",
@@ -243,15 +260,15 @@ export class TenantDiscoveryService {
     // Check each tenant's default environment
     await Promise.allSettled(
       tenants
-        .filter(t => t.defaultEnvironment && !t.error)
-        .map(async tenant => {
+        .filter((t) => t.defaultEnvironment && !t.error)
+        .map(async (tenant) => {
           const solutions = await this.discoverSolutions(
             tenant.tenantId,
             tenant.defaultEnvironment!.instanceUrl,
             { forceRefresh }
           );
 
-          const match = solutions.find(s => s.uniqueName === solutionUniqueName);
+          const match = solutions.find((s) => s.uniqueName === solutionUniqueName);
           if (match) {
             results.push(match);
           }

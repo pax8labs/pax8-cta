@@ -1,27 +1,43 @@
-'use client';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-import { Logo } from '@/components/Logo';
+"use client";
+
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { Logo } from "@/components/Logo";
 
 function StagingAuthContent() {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/';
+  const returnUrl = searchParams.get("returnUrl") || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const res = await fetch('/api/staging-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/staging-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
 
@@ -29,10 +45,10 @@ function StagingAuthContent() {
         router.push(returnUrl);
         router.refresh();
       } else {
-        setError('Invalid password');
+        setError("Invalid password");
       }
     } catch {
-      setError('Something went wrong');
+      setError("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -45,9 +61,7 @@ function StagingAuthContent() {
           <div className="flex justify-center mb-4">
             <Logo className="h-16 w-16" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Staging Environment
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Staging Environment</h1>
           <p className="mt-2 text-slate-500 dark:text-slate-400">
             Enter the staging password to continue
           </p>
@@ -61,7 +75,10 @@ function StagingAuthContent() {
           )}
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+            >
               Password
             </label>
             <input
@@ -80,7 +97,7 @@ function StagingAuthContent() {
             disabled={loading || !password}
             className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Verifying...' : 'Continue'}
+            {loading ? "Verifying..." : "Continue"}
           </button>
         </form>
 

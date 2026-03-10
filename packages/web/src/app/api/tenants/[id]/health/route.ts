@@ -1,63 +1,82 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Tenant Health Detail API
  * GET /api/tenants/:id/health - Get detailed health for one tenant
  * POST /api/tenants/:id/health - Force refresh health check
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/api-middleware'
-import { apiRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import { internalError } from '@/lib/errors'
-import { healthChecker, loadConfig, isDemoMode, DEMO_CONFIG, type HealthCheckContext } from '@agentsync/core'
-import * as deploymentRepo from '@/lib/repositories/deployment-repository'
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/api-middleware";
+import { apiRateLimit, createRateLimitResponse } from "@/lib/rate-limit";
+import { internalError } from "@/lib/errors";
+import {
+  healthChecker,
+  loadConfig,
+  isDemoMode,
+  DEMO_CONFIG,
+  type HealthCheckContext,
+} from "@agentsync/core";
+import * as deploymentRepo from "@/lib/repositories/deployment-repository";
 
-const CONFIG_PATH = process.env.CONFIG_PATH || './config/tenants.yaml'
+const CONFIG_PATH = process.env.CONFIG_PATH || "./config/tenants.yaml";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 /**
  * GET - Get detailed health for a single tenant
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await requireAuth()
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
   if (session instanceof NextResponse) {
-    return session
+    return session;
   }
 
   // Rate limiting
-  const rateLimitResult = await apiRateLimit(request, session.user.email ?? undefined)
+  const rateLimitResult = await apiRateLimit(request, session.user.email ?? undefined);
   if (rateLimitResult && !rateLimitResult.success) {
-    return createRateLimitResponse(rateLimitResult.reset)
+    return createRateLimitResponse(rateLimitResult.reset);
   }
 
   try {
-    const { id: tenantId } = await params
+    const { id: tenantId } = await params;
 
     // Find tenant in config
-    const config = isDemoMode() ? DEMO_CONFIG : await loadConfig(CONFIG_PATH)
-    const tenant = config.tenants.find(t => t.tenantId === tenantId)
+    const config = isDemoMode() ? DEMO_CONFIG : await loadConfig(CONFIG_PATH);
+    const tenant = config.tenants.find((t) => t.tenantId === tenantId);
 
     if (!tenant) {
-      return NextResponse.json(
-        { error: 'Tenant not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
     // Get deployment history
-    const deployments = deploymentRepo.getDeploymentsByTenant(tenant.tenantId)
-    const deploymentHistory = deployments.slice(0, 20).map(d => ({
+    const deployments = deploymentRepo.getDeploymentsByTenant(tenant.tenantId);
+    const deploymentHistory = deployments.slice(0, 20).map((d) => ({
       tenantId: tenant.tenantId,
-      status: d.status === 'completed' ? 'success' as const : 'failure' as const,
+      status: d.status === "completed" ? ("success" as const) : ("failure" as const),
       error: d.error || undefined,
       completedAt: d.completedAt || d.updatedAt,
-      durationMinutes: d.completedAt && d.startedAt
-        ? Math.round((new Date(d.completedAt).getTime() - new Date(d.startedAt).getTime()) / 60000)
-        : undefined,
-    }))
+      durationMinutes:
+        d.completedAt && d.startedAt
+          ? Math.round(
+              (new Date(d.completedAt).getTime() - new Date(d.startedAt).getTime()) / 60000
+            )
+          : undefined,
+    }));
 
     // Build health check context
     const context: HealthCheckContext = {
@@ -66,72 +85,69 @@ export async function GET(
       environmentUrl: tenant.environmentUrl,
       tags: tenant.tags,
       deploymentHistory,
-    }
+    };
 
     // Get detailed health (uses cache)
-    const healthDetail = await healthChecker.checkTenantHealthDetail(context)
+    const healthDetail = await healthChecker.checkTenantHealthDetail(context);
 
     return NextResponse.json({
       ...healthDetail,
       timestamp: new Date().toISOString(),
-    })
+    });
   } catch (error) {
-    console.error('Tenant health detail error:', error)
+    console.error("Tenant health detail error:", error);
     return internalError(
-      'Failed to get tenant health detail',
-      process.env.NODE_ENV === 'development' && error instanceof Error
+      "Failed to get tenant health detail",
+      process.env.NODE_ENV === "development" && error instanceof Error
         ? { error: error.message, stack: error.stack }
         : undefined
-    )
+    );
   }
 }
 
 /**
  * POST - Force refresh health check (bypass cache)
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await requireAuth()
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
   if (session instanceof NextResponse) {
-    return session
+    return session;
   }
 
   // Rate limiting
-  const rateLimitResult = await apiRateLimit(request, session.user.email ?? undefined)
+  const rateLimitResult = await apiRateLimit(request, session.user.email ?? undefined);
   if (rateLimitResult && !rateLimitResult.success) {
-    return createRateLimitResponse(rateLimitResult.reset)
+    return createRateLimitResponse(rateLimitResult.reset);
   }
 
   try {
-    const { id: tenantId } = await params
+    const { id: tenantId } = await params;
 
     // Find tenant in config
-    const config = isDemoMode() ? DEMO_CONFIG : await loadConfig(CONFIG_PATH)
-    const tenant = config.tenants.find(t => t.tenantId === tenantId)
+    const config = isDemoMode() ? DEMO_CONFIG : await loadConfig(CONFIG_PATH);
+    const tenant = config.tenants.find((t) => t.tenantId === tenantId);
 
     if (!tenant) {
-      return NextResponse.json(
-        { error: 'Tenant not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
     // Clear cache for this tenant
-    healthChecker.clearCache(tenantId)
+    healthChecker.clearCache(tenantId);
 
     // Get deployment history
-    const deployments = deploymentRepo.getDeploymentsByTenant(tenant.tenantId)
-    const deploymentHistory = deployments.slice(0, 20).map(d => ({
+    const deployments = deploymentRepo.getDeploymentsByTenant(tenant.tenantId);
+    const deploymentHistory = deployments.slice(0, 20).map((d) => ({
       tenantId: tenant.tenantId,
-      status: d.status === 'completed' ? 'success' as const : 'failure' as const,
+      status: d.status === "completed" ? ("success" as const) : ("failure" as const),
       error: d.error || undefined,
       completedAt: d.completedAt || d.updatedAt,
-      durationMinutes: d.completedAt && d.startedAt
-        ? Math.round((new Date(d.completedAt).getTime() - new Date(d.startedAt).getTime()) / 60000)
-        : undefined,
-    }))
+      durationMinutes:
+        d.completedAt && d.startedAt
+          ? Math.round(
+              (new Date(d.completedAt).getTime() - new Date(d.startedAt).getTime()) / 60000
+            )
+          : undefined,
+    }));
 
     // Build health check context
     const context: HealthCheckContext = {
@@ -140,23 +156,23 @@ export async function POST(
       environmentUrl: tenant.environmentUrl,
       tags: tenant.tags,
       deploymentHistory,
-    }
+    };
 
     // Force refresh (skip cache)
-    const healthDetail = await healthChecker.checkTenantHealthDetail(context, true)
+    const healthDetail = await healthChecker.checkTenantHealthDetail(context, true);
 
     return NextResponse.json({
       ...healthDetail,
       refreshed: true,
       timestamp: new Date().toISOString(),
-    })
+    });
   } catch (error) {
-    console.error('Tenant health refresh error:', error)
+    console.error("Tenant health refresh error:", error);
     return internalError(
-      'Failed to refresh tenant health',
-      process.env.NODE_ENV === 'development' && error instanceof Error
+      "Failed to refresh tenant health",
+      process.env.NODE_ENV === "development" && error instanceof Error
         ? { error: error.message, stack: error.stack }
         : undefined
-    )
+    );
   }
 }

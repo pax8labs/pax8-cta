@@ -1,21 +1,44 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Demo/mock data for testing the UX without real Azure connections
  *
  * Enable by setting DEMO_MODE=true in environment variables
  */
 
-import { Config, TenantConfig, DeploymentJob, DeploymentStatus, TenantDeploymentResult, DeploymentTrigger } from "../config/schema.js";
+import {
+  Config,
+  TenantConfig,
+  DeploymentJob,
+  DeploymentStatus,
+  TenantDeploymentResult,
+  DeploymentTrigger,
+} from "../config/schema.js";
 
 /**
  * Simple seeded random number generator for consistent mock data
  * Uses a mulberry32 algorithm
  */
 function seededRandom(seed: number): () => number {
-  return function() {
-    let t = seed += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
@@ -26,7 +49,7 @@ function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32bit integer
   }
   return Math.abs(hash);
@@ -208,9 +231,7 @@ export const DEMO_CONFIG: Config = {
  * Generate a mock deployment with realistic-looking data
  * Uses seeded randomness based on deployment ID for consistent results
  */
-export function generateMockDeployment(
-  overrides?: Partial<DeploymentJob>
-): DeploymentJob {
+export function generateMockDeployment(overrides?: Partial<DeploymentJob>): DeploymentJob {
   const deploymentId = overrides?.id || `demo-${Date.now().toString(36)}`;
 
   // Create a seeded random generator based on deployment ID
@@ -227,9 +248,8 @@ export function generateMockDeployment(
     ? new Date(overrides.createdAt).getTime()
     : Date.now() - 3600000;
 
-  const tenantResults: TenantDeploymentResult[] = DEMO_TENANTS
-    .filter(t => t.enabled)
-    .map((tenant, index) => {
+  const tenantResults: TenantDeploymentResult[] = DEMO_TENANTS.filter((t) => t.enabled).map(
+    (tenant, index) => {
       let status: DeploymentStatus;
 
       // Use seeded random for tenant-level decisions
@@ -247,12 +267,12 @@ export function generateMockDeployment(
         status = "pending";
       }
 
-      const startedAt = status !== "pending"
-        ? new Date(baseCreatedAt + (index * 60000)).toISOString()
-        : undefined;
-      const completedAt = status === "completed" || status === "failed"
-        ? new Date(baseCreatedAt + ((index + 1) * 60000)).toISOString()
-        : undefined;
+      const startedAt =
+        status !== "pending" ? new Date(baseCreatedAt + index * 60000).toISOString() : undefined;
+      const completedAt =
+        status === "completed" || status === "failed"
+          ? new Date(baseCreatedAt + (index + 1) * 60000).toISOString()
+          : undefined;
 
       return {
         tenantId: tenant.tenantId,
@@ -261,13 +281,15 @@ export function generateMockDeployment(
         startedAt,
         completedAt,
         error: status === "failed" ? "Connection timeout - environment unreachable" : undefined,
-        solutionImportJobId: status !== "pending" ? `import-${tenant.tenantId.slice(0, 8)}` : undefined,
+        solutionImportJobId:
+          status !== "pending" ? `import-${tenant.tenantId.slice(0, 8)}` : undefined,
         attemptNumber: 1,
       };
-    });
+    }
+  );
 
-  const completedCount = tenantResults.filter(r => r.status === "completed").length;
-  const failedCount = tenantResults.filter(r => r.status === "failed").length;
+  const completedCount = tenantResults.filter((r) => r.status === "completed").length;
+  const failedCount = tenantResults.filter((r) => r.status === "failed").length;
 
   // Calculate duration based on status
   let durationMs: number | undefined;
@@ -374,7 +396,8 @@ export const DEMO_SOLUTIONS = [
     version: "1.0.0.5",
     isManaged: true,
     publisherName: "Contoso ISV",
-    description: "Handles customer inquiries, troubleshoots issues, and escalates complex cases. Integrates with CRM for ticket creation and customer history lookup.",
+    description:
+      "Handles customer inquiries, troubleshoots issues, and escalates complex cases. Integrates with CRM for ticket creation and customer history lookup.",
     category: "Customer Support",
     capabilities: ["Chat", "Email", "Ticket Creation", "Knowledge Base"],
     tags: ["production", "priority"],
@@ -384,13 +407,19 @@ export const DEMO_SOLUTIONS = [
       { name: "Office 365 Outlook", connectorId: "shared_office365", required: false },
     ],
     environmentVariables: [
-      { name: "SupportEmailAddress", type: "string", required: true, defaultValue: "support@contoso.com" },
+      {
+        name: "SupportEmailAddress",
+        type: "string",
+        required: true,
+        defaultValue: "support@contoso.com",
+      },
       { name: "EscalationThresholdMinutes", type: "number", required: false, defaultValue: "30" },
       { name: "EnableAutoResponse", type: "boolean", required: false, defaultValue: "true" },
     ],
     lastPublished: "2025-01-15T14:30:00Z",
     sizeKb: 2450,
-    changelog: "v1.0.0.5 - Fixed escalation routing logic\nv1.0.0.4 - Added email channel support\nv1.0.0.3 - Knowledge base integration",
+    changelog:
+      "v1.0.0.5 - Fixed escalation routing logic\nv1.0.0.4 - Added email channel support\nv1.0.0.3 - Knowledge base integration",
   },
   {
     uniqueName: "SalesAssistant",
@@ -398,7 +427,8 @@ export const DEMO_SOLUTIONS = [
     version: "2.1.0",
     isManaged: true,
     publisherName: "Contoso ISV",
-    description: "Assists sales teams with lead qualification, meeting prep, and opportunity insights. Pulls data from Dynamics 365 Sales to provide account summaries.",
+    description:
+      "Assists sales teams with lead qualification, meeting prep, and opportunity insights. Pulls data from Dynamics 365 Sales to provide account summaries.",
     category: "Sales",
     capabilities: ["Lead Scoring", "Account Insights", "Pipeline Analysis"],
     tags: ["sales", "enterprise"],
@@ -421,7 +451,8 @@ export const DEMO_SOLUTIONS = [
     version: "1.2.3",
     isManaged: true,
     publisherName: "Contoso ISV",
-    description: "Guides new hires through onboarding tasks, answers policy questions, and helps schedule orientation sessions. Connects to HR systems for document collection.",
+    description:
+      "Guides new hires through onboarding tasks, answers policy questions, and helps schedule orientation sessions. Connects to HR systems for document collection.",
     category: "Human Resources",
     capabilities: ["Onboarding Workflow", "Policy Q&A", "Document Collection"],
     tags: ["hr", "internal"],
@@ -433,7 +464,12 @@ export const DEMO_SOLUTIONS = [
     ],
     environmentVariables: [
       { name: "HRPortalUrl", type: "string", required: true },
-      { name: "OnboardingFolderPath", type: "string", required: true, defaultValue: "/sites/hr/onboarding" },
+      {
+        name: "OnboardingFolderPath",
+        type: "string",
+        required: true,
+        defaultValue: "/sites/hr/onboarding",
+      },
     ],
     lastPublished: "2025-01-10T16:45:00Z",
     sizeKb: 1250,
@@ -445,7 +481,8 @@ export const DEMO_SOLUTIONS = [
     version: "3.0.1",
     isManaged: true,
     publisherName: "Contoso ISV",
-    description: "Resolves common IT issues like password resets, software installation, and VPN troubleshooting. Creates ServiceNow tickets for complex problems.",
+    description:
+      "Resolves common IT issues like password resets, software installation, and VPN troubleshooting. Creates ServiceNow tickets for complex problems.",
     category: "IT Support",
     capabilities: ["Password Reset", "Software Install", "Ticket Escalation"],
     tags: ["it", "production"],
@@ -471,7 +508,7 @@ export const DEMO_SOLUTIONS = [
  */
 export async function simulateDelay(minMs: number = 100, maxMs: number = 500): Promise<void> {
   const delay = Math.random() * (maxMs - minMs) + minMs;
-  await new Promise(resolve => setTimeout(resolve, delay));
+  await new Promise((resolve) => setTimeout(resolve, delay));
 }
 
 /**
@@ -488,7 +525,11 @@ export function generateMockHealthCheck(_tenantId: string): {
     checks: [
       { name: "Dataverse Connection", passed: true },
       { name: "Authentication", passed: true },
-      { name: "API Availability", passed: isHealthy, message: isHealthy ? undefined : "Timeout after 30s" },
+      {
+        name: "API Availability",
+        passed: isHealthy,
+        message: isHealthy ? undefined : "Timeout after 30s",
+      },
       { name: "License Check", passed: true },
     ],
   };
@@ -506,9 +547,12 @@ export function generateMockDeploymentPreview(_solutionName: string, tenantName:
     willUpgrade,
     sourceVersion: "1.0.0.5",
     targetVersion: willInstall ? null : "1.0.0.4",
-    warnings: willUpgrade && Math.random() > 0.5
-      ? [`Same version already installed on ${tenantName}. Import will overwrite existing customizations.`]
-      : [],
+    warnings:
+      willUpgrade && Math.random() > 0.5
+        ? [
+            `Same version already installed on ${tenantName}. Import will overwrite existing customizations.`,
+          ]
+        : [],
     estimatedDurationMs: 30000 + Math.floor(Math.random() * 60000),
   };
 }

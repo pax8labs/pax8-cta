@@ -1,8 +1,20 @@
-import {
-  TenantConfig,
-  Config,
-  parseDuration,
-} from "../config/schema.js";
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { TenantConfig, Config, parseDuration } from "../config/schema.js";
 
 /**
  * Tenant with wave assignment
@@ -34,10 +46,7 @@ export class WaveService {
   /**
    * Create an execution plan from configuration
    */
-  createExecutionPlan(
-    config: Config,
-    selectedTenants?: TenantConfig[]
-  ): WaveExecutionPlan {
+  createExecutionPlan(config: Config, selectedTenants?: TenantConfig[]): WaveExecutionPlan {
     const waves = config.settings?.waves;
     const tenants = selectedTenants || config.tenants.filter((t) => t.enabled);
 
@@ -72,9 +81,7 @@ export class WaveService {
 
         // Check if tenant matches wave criteria (by name or tag)
         const matchesByName = wave.tenants.includes(tenant.name);
-        const matchesByTag = wave.tenants.some((wt) =>
-          tenant.tags?.includes(wt)
-        );
+        const matchesByTag = wave.tenants.some((wt) => tenant.tags?.includes(wt));
         const matchesByTenantId = wave.tenants.includes(tenant.tenantId);
 
         if (matchesByName || matchesByTag || matchesByTenantId) {
@@ -98,15 +105,10 @@ export class WaveService {
     }
 
     // Put remaining tenants in an "Unassigned" wave at the end
-    const unassignedTenants = tenants.filter(
-      (t) => !assignedTenants.has(t.tenantId)
-    );
+    const unassignedTenants = tenants.filter((t) => !assignedTenants.has(t.tenantId));
 
     if (unassignedTenants.length > 0) {
-      const maxWaveNumber = Math.max(
-        ...executionWaves.map((w) => w.waveNumber),
-        0
-      );
+      const maxWaveNumber = Math.max(...executionWaves.map((w) => w.waveNumber), 0);
 
       executionWaves.push({
         waveNumber: maxWaveNumber + 1,
@@ -190,9 +192,7 @@ export class WaveService {
   /**
    * Validate wave configuration
    */
-  validateWaveConfig(
-    config: Config
-  ): { valid: boolean; errors: string[]; warnings: string[] } {
+  validateWaveConfig(config: Config): { valid: boolean; errors: string[]; warnings: string[] } {
     const errors: string[] = [];
     const warnings: string[] = [];
     const waves = config.settings?.waves || [];
@@ -227,9 +227,7 @@ export class WaveService {
         const matchesTag = tenantTags.has(ref);
 
         if (!matchesTenantId && !matchesTenantName && !matchesTag) {
-          warnings.push(
-            `Wave "${wave.name}" references unknown tenant/tag: "${ref}"`
-          );
+          warnings.push(`Wave "${wave.name}" references unknown tenant/tag: "${ref}"`);
         }
       }
     }
@@ -240,9 +238,7 @@ export class WaveService {
     for (const wave of waves) {
       for (const tenant of config.tenants) {
         const matchesByName = wave.tenants.includes(tenant.name);
-        const matchesByTag = wave.tenants.some((wt) =>
-          tenant.tags?.includes(wt)
-        );
+        const matchesByTag = wave.tenants.some((wt) => tenant.tags?.includes(wt));
         const matchesByTenantId = wave.tenants.includes(tenant.tenantId);
 
         if (matchesByName || matchesByTag || matchesByTenantId) {

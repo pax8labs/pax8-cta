@@ -1,21 +1,37 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useEffect } from 'react'
-import Link from 'next/link'
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
 
 export default function Error({
   error,
   reset,
 }: {
-  error: Error & { digest?: string }
-  reset: () => void
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
     // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error boundary caught:', error)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error boundary caught:", error);
     }
-  }, [error])
+  }, [error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
@@ -47,7 +63,8 @@ export default function Error({
 
           {/* Error Message */}
           <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
-            We've encountered an unexpected error. Our team has been notified and we're working on it.
+            We've encountered an unexpected error. Our team has been notified and we're working on
+            it.
           </p>
 
           {/* Error ID */}
@@ -76,7 +93,7 @@ export default function Error({
           </div>
 
           {/* Development Info */}
-          {process.env.NODE_ENV === 'development' && error.message && (
+          {process.env.NODE_ENV === "development" && error.message && (
             <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
               <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-300 mb-2">
                 Development Info:
@@ -89,5 +106,5 @@ export default function Error({
         </div>
       </div>
     </div>
-  )
+  );
 }

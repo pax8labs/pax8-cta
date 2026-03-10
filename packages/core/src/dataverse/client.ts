@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { TokenManager } from "../auth/token-manager.js";
 
 export interface DataverseClientConfig {
@@ -89,13 +105,8 @@ export class DataverseClient {
   /**
    * Get the raw response for actions that return binary data (like solution export)
    */
-  async executeActionRaw(
-    actionName: string,
-    parameters: unknown
-  ): Promise<Response> {
-    const token = await this.config.tokenManager.getDataverseToken(
-      this.config.environmentUrl
-    );
+  async executeActionRaw(actionName: string, parameters: unknown): Promise<Response> {
+    const token = await this.config.tokenManager.getDataverseToken(this.config.environmentUrl);
 
     const response = await fetch(`${this.apiUrl}/${actionName}`, {
       method: "POST",
@@ -140,9 +151,7 @@ export class DataverseClient {
   }
 
   private async fetch(url: string, options: RequestInit): Promise<Response> {
-    const token = await this.config.tokenManager.getDataverseToken(
-      this.config.environmentUrl
-    );
+    const token = await this.config.tokenManager.getDataverseToken(this.config.environmentUrl);
 
     const response = await fetch(url, {
       ...options,
@@ -167,7 +176,7 @@ export class DataverseClient {
     let errorMessage = `Dataverse API error: ${response.status} ${response.statusText}`;
 
     try {
-      const errorBody = await response.json() as { error?: DataverseError };
+      const errorBody = (await response.json()) as { error?: DataverseError };
       if (errorBody.error) {
         errorMessage = `Dataverse API error: ${errorBody.error.message}`;
         if (errorBody.error.innererror) {

@@ -1,6 +1,22 @@
-import { coreLogger } from './logger.js';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-const logger = coreLogger.child({ service: 'secrets' });
+import { coreLogger } from "./logger.js";
+
+const logger = coreLogger.child({ service: "secrets" });
 
 export interface SecretProvider {
   getSecret(name: string): Promise<string | undefined>;
@@ -12,12 +28,12 @@ export interface SecretProvider {
 class EnvSecretProvider implements SecretProvider {
   private prefix: string;
 
-  constructor(prefix = '') {
+  constructor(prefix = "") {
     this.prefix = prefix;
   }
 
   async getSecret(name: string): Promise<string | undefined> {
-    const envName = this.prefix + name.toUpperCase().replace(/-/g, '_');
+    const envName = this.prefix + name.toUpperCase().replace(/-/g, "_");
     return process.env[envName];
   }
 }
@@ -43,26 +59,27 @@ class AzureKeyVaultProvider implements SecretProvider {
 
     // Use managed identity or Azure CLI credentials
     // In production, this would use @azure/identity DefaultAzureCredential
-    const tokenUrl = 'http://169.254.169.254/metadata/identity/oauth2/token?' +
-      'api-version=2019-08-01&resource=https://vault.azure.net';
+    const tokenUrl =
+      "http://169.254.169.254/metadata/identity/oauth2/token?" +
+      "api-version=2019-08-01&resource=https://vault.azure.net";
 
     try {
       const response = await fetch(tokenUrl, {
-        headers: { 'Metadata': 'true' },
+        headers: { Metadata: "true" },
       });
 
       if (!response.ok) {
         throw new Error(`Token request failed: ${response.status}`);
       }
 
-      const data = await response.json() as { access_token: string; expires_in: number };
+      const data = (await response.json()) as { access_token: string; expires_in: number };
       this.accessToken = data.access_token;
       this.tokenExpiry = new Date(Date.now() + (data.expires_in - 60) * 1000);
 
       return this.accessToken!;
     } catch (error) {
-      logger.error('Failed to get Azure token', error as Error);
-      throw new Error('Failed to authenticate with Azure Key Vault');
+      logger.error("Failed to get Azure token", error as Error);
+      throw new Error("Failed to authenticate with Azure Key Vault");
     }
   }
 
@@ -79,7 +96,7 @@ class AzureKeyVaultProvider implements SecretProvider {
 
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -91,7 +108,7 @@ class AzureKeyVaultProvider implements SecretProvider {
         throw new Error(`Key Vault request failed: ${response.status}`);
       }
 
-      const data = await response.json() as { value: string };
+      const data = (await response.json()) as { value: string };
       const value = data.value;
 
       // Cache the secret
@@ -112,10 +129,10 @@ class AzureKeyVaultProvider implements SecretProvider {
     const url = `${this.vaultUrl}/secrets/${name}?api-version=7.4`;
 
     const response = await fetch(url, {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ value }),
     });
@@ -136,9 +153,9 @@ class AzureKeyVaultProvider implements SecretProvider {
     const url = `${this.vaultUrl}/secrets/${name}?api-version=7.4`;
 
     const response = await fetch(url, {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -217,7 +234,7 @@ export class SecretsManager {
   async getDeploymentSecrets(): Promise<{
     partnerClientSecret: string;
   }> {
-    const partnerClientSecret = await this.getRequiredSecret('PARTNER_CLIENT_SECRET');
+    const partnerClientSecret = await this.getRequiredSecret("PARTNER_CLIENT_SECRET");
 
     return {
       partnerClientSecret,

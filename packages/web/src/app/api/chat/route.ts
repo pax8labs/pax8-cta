@@ -1,62 +1,78 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getAnthropicClient } from '@/lib/llm/anthropic-client'
-import { parseIntent } from '@/lib/llm/intent-parser'
-import { requireAuth } from '@/lib/api-middleware'
-import { getDatabase } from '@/lib/db'
-import { isDemoMode, DEMO_CONFIG, generateMockDeploymentHistory } from '@agentsync/core'
-import { demoDeployments } from '@/lib/demo-store'
-import { chatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import { createLogger } from '@/lib/logger'
-import { parseAndValidate, chatRequestSchema } from '@/lib/validation'
-import { validationError, internalError } from '@/lib/errors'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-const logger = createLogger('ChatAPI')
+import { NextRequest, NextResponse } from "next/server";
+import { getAnthropicClient } from "@/lib/llm/anthropic-client";
+import { parseIntent } from "@/lib/llm/intent-parser";
+import { requireAuth } from "@/lib/api-middleware";
+import { getDatabase } from "@/lib/db";
+import { isDemoMode, DEMO_CONFIG, generateMockDeploymentHistory } from "@agentsync/core";
+import { demoDeployments } from "@/lib/demo-store";
+import { chatRateLimit, createRateLimitResponse } from "@/lib/rate-limit";
+import { createLogger } from "@/lib/logger";
+import { parseAndValidate, chatRequestSchema } from "@/lib/validation";
+import { validationError, internalError } from "@/lib/errors";
 
-export const dynamic = 'force-dynamic'
+const logger = createLogger("ChatAPI");
+
+export const dynamic = "force-dynamic";
 
 interface ChatRequest {
-  message: string
-  history?: Array<{ role: 'user' | 'assistant'; content: string }>
+  message: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 /**
  * Convert a tool call into a ChatAction for confirmation
  */
 function convertToolCallToAction(toolCall: any): any {
-  const { name, input } = toolCall
+  const { name, input } = toolCall;
 
   switch (name) {
-    case 'create_deployment':
+    case "create_deployment":
       return {
-        type: 'deploy',
+        type: "deploy",
         label: `Deploy ${input.agent_name}`,
         agentName: input.agent_name,
         tenantIds: input.tenant_identifiers,
         requiresConfirmation: true,
         toolCallId: toolCall.id,
-      }
+      };
 
-    case 'retry_deployment':
+    case "retry_deployment":
       return {
-        type: 'retry',
+        type: "retry",
         label: `Retry deployment #${input.deployment_id}`,
         deploymentId: input.deployment_id,
         requiresConfirmation: true,
         toolCallId: toolCall.id,
-      }
+      };
 
-    case 'cancel_deployment':
+    case "cancel_deployment":
       return {
-        type: 'cancel',
+        type: "cancel",
         label: `Cancel deployment #${input.deployment_id}`,
         deploymentId: input.deployment_id,
         requiresConfirmation: true,
         toolCallId: toolCall.id,
-      }
+      };
 
     default:
       // Info-gathering tools don't need confirmation
-      return null
+      return null;
   }
 }
 
@@ -68,25 +84,33 @@ async function getSystemContext() {
     // Get deployment statistics
     const deployments = isDemoMode()
       ? [...Array.from(demoDeployments.values()), ...generateMockDeploymentHistory(50)]
-      : []
+      : [];
 
-    const failedDeployments = deployments.filter(d =>
-      d.tenantResults?.some(r => ['failed', 'error', 'timed_out'].includes(r.status))
-    ).slice(0, 10)
+    const failedDeployments = deployments
+      .filter((d) =>
+        d.tenantResults?.some((r) => ["failed", "error", "timed_out"].includes(r.status))
+      )
+      .slice(0, 10);
 
-    const activeDeployments = deployments.filter(d =>
-      d.status === 'in_progress' || d.status === 'pending'
-    ).slice(0, 5)
+    const activeDeployments = deployments
+      .filter((d) => d.status === "in_progress" || d.status === "pending")
+      .slice(0, 5);
 
     const recentDeployments = deployments
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10)
+      .slice(0, 10);
 
     // Get health check data
-    let healthStats = { versionDriftCount: 0, dependencyIssuesCount: 0, tenantsWithIssues: [] as any[] }
+    let healthStats = {
+      versionDriftCount: 0,
+      dependencyIssuesCount: 0,
+      tenantsWithIssues: [] as any[],
+    };
     try {
-      const db = getDatabase()
-      const results = db.prepare(`
+      const db = getDatabase();
+      const results = db
+        .prepare(
+          `
         SELECT tenant_id, tenant_name, version_drift, dependencies_healthy,
                installed_version, expected_version, missing_dependencies
         FROM health_check_results
@@ -95,79 +119,90 @@ async function getSystemContext() {
           FROM health_check_results
           GROUP BY tenant_id
         )
-      `).all() as Array<{
-        tenant_id: string
-        tenant_name: string
-        version_drift: number
-        dependencies_healthy: number
-        installed_version: string | null
-        expected_version: string | null
-        missing_dependencies: string | null
-      }>
+      `
+        )
+        .all() as Array<{
+        tenant_id: string;
+        tenant_name: string;
+        version_drift: number;
+        dependencies_healthy: number;
+        installed_version: string | null;
+        expected_version: string | null;
+        missing_dependencies: string | null;
+      }>;
 
       healthStats = {
-        versionDriftCount: results.filter(r => r.version_drift === 1).length,
-        dependencyIssuesCount: results.filter(r => r.dependencies_healthy === 0).length,
-        tenantsWithIssues: results.filter(r => r.version_drift === 1 || r.dependencies_healthy === 0).map(r => ({
-          id: r.tenant_id,
-          name: r.tenant_name,
-          versionDrift: r.version_drift === 1,
-          installedVersion: r.installed_version,
-          expectedVersion: r.expected_version,
-          dependencyIssues: r.dependencies_healthy === 0,
-          missingDependencies: r.missing_dependencies ? JSON.parse(r.missing_dependencies) : []
-        }))
-      }
+        versionDriftCount: results.filter((r) => r.version_drift === 1).length,
+        dependencyIssuesCount: results.filter((r) => r.dependencies_healthy === 0).length,
+        tenantsWithIssues: results
+          .filter((r) => r.version_drift === 1 || r.dependencies_healthy === 0)
+          .map((r) => ({
+            id: r.tenant_id,
+            name: r.tenant_name,
+            versionDrift: r.version_drift === 1,
+            installedVersion: r.installed_version,
+            expectedVersion: r.expected_version,
+            dependencyIssues: r.dependencies_healthy === 0,
+            missingDependencies: r.missing_dependencies ? JSON.parse(r.missing_dependencies) : [],
+          })),
+      };
     } catch (error) {
-      console.error('Error fetching health data:', error)
+      console.error("Error fetching health data:", error);
     }
 
     // Get tenant count and list
-    const totalTenants = isDemoMode() ? DEMO_CONFIG.tenants.length : 0
-    const tenants = isDemoMode() ? DEMO_CONFIG.tenants.map(t => ({
-      id: t.tenantId,
-      name: t.name
-    })) : []
+    const totalTenants = isDemoMode() ? DEMO_CONFIG.tenants.length : 0;
+    const tenants = isDemoMode()
+      ? DEMO_CONFIG.tenants.map((t) => ({
+          id: t.tenantId,
+          name: t.name,
+        }))
+      : [];
 
     // Get available agents/solutions
-    const agents = isDemoMode() ? [
-      { name: 'Customer Service Agent', id: 'CustomerServiceAgent' },
-      { name: 'Sales Assistant Copilot', id: 'SalesAssistant' },
-      { name: 'HR Onboarding Bot', id: 'HROnboarding' },
-      { name: 'IT Helpdesk Agent', id: 'ITHelpdesk' }
-    ] : []
+    const agents = isDemoMode()
+      ? [
+          { name: "Customer Service Agent", id: "CustomerServiceAgent" },
+          { name: "Sales Assistant Copilot", id: "SalesAssistant" },
+          { name: "HR Onboarding Bot", id: "HROnboarding" },
+          { name: "IT Helpdesk Agent", id: "ITHelpdesk" },
+        ]
+      : [];
 
     return {
       totalTenants,
       tenants,
       agents,
-      activeDeployments: activeDeployments.map(d => ({
+      activeDeployments: activeDeployments.map((d) => ({
         id: d.id,
         solutionName: d.solutionName,
         status: d.status,
         createdAt: d.createdAt,
-        tenantCount: d.totalTenants || 0
+        tenantCount: d.totalTenants || 0,
       })),
-      failedDeployments: failedDeployments.map(d => ({
+      failedDeployments: failedDeployments.map((d) => ({
         id: d.id,
         solutionName: d.solutionName,
         createdAt: d.createdAt,
-        failedTenants: d.tenantResults?.filter(r => ['failed', 'error', 'timed_out'].includes(r.status)).map(r => ({
-          tenantId: r.tenantId,
-          error: r.error
-        })) || []
+        failedTenants:
+          d.tenantResults
+            ?.filter((r) => ["failed", "error", "timed_out"].includes(r.status))
+            .map((r) => ({
+              tenantId: r.tenantId,
+              error: r.error,
+            })) || [],
       })),
-      recentDeployments: recentDeployments.map(d => ({
+      recentDeployments: recentDeployments.map((d) => ({
         id: d.id,
         solutionName: d.solutionName,
         status: d.status,
-        createdAt: d.createdAt
+        createdAt: d.createdAt,
       })),
-      healthStats
-    }
+      healthStats,
+    };
   } catch (error) {
-    console.error('Error fetching system context:', error)
-    return null
+    console.error("Error fetching system context:", error);
+    return null;
   }
 }
 
@@ -176,36 +211,36 @@ async function getSystemContext() {
  */
 export async function POST(request: NextRequest) {
   // Require authentication
-  const session = await requireAuth()
+  const session = await requireAuth();
   if (session instanceof NextResponse) {
-    return session
+    return session;
   }
 
   // Apply rate limiting (protect LLM costs)
-  const rateLimitResult = await chatRateLimit(request, session.user.email ?? undefined)
+  const rateLimitResult = await chatRateLimit(request, session.user.email ?? undefined);
   if (rateLimitResult && !rateLimitResult.success) {
-    return createRateLimitResponse(rateLimitResult.reset)
+    return createRateLimitResponse(rateLimitResult.reset);
   }
 
   try {
     // Validate request body
-    const validation = await parseAndValidate(request, chatRequestSchema)
+    const validation = await parseAndValidate(request, chatRequestSchema);
     if (!validation.success || !validation.data) {
       return validationError(
-        'Invalid request body',
-        validation.errors?.map(e => `${e.path}: ${e.message}`)
-      )
+        "Invalid request body",
+        validation.errors?.map((e) => `${e.path}: ${e.message}`)
+      );
     }
 
-    const { message, history = [] } = validation.data
+    const { message, history = [] } = validation.data;
 
     // Fetch system context
-    const context = await getSystemContext()
+    const context = await getSystemContext();
 
     // Build enhanced system prompt with real-time context
     const systemPrompt = `You are an AI assistant helping manage AgentSync - a platform for deploying Microsoft Copilot Studio agents across multiple Microsoft 365 tenants.
 
-Current user: ${session.user.email} (${session.user.roles?.join(', ') || 'Viewer'})
+Current user: ${session.user.email} (${session.user.roles?.join(", ") || "Viewer"})
 
 === YOUR ROLE ===
 You help MSP IT professionals manage multi-tenant agent deployments. You can:
@@ -283,37 +318,60 @@ You: "Looking at recent deployment history in the 'Recent Activity' section, I c
 You should deploy to Tenant B to ensure all tenants have this agent."
 
 === CURRENT SYSTEM STATE ===
-${context ? `
+${
+  context
+    ? `
 **Overview:** ${context.totalTenants} tenants configured
 
-**Available Agents:**${context.agents.map(a => `\n  • ${a.name} (id: ${a.id})`).join('')}
+**Available Agents:**${context.agents.map((a) => `\n  • ${a.name} (id: ${a.id})`).join("")}
 
-**Available Tenants:**${context.tenants.map(t => `\n  • ${t.name} (id: ${t.id})`).join('')}
+**Available Tenants:**${context.tenants.map((t) => `\n  • ${t.name} (id: ${t.id})`).join("")}
 
-**Active Deployments:** ${context.activeDeployments.length > 0
-  ? context.activeDeployments.map(d => `\n  • #${d.id}: ${d.solutionName} → ${d.tenantCount} tenants (started ${new Date(d.createdAt).toLocaleString()})`).join('')
-  : ' None'}
+**Active Deployments:** ${
+        context.activeDeployments.length > 0
+          ? context.activeDeployments
+              .map(
+                (d) =>
+                  `\n  • #${d.id}: ${d.solutionName} → ${d.tenantCount} tenants (started ${new Date(d.createdAt).toLocaleString()})`
+              )
+              .join("")
+          : " None"
+      }
 
-**Failed Deployments:** ${context.failedDeployments.length > 0
-  ? context.failedDeployments.map(d => {
-      const failedCount = d.failedTenants.length
-      const firstError = d.failedTenants[0]?.error || 'Unknown error'
-      return `\n  • #${d.id}: ${d.solutionName} - ${failedCount} tenant${failedCount !== 1 ? 's' : ''} failed\n    Error: ${firstError.substring(0, 80)}...`
-    }).join('')
-  : ' None'}
+**Failed Deployments:** ${
+        context.failedDeployments.length > 0
+          ? context.failedDeployments
+              .map((d) => {
+                const failedCount = d.failedTenants.length;
+                const firstError = d.failedTenants[0]?.error || "Unknown error";
+                return `\n  • #${d.id}: ${d.solutionName} - ${failedCount} tenant${failedCount !== 1 ? "s" : ""} failed\n    Error: ${firstError.substring(0, 80)}...`;
+              })
+              .join("")
+          : " None"
+      }
 
 **Health Issues:**
-  • Version drift: ${context.healthStats.versionDriftCount} tenant${context.healthStats.versionDriftCount !== 1 ? 's' : ''}
-  • Missing dependencies: ${context.healthStats.dependencyIssuesCount} tenant${context.healthStats.dependencyIssuesCount !== 1 ? 's' : ''}${context.healthStats.tenantsWithIssues.length > 0
-  ? '\n\n**Tenants needing attention:**' + context.healthStats.tenantsWithIssues.slice(0, 3).map(t =>
-      `\n  • ${t.name}: ${t.versionDrift ? `outdated (${t.installedVersion} vs ${t.expectedVersion})` : ''}${t.versionDrift && t.dependencyIssues ? ', ' : ''}${t.dependencyIssues ? 'missing dependencies' : ''}`
-    ).join('')
-  : ''}
+  • Version drift: ${context.healthStats.versionDriftCount} tenant${context.healthStats.versionDriftCount !== 1 ? "s" : ""}
+  • Missing dependencies: ${context.healthStats.dependencyIssuesCount} tenant${context.healthStats.dependencyIssuesCount !== 1 ? "s" : ""}${
+    context.healthStats.tenantsWithIssues.length > 0
+      ? "\n\n**Tenants needing attention:**" +
+        context.healthStats.tenantsWithIssues
+          .slice(0, 3)
+          .map(
+            (t) =>
+              `\n  • ${t.name}: ${t.versionDrift ? `outdated (${t.installedVersion} vs ${t.expectedVersion})` : ""}${t.versionDrift && t.dependencyIssues ? ", " : ""}${t.dependencyIssues ? "missing dependencies" : ""}`
+          )
+          .join("")
+      : ""
+  }
 
-**Recent Activity:**${context.recentDeployments.slice(0, 5).map(d =>
-  `\n  • #${d.id}: ${d.solutionName} - ${d.status}`
-).join('')}
-` : 'System context unavailable'}
+**Recent Activity:**${context.recentDeployments
+        .slice(0, 5)
+        .map((d) => `\n  • #${d.id}: ${d.solutionName} - ${d.status}`)
+        .join("")}
+`
+    : "System context unavailable"
+}
 
 === HOW TO RESPOND ===
 **Tone:** Friendly, helpful, and conversational - like a knowledgeable colleague
@@ -417,27 +475,27 @@ User: "deploy sales assistant to woodgrove and fabrikam"
 - ALWAYS use the ID (like "CustomerServiceAgent"), never the display name (like "Customer Service Agent"), when calling tools!
 - When user confirms a clarification, CREATE THE DEPLOYMENT immediately with the tool!
 
-Be conversational and helpful. Explain what you're about to do before calling tools. The user will see a confirmation prompt with all the details.`
+Be conversational and helpful. Explain what you're about to do before calling tools. The user will see a confirmation prompt with all the details.`;
 
     // Build message history for context
     const messages = [
       {
-        role: 'user' as const,
+        role: "user" as const,
         content: systemPrompt,
       },
       ...history,
       {
-        role: 'user' as const,
+        role: "user" as const,
         content: message,
       },
-    ]
+    ];
 
     // Get response from LLM with tools enabled
-    const client = getAnthropicClient()
+    const client = getAnthropicClient();
 
     // Add explicit action instruction for deployment requests
     const actionMessage = {
-      role: 'user' as const,
+      role: "user" as const,
       content: `CRITICAL INSTRUCTIONS FOR DEPLOYMENT REQUESTS:
 
 When the user says "deploy X to Y":
@@ -455,39 +513,39 @@ Example CORRECT response to "deploy product agent to fabisco":
 Example WRONG response:
 - Text: "Let me check the available agents first." ← NO! You already have the list!
 
-The agent/tenant lists are ALREADY in your context above. Just fuzzy match and deploy!`
-    }
-    messages.push(actionMessage)
+The agent/tenant lists are ALREADY in your context above. Just fuzzy match and deploy!`,
+    };
+    messages.push(actionMessage);
 
-    const response = await client.chat(messages, { tools: true })
+    const response = await client.chat(messages, { tools: true });
 
     // Handle tool calls
-    let responseText = ''
-    let actions: any[] = []
+    let responseText = "";
+    let actions: any[] = [];
 
-    if (typeof response === 'string') {
-      responseText = response
+    if (typeof response === "string") {
+      responseText = response;
       // Parse legacy format for backwards compatibility
-      const parsed = parseIntent(message, response)
-      actions = parsed.actions
+      const parsed = parseIntent(message, response);
+      actions = parsed.actions;
     } else {
-      responseText = response.content
+      responseText = response.content;
 
       // Convert tool calls to confirmation actions
       if (response.toolCalls && response.toolCalls.length > 0) {
-        logger.debug('Tool calls received', { toolCalls: response.toolCalls })
+        logger.debug("Tool calls received", { toolCalls: response.toolCalls });
         for (const toolCall of response.toolCalls) {
-          const action = convertToolCallToAction(toolCall)
-          logger.debug('Converted action', { action })
+          const action = convertToolCallToAction(toolCall);
+          logger.debug("Converted action", { action });
           if (action) {
-            actions.push(action)
+            actions.push(action);
           }
         }
 
         // If tools were called, prepend a transparency message
         if (actions.length > 0) {
-          const actionDesc = actions.map(a => a.label).join(', ')
-          responseText = `I'll help you with: ${actionDesc}\n\n${responseText}`
+          const actionDesc = actions.map((a) => a.label).join(", ");
+          responseText = `I'll help you with: ${actionDesc}\n\n${responseText}`;
         }
       }
     }
@@ -495,16 +553,16 @@ The agent/tenant lists are ALREADY in your context above. Just fuzzy match and d
     return NextResponse.json({
       response: responseText,
       actions,
-      toolCalls: typeof response === 'object' ? response.toolCalls : undefined,
+      toolCalls: typeof response === "object" ? response.toolCalls : undefined,
       timestamp: new Date().toISOString(),
-    })
+    });
   } catch (error) {
-    console.error('Chat API error:', error)
+    console.error("Chat API error:", error);
     return internalError(
-      'Failed to process message',
-      process.env.NODE_ENV === 'development' && error instanceof Error
+      "Failed to process message",
+      process.env.NODE_ENV === "development" && error instanceof Error
         ? { error: error.message }
         : undefined
-    )
+    );
   }
 }

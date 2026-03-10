@@ -1,72 +1,88 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useState, useEffect } from 'react'
-import useSWR from 'swr'
-import { useTheme } from '@/components/providers/theme-provider'
+"use client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { useTheme } from "@/components/providers/theme-provider";
 
-type Tab = 'integration' | 'application' | 'notifications' | 'webhooks' | 'schedules'
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+type Tab = "integration" | "application" | "notifications" | "webhooks" | "schedules";
 
 // Demo values for showcasing the settings UI
 const DEMO_SETTINGS = {
   integration: {
-    partnerTenantId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    partnerClientId: 'f9e8d7c6-b5a4-3210-fedc-ba0987654321',
-    partnerClientSecret: '••••••••••••••••',
-    sourceTenantId: '',
-    sourceEnvironmentUrl: 'https://pax8-demo.crm.dynamics.com',
+    partnerTenantId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    partnerClientId: "f9e8d7c6-b5a4-3210-fedc-ba0987654321",
+    partnerClientSecret: "••••••••••••••••",
+    sourceTenantId: "",
+    sourceEnvironmentUrl: "https://pax8-demo.crm.dynamics.com",
     tenantDiscoveryEnabled: true,
     connectionMappingEnabled: true,
     environmentVariablesEnabled: false,
-    lastTestResult: 'success' as const,
-    lastTestedAt: '2026-01-30T16:00:00.000Z', // Fixed timestamp to avoid hydration mismatch
+    lastTestResult: "success" as const,
+    lastTestedAt: "2026-01-30T16:00:00.000Z", // Fixed timestamp to avoid hydration mismatch
   },
   app: {
     demoMode: true,
     defaultMaxConcurrentDeployments: 3,
     defaultDeploymentTimeoutMs: 600000,
     autoRetryFailedDeployments: false,
-    theme: 'system' as const,
+    theme: "system" as const,
   },
   isConfigured: true,
-}
+};
 
 interface TestResult {
-  step: string
-  success: boolean
-  message: string
-  details?: string
+  step: string;
+  success: boolean;
+  message: string;
+  details?: string;
 }
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('integration')
-  const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [testResults, setTestResults] = useState<TestResult[] | null>(null)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>("integration");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResults, setTestResults] = useState<TestResult[] | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const { data: apiSettings, mutate } = useSWR('/api/settings', fetcher)
-  const { setTheme } = useTheme()
+  const { data: apiSettings, mutate } = useSWR("/api/settings", fetcher);
+  const { setTheme } = useTheme();
 
   // Use demo settings when in demo mode with no real settings configured
-  const isDemoMode = apiSettings?.app?.demoMode !== false && !apiSettings?.isConfigured
-  const settings = isDemoMode ? DEMO_SETTINGS : apiSettings
+  const isDemoMode = apiSettings?.app?.demoMode !== false && !apiSettings?.isConfigured;
+  const settings = isDemoMode ? DEMO_SETTINGS : apiSettings;
 
   // Integration form state - pre-populate with demo values in demo mode
   const [integrationForm, setIntegrationForm] = useState({
-    partnerTenantId: '',
-    partnerClientId: '',
-    partnerClientSecret: '',
-    sourceTenantId: '',
-    sourceEnvironmentUrl: '',
+    partnerTenantId: "",
+    partnerClientId: "",
+    partnerClientSecret: "",
+    sourceTenantId: "",
+    sourceEnvironmentUrl: "",
     tenantDiscoveryEnabled: false,
     connectionMappingEnabled: false,
     environmentVariablesEnabled: false,
-  })
+  });
 
   // Track if we've initialized demo values
-  const [demoInitialized, setDemoInitialized] = useState(false)
+  const [demoInitialized, setDemoInitialized] = useState(false);
 
   // App form state
   const [appForm, setAppForm] = useState({
@@ -74,38 +90,38 @@ export default function SettingsPage() {
     defaultMaxConcurrentDeployments: 3,
     defaultDeploymentTimeoutMs: 600000,
     autoRetryFailedDeployments: false,
-    theme: 'system' as 'light' | 'dark' | 'system',
-  })
+    theme: "system" as "light" | "dark" | "system",
+  });
 
   // Notification form state
   const [notificationForm, setNotificationForm] = useState({
     slackEnabled: false,
-    slackWebhookUrl: '',
+    slackWebhookUrl: "",
     teamsEnabled: false,
-    teamsWebhookUrl: '',
+    teamsWebhookUrl: "",
     emailEnabled: false,
-    emailRecipients: '',
+    emailRecipients: "",
     notifyOnDeploymentStart: true,
     notifyOnDeploymentComplete: true,
     notifyOnDeploymentFailure: true,
     notifyOnApprovalNeeded: true,
-  })
+  });
 
   // Sync form with loaded settings
   const syncFormsWithSettings = () => {
     if (settings?.integration) {
       setIntegrationForm((prev) => ({
         ...prev,
-        partnerTenantId: settings.integration.partnerTenantId || '',
-        partnerClientId: settings.integration.partnerClientId || '',
+        partnerTenantId: settings.integration.partnerTenantId || "",
+        partnerClientId: settings.integration.partnerClientId || "",
         // Don't overwrite password if user has entered one
-        partnerClientSecret: prev.partnerClientSecret || '',
-        sourceTenantId: settings.integration.sourceTenantId || '',
-        sourceEnvironmentUrl: settings.integration.sourceEnvironmentUrl || '',
+        partnerClientSecret: prev.partnerClientSecret || "",
+        sourceTenantId: settings.integration.sourceTenantId || "",
+        sourceEnvironmentUrl: settings.integration.sourceEnvironmentUrl || "",
         tenantDiscoveryEnabled: settings.integration.tenantDiscoveryEnabled || false,
         connectionMappingEnabled: settings.integration.connectionMappingEnabled || false,
         environmentVariablesEnabled: settings.integration.environmentVariablesEnabled || false,
-      }))
+      }));
     }
     if (settings?.app) {
       setAppForm({
@@ -113,32 +129,32 @@ export default function SettingsPage() {
         defaultMaxConcurrentDeployments: settings.app.defaultMaxConcurrentDeployments ?? 3,
         defaultDeploymentTimeoutMs: settings.app.defaultDeploymentTimeoutMs ?? 600000,
         autoRetryFailedDeployments: settings.app.autoRetryFailedDeployments ?? false,
-        theme: settings.app.theme ?? 'system',
-      })
+        theme: settings.app.theme ?? "system",
+      });
     }
     if (settings?.app) {
       setNotificationForm((prev) => ({
         ...prev,
         slackEnabled: settings.app.slackEnabled ?? false,
-        slackWebhookUrl: prev.slackWebhookUrl || settings.app.slackWebhookUrl || '',
+        slackWebhookUrl: prev.slackWebhookUrl || settings.app.slackWebhookUrl || "",
         teamsEnabled: settings.app.teamsEnabled ?? false,
-        teamsWebhookUrl: prev.teamsWebhookUrl || settings.app.teamsWebhookUrl || '',
+        teamsWebhookUrl: prev.teamsWebhookUrl || settings.app.teamsWebhookUrl || "",
         emailEnabled: settings.app.emailEnabled ?? false,
-        emailRecipients: settings.app.emailRecipients || '',
+        emailRecipients: settings.app.emailRecipients || "",
         notifyOnDeploymentStart: settings.app.notifyOnDeploymentStart ?? true,
         notifyOnDeploymentComplete: settings.app.notifyOnDeploymentComplete ?? true,
         notifyOnDeploymentFailure: settings.app.notifyOnDeploymentFailure ?? true,
         notifyOnApprovalNeeded: settings.app.notifyOnApprovalNeeded ?? true,
-      }))
+      }));
     }
-  }
+  };
 
   // Sync on initial load using useEffect to avoid hydration issues
   useEffect(() => {
     if (settings && !integrationForm.partnerTenantId && settings.integration?.partnerTenantId) {
-      syncFormsWithSettings()
+      syncFormsWithSettings();
     }
-  }, [settings])
+  }, [settings]);
 
   // Initialize demo values when in demo mode
   useEffect(() => {
@@ -146,28 +162,28 @@ export default function SettingsPage() {
       setIntegrationForm({
         partnerTenantId: DEMO_SETTINGS.integration.partnerTenantId,
         partnerClientId: DEMO_SETTINGS.integration.partnerClientId,
-        partnerClientSecret: '',
+        partnerClientSecret: "",
         sourceTenantId: DEMO_SETTINGS.integration.sourceTenantId,
         sourceEnvironmentUrl: DEMO_SETTINGS.integration.sourceEnvironmentUrl,
         tenantDiscoveryEnabled: DEMO_SETTINGS.integration.tenantDiscoveryEnabled,
         connectionMappingEnabled: DEMO_SETTINGS.integration.connectionMappingEnabled,
         environmentVariablesEnabled: DEMO_SETTINGS.integration.environmentVariablesEnabled,
-      })
+      });
       setAppForm({
         demoMode: DEMO_SETTINGS.app.demoMode,
         defaultMaxConcurrentDeployments: DEMO_SETTINGS.app.defaultMaxConcurrentDeployments,
         defaultDeploymentTimeoutMs: DEMO_SETTINGS.app.defaultDeploymentTimeoutMs,
         autoRetryFailedDeployments: DEMO_SETTINGS.app.autoRetryFailedDeployments,
         theme: DEMO_SETTINGS.app.theme,
-      })
-      setDemoInitialized(true)
+      });
+      setDemoInitialized(true);
     }
-  }, [isDemoMode, demoInitialized, apiSettings])
+  }, [isDemoMode, demoInitialized, apiSettings]);
 
   const saveIntegrationSettings = async () => {
-    setSaving(true)
-    setMessage(null)
-    setTestResults(null)
+    setSaving(true);
+    setMessage(null);
+    setTestResults(null);
 
     try {
       // Only include client secret if user entered a new one
@@ -179,58 +195,67 @@ export default function SettingsPage() {
         tenantDiscoveryEnabled: integrationForm.tenantDiscoveryEnabled,
         connectionMappingEnabled: integrationForm.connectionMappingEnabled,
         environmentVariablesEnabled: integrationForm.environmentVariablesEnabled,
+      };
+
+      if (
+        integrationForm.partnerClientSecret &&
+        integrationForm.partnerClientSecret !== "••••••••••••••••"
+      ) {
+        updates.partnerClientSecret = integrationForm.partnerClientSecret;
       }
 
-      if (integrationForm.partnerClientSecret && integrationForm.partnerClientSecret !== '••••••••••••••••') {
-        updates.partnerClientSecret = integrationForm.partnerClientSecret
-      }
-
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ integration: updates }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to save settings')
+        throw new Error("Failed to save settings");
       }
 
-      await mutate()
-      setMessage({ type: 'success', text: 'Integration settings saved successfully' })
+      await mutate();
+      setMessage({ type: "success", text: "Integration settings saved successfully" });
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to save' })
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to save",
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const saveAppSettings = async () => {
-    setSaving(true)
-    setMessage(null)
+    setSaving(true);
+    setMessage(null);
 
     try {
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ app: appForm }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to save settings')
+        throw new Error("Failed to save settings");
       }
 
-      await mutate()
-      setMessage({ type: 'success', text: 'Application settings saved successfully' })
+      await mutate();
+      setMessage({ type: "success", text: "Application settings saved successfully" });
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to save' })
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to save",
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const saveNotificationSettings = async () => {
-    setSaving(true)
-    setMessage(null)
+    setSaving(true);
+    setMessage(null);
 
     try {
       // Prepare notification settings, masking webhooks if not changed
@@ -243,94 +268,100 @@ export default function SettingsPage() {
         notifyOnDeploymentComplete: notificationForm.notifyOnDeploymentComplete,
         notifyOnDeploymentFailure: notificationForm.notifyOnDeploymentFailure,
         notifyOnApprovalNeeded: notificationForm.notifyOnApprovalNeeded,
-      }
+      };
 
       // Only include webhook URLs if they were changed (not masked)
-      if (notificationForm.slackWebhookUrl && !notificationForm.slackWebhookUrl.includes('••')) {
-        updates.slackWebhookUrl = notificationForm.slackWebhookUrl
+      if (notificationForm.slackWebhookUrl && !notificationForm.slackWebhookUrl.includes("••")) {
+        updates.slackWebhookUrl = notificationForm.slackWebhookUrl;
       }
-      if (notificationForm.teamsWebhookUrl && !notificationForm.teamsWebhookUrl.includes('••')) {
-        updates.teamsWebhookUrl = notificationForm.teamsWebhookUrl
+      if (notificationForm.teamsWebhookUrl && !notificationForm.teamsWebhookUrl.includes("••")) {
+        updates.teamsWebhookUrl = notificationForm.teamsWebhookUrl;
       }
 
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ app: updates }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to save settings')
+        throw new Error("Failed to save settings");
       }
 
-      await mutate()
-      setMessage({ type: 'success', text: 'Notification settings saved successfully' })
+      await mutate();
+      setMessage({ type: "success", text: "Notification settings saved successfully" });
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to save' })
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to save",
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
-  const testNotification = async (channel: 'slack' | 'teams' | 'email') => {
-    setTesting(true)
-    setMessage(null)
+  const testNotification = async (channel: "slack" | "teams" | "email") => {
+    setTesting(true);
+    setMessage(null);
 
     try {
-      const response = await fetch('/api/settings/test-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/settings/test-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channel }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
-        setMessage({ type: 'success', text: `Test ${channel} notification sent successfully!` })
+        setMessage({ type: "success", text: `Test ${channel} notification sent successfully!` });
       } else {
-        setMessage({ type: 'error', text: data.error || `Failed to send test ${channel} notification` })
+        setMessage({
+          type: "error",
+          text: data.error || `Failed to send test ${channel} notification`,
+        });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Test failed' })
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Test failed" });
     } finally {
-      setTesting(false)
+      setTesting(false);
     }
-  }
+  };
 
   const testConnection = async () => {
-    setTesting(true)
-    setTestResults(null)
-    setMessage(null)
+    setTesting(true);
+    setTestResults(null);
+    setMessage(null);
 
     try {
-      const response = await fetch('/api/settings/test-connection', {
-        method: 'POST',
-      })
+      const response = await fetch("/api/settings/test-connection", {
+        method: "POST",
+      });
 
-      const data = await response.json()
-      setTestResults(data.results || [])
+      const data = await response.json();
+      setTestResults(data.results || []);
 
       if (data.success) {
-        setMessage({ type: 'success', text: 'Connection test passed!' })
+        setMessage({ type: "success", text: "Connection test passed!" });
       } else {
-        setMessage({ type: 'error', text: data.error || 'Connection test failed' })
+        setMessage({ type: "error", text: data.error || "Connection test failed" });
       }
 
-      await mutate()
+      await mutate();
     } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Test failed' })
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Test failed" });
     } finally {
-      setTesting(false)
+      setTesting(false);
     }
-  }
+  };
 
   const tabs = [
-    { id: 'integration' as Tab, label: 'Integration', icon: '🔗' },
-    { id: 'application' as Tab, label: 'Application', icon: '⚙️' },
-    { id: 'notifications' as Tab, label: 'Notifications', icon: '🔔' },
-    { id: 'webhooks' as Tab, label: 'Webhooks', icon: '🔌' },
-    { id: 'schedules' as Tab, label: 'Schedules', icon: '⏰' },
-  ]
+    { id: "integration" as Tab, label: "Integration", icon: "🔗" },
+    { id: "application" as Tab, label: "Application", icon: "⚙️" },
+    { id: "notifications" as Tab, label: "Notifications", icon: "🔔" },
+    { id: "webhooks" as Tab, label: "Webhooks", icon: "🔌" },
+    { id: "schedules" as Tab, label: "Schedules", icon: "⏰" },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -349,8 +380,15 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Demo Mode</p>
               <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                Showing sample configuration values. These are example credentials for demonstration purposes only.
-                Complete the <a href="/welcome" className="underline hover:text-amber-900 dark:hover:text-amber-200">setup guide</a> to connect to your real Power Platform environment.
+                Showing sample configuration values. These are example credentials for demonstration
+                purposes only. Complete the{" "}
+                <a
+                  href="/welcome"
+                  className="underline hover:text-amber-900 dark:hover:text-amber-200"
+                >
+                  setup guide
+                </a>{" "}
+                to connect to your real Power Platform environment.
               </p>
             </div>
           </div>
@@ -361,9 +399,9 @@ export default function SettingsPage() {
       {message && (
         <div
           className={`mb-4 p-3 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+            message.type === "success"
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : "bg-red-50 text-red-800 border border-red-200"
           }`}
         >
           {message.text}
@@ -379,8 +417,8 @@ export default function SettingsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >
               <span className="mr-2">{tab.icon}</span>
@@ -391,7 +429,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Integration Tab */}
-      {activeTab === 'integration' && (
+      {activeTab === "integration" && (
         <div className="space-y-6">
           {/* Status Card */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -400,28 +438,35 @@ export default function SettingsPage() {
                 <h3 className="font-medium text-gray-900 dark:text-white">Connection Status</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {settings?.isConfigured
-                    ? settings?.integration?.lastTestResult === 'success'
-                      ? 'Connected and verified'
-                      : settings?.integration?.lastTestResult === 'failed'
-                      ? 'Configured but last test failed'
-                      : 'Configured - not yet tested'
-                    : 'Not configured'}
+                    ? settings?.integration?.lastTestResult === "success"
+                      ? "Connected and verified"
+                      : settings?.integration?.lastTestResult === "failed"
+                        ? "Configured but last test failed"
+                        : "Configured - not yet tested"
+                    : "Not configured"}
                 </p>
                 {settings?.integration?.lastTestedAt && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" suppressHydrationWarning>
-                    Last tested: {new Date(settings.integration.lastTestedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'}
+                  <p
+                    className="text-xs text-gray-400 dark:text-gray-500 mt-1"
+                    suppressHydrationWarning
+                  >
+                    Last tested:{" "}
+                    {new Date(settings.integration.lastTestedAt)
+                      .toISOString()
+                      .replace("T", " ")
+                      .slice(0, 19) + " UTC"}
                   </p>
                 )}
               </div>
               <div
                 className={`w-3 h-3 rounded-full ${
                   settings?.isConfigured
-                    ? settings?.integration?.lastTestResult === 'success'
-                      ? 'bg-green-500'
-                      : settings?.integration?.lastTestResult === 'failed'
-                      ? 'bg-red-500'
-                      : 'bg-yellow-500'
-                    : 'bg-gray-300'
+                    ? settings?.integration?.lastTestResult === "success"
+                      ? "bg-green-500"
+                      : settings?.integration?.lastTestResult === "failed"
+                        ? "bg-red-500"
+                        : "bg-yellow-500"
+                    : "bg-gray-300"
                 }`}
               />
             </div>
@@ -431,9 +476,12 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Partner Credentials</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Partner Credentials
+                </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Configure your Azure AD app registration for GDAP-based access to customer tenants.
+                  Configure your Azure AD app registration for GDAP-based access to customer
+                  tenants.
                 </p>
               </div>
               <a
@@ -458,7 +506,9 @@ export default function SettingsPage() {
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Your MSP/Partner Azure AD tenant ID</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Your MSP/Partner Azure AD tenant ID
+                </p>
               </div>
 
               <div>
@@ -474,7 +524,9 @@ export default function SettingsPage() {
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">From your Azure AD app registration</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  From your Azure AD app registration
+                </p>
               </div>
 
               <div>
@@ -487,7 +539,11 @@ export default function SettingsPage() {
                   onChange={(e) =>
                     setIntegrationForm({ ...integrationForm, partnerClientSecret: e.target.value })
                   }
-                  placeholder={settings?.integration?.partnerClientSecret ? '••••••••••••••••' : 'Enter client secret'}
+                  placeholder={
+                    settings?.integration?.partnerClientSecret
+                      ? "••••••••••••••••"
+                      : "Enter client secret"
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -499,9 +555,12 @@ export default function SettingsPage() {
 
           {/* Source Environment */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Source Environment (Optional)</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Source Environment (Optional)
+            </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-              Configure a central Power Platform environment to import agents directly without uploading ZIP files.
+              Configure a central Power Platform environment to import agents directly without
+              uploading ZIP files.
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 italic">
               💡 Recommended: This allows one-click import of agents from your master environment
@@ -610,20 +669,26 @@ export default function SettingsPage() {
           {/* Test Results */}
           {testResults && testResults.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Test Results</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                Test Results
+              </h3>
               <div className="space-y-3">
                 {testResults.map((result, i) => (
                   <div
                     key={i}
                     className={`flex items-start p-3 rounded-lg ${
-                      result.success ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30'
+                      result.success
+                        ? "bg-green-50 dark:bg-green-900/30"
+                        : "bg-red-50 dark:bg-red-900/30"
                     }`}
                   >
-                    <span className="mr-2">{result.success ? '✓' : '✗'}</span>
+                    <span className="mr-2">{result.success ? "✓" : "✗"}</span>
                     <div>
                       <p
                         className={`text-sm font-medium ${
-                          result.success ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'
+                          result.success
+                            ? "text-green-800 dark:text-green-300"
+                            : "text-red-800 dark:text-red-300"
                         }`}
                       >
                         {result.message}
@@ -631,7 +696,9 @@ export default function SettingsPage() {
                       {result.details && (
                         <p
                           className={`text-xs ${
-                            result.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                            result.success
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
                           }`}
                         >
                           {result.details}
@@ -651,7 +718,7 @@ export default function SettingsPage() {
               disabled={testing || !settings?.isConfigured}
               className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50"
             >
-              {testing ? 'Testing...' : 'Test Connection'}
+              {testing ? "Testing..." : "Test Connection"}
             </button>
 
             <button
@@ -659,17 +726,19 @@ export default function SettingsPage() {
               disabled={saving}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Integration Settings'}
+              {saving ? "Saving..." : "Save Integration Settings"}
             </button>
           </div>
         </div>
       )}
 
       {/* Application Tab */}
-      {activeTab === 'application' && (
+      {activeTab === "application" && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">General Settings</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              General Settings
+            </h3>
 
             <div className="space-y-4">
               <label className="flex items-center">
@@ -686,13 +755,15 @@ export default function SettingsPage() {
               </p>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Theme</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Theme
+                </label>
                 <select
                   value={appForm.theme}
                   onChange={(e) => {
-                    const newTheme = e.target.value as 'light' | 'dark' | 'system'
-                    setAppForm({ ...appForm, theme: newTheme })
-                    setTheme(newTheme)
+                    const newTheme = e.target.value as "light" | "dark" | "system";
+                    setAppForm({ ...appForm, theme: newTheme });
+                    setTheme(newTheme);
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
@@ -705,7 +776,9 @@ export default function SettingsPage() {
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Deployment Defaults</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Deployment Defaults
+            </h3>
 
             <div className="space-y-4">
               <div>
@@ -774,14 +847,14 @@ export default function SettingsPage() {
               disabled={saving}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Application Settings'}
+              {saving ? "Saving..." : "Save Application Settings"}
             </button>
           </div>
         </div>
       )}
 
       {/* Notifications Tab */}
-      {activeTab === 'notifications' && (
+      {activeTab === "notifications" && (
         <div className="space-y-6">
           {/* Slack Notifications */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -793,7 +866,9 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       checked={notificationForm.slackEnabled}
-                      onChange={(e) => setNotificationForm({ ...notificationForm, slackEnabled: e.target.checked })}
+                      onChange={(e) =>
+                        setNotificationForm({ ...notificationForm, slackEnabled: e.target.checked })
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-9 h-5 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -805,11 +880,11 @@ export default function SettingsPage() {
               </div>
               {notificationForm.slackEnabled && (
                 <button
-                  onClick={() => testNotification('slack')}
+                  onClick={() => testNotification("slack")}
                   disabled={testing || !notificationForm.slackWebhookUrl}
                   className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {testing ? 'Testing...' : 'Test'}
+                  {testing ? "Testing..." : "Test"}
                 </button>
               )}
             </div>
@@ -822,7 +897,9 @@ export default function SettingsPage() {
                 <input
                   type="password"
                   value={notificationForm.slackWebhookUrl}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, slackWebhookUrl: e.target.value })}
+                  onChange={(e) =>
+                    setNotificationForm({ ...notificationForm, slackWebhookUrl: e.target.value })
+                  }
                   placeholder="https://hooks.slack.com/services/..."
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -838,12 +915,16 @@ export default function SettingsPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Microsoft Teams</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Microsoft Teams
+                  </h3>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={notificationForm.teamsEnabled}
-                      onChange={(e) => setNotificationForm({ ...notificationForm, teamsEnabled: e.target.checked })}
+                      onChange={(e) =>
+                        setNotificationForm({ ...notificationForm, teamsEnabled: e.target.checked })
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-9 h-5 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -855,11 +936,11 @@ export default function SettingsPage() {
               </div>
               {notificationForm.teamsEnabled && (
                 <button
-                  onClick={() => testNotification('teams')}
+                  onClick={() => testNotification("teams")}
                   disabled={testing || !notificationForm.teamsWebhookUrl}
                   className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {testing ? 'Testing...' : 'Test'}
+                  {testing ? "Testing..." : "Test"}
                 </button>
               )}
             </div>
@@ -872,7 +953,9 @@ export default function SettingsPage() {
                 <input
                   type="password"
                   value={notificationForm.teamsWebhookUrl}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, teamsWebhookUrl: e.target.value })}
+                  onChange={(e) =>
+                    setNotificationForm({ ...notificationForm, teamsWebhookUrl: e.target.value })
+                  }
                   placeholder="https://outlook.office.com/webhook/..."
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -893,7 +976,9 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       checked={notificationForm.emailEnabled}
-                      onChange={(e) => setNotificationForm({ ...notificationForm, emailEnabled: e.target.checked })}
+                      onChange={(e) =>
+                        setNotificationForm({ ...notificationForm, emailEnabled: e.target.checked })
+                      }
                       className="sr-only peer"
                     />
                     <div className="w-9 h-5 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -905,11 +990,11 @@ export default function SettingsPage() {
               </div>
               {notificationForm.emailEnabled && (
                 <button
-                  onClick={() => testNotification('email')}
+                  onClick={() => testNotification("email")}
                   disabled={testing || !notificationForm.emailRecipients}
                   className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {testing ? 'Testing...' : 'Test'}
+                  {testing ? "Testing..." : "Test"}
                 </button>
               )}
             </div>
@@ -922,7 +1007,9 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   value={notificationForm.emailRecipients}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, emailRecipients: e.target.value })}
+                  onChange={(e) =>
+                    setNotificationForm({ ...notificationForm, emailRecipients: e.target.value })
+                  }
                   placeholder="admin@example.com, team@example.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -935,7 +1022,9 @@ export default function SettingsPage() {
 
           {/* Notification Events */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Notification Events</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Notification Events
+            </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Choose which events trigger notifications
             </p>
@@ -945,7 +1034,12 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={notificationForm.notifyOnDeploymentStart}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, notifyOnDeploymentStart: e.target.checked })}
+                  onChange={(e) =>
+                    setNotificationForm({
+                      ...notificationForm,
+                      notifyOnDeploymentStart: e.target.checked,
+                    })
+                  }
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
                 <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -957,7 +1051,12 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={notificationForm.notifyOnDeploymentComplete}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, notifyOnDeploymentComplete: e.target.checked })}
+                  onChange={(e) =>
+                    setNotificationForm({
+                      ...notificationForm,
+                      notifyOnDeploymentComplete: e.target.checked,
+                    })
+                  }
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
                 <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -969,7 +1068,12 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={notificationForm.notifyOnDeploymentFailure}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, notifyOnDeploymentFailure: e.target.checked })}
+                  onChange={(e) =>
+                    setNotificationForm({
+                      ...notificationForm,
+                      notifyOnDeploymentFailure: e.target.checked,
+                    })
+                  }
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
                 <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -981,7 +1085,12 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={notificationForm.notifyOnApprovalNeeded}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, notifyOnApprovalNeeded: e.target.checked })}
+                  onChange={(e) =>
+                    setNotificationForm({
+                      ...notificationForm,
+                      notifyOnApprovalNeeded: e.target.checked,
+                    })
+                  }
                   className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                 />
                 <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -998,19 +1107,19 @@ export default function SettingsPage() {
               disabled={saving}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Notification Settings'}
+              {saving ? "Saving..." : "Save Notification Settings"}
             </button>
           </div>
         </div>
       )}
 
       {/* Schedules Tab */}
-      {activeTab === 'schedules' && <SchedulesTab />}
+      {activeTab === "schedules" && <SchedulesTab />}
 
       {/* Webhooks Tab */}
-      {activeTab === 'webhooks' && <WebhooksTab />}
+      {activeTab === "webhooks" && <WebhooksTab />}
     </div>
-  )
+  );
 }
 
 /**
@@ -1018,110 +1127,114 @@ export default function SettingsPage() {
  * Manages scheduled deployments
  */
 function SchedulesTab() {
-  const [scheduleInfo, setScheduleInfo] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [registering, setRegistering] = useState(false)
-  const [removing, setRemoving] = useState(false)
-  const [solutionName, setSolutionName] = useState('')
-  const [solutionPath, setSolutionPath] = useState('')
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [scheduleInfo, setScheduleInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [registering, setRegistering] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [solutionName, setSolutionName] = useState("");
+  const [solutionPath, setSolutionPath] = useState("");
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const loadSchedules = async () => {
     try {
-      const res = await fetch('/api/schedules')
-      if (!res.ok) throw new Error('Failed to load schedules')
-      const data = await res.json()
-      setScheduleInfo(data)
+      const res = await fetch("/api/schedules");
+      if (!res.ok) throw new Error("Failed to load schedules");
+      const data = await res.json();
+      setScheduleInfo(data);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to load schedules' })
+      setMessage({ type: "error", text: "Failed to load schedules" });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadSchedules()
-  }, [])
+    loadSchedules();
+  }, []);
 
   const registerSchedule = async () => {
     if (!solutionName.trim() || !solutionPath.trim()) {
-      setMessage({ type: 'error', text: 'Solution name and path are required' })
-      return
+      setMessage({ type: "error", text: "Solution name and path are required" });
+      return;
     }
 
-    setRegistering(true)
+    setRegistering(true);
     try {
-      const res = await fetch('/api/schedules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ solutionName, solutionPath }),
-      })
+      });
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Failed to register schedule')
+        const error = await res.json();
+        throw new Error(error.error || "Failed to register schedule");
       }
 
-      const data = await res.json()
+      const data = await res.json();
       setMessage({
-        type: 'success',
-        text: `Registered ${data.registered} schedule(s)${data.errors.length > 0 ? ` (${data.errors.length} errors)` : ''}`
-      })
-      setSolutionName('')
-      setSolutionPath('')
-      loadSchedules()
+        type: "success",
+        text: `Registered ${data.registered} schedule(s)${data.errors.length > 0 ? ` (${data.errors.length} errors)` : ""}`,
+      });
+      setSolutionName("");
+      setSolutionPath("");
+      loadSchedules();
     } catch (error) {
       setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to register schedule'
-      })
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to register schedule",
+      });
     } finally {
-      setRegistering(false)
+      setRegistering(false);
     }
-  }
+  };
 
   const removeAllSchedules = async () => {
-    if (!confirm('Are you sure you want to remove all scheduled deployments?')) return
+    if (!confirm("Are you sure you want to remove all scheduled deployments?")) return;
 
-    setRemoving(true)
+    setRemoving(true);
     try {
-      const res = await fetch('/api/schedules', { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to remove schedules')
+      const res = await fetch("/api/schedules", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove schedules");
 
-      const data = await res.json()
-      setMessage({ type: 'success', text: `Removed ${data.removed} schedule(s)` })
-      loadSchedules()
+      const data = await res.json();
+      setMessage({ type: "success", text: `Removed ${data.removed} schedule(s)` });
+      loadSchedules();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to remove schedules' })
+      setMessage({ type: "error", text: "Failed to remove schedules" });
     } finally {
-      setRemoving(false)
+      setRemoving(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-gray-500 dark:text-gray-400">Loading schedules...</div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Scheduled Deployments</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          Scheduled Deployments
+        </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Automatically trigger deployments at scheduled times using cron expressions
         </p>
 
         {/* Message */}
         {message && (
-          <div className={`mt-4 p-3 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300'
-              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300'
-          }`}>
+          <div
+            className={`mt-4 p-3 rounded-lg ${
+              message.type === "success"
+                ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300"
+                : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300"
+            }`}
+          >
             <p className="text-sm">{message.text}</p>
           </div>
         )}
@@ -1129,16 +1242,32 @@ function SchedulesTab() {
         {/* Config-based Schedule */}
         {scheduleInfo?.enabled && (
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Configuration Schedule</h4>
+            <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">
+              Configuration Schedule
+            </h4>
             <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-              <p><strong>Cron:</strong> <code className="font-mono">{scheduleInfo.cron}</code></p>
-              <p><strong>Description:</strong> {scheduleInfo.cronDescription}</p>
-              <p><strong>Timezone:</strong> {scheduleInfo.timezone}</p>
+              <p>
+                <strong>Cron:</strong> <code className="font-mono">{scheduleInfo.cron}</code>
+              </p>
+              <p>
+                <strong>Description:</strong> {scheduleInfo.cronDescription}
+              </p>
+              <p>
+                <strong>Timezone:</strong> {scheduleInfo.timezone}
+              </p>
               {scheduleInfo.isCurrentlyInWindow !== null && (
                 <p>
-                  <strong>Status:</strong>{' '}
-                  <span className={scheduleInfo.isCurrentlyInWindow ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-400'}>
-                    {scheduleInfo.isCurrentlyInWindow ? 'In maintenance window' : 'Outside maintenance window'}
+                  <strong>Status:</strong>{" "}
+                  <span
+                    className={
+                      scheduleInfo.isCurrentlyInWindow
+                        ? "text-green-700 dark:text-green-300"
+                        : "text-gray-600 dark:text-gray-400"
+                    }
+                  >
+                    {scheduleInfo.isCurrentlyInWindow
+                      ? "In maintenance window"
+                      : "Outside maintenance window"}
                   </span>
                 </p>
               )}
@@ -1161,7 +1290,9 @@ function SchedulesTab() {
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Registered Schedules</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              Registered Schedules
+            </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Active scheduled deployments in the queue
             </p>
@@ -1172,7 +1303,7 @@ function SchedulesTab() {
               disabled={removing}
               className="px-4 py-2 text-sm font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50"
             >
-              {removing ? 'Removing...' : 'Remove All'}
+              {removing ? "Removing..." : "Remove All"}
             </button>
           )}
         </div>
@@ -1195,7 +1326,7 @@ function SchedulesTab() {
                       <code className="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
                         {schedule.cron}
                       </code>
-                      {' · '}
+                      {" · "}
                       {schedule.timezone}
                     </p>
                     {schedule.nextRun && (
@@ -1252,7 +1383,7 @@ function SchedulesTab() {
             disabled={registering}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {registering ? 'Registering...' : 'Register Schedule'}
+            {registering ? "Registering..." : "Register Schedule"}
           </button>
         </div>
       </div>
@@ -1263,14 +1394,10 @@ function SchedulesTab() {
           About Scheduled Deployments
         </h3>
         <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-          <p>
-            Schedules are configured in your tenants.yaml config file under settings.schedule
-          </p>
-          <p>
-            Example configuration:
-          </p>
+          <p>Schedules are configured in your tenants.yaml config file under settings.schedule</p>
+          <p>Example configuration:</p>
           <pre className="bg-blue-100 dark:bg-blue-900/50 p-3 rounded font-mono text-xs overflow-x-auto">
-{`settings:
+            {`settings:
   schedule:
     cron: "0 2 * * 0"  # Every Sunday at 2 AM
     timezone: "America/Denver"
@@ -1278,13 +1405,11 @@ function SchedulesTab() {
       start: "01:00"
       end: "05:00"`}
           </pre>
-          <p>
-            After updating your config, use the "Register Schedule" form above to activate it.
-          </p>
+          <p>After updating your config, use the "Register Schedule" form above to activate it.</p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -1292,156 +1417,156 @@ function SchedulesTab() {
  * Manages CI/CD webhook configurations
  */
 function WebhooksTab() {
-  const [webhooks, setWebhooks] = useState<any[]>([])
-  const [invocations, setInvocations] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [newWebhookName, setNewWebhookName] = useState('')
-  const [selectedWebhook, setSelectedWebhook] = useState<string | null>(null)
-  const [copiedSecret, setCopiedSecret] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [webhooks, setWebhooks] = useState<any[]>([]);
+  const [invocations, setInvocations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newWebhookName, setNewWebhookName] = useState("");
+  const [selectedWebhook, setSelectedWebhook] = useState<string | null>(null);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Load webhooks
   const loadWebhooks = async () => {
     try {
-      const res = await fetch('/api/webhooks/manage')
-      if (!res.ok) throw new Error('Failed to load webhooks')
-      const data = await res.json()
-      setWebhooks(data.webhooks || [])
+      const res = await fetch("/api/webhooks/manage");
+      if (!res.ok) throw new Error("Failed to load webhooks");
+      const data = await res.json();
+      setWebhooks(data.webhooks || []);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to load webhooks' })
+      setMessage({ type: "error", text: "Failed to load webhooks" });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Load invocations for selected webhook
   const loadInvocations = async (webhookId: string) => {
     try {
-      const res = await fetch(`/api/webhooks/invocations?webhookId=${webhookId}&limit=50`)
-      if (!res.ok) throw new Error('Failed to load invocations')
-      const data = await res.json()
-      setInvocations(data.invocations || [])
+      const res = await fetch(`/api/webhooks/invocations?webhookId=${webhookId}&limit=50`);
+      if (!res.ok) throw new Error("Failed to load invocations");
+      const data = await res.json();
+      setInvocations(data.invocations || []);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to load invocation history' })
+      setMessage({ type: "error", text: "Failed to load invocation history" });
     }
-  }
+  };
 
   useEffect(() => {
-    loadWebhooks()
-  }, [])
+    loadWebhooks();
+  }, []);
 
   useEffect(() => {
     if (selectedWebhook) {
-      loadInvocations(selectedWebhook)
+      loadInvocations(selectedWebhook);
     }
-  }, [selectedWebhook])
+  }, [selectedWebhook]);
 
   const createWebhook = async () => {
     if (!newWebhookName.trim()) {
-      setMessage({ type: 'error', text: 'Webhook name is required' })
-      return
+      setMessage({ type: "error", text: "Webhook name is required" });
+      return;
     }
 
-    setCreating(true)
+    setCreating(true);
     try {
-      const res = await fetch('/api/webhooks/manage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/webhooks/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newWebhookName }),
-      })
+      });
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.message || 'Failed to create webhook')
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create webhook");
       }
 
-      const data = await res.json()
+      const data = await res.json();
       setMessage({
-        type: 'success',
-        text: `Webhook created! Secret: ${data.webhook.secret} (save this - it won't be shown again)`
-      })
-      setNewWebhookName('')
-      setShowCreateForm(false)
-      loadWebhooks()
+        type: "success",
+        text: `Webhook created! Secret: ${data.webhook.secret} (save this - it won't be shown again)`,
+      });
+      setNewWebhookName("");
+      setShowCreateForm(false);
+      loadWebhooks();
     } catch (error) {
       setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to create webhook'
-      })
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to create webhook",
+      });
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   const toggleWebhook = async (webhookId: string, enabled: boolean) => {
     try {
       const res = await fetch(`/api/webhooks/manage?id=${webhookId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: !enabled }),
-      })
+      });
 
-      if (!res.ok) throw new Error('Failed to update webhook')
+      if (!res.ok) throw new Error("Failed to update webhook");
 
-      setMessage({ type: 'success', text: `Webhook ${!enabled ? 'enabled' : 'disabled'}` })
-      loadWebhooks()
+      setMessage({ type: "success", text: `Webhook ${!enabled ? "enabled" : "disabled"}` });
+      loadWebhooks();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to update webhook' })
+      setMessage({ type: "error", text: "Failed to update webhook" });
     }
-  }
+  };
 
   const deleteWebhook = async (webhookId: string) => {
-    if (!confirm('Are you sure you want to delete this webhook?')) return
+    if (!confirm("Are you sure you want to delete this webhook?")) return;
 
     try {
       const res = await fetch(`/api/webhooks/manage?id=${webhookId}`, {
-        method: 'DELETE',
-      })
+        method: "DELETE",
+      });
 
-      if (!res.ok) throw new Error('Failed to delete webhook')
+      if (!res.ok) throw new Error("Failed to delete webhook");
 
-      setMessage({ type: 'success', text: 'Webhook deleted' })
-      loadWebhooks()
+      setMessage({ type: "success", text: "Webhook deleted" });
+      loadWebhooks();
       if (selectedWebhook === webhookId) {
-        setSelectedWebhook(null)
-        setInvocations([])
+        setSelectedWebhook(null);
+        setInvocations([]);
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to delete webhook' })
+      setMessage({ type: "error", text: "Failed to delete webhook" });
     }
-  }
+  };
 
   const regenerateSecret = async (webhookId: string) => {
-    if (!confirm('Regenerating the secret will invalidate the old one. Continue?')) return
+    if (!confirm("Regenerating the secret will invalidate the old one. Continue?")) return;
 
     try {
       const res = await fetch(`/api/webhooks/manage?id=${webhookId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ regenerateSecret: true }),
-      })
+      });
 
-      if (!res.ok) throw new Error('Failed to regenerate secret')
+      if (!res.ok) throw new Error("Failed to regenerate secret");
 
-      const data = await res.json()
+      const data = await res.json();
       setMessage({
-        type: 'success',
-        text: `New secret: ${data.newSecret} (save this - it won't be shown again)`
-      })
-      loadWebhooks()
+        type: "success",
+        text: `New secret: ${data.newSecret} (save this - it won't be shown again)`,
+      });
+      loadWebhooks();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to regenerate secret' })
+      setMessage({ type: "error", text: "Failed to regenerate secret" });
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-gray-500 dark:text-gray-400">Loading webhooks...</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -1452,24 +1577,27 @@ function WebhooksTab() {
           <div>
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">CI/CD Webhooks</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Trigger deployments from external CI/CD systems like GitHub Actions, Azure DevOps, or GitLab CI
+              Trigger deployments from external CI/CD systems like GitHub Actions, Azure DevOps, or
+              GitLab CI
             </p>
           </div>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
-            {showCreateForm ? 'Cancel' : 'Create Webhook'}
+            {showCreateForm ? "Cancel" : "Create Webhook"}
           </button>
         </div>
 
         {/* Message */}
         {message && (
-          <div className={`mb-4 p-3 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300'
-              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300'
-          }`}>
+          <div
+            className={`mb-4 p-3 rounded-lg ${
+              message.type === "success"
+                ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300"
+                : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300"
+            }`}
+          >
             <p className="text-sm font-mono break-all">{message.text}</p>
           </div>
         )}
@@ -1492,7 +1620,7 @@ function WebhooksTab() {
               disabled={creating}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? "Creating..." : "Create"}
             </button>
           </div>
         )}
@@ -1509,8 +1637,8 @@ function WebhooksTab() {
                 key={webhook.id}
                 className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                   selectedWebhook === webhook.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                 }`}
                 onClick={() => setSelectedWebhook(webhook.id)}
               >
@@ -1518,12 +1646,14 @@ function WebhooksTab() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h4 className="font-medium text-gray-900 dark:text-white">{webhook.name}</h4>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        webhook.enabled
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {webhook.enabled ? 'Active' : 'Disabled'}
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          webhook.enabled
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                        }`}
+                      >
+                        {webhook.enabled ? "Active" : "Disabled"}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -1536,24 +1666,25 @@ function WebhooksTab() {
                     )}
                     {webhook.recentInvocations > 0 && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Recent invocations: {webhook.recentInvocations} ({webhook.successRate}% success)
+                        Recent invocations: {webhook.recentInvocations} ({webhook.successRate}%
+                        success)
                       </p>
                     )}
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={(e) => {
-                        e.stopPropagation()
-                        toggleWebhook(webhook.id, webhook.enabled)
+                        e.stopPropagation();
+                        toggleWebhook(webhook.id, webhook.enabled);
                       }}
                       className="px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
                     >
-                      {webhook.enabled ? 'Disable' : 'Enable'}
+                      {webhook.enabled ? "Disable" : "Enable"}
                     </button>
                     <button
                       onClick={(e) => {
-                        e.stopPropagation()
-                        regenerateSecret(webhook.id)
+                        e.stopPropagation();
+                        regenerateSecret(webhook.id);
                       }}
                       className="px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
                     >
@@ -1561,8 +1692,8 @@ function WebhooksTab() {
                     </button>
                     <button
                       onClick={(e) => {
-                        e.stopPropagation()
-                        deleteWebhook(webhook.id)
+                        e.stopPropagation();
+                        deleteWebhook(webhook.id);
                       }}
                       className="px-3 py-1 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
                     >
@@ -1596,13 +1727,15 @@ function WebhooksTab() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          inv.status === 'success'
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                            : inv.status === 'invalid_signature'
-                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
-                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            inv.status === "success"
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                              : inv.status === "invalid_signature"
+                                ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                          }`}
+                        >
                           {inv.status}
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -1619,7 +1752,7 @@ function WebhooksTab() {
                           Error: {inv.errorMessage}
                         </p>
                       )}
-                      {inv.payload && typeof inv.payload === 'object' && (
+                      {inv.payload && typeof inv.payload === "object" && (
                         <details className="mt-2">
                           <summary className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
                             View payload
@@ -1644,28 +1777,20 @@ function WebhooksTab() {
           How to use webhooks
         </h3>
         <div className="space-y-3 text-sm text-blue-800 dark:text-blue-200">
-          <p>
-            1. Create a webhook above and save the secret securely
-          </p>
-          <p>
-            2. Configure your CI/CD system to send POST requests to:
-          </p>
+          <p>1. Create a webhook above and save the secret securely</p>
+          <p>2. Configure your CI/CD system to send POST requests to:</p>
           <code className="block bg-blue-100 dark:bg-blue-900/50 p-2 rounded font-mono text-xs">
-            {typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/deploy
+            {typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/deploy
           </code>
-          <p>
-            3. Include these headers:
-          </p>
+          <p>3. Include these headers:</p>
           <pre className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded font-mono text-xs">
-{`Authorization: Bearer <webhook-secret>
+            {`Authorization: Bearer <webhook-secret>
 x-webhook-timestamp: <current-unix-ms>
 x-webhook-signature: <hmac-sha256-signature>`}
           </pre>
-          <p>
-            4. Send this JSON payload:
-          </p>
+          <p>4. Send this JSON payload:</p>
           <pre className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded font-mono text-xs">
-{`{
+            {`{
   "solution": "YourAgentName",
   "version": "1.0.0",
   "tenants": ["tenant-id"] or "all",
@@ -1678,5 +1803,5 @@ x-webhook-signature: <hmac-sha256-signature>`}
         </div>
       </div>
     </div>
-  )
+  );
 }

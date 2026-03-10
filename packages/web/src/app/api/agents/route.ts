@@ -1,12 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server'
-export const dynamic = 'force-dynamic'
-import { isDemoMode, DEMO_SOLUTIONS } from '@agentsync/core'
-import { demoDeployedAgents, initializeDemoAgents, demoCustomAgents, demoAgentStatus, DeployedAgent, CustomAgent, AgentStatus } from '@/lib/demo-store'
-import { requireAuth, requireRoles, logAuthFailure } from '@/lib/api-middleware'
-import { AppRoles } from '@/lib/auth'
-import { apiRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import { parseAndValidate, createAgentSchema } from '@/lib/validation'
-import { internalError, validationError, conflict } from '@/lib/errors'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+import { isDemoMode, DEMO_SOLUTIONS } from "@agentsync/core";
+import {
+  demoDeployedAgents,
+  initializeDemoAgents,
+  demoCustomAgents,
+  demoAgentStatus,
+  DeployedAgent,
+  CustomAgent,
+  AgentStatus,
+} from "@/lib/demo-store";
+import { requireAuth, requireRoles, logAuthFailure } from "@/lib/api-middleware";
+import { AppRoles } from "@/lib/auth";
+import { apiRateLimit, createRateLimitResponse } from "@/lib/rate-limit";
+import { parseAndValidate, createAgentSchema } from "@/lib/validation";
+import { internalError, validationError, conflict } from "@/lib/errors";
 
 /**
  * Get all agents with their deployment information
@@ -15,68 +39,72 @@ import { internalError, validationError, conflict } from '@/lib/errors'
  */
 export async function GET(request: NextRequest) {
   // Require authentication to view agents
-  const session = await requireAuth()
+  const session = await requireAuth();
   if (session instanceof NextResponse) {
-    logAuthFailure(undefined, '/api/agents', 'unauthorized')
-    return session
+    logAuthFailure(undefined, "/api/agents", "unauthorized");
+    return session;
   }
 
   // Apply rate limiting
-  const rateLimitResult = await apiRateLimit(request, session.user.email ?? undefined)
+  const rateLimitResult = await apiRateLimit(request, session.user.email ?? undefined);
   if (rateLimitResult && !rateLimitResult.success) {
-    return createRateLimitResponse(rateLimitResult.reset)
+    return createRateLimitResponse(rateLimitResult.reset);
   }
 
   try {
     if (isDemoMode()) {
       // Initialize demo agents if not already done
-      initializeDemoAgents()
+      initializeDemoAgents();
 
       // Build a map of agent -> tenants it's deployed on
-      const agentDeployments = new Map<string, Array<{
-        tenantId: string
-        tenantName: string
-        version: string
-        deployedAt: string
-        status: DeployedAgent['status']
-      }>>()
+      const agentDeployments = new Map<
+        string,
+        Array<{
+          tenantId: string;
+          tenantName: string;
+          version: string;
+          deployedAt: string;
+          status: DeployedAgent["status"];
+        }>
+      >();
 
       // Demo tenant names for lookup
       const tenantNames: Record<string, string> = {
-        '11111111-1111-1111-1111-111111111111': 'Contoso Corporation',
-        '22222222-2222-2222-2222-222222222222': 'Fabrikam Inc',
-        '33333333-3333-3333-3333-333333333333': 'Adventure Works',
-        '44444444-4444-4444-4444-444444444444': 'Northwind Traders',
-        '55555555-5555-5555-5555-555555555555': 'Woodgrove Bank',
-        '66666666-6666-6666-6666-666666666666': 'Tailspin Toys',
-        '77777777-7777-7777-7777-777777777777': 'Wingtip Toys',
-        '88888888-8888-8888-8888-888888888888': 'Litware Inc',
-        '99999999-9999-9999-9999-999999999999': 'Proseware',
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa': 'Coho Vineyard',
-      }
+        "11111111-1111-1111-1111-111111111111": "Contoso Corporation",
+        "22222222-2222-2222-2222-222222222222": "Fabrikam Inc",
+        "33333333-3333-3333-3333-333333333333": "Adventure Works",
+        "44444444-4444-4444-4444-444444444444": "Northwind Traders",
+        "55555555-5555-5555-5555-555555555555": "Woodgrove Bank",
+        "66666666-6666-6666-6666-666666666666": "Tailspin Toys",
+        "77777777-7777-7777-7777-777777777777": "Wingtip Toys",
+        "88888888-8888-8888-8888-888888888888": "Litware Inc",
+        "99999999-9999-9999-9999-999999999999": "Proseware",
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa": "Coho Vineyard",
+      };
 
       // Iterate through all deployed agents
       demoDeployedAgents.forEach((agents, tenantId) => {
-        agents.forEach(agent => {
-          const existing = agentDeployments.get(agent.solutionName) || []
+        agents.forEach((agent) => {
+          const existing = agentDeployments.get(agent.solutionName) || [];
           existing.push({
             tenantId,
             tenantName: tenantNames[tenantId] || tenantId,
             version: agent.version,
             deployedAt: agent.deployedAt,
             status: agent.status,
-          })
-          agentDeployments.set(agent.solutionName, existing)
-        })
-      })
+          });
+          agentDeployments.set(agent.solutionName, existing);
+        });
+      });
 
       // Convert DEMO_SOLUTIONS to array format with full agent details
       // Note: deployments are keyed by solutionName which can match friendlyName OR uniqueName
       const builtInAgents = DEMO_SOLUTIONS.map((solution: any) => {
         // Try to match deployments by friendlyName first, then uniqueName
-        const deployments = agentDeployments.get(solution.friendlyName)
-          || agentDeployments.get(solution.uniqueName)
-          || []
+        const deployments =
+          agentDeployments.get(solution.friendlyName) ||
+          agentDeployments.get(solution.uniqueName) ||
+          [];
         return {
           id: solution.uniqueName,
           uniqueName: solution.uniqueName,
@@ -86,7 +114,7 @@ export async function GET(request: NextRequest) {
           publisherName: solution.publisherName,
           isManaged: solution.isManaged,
           isCustom: false,
-          status: demoAgentStatus.get(solution.uniqueName) || 'active',
+          status: demoAgentStatus.get(solution.uniqueName) || "active",
           category: solution.category,
           capabilities: solution.capabilities,
           tags: solution.tags || [],
@@ -98,16 +126,15 @@ export async function GET(request: NextRequest) {
           changelog: solution.changelog,
           deployedTenants: deployments,
           totalDeployments: deployments.length,
-        }
-      })
+        };
+      });
 
       // Add custom agents (include urlTemplates for URL mapping at deploy time)
       // Note: deployments are keyed by solutionName which can match friendlyName OR uniqueName
-      const customAgents = Array.from(demoCustomAgents.values()).map(agent => {
+      const customAgents = Array.from(demoCustomAgents.values()).map((agent) => {
         // Try to match deployments by uniqueName first (more likely for custom agents), then friendlyName
-        const deployments = agentDeployments.get(agent.uniqueName)
-          || agentDeployments.get(agent.friendlyName)
-          || []
+        const deployments =
+          agentDeployments.get(agent.uniqueName) || agentDeployments.get(agent.friendlyName) || [];
         return {
           id: agent.id,
           uniqueName: agent.uniqueName,
@@ -117,86 +144,88 @@ export async function GET(request: NextRequest) {
           publisherName: agent.publisherName,
           isManaged: agent.isManaged,
           isCustom: true,
-          status: agent.status || 'active',
+          status: agent.status || "active",
           urlTemplates: agent.urlTemplates,
           hasSolutionStored: !!agent.solutionBase64,
           // Include dependencies (knowledge sources) and connection references
           dependencies: agent.dependencies || [],
-          connectionReferences: (agent.connectionReferences || []).map(cr => ({
+          connectionReferences: (agent.connectionReferences || []).map((cr) => ({
             name: cr.name,
             connectorId: cr.connectorId,
             required: true, // All stored connection refs are required
           })),
           deployedTenants: deployments,
           totalDeployments: deployments.length,
-        }
-      })
+        };
+      });
 
       return NextResponse.json({
         demoMode: true,
         agents: [...builtInAgents, ...customAgents],
-      })
+      });
     }
 
     // Real mode - fetch solutions from source environment or discovered tenants
-    const sourceEnvUrl = process.env.SOURCE_ENVIRONMENT_URL
-    const partnerTenantId = process.env.PARTNER_TENANT_ID
-    const partnerClientId = process.env.PARTNER_CLIENT_ID
-    const partnerClientSecret = process.env.PARTNER_CLIENT_SECRET
+    const sourceEnvUrl = process.env.SOURCE_ENVIRONMENT_URL;
+    const partnerTenantId = process.env.PARTNER_TENANT_ID;
+    const partnerClientId = process.env.PARTNER_CLIENT_ID;
+    const partnerClientSecret = process.env.PARTNER_CLIENT_SECRET;
 
     // If source environment is configured, fetch agents from there
     if (sourceEnvUrl && partnerTenantId && partnerClientId && partnerClientSecret) {
-      const { TenantDiscoveryService, DataverseClient, TokenManager } = await import('@agentsync/core')
+      const { TenantDiscoveryService, DataverseClient, TokenManager } =
+        await import("@agentsync/core");
 
       const tokenManager = new TokenManager({
         tenantId: partnerTenantId,
         clientId: partnerClientId,
         clientSecret: partnerClientSecret,
-      })
+      });
 
       const dataverseClient = new DataverseClient({
         environmentUrl: sourceEnvUrl,
         tokenManager,
-      })
+      });
 
       try {
-        const solutions = await dataverseClient.querySolutions()
+        const solutions = await dataverseClient.querySolutions();
 
         // Filter to likely agent solutions (heuristic: contains 'bot', 'agent', 'copilot', or is managed)
-        const agentSolutions = solutions.filter(s =>
-          s.ismanaged ||
-          s.friendlyname.toLowerCase().includes('agent') ||
-          s.friendlyname.toLowerCase().includes('bot') ||
-          s.friendlyname.toLowerCase().includes('copilot')
-        )
+        const agentSolutions = solutions.filter(
+          (s) =>
+            s.ismanaged ||
+            s.friendlyname.toLowerCase().includes("agent") ||
+            s.friendlyname.toLowerCase().includes("bot") ||
+            s.friendlyname.toLowerCase().includes("copilot")
+        );
 
         return NextResponse.json({
           demoMode: false,
           discoveryMode: true,
           sourceEnvironment: sourceEnvUrl,
-          agents: agentSolutions.map(sol => ({
+          agents: agentSolutions.map((sol) => ({
             id: sol.solutionid,
             uniqueName: sol.uniquename,
             friendlyName: sol.friendlyname,
             version: sol.version,
             isManaged: sol.ismanaged,
-            publisherName: sol.publisherid?.friendlyname || 'Unknown',
+            publisherName: sol.publisherid?.friendlyname || "Unknown",
             isCustom: false,
-            status: 'active',
+            status: "active",
             // No deployment tracking in discovery mode yet
             deployedTenants: [],
             totalDeployments: 0,
           })),
-        })
+        });
       } catch (error) {
-        console.error('Failed to fetch solutions from source environment:', error)
+        console.error("Failed to fetch solutions from source environment:", error);
         return NextResponse.json({
           demoMode: false,
           discoveryMode: true,
           agents: [],
-          error: 'Failed to connect to source environment',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        })
+          error: "Failed to connect to source environment",
+          details: error instanceof Error ? error.message : "Unknown error",
+        });
       }
     }
 
@@ -205,16 +234,16 @@ export async function GET(request: NextRequest) {
       demoMode: false,
       discoveryMode: false,
       agents: [],
-      message: 'Configure SOURCE_ENVIRONMENT_URL and partner credentials to discover agents',
-    })
+      message: "Configure SOURCE_ENVIRONMENT_URL and partner credentials to discover agents",
+    });
   } catch (error) {
-    console.error('Agents error:', error)
+    console.error("Agents error:", error);
     return internalError(
-      'Failed to load agents',
-      process.env.NODE_ENV === 'development' && error instanceof Error
+      "Failed to load agents",
+      process.env.NODE_ENV === "development" && error instanceof Error
         ? { error: error.message }
         : undefined
-    )
+    );
   }
 }
 
@@ -224,30 +253,30 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   // Require Admin or Deployer role to create custom agents
-  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER])
+  const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER]);
   if (session instanceof NextResponse) {
-    logAuthFailure(undefined, '/api/agents', 'forbidden', { action: 'create_agent' })
-    return session
+    logAuthFailure(undefined, "/api/agents", "forbidden", { action: "create_agent" });
+    return session;
   }
 
   try {
     // Validate request body
-    const validation = await parseAndValidate(request, createAgentSchema)
+    const validation = await parseAndValidate(request, createAgentSchema);
     if (!validation.success || !validation.data) {
       return validationError(
-        'Invalid request body',
-        validation.errors?.map(e => `${e.path}: ${e.message}`)
-      )
+        "Invalid request body",
+        validation.errors?.map((e) => `${e.path}: ${e.message}`)
+      );
     }
 
-    const { friendlyName, uniqueName, version, description, publisherName } = validation.data
+    const { friendlyName, uniqueName, version, description, publisherName } = validation.data;
 
     // Check for duplicate uniqueName
-    const existingBuiltIn = DEMO_SOLUTIONS.find(s => s.uniqueName === uniqueName)
-    const existingCustom = demoCustomAgents.get(uniqueName)
+    const existingBuiltIn = DEMO_SOLUTIONS.find((s) => s.uniqueName === uniqueName);
+    const existingCustom = demoCustomAgents.get(uniqueName);
 
     if (existingBuiltIn || existingCustom) {
-      return conflict(`Agent with uniqueName "${uniqueName}" already exists`)
+      return conflict(`Agent with uniqueName "${uniqueName}" already exists`);
     }
 
     const newAgent: CustomAgent = {
@@ -256,25 +285,25 @@ export async function POST(request: NextRequest) {
       friendlyName,
       version,
       description: description || undefined,
-      publisherName: publisherName || 'Custom',
+      publisherName: publisherName || "Custom",
       isManaged: true,
-      status: 'active',
+      status: "active",
       createdAt: new Date().toISOString(),
-    }
+    };
 
-    demoCustomAgents.set(uniqueName, newAgent)
+    demoCustomAgents.set(uniqueName, newAgent);
 
     return NextResponse.json({
       success: true,
       agent: newAgent,
-    })
+    });
   } catch (error) {
-    console.error('Create agent error:', error)
+    console.error("Create agent error:", error);
     return internalError(
-      'Failed to create agent',
-      process.env.NODE_ENV === 'development' && error instanceof Error
+      "Failed to create agent",
+      process.env.NODE_ENV === "development" && error instanceof Error
         ? { error: error.message }
         : undefined
-    )
+    );
   }
 }

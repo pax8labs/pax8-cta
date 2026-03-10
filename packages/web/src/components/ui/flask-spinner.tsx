@@ -1,11 +1,27 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import React from 'react'
+"use client";
+
+import React from "react";
 
 interface FlaskSpinnerProps {
-  size?: 'sm' | 'md' | 'lg'
-  message?: string
-  className?: string
+  size?: "sm" | "md" | "lg";
+  message?: string;
+  className?: string;
 }
 
 // Dimensions moved outside component to avoid recreation on each render
@@ -13,13 +29,13 @@ const DIMENSIONS = {
   sm: { width: 32, height: 40, bubbleSize: 4 },
   md: { width: 48, height: 60, bubbleSize: 6 },
   lg: { width: 64, height: 80, bubbleSize: 8 },
-} as const
+} as const;
 
 /**
  * A fun science flask loading spinner with animated bubbles
  */
-export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpinnerProps) {
-  const { width, height, bubbleSize } = DIMENSIONS[size]
+export function FlaskSpinner({ size = "md", message, className = "" }: FlaskSpinnerProps) {
+  const { width, height, bubbleSize } = DIMENSIONS[size];
 
   return (
     <div className={`flex flex-col items-center gap-3 ${className}`}>
@@ -33,7 +49,7 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           role="img"
-          aria-label={message || 'Loading'}
+          aria-label={message || "Loading"}
         >
           {/* Flask neck */}
           <path
@@ -46,12 +62,7 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
           />
 
           {/* Flask neck top */}
-          <path
-            d="M22 4 L42 4"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
+          <path d="M22 4 L42 4" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
 
           {/* Liquid in flask - animated fill */}
           <path
@@ -80,8 +91,8 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
             style={{
               width: bubbleSize,
               height: bubbleSize,
-              left: '35%',
-              bottom: '25%',
+              left: "35%",
+              bottom: "25%",
             }}
           />
           {/* Bubble 2 */}
@@ -90,8 +101,8 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
             style={{
               width: bubbleSize * 0.75,
               height: bubbleSize * 0.75,
-              left: '50%',
-              bottom: '30%',
+              left: "50%",
+              bottom: "30%",
             }}
           />
           {/* Bubble 3 */}
@@ -100,8 +111,8 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
             style={{
               width: bubbleSize * 0.5,
               height: bubbleSize * 0.5,
-              left: '42%',
-              bottom: '20%',
+              left: "42%",
+              bottom: "20%",
             }}
           />
           {/* Bubble 4 - escaping bubble */}
@@ -110,8 +121,8 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
             style={{
               width: bubbleSize * 0.6,
               height: bubbleSize * 0.6,
-              left: '48%',
-              bottom: '60%',
+              left: "48%",
+              bottom: "60%",
             }}
           />
           {/* Bubble 5 - another escaping bubble */}
@@ -120,8 +131,8 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
             style={{
               width: bubbleSize * 0.4,
               height: bubbleSize * 0.4,
-              left: '52%',
-              bottom: '65%',
+              left: "52%",
+              bottom: "65%",
             }}
           />
         </div>
@@ -234,7 +245,8 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
         }
 
         @keyframes liquid-wave {
-          0%, 100% {
+          0%,
+          100% {
             d: path("M20 40 Q26 38 32 40 Q38 42 44 40");
           }
           50% {
@@ -275,44 +287,43 @@ export function FlaskSpinner({ size = 'md', message, className = '' }: FlaskSpin
         }
       `}</style>
     </div>
-  )
+  );
 }
 
 interface FlaskLoadingOverlayProps {
-  message?: string
-  subMessage?: string
+  message?: string;
+  subMessage?: string;
 }
 
 /**
  * Full-page loading overlay with flask spinner
  */
-export function FlaskLoadingOverlay({ message = 'Loading...', subMessage }: FlaskLoadingOverlayProps) {
+export function FlaskLoadingOverlay({
+  message = "Loading...",
+  subMessage,
+}: FlaskLoadingOverlayProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl p-8 w-80 mx-4 shadow-2xl">
         <div className="text-center">
           <FlaskSpinner size="lg" />
-          <h3 className="text-lg font-semibold text-slate-900 mt-4 mb-2">
-            {message}
-          </h3>
-          {subMessage && (
-            <p className="text-slate-500 text-sm min-h-[2.5rem]">{subMessage}</p>
-          )}
+          <h3 className="text-lg font-semibold text-slate-900 mt-4 mb-2">{message}</h3>
+          {subMessage && <p className="text-slate-500 text-sm min-h-[2.5rem]">{subMessage}</p>}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
  * Inline loading state for cards/sections
  */
-export function FlaskLoadingCard({ message = 'Loading...' }: { message?: string }) {
+export function FlaskLoadingCard({ message = "Loading..." }: { message?: string }) {
   return (
     <div className="flex items-center justify-center p-8">
       <FlaskSpinner size="md" message={message} />
     </div>
-  )
+  );
 }
 
-export default FlaskSpinner
+export default FlaskSpinner;

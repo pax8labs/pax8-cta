@@ -1,72 +1,100 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import React, { useState, useEffect } from 'react'
-import { Calendar, Clock } from 'lucide-react'
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Calendar, Clock } from "lucide-react";
 
 interface CronBuilderProps {
-  value: string
-  onChange: (cron: string) => void
-  timezone?: string
+  value: string;
+  onChange: (cron: string) => void;
+  timezone?: string;
 }
 
 const PRESETS = [
-  { label: 'Every day at midnight', value: '0 0 * * *', description: 'Runs once daily at 12:00 AM' },
-  { label: 'Every day at 2 AM', value: '0 2 * * *', description: 'Runs once daily at 2:00 AM' },
-  { label: 'Every weekday at 6 AM', value: '0 6 * * 1-5', description: 'Monday-Friday at 6:00 AM' },
-  { label: 'Every Sunday at 3 AM', value: '0 3 * * 0', description: 'Weekly on Sunday at 3:00 AM' },
-  { label: 'First day of month at midnight', value: '0 0 1 * *', description: 'Monthly on the 1st at 12:00 AM' },
-  { label: 'Every 6 hours', value: '0 */6 * * *', description: 'Every 6 hours starting at midnight' },
-  { label: 'Custom', value: '', description: 'Enter your own cron expression' },
-]
+  {
+    label: "Every day at midnight",
+    value: "0 0 * * *",
+    description: "Runs once daily at 12:00 AM",
+  },
+  { label: "Every day at 2 AM", value: "0 2 * * *", description: "Runs once daily at 2:00 AM" },
+  { label: "Every weekday at 6 AM", value: "0 6 * * 1-5", description: "Monday-Friday at 6:00 AM" },
+  { label: "Every Sunday at 3 AM", value: "0 3 * * 0", description: "Weekly on Sunday at 3:00 AM" },
+  {
+    label: "First day of month at midnight",
+    value: "0 0 1 * *",
+    description: "Monthly on the 1st at 12:00 AM",
+  },
+  {
+    label: "Every 6 hours",
+    value: "0 */6 * * *",
+    description: "Every 6 hours starting at midnight",
+  },
+  { label: "Custom", value: "", description: "Enter your own cron expression" },
+];
 
-export function CronBuilder({ value, onChange, timezone = 'UTC' }: CronBuilderProps) {
-  const [selectedPreset, setSelectedPreset] = useState('')
-  const [customCron, setCustomCron] = useState(value)
-  const [nextRuns, setNextRuns] = useState<string[]>([])
+export function CronBuilder({ value, onChange, timezone = "UTC" }: CronBuilderProps) {
+  const [selectedPreset, setSelectedPreset] = useState("");
+  const [customCron, setCustomCron] = useState(value);
+  const [nextRuns, setNextRuns] = useState<string[]>([]);
 
   // Initialize preset selection based on value
   useEffect(() => {
-    const preset = PRESETS.find(p => p.value === value)
+    const preset = PRESETS.find((p) => p.value === value);
     if (preset) {
-      setSelectedPreset(preset.value)
+      setSelectedPreset(preset.value);
     } else if (value) {
-      setSelectedPreset('') // Custom
-      setCustomCron(value)
+      setSelectedPreset(""); // Custom
+      setCustomCron(value);
     }
-  }, [])
+  }, []);
 
   // Calculate next runs when cron changes
   useEffect(() => {
     if (value) {
-      calculateNextRuns(value)
+      calculateNextRuns(value);
     }
-  }, [value, timezone])
+  }, [value, timezone]);
 
   const calculateNextRuns = async (cron: string) => {
     try {
       // This would call an API endpoint to calculate next runs
       // For now, we'll just show placeholder
-      setNextRuns([])
+      setNextRuns([]);
     } catch (error) {
-      console.error('Failed to calculate next runs:', error)
-      setNextRuns([])
+      console.error("Failed to calculate next runs:", error);
+      setNextRuns([]);
     }
-  }
+  };
 
   const handlePresetChange = (presetValue: string) => {
-    setSelectedPreset(presetValue)
+    setSelectedPreset(presetValue);
     if (presetValue) {
-      onChange(presetValue)
-      setCustomCron(presetValue)
+      onChange(presetValue);
+      setCustomCron(presetValue);
     }
-  }
+  };
 
   const handleCustomChange = (newCron: string) => {
-    setCustomCron(newCron)
-    onChange(newCron)
-  }
+    setCustomCron(newCron);
+    onChange(newCron);
+  };
 
-  const isCustom = selectedPreset === ''
+  const isCustom = selectedPreset === "";
 
   return (
     <div className="space-y-4">
@@ -82,15 +110,15 @@ export function CronBuilder({ value, onChange, timezone = 'UTC' }: CronBuilderPr
               type="button"
               onClick={() => handlePresetChange(preset.value)}
               className={`text-left px-4 py-3 rounded-lg border-2 transition-all ${
-                selectedPreset === preset.value || (isCustom && preset.value === '')
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                selectedPreset === preset.value || (isCustom && preset.value === "")
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    {preset.value === '' ? (
+                    {preset.value === "" ? (
                       <Calendar className="w-4 h-4 text-gray-500" />
                     ) : (
                       <Clock className="w-4 h-4 text-gray-500" />
@@ -132,7 +160,9 @@ export function CronBuilder({ value, onChange, timezone = 'UTC' }: CronBuilderPr
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            Format: minute hour day month weekday (e.g., <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">0 2 * * *</code> = 2 AM daily)
+            Format: minute hour day month weekday (e.g.,{" "}
+            <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">0 2 * * *</code> = 2
+            AM daily)
           </p>
         </div>
       )}
@@ -157,9 +187,10 @@ export function CronBuilder({ value, onChange, timezone = 'UTC' }: CronBuilderPr
           </div>
         </div>
         <p className="mt-2 text-gray-500 dark:text-gray-400">
-          Use <code className="px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded">*</code> for any value,{' '}
-          <code className="px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded">*/n</code> for every n,{' '}
-          <code className="px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded">a-b</code> for range
+          Use <code className="px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded">*</code> for any
+          value, <code className="px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded">*/n</code> for
+          every n, <code className="px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded">a-b</code> for
+          range
         </p>
       </div>
 
@@ -172,11 +203,9 @@ export function CronBuilder({ value, onChange, timezone = 'UTC' }: CronBuilderPr
           <code className="block px-3 py-2 bg-white dark:bg-gray-800 rounded text-sm font-mono text-gray-900 dark:text-white border border-blue-200 dark:border-blue-800">
             {value}
           </code>
-          <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">
-            Timezone: {timezone}
-          </p>
+          <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">Timezone: {timezone}</p>
         </div>
       )}
     </div>
-  )
+  );
 }

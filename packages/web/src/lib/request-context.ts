@@ -1,12 +1,28 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Request Context Utilities
  *
  * Provides utilities for accessing request-scoped metadata like correlation IDs
  * for distributed tracing and request correlation across logs.
  */
 
-import { NextRequest } from 'next/server';
-import { headers } from 'next/headers';
+import { NextRequest } from "next/server";
+import { headers } from "next/headers";
 
 /**
  * Get the correlation ID for the current request.
@@ -32,13 +48,13 @@ import { headers } from 'next/headers';
 export function getCorrelationId(req?: NextRequest): string | undefined {
   if (req) {
     // API route: Get from request headers
-    return req.headers.get('x-correlation-id') || undefined;
+    return req.headers.get("x-correlation-id") || undefined;
   }
 
   // Server component: Get from headers()
   try {
     const headersList = headers();
-    return headersList.get('x-correlation-id') || undefined;
+    return headersList.get("x-correlation-id") || undefined;
   } catch {
     // Headers not available (client-side or build time)
     return undefined;
@@ -70,10 +86,8 @@ export function getRequestContext(req: NextRequest): {
     correlationId: getCorrelationId(req),
     method: req.method,
     path: req.nextUrl.pathname,
-    userAgent: req.headers.get('user-agent') || undefined,
-    ip: req.headers.get('x-forwarded-for') ||
-        req.headers.get('x-real-ip') ||
-        undefined,
+    userAgent: req.headers.get("user-agent") || undefined,
+    ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || undefined,
   };
 }
 

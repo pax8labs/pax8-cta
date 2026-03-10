@@ -1,52 +1,68 @@
-import { NextResponse } from 'next/server';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { NextResponse } from "next/server";
 
 const openApiSpec = {
-  openapi: '3.1.0',
+  openapi: "3.1.0",
   info: {
-    title: 'Copilot Studio Deployer API',
-    description: 'Multi-tenant Copilot Studio deployment automation API for MSPs',
-    version: '1.0.0',
+    title: "Copilot Studio Deployer API",
+    description: "Multi-tenant Copilot Studio deployment automation API for MSPs",
+    version: "1.0.0",
     contact: {
-      name: 'API Support',
+      name: "API Support",
     },
     license: {
-      name: 'MIT',
+      name: "MIT",
     },
   },
   servers: [
     {
-      url: '{protocol}://{host}',
+      url: "{protocol}://{host}",
       variables: {
         protocol: {
-          enum: ['http', 'https'],
-          default: 'https',
+          enum: ["http", "https"],
+          default: "https",
         },
         host: {
-          default: 'localhost:3001',
+          default: "localhost:3001",
         },
       },
     },
   ],
   tags: [
-    { name: 'deployments', description: 'Deployment operations' },
-    { name: 'tenants', description: 'Tenant management' },
-    { name: 'solutions', description: 'Solution operations' },
-    { name: 'health', description: 'Health check endpoints' },
+    { name: "deployments", description: "Deployment operations" },
+    { name: "tenants", description: "Tenant management" },
+    { name: "solutions", description: "Solution operations" },
+    { name: "health", description: "Health check endpoints" },
   ],
   paths: {
-    '/api/health': {
+    "/api/health": {
       get: {
-        tags: ['health'],
-        summary: 'Health check',
-        description: 'Returns the health status of the service',
-        operationId: 'getHealth',
+        tags: ["health"],
+        summary: "Health check",
+        description: "Returns the health status of the service",
+        operationId: "getHealth",
         responses: {
           200: {
-            description: 'Service is healthy',
+            description: "Service is healthy",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  $ref: '#/components/schemas/HealthResponse',
+                  $ref: "#/components/schemas/HealthResponse",
                 },
               },
             },
@@ -54,29 +70,29 @@ const openApiSpec = {
         },
       },
     },
-    '/api/health/ready': {
+    "/api/health/ready": {
       get: {
-        tags: ['health'],
-        summary: 'Readiness check',
-        description: 'Returns the readiness status including dependency checks',
-        operationId: 'getReadiness',
+        tags: ["health"],
+        summary: "Readiness check",
+        description: "Returns the readiness status including dependency checks",
+        operationId: "getReadiness",
         responses: {
           200: {
-            description: 'Service is ready',
+            description: "Service is ready",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  $ref: '#/components/schemas/ReadinessResponse',
+                  $ref: "#/components/schemas/ReadinessResponse",
                 },
               },
             },
           },
           503: {
-            description: 'Service is not ready',
+            description: "Service is not ready",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  $ref: '#/components/schemas/ReadinessResponse',
+                  $ref: "#/components/schemas/ReadinessResponse",
                 },
               },
             },
@@ -84,235 +100,235 @@ const openApiSpec = {
         },
       },
     },
-    '/api/deployments': {
+    "/api/deployments": {
       get: {
-        tags: ['deployments'],
-        summary: 'List deployments',
-        description: 'Returns a list of all deployments',
-        operationId: 'listDeployments',
+        tags: ["deployments"],
+        summary: "List deployments",
+        description: "Returns a list of all deployments",
+        operationId: "listDeployments",
         security: [{ azureAd: [] }],
         parameters: [
           {
-            name: 'limit',
-            in: 'query',
-            schema: { type: 'integer', default: 50 },
-            description: 'Maximum number of results to return',
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", default: 50 },
+            description: "Maximum number of results to return",
           },
           {
-            name: 'status',
-            in: 'query',
+            name: "status",
+            in: "query",
             schema: {
-              type: 'string',
-              enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'],
+              type: "string",
+              enum: ["pending", "in_progress", "completed", "failed", "cancelled"],
             },
-            description: 'Filter by status',
+            description: "Filter by status",
           },
         ],
         responses: {
           200: {
-            description: 'List of deployments',
+            description: "List of deployments",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/Deployment' },
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Deployment" },
                 },
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
+          401: { $ref: "#/components/responses/Unauthorized" },
         },
       },
       post: {
-        tags: ['deployments'],
-        summary: 'Create a new deployment',
-        description: 'Creates a new deployment job',
-        operationId: 'createDeployment',
+        tags: ["deployments"],
+        summary: "Create a new deployment",
+        description: "Creates a new deployment job",
+        operationId: "createDeployment",
         security: [{ azureAd: [] }],
         requestBody: {
           required: true,
           content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/CreateDeploymentRequest' },
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateDeploymentRequest" },
             },
           },
         },
         responses: {
           201: {
-            description: 'Deployment created',
+            description: "Deployment created",
             content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/Deployment' },
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Deployment" },
               },
             },
           },
-          400: { $ref: '#/components/responses/BadRequest' },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          429: { $ref: '#/components/responses/TooManyRequests' },
+          400: { $ref: "#/components/responses/BadRequest" },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          429: { $ref: "#/components/responses/TooManyRequests" },
         },
       },
     },
-    '/api/deployments/{id}': {
+    "/api/deployments/{id}": {
       get: {
-        tags: ['deployments'],
-        summary: 'Get deployment details',
-        description: 'Returns detailed information about a specific deployment',
-        operationId: 'getDeployment',
+        tags: ["deployments"],
+        summary: "Get deployment details",
+        description: "Returns detailed information about a specific deployment",
+        operationId: "getDeployment",
         security: [{ azureAd: [] }],
         parameters: [
           {
-            name: 'id',
-            in: 'path',
+            name: "id",
+            in: "path",
             required: true,
-            schema: { type: 'string', format: 'uuid' },
-            description: 'Deployment ID',
+            schema: { type: "string", format: "uuid" },
+            description: "Deployment ID",
           },
         ],
         responses: {
           200: {
-            description: 'Deployment details',
+            description: "Deployment details",
             content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/DeploymentDetails' },
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DeploymentDetails" },
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
         },
       },
     },
-    '/api/deployments/{id}/cancel': {
+    "/api/deployments/{id}/cancel": {
       post: {
-        tags: ['deployments'],
-        summary: 'Cancel a deployment',
-        description: 'Cancels a pending or in-progress deployment',
-        operationId: 'cancelDeployment',
+        tags: ["deployments"],
+        summary: "Cancel a deployment",
+        description: "Cancels a pending or in-progress deployment",
+        operationId: "cancelDeployment",
         security: [{ azureAd: [] }],
         parameters: [
           {
-            name: 'id',
-            in: 'path',
+            name: "id",
+            in: "path",
             required: true,
-            schema: { type: 'string', format: 'uuid' },
+            schema: { type: "string", format: "uuid" },
           },
         ],
         responses: {
           200: {
-            description: 'Deployment cancelled',
+            description: "Deployment cancelled",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
-                    cancelled: { type: 'integer' },
+                    cancelled: { type: "integer" },
                   },
                 },
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
         },
       },
     },
-    '/api/deployments/{id}/retry': {
+    "/api/deployments/{id}/retry": {
       post: {
-        tags: ['deployments'],
-        summary: 'Retry failed jobs',
-        description: 'Retries all failed tenant deployments for a deployment',
-        operationId: 'retryDeployment',
+        tags: ["deployments"],
+        summary: "Retry failed jobs",
+        description: "Retries all failed tenant deployments for a deployment",
+        operationId: "retryDeployment",
         security: [{ azureAd: [] }],
         parameters: [
           {
-            name: 'id',
-            in: 'path',
+            name: "id",
+            in: "path",
             required: true,
-            schema: { type: 'string', format: 'uuid' },
+            schema: { type: "string", format: "uuid" },
           },
         ],
         responses: {
           200: {
-            description: 'Jobs retried',
+            description: "Jobs retried",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
-                    retried: { type: 'integer' },
+                    retried: { type: "integer" },
                   },
                 },
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
         },
       },
     },
-    '/api/tenants': {
+    "/api/tenants": {
       get: {
-        tags: ['tenants'],
-        summary: 'List tenants',
-        description: 'Returns a list of all configured tenants',
-        operationId: 'listTenants',
+        tags: ["tenants"],
+        summary: "List tenants",
+        description: "Returns a list of all configured tenants",
+        operationId: "listTenants",
         security: [{ azureAd: [] }],
         responses: {
           200: {
-            description: 'List of tenants',
+            description: "List of tenants",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/Tenant' },
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Tenant" },
                 },
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
+          401: { $ref: "#/components/responses/Unauthorized" },
         },
       },
     },
-    '/api/solutions': {
+    "/api/solutions": {
       get: {
-        tags: ['solutions'],
-        summary: 'List solutions',
-        description: 'Returns a list of available solutions',
-        operationId: 'listSolutions',
+        tags: ["solutions"],
+        summary: "List solutions",
+        description: "Returns a list of available solutions",
+        operationId: "listSolutions",
         security: [{ azureAd: [] }],
         responses: {
           200: {
-            description: 'List of solutions',
+            description: "List of solutions",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/Solution' },
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Solution" },
                 },
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
+          401: { $ref: "#/components/responses/Unauthorized" },
         },
       },
     },
-    '/api/solutions/export': {
+    "/api/solutions/export": {
       post: {
-        tags: ['solutions'],
-        summary: 'Export a solution',
-        description: 'Exports a solution from the source environment',
-        operationId: 'exportSolution',
+        tags: ["solutions"],
+        summary: "Export a solution",
+        description: "Exports a solution from the source environment",
+        operationId: "exportSolution",
         security: [{ azureAd: [] }],
         requestBody: {
           required: true,
           content: {
-            'application/json': {
+            "application/json": {
               schema: {
-                type: 'object',
-                required: ['solutionName'],
+                type: "object",
+                required: ["solutionName"],
                 properties: {
-                  solutionName: { type: 'string' },
-                  managed: { type: 'boolean', default: true },
+                  solutionName: { type: "string" },
+                  managed: { type: "boolean", default: true },
                 },
               },
             },
@@ -320,21 +336,21 @@ const openApiSpec = {
         },
         responses: {
           200: {
-            description: 'Solution exported',
+            description: "Solution exported",
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
-                    path: { type: 'string' },
-                    size: { type: 'integer' },
+                    path: { type: "string" },
+                    size: { type: "integer" },
                   },
                 },
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
         },
       },
     },
@@ -342,15 +358,15 @@ const openApiSpec = {
   components: {
     securitySchemes: {
       azureAd: {
-        type: 'oauth2',
+        type: "oauth2",
         flows: {
           authorizationCode: {
-            authorizationUrl: 'https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize',
-            tokenUrl: 'https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token',
+            authorizationUrl: "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize",
+            tokenUrl: "https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token",
             scopes: {
-              openid: 'OpenID Connect',
-              profile: 'User profile',
-              email: 'User email',
+              openid: "OpenID Connect",
+              profile: "User profile",
+              email: "User email",
             },
           },
         },
@@ -358,159 +374,159 @@ const openApiSpec = {
     },
     schemas: {
       HealthResponse: {
-        type: 'object',
+        type: "object",
         properties: {
-          status: { type: 'string', enum: ['healthy'] },
-          timestamp: { type: 'string', format: 'date-time' },
-          version: { type: 'string' },
+          status: { type: "string", enum: ["healthy"] },
+          timestamp: { type: "string", format: "date-time" },
+          version: { type: "string" },
         },
       },
       ReadinessResponse: {
-        type: 'object',
+        type: "object",
         properties: {
-          status: { type: 'string', enum: ['ready', 'not_ready'] },
-          timestamp: { type: 'string', format: 'date-time' },
+          status: { type: "string", enum: ["ready", "not_ready"] },
+          timestamp: { type: "string", format: "date-time" },
           checks: {
-            type: 'array',
+            type: "array",
             items: {
-              type: 'object',
+              type: "object",
               properties: {
-                name: { type: 'string' },
-                status: { type: 'string', enum: ['healthy', 'unhealthy'] },
-                latency: { type: 'integer' },
-                error: { type: 'string' },
+                name: { type: "string" },
+                status: { type: "string", enum: ["healthy", "unhealthy"] },
+                latency: { type: "integer" },
+                error: { type: "string" },
               },
             },
           },
         },
       },
       Deployment: {
-        type: 'object',
+        type: "object",
         properties: {
-          id: { type: 'string', format: 'uuid' },
-          solutionName: { type: 'string' },
+          id: { type: "string", format: "uuid" },
+          solutionName: { type: "string" },
           status: {
-            type: 'string',
-            enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled', 'scheduled'],
+            type: "string",
+            enum: ["pending", "in_progress", "completed", "failed", "cancelled", "scheduled"],
           },
-          totalTenants: { type: 'integer' },
-          completedTenants: { type: 'integer' },
-          failedTenants: { type: 'integer' },
-          createdAt: { type: 'string', format: 'date-time' },
-          updatedAt: { type: 'string', format: 'date-time' },
+          totalTenants: { type: "integer" },
+          completedTenants: { type: "integer" },
+          failedTenants: { type: "integer" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
         },
       },
       DeploymentDetails: {
         allOf: [
-          { $ref: '#/components/schemas/Deployment' },
+          { $ref: "#/components/schemas/Deployment" },
           {
-            type: 'object',
+            type: "object",
             properties: {
               tenantResults: {
-                type: 'array',
-                items: { $ref: '#/components/schemas/TenantDeploymentResult' },
+                type: "array",
+                items: { $ref: "#/components/schemas/TenantDeploymentResult" },
               },
             },
           },
         ],
       },
       TenantDeploymentResult: {
-        type: 'object',
+        type: "object",
         properties: {
-          tenantId: { type: 'string', format: 'uuid' },
-          tenantName: { type: 'string' },
-          status: { type: 'string' },
-          startedAt: { type: 'string', format: 'date-time' },
-          completedAt: { type: 'string', format: 'date-time' },
-          error: { type: 'string' },
-          attemptNumber: { type: 'integer' },
-          durationMs: { type: 'integer' },
+          tenantId: { type: "string", format: "uuid" },
+          tenantName: { type: "string" },
+          status: { type: "string" },
+          startedAt: { type: "string", format: "date-time" },
+          completedAt: { type: "string", format: "date-time" },
+          error: { type: "string" },
+          attemptNumber: { type: "integer" },
+          durationMs: { type: "integer" },
         },
       },
       CreateDeploymentRequest: {
-        type: 'object',
-        required: ['solutionPath', 'tenantIds'],
+        type: "object",
+        required: ["solutionPath", "tenantIds"],
         properties: {
-          solutionPath: { type: 'string' },
+          solutionPath: { type: "string" },
           tenantIds: {
-            type: 'array',
-            items: { type: 'string', format: 'uuid' },
+            type: "array",
+            items: { type: "string", format: "uuid" },
             minItems: 1,
           },
           options: {
-            type: 'object',
+            type: "object",
             properties: {
-              parallel: { type: 'integer', default: 5 },
-              continueOnFailure: { type: 'boolean', default: false },
-              dryRun: { type: 'boolean', default: false },
+              parallel: { type: "integer", default: 5 },
+              continueOnFailure: { type: "boolean", default: false },
+              dryRun: { type: "boolean", default: false },
             },
           },
         },
       },
       Tenant: {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
-          tenantId: { type: 'string', format: 'uuid' },
-          environmentUrl: { type: 'string', format: 'uri' },
-          tags: { type: 'array', items: { type: 'string' } },
-          enabled: { type: 'boolean' },
+          name: { type: "string" },
+          tenantId: { type: "string", format: "uuid" },
+          environmentUrl: { type: "string", format: "uri" },
+          tags: { type: "array", items: { type: "string" } },
+          enabled: { type: "boolean" },
         },
       },
       Solution: {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
-          uniqueName: { type: 'string' },
-          version: { type: 'string' },
-          isManaged: { type: 'boolean' },
+          name: { type: "string" },
+          uniqueName: { type: "string" },
+          version: { type: "string" },
+          isManaged: { type: "boolean" },
         },
       },
       Error: {
-        type: 'object',
+        type: "object",
         properties: {
-          error: { type: 'string' },
-          message: { type: 'string' },
-          details: { type: 'array', items: { type: 'object' } },
+          error: { type: "string" },
+          message: { type: "string" },
+          details: { type: "array", items: { type: "object" } },
         },
       },
     },
     responses: {
       BadRequest: {
-        description: 'Invalid request',
+        description: "Invalid request",
         content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/Error' },
+          "application/json": {
+            schema: { $ref: "#/components/schemas/Error" },
           },
         },
       },
       Unauthorized: {
-        description: 'Authentication required',
+        description: "Authentication required",
         content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/Error' },
+          "application/json": {
+            schema: { $ref: "#/components/schemas/Error" },
           },
         },
       },
       NotFound: {
-        description: 'Resource not found',
+        description: "Resource not found",
         content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/Error' },
+          "application/json": {
+            schema: { $ref: "#/components/schemas/Error" },
           },
         },
       },
       TooManyRequests: {
-        description: 'Rate limit exceeded',
+        description: "Rate limit exceeded",
         headers: {
-          'Retry-After': {
-            schema: { type: 'integer' },
-            description: 'Seconds until the rate limit resets',
+          "Retry-After": {
+            schema: { type: "integer" },
+            description: "Seconds until the rate limit resets",
           },
         },
         content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/Error' },
+          "application/json": {
+            schema: { $ref: "#/components/schemas/Error" },
           },
         },
       },
@@ -521,7 +537,7 @@ const openApiSpec = {
 export async function GET() {
   return NextResponse.json(openApiSpec, {
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 }

@@ -1,10 +1,22 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { writeFile, readFile, mkdir, readdir, unlink, stat } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  DeploymentSnapshot,
-  RollbackSettings,
-  parseDuration,
-} from "../config/schema.js";
+import { DeploymentSnapshot, RollbackSettings, parseDuration } from "../config/schema.js";
 import { DataverseClient, SolutionOperations } from "../dataverse/index.js";
 import { coreLogger } from "./logger.js";
 
@@ -16,9 +28,7 @@ const logger = coreLogger;
 export class RollbackService {
   private snapshotsDir: string;
 
-  constructor(
-    snapshotsDir: string = "./snapshots"
-  ) {
+  constructor(snapshotsDir: string = "./snapshots") {
     this.snapshotsDir = snapshotsDir;
   }
 
@@ -51,9 +61,7 @@ export class RollbackService {
 
     // Calculate expiry based on keepVersions (we'll clean up old ones separately)
     const expiresAt = settings.keepVersions
-      ? new Date(
-          Date.now() + settings.keepVersions * 30 * 24 * 60 * 60 * 1000
-        ).toISOString() // Approximate: keep for keepVersions months
+      ? new Date(Date.now() + settings.keepVersions * 30 * 24 * 60 * 60 * 1000).toISOString() // Approximate: keep for keepVersions months
       : undefined;
 
     // Export current solution version
@@ -71,11 +79,15 @@ export class RollbackService {
         outputPath: solutionPath,
       });
     } catch (error) {
-      logger.error("Failed to create snapshot", error instanceof Error ? error : new Error(String(error)), {
-        tenantName,
-        solutionName,
-        deploymentId,
-      });
+      logger.error(
+        "Failed to create snapshot",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tenantName,
+          solutionName,
+          deploymentId,
+        }
+      );
       return null;
     }
 
@@ -139,13 +151,10 @@ export class RollbackService {
 
     try {
       // Import the previous version
-      const importJobId = await solutionOps.importSolutionAsync(
-        snapshot.previousSolutionPath,
-        {
-          overwriteUnmanagedCustomizations: true,
-          publishWorkflows: true,
-        }
-      );
+      const importJobId = await solutionOps.importSolutionAsync(snapshot.previousSolutionPath, {
+        overwriteUnmanagedCustomizations: true,
+        publishWorkflows: true,
+      });
 
       // Wait for import to complete
       const result = await solutionOps.waitForImport(importJobId, {
@@ -167,9 +176,7 @@ export class RollbackService {
     } catch (error) {
       return {
         success: false,
-        error: `Rollback failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        error: `Rollback failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
@@ -185,9 +192,7 @@ export class RollbackService {
   /**
    * List all snapshots for a deployment
    */
-  async listSnapshotsForDeployment(
-    deploymentId: string
-  ): Promise<DeploymentSnapshot[]> {
+  async listSnapshotsForDeployment(deploymentId: string): Promise<DeploymentSnapshot[]> {
     const snapshots = await this.listAllSnapshots();
     return snapshots.filter((s) => s.deploymentId === deploymentId);
   }
@@ -243,8 +248,7 @@ export class RollbackService {
     }
 
     return snapshots.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
 
@@ -255,11 +259,7 @@ export class RollbackService {
     const snapshot = await this.getSnapshot(snapshotId);
     if (!snapshot) return false;
 
-    const snapshotDir = join(
-      this.snapshotsDir,
-      snapshot.deploymentId,
-      snapshot.tenantId
-    );
+    const snapshotDir = join(this.snapshotsDir, snapshot.deploymentId, snapshot.tenantId);
 
     try {
       // Delete metadata file
@@ -309,10 +309,7 @@ export class RollbackService {
   ): Promise<number> {
     const tenantSnapshots = (await this.listSnapshotsForTenant(tenantId))
       .filter((s) => s.solutionName === solutionName)
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     let deleted = 0;
 
@@ -335,10 +332,7 @@ export class RollbackService {
   ): Promise<DeploymentSnapshot | null> {
     const snapshots = (await this.listSnapshotsForTenant(tenantId))
       .filter((s) => s.solutionName === solutionName)
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return snapshots[0] || null;
   }

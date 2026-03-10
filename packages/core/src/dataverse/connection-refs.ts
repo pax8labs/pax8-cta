@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { DataverseClient } from "./client.js";
 import { ConnectionMapping, EnvironmentVariable } from "../config/schema.js";
 
@@ -51,7 +67,8 @@ export class ConnectionOperations {
     const result = await this.client.get<{ value: ConnectionReferenceRecord[] }>(
       "/connectionreferences",
       {
-        $select: "connectionreferenceid,connectionreferencelogicalname,connectionreferencedisplayname,connectionid,connectorid,statecode,statuscode",
+        $select:
+          "connectionreferenceid,connectionreferencelogicalname,connectionreferencedisplayname,connectionid,connectorid,statecode,statuscode",
         $orderby: "connectionreferencelogicalname asc",
       }
     );
@@ -68,7 +85,8 @@ export class ConnectionOperations {
       "/connectionreferences",
       {
         $filter: `connectionreferencelogicalname eq '${logicalName}'`,
-        $select: "connectionreferenceid,connectionreferencelogicalname,connectionreferencedisplayname,connectionid,connectorid,statecode,statuscode",
+        $select:
+          "connectionreferenceid,connectionreferencelogicalname,connectionreferencedisplayname,connectionid,connectorid,statecode,statuscode",
       }
     );
     return result.value[0] || null;
@@ -99,14 +117,10 @@ export class ConnectionOperations {
     for (const mapping of mappings) {
       try {
         // Find the connection reference by logical name
-        const connRef = await this.getConnectionReferenceByLogicalName(
-          mapping.sourceLogicalName
-        );
+        const connRef = await this.getConnectionReferenceByLogicalName(mapping.sourceLogicalName);
 
         if (!connRef) {
-          errors.push(
-            `Connection reference not found: ${mapping.sourceLogicalName}`
-          );
+          errors.push(`Connection reference not found: ${mapping.sourceLogicalName}`);
           continue;
         }
 
@@ -194,9 +208,7 @@ export class ConnectionOperations {
   /**
    * Get the current value of an environment variable
    */
-  async getEnvironmentVariableValue(
-    definitionId: string
-  ): Promise<string | null> {
+  async getEnvironmentVariableValue(definitionId: string): Promise<string | null> {
     const result = await this.client.get<{ value: EnvironmentVariableValueRecord[] }>(
       "/environmentvariablevalues",
       {
@@ -288,9 +300,7 @@ export class ConnectionOperations {
     const values = new Map<string, { definitionId: string; value: string | null }>();
 
     for (const def of definitions) {
-      const value = await this.getEnvironmentVariableValue(
-        def.environmentvariabledefinitionid
-      );
+      const value = await this.getEnvironmentVariableValue(def.environmentvariabledefinitionid);
       values.set(def.schemaname, {
         definitionId: def.environmentvariabledefinitionid,
         value,

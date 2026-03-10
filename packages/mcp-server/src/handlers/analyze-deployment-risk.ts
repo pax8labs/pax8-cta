@@ -1,10 +1,37 @@
-import { post } from '../lib/api-client.js';
-import { validate, AnalyzeDeploymentRiskSchema, AnalyzeDeploymentRiskParams } from '../lib/validation.js';
-import { logger } from '../lib/logger.js';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { post } from "../lib/api-client.js";
+import {
+  validate,
+  AnalyzeDeploymentRiskSchema,
+  AnalyzeDeploymentRiskParams,
+} from "../lib/validation.js";
+import { logger } from "../lib/logger.js";
 
 export interface RiskIssue {
-  severity: 'info' | 'warning' | 'error' | 'critical';
-  category: 'permissions' | 'dependencies' | 'health' | 'timing' | 'history' | 'connections' | 'configuration';
+  severity: "info" | "warning" | "error" | "critical";
+  category:
+    | "permissions"
+    | "dependencies"
+    | "health"
+    | "timing"
+    | "history"
+    | "connections"
+    | "configuration";
   message: string;
   affectedTenants?: string[];
   resolution?: string;
@@ -13,7 +40,7 @@ export interface RiskIssue {
 }
 
 export interface RiskAnalysis {
-  score: 'low' | 'medium' | 'high' | 'critical';
+  score: "low" | "medium" | "high" | "critical";
   confidence: number;
   estimatedDuration: {
     min: number;
@@ -37,7 +64,7 @@ export interface AnalyzeDeploymentRiskResponse {
  * Analyze deployment risk before executing
  */
 export async function handleAnalyzeDeploymentRisk(args: unknown) {
-  logger.info('Handling analyze_deployment_risk request', { args });
+  logger.info("Handling analyze_deployment_risk request", { args });
 
   // Validate input
   const params = validate(AnalyzeDeploymentRiskSchema, args || {});
@@ -50,12 +77,9 @@ export async function handleAnalyzeDeploymentRisk(args: unknown) {
   };
 
   // Make API request
-  const data = await post<AnalyzeDeploymentRiskResponse>(
-    '/api/deployments/analyze',
-    requestBody
-  );
+  const data = await post<AnalyzeDeploymentRiskResponse>("/api/deployments/analyze", requestBody);
 
-  logger.info('Risk analysis successful', {
+  logger.info("Risk analysis successful", {
     score: data.analysis.score,
     canProceed: data.analysis.canProceed,
     issueCount: data.analysis.issues.length,
@@ -66,20 +90,20 @@ export async function handleAnalyzeDeploymentRisk(args: unknown) {
   const { analysis } = data;
 
   let summary = `Risk Analysis for ${params.agentId}\n`;
-  summary += `${'='.repeat(50)}\n\n`;
+  summary += `${"=".repeat(50)}\n\n`;
   summary += `Risk Score: ${analysis.score.toUpperCase()}\n`;
   summary += `Success Probability: ${analysis.successProbability}%\n`;
   summary += `Estimated Duration: ${analysis.estimatedDuration.min}-${analysis.estimatedDuration.max} minutes\n`;
-  summary += `Can Proceed: ${analysis.canProceed ? 'YES' : 'NO'}\n`;
-  summary += `Requires Approval: ${analysis.requiresApproval ? 'YES' : 'NO'}\n\n`;
+  summary += `Can Proceed: ${analysis.canProceed ? "YES" : "NO"}\n`;
+  summary += `Requires Approval: ${analysis.requiresApproval ? "YES" : "NO"}\n\n`;
 
   if (analysis.blockers.length > 0) {
     summary += `🚫 BLOCKERS (${analysis.blockers.length}):\n`;
-    summary += `${'='.repeat(50)}\n`;
+    summary += `${"=".repeat(50)}\n`;
     for (const blocker of analysis.blockers) {
       summary += `\n[${blocker.severity.toUpperCase()}] ${blocker.message}\n`;
       if (blocker.affectedTenants && blocker.affectedTenants.length > 0) {
-        summary += `  Affected: ${blocker.affectedTenants.join(', ')}\n`;
+        summary += `  Affected: ${blocker.affectedTenants.join(", ")}\n`;
       }
       if (blocker.resolution) {
         summary += `  💡 Resolution: ${blocker.resolution}\n`;
@@ -88,54 +112,56 @@ export async function handleAnalyzeDeploymentRisk(args: unknown) {
         summary += `  🔗 Link: ${blocker.link}\n`;
       }
     }
-    summary += '\n';
+    summary += "\n";
   }
 
-  const criticalIssues = analysis.issues.filter(i => i.severity === 'critical' || i.severity === 'error');
+  const criticalIssues = analysis.issues.filter(
+    (i) => i.severity === "critical" || i.severity === "error"
+  );
   if (criticalIssues.length > 0) {
     summary += `⚠️  CRITICAL ISSUES (${criticalIssues.length}):\n`;
-    summary += `${'='.repeat(50)}\n`;
+    summary += `${"=".repeat(50)}\n`;
     for (const issue of criticalIssues) {
       summary += `\n[${issue.severity.toUpperCase()}] ${issue.message}\n`;
       if (issue.affectedTenants && issue.affectedTenants.length > 0) {
-        summary += `  Affected: ${issue.affectedTenants.join(', ')}\n`;
+        summary += `  Affected: ${issue.affectedTenants.join(", ")}\n`;
       }
       if (issue.resolution) {
         summary += `  💡 Resolution: ${issue.resolution}\n`;
       }
     }
-    summary += '\n';
+    summary += "\n";
   }
 
-  const warnings = analysis.issues.filter(i => i.severity === 'warning');
+  const warnings = analysis.issues.filter((i) => i.severity === "warning");
   if (warnings.length > 0) {
     summary += `⚠️  WARNINGS (${warnings.length}):\n`;
-    summary += `${'='.repeat(50)}\n`;
+    summary += `${"=".repeat(50)}\n`;
     for (const warning of warnings) {
       summary += `\n${warning.message}\n`;
       if (warning.affectedTenants && warning.affectedTenants.length > 0) {
-        summary += `  Affected: ${warning.affectedTenants.join(', ')}\n`;
+        summary += `  Affected: ${warning.affectedTenants.join(", ")}\n`;
       }
       if (warning.resolution) {
         summary += `  💡 Resolution: ${warning.resolution}\n`;
       }
     }
-    summary += '\n';
+    summary += "\n";
   }
 
   if (analysis.recommendations.length > 0) {
     summary += `💡 RECOMMENDATIONS:\n`;
-    summary += `${'='.repeat(50)}\n`;
+    summary += `${"=".repeat(50)}\n`;
     for (const rec of analysis.recommendations) {
       summary += `• ${rec}\n`;
     }
-    summary += '\n';
+    summary += "\n";
   }
 
   return {
     content: [
       {
-        type: 'text' as const,
+        type: "text" as const,
         text: summary,
       },
     ],

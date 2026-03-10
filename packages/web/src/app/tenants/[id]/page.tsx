@@ -1,233 +1,260 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import useSWR, { mutate } from 'swr'
-import Link from 'next/link'
+"use client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import useSWR, { mutate } from "swr";
+import Link from "next/link";
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 interface DeployedAgent {
-  solutionName: string
-  version: string
-  deployedAt: string
-  deploymentId: string
-  status: 'active' | 'failed' | 'updating'
+  solutionName: string;
+  version: string;
+  deployedAt: string;
+  deploymentId: string;
+  status: "active" | "failed" | "updating";
 }
 
 interface Tenant {
-  name: string
-  tenantId: string
-  environmentUrl: string
-  tags: string[]
-  enabled: boolean
-  metadata?: Record<string, unknown>
-  deployedAgents?: DeployedAgent[]
+  name: string;
+  tenantId: string;
+  environmentUrl: string;
+  tags: string[];
+  enabled: boolean;
+  metadata?: Record<string, unknown>;
+  deployedAgents?: DeployedAgent[];
 }
 
 export default function TenantDetailPage() {
-  const params = useParams()
-  const tenantId = params.id as string
-  const router = useRouter()
-  const { data, error, isLoading } = useSWR(`/api/tenants/${tenantId}`, fetcher)
-  const { data: allTagsData } = useSWR('/api/tenants/tags', fetcher)
+  const params = useParams();
+  const tenantId = params.id as string;
+  const router = useRouter();
+  const { data, error, isLoading } = useSWR(`/api/tenants/${tenantId}`, fetcher);
+  const { data: allTagsData } = useSWR("/api/tenants/tags", fetcher);
 
-  const [isEditingTags, setIsEditingTags] = useState(false)
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [newTagInput, setNewTagInput] = useState('')
-  const [isCreatingTag, setIsCreatingTag] = useState(false)
-  const [isRemovingAgent, setIsRemovingAgent] = useState<string | null>(null)
-  const [agentToRemove, setAgentToRemove] = useState<string | null>(null)
-  const [showDisableWarning, setShowDisableWarning] = useState(false)
-  const [isTogglingStatus, setIsTogglingStatus] = useState(false)
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
-  const [isCheckingHealth, setIsCheckingHealth] = useState(false)
+  const [isEditingTags, setIsEditingTags] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [isRemovingAgent, setIsRemovingAgent] = useState<string | null>(null);
+  const [agentToRemove, setAgentToRemove] = useState<string | null>(null);
+  const [showDisableWarning, setShowDisableWarning] = useState(false);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [healthResult, setHealthResult] = useState<{
-    healthy: boolean
-    checks: Array<{ name: string; passed: boolean; message: string; durationMs: number }>
-    totalDurationMs: number
-    checkedAt: string
-  } | null>(null)
+    healthy: boolean;
+    checks: Array<{ name: string; passed: boolean; message: string; durationMs: number }>;
+    totalDurationMs: number;
+    checkedAt: string;
+  } | null>(null);
 
-  const tenant: Tenant | undefined = data?.tenant
-  const allTags: string[] = allTagsData?.tags ?? []
+  const tenant: Tenant | undefined = data?.tenant;
+  const allTags: string[] = allTagsData?.tags ?? [];
 
   // Load last health check result on mount
   useEffect(() => {
     const loadLastHealthCheck = async () => {
       try {
-        const response = await fetch(`/api/tenants/${tenantId}/health`)
+        const response = await fetch(`/api/tenants/${tenantId}/health`);
         if (response.ok) {
-          const result = await response.json()
+          const result = await response.json();
           if (result.lastCheck) {
             setHealthResult({
               healthy: result.healthy,
               checks: result.checks,
               totalDurationMs: result.totalDurationMs,
               checkedAt: result.lastCheck,
-            })
+            });
           }
         }
       } catch (err) {
         // Ignore errors - health check is optional
-        console.error('Failed to load last health check:', err)
+        console.error("Failed to load last health check:", err);
       }
-    }
+    };
 
-    loadLastHealthCheck()
-  }, [tenantId])
+    loadLastHealthCheck();
+  }, [tenantId]);
 
   const handleStartEditTags = () => {
-    setSelectedTags(tenant?.tags ?? [])
-    setIsEditingTags(true)
-    setActionError(null)
-    setActionSuccess(null)
-  }
+    setSelectedTags(tenant?.tags ?? []);
+    setIsEditingTags(true);
+    setActionError(null);
+    setActionSuccess(null);
+  };
 
   const handleSaveTags = async () => {
     try {
       const response = await fetch(`/api/tenants/${tenantId}/tags`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: selectedTags }),
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to update tags')
+      if (!response.ok) throw new Error("Failed to update tags");
 
-      mutate(`/api/tenants/${tenantId}`)
-      mutate('/api/tenants')
-      setIsEditingTags(false)
-      setActionSuccess('Tags updated successfully')
+      mutate(`/api/tenants/${tenantId}`);
+      mutate("/api/tenants");
+      setIsEditingTags(false);
+      setActionSuccess("Tags updated successfully");
     } catch (err) {
-      setActionError('Failed to update tags')
+      setActionError("Failed to update tags");
     }
-  }
+  };
 
   const handleCreateTag = async () => {
-    if (!newTagInput.trim()) return
+    if (!newTagInput.trim()) return;
 
-    setIsCreatingTag(true)
+    setIsCreatingTag(true);
     try {
-      const response = await fetch('/api/tenants/tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/tenants/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tag: newTagInput.trim().toLowerCase() }),
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to create tag')
+      if (!response.ok) throw new Error("Failed to create tag");
 
-      mutate('/api/tenants/tags')
-      setSelectedTags([...selectedTags, newTagInput.trim().toLowerCase()])
-      setNewTagInput('')
-      setActionSuccess(`Tag "${newTagInput.trim()}" created`)
+      mutate("/api/tenants/tags");
+      setSelectedTags([...selectedTags, newTagInput.trim().toLowerCase()]);
+      setNewTagInput("");
+      setActionSuccess(`Tag "${newTagInput.trim()}" created`);
     } catch (err) {
-      setActionError('Failed to create tag')
+      setActionError("Failed to create tag");
     } finally {
-      setIsCreatingTag(false)
+      setIsCreatingTag(false);
     }
-  }
+  };
 
   const handleToggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter(t => t !== tag))
+      setSelectedTags(selectedTags.filter((t) => t !== tag));
     } else {
-      setSelectedTags([...selectedTags, tag])
+      setSelectedTags([...selectedTags, tag]);
     }
-  }
+  };
 
   const handleConfirmRemoveAgent = async () => {
-    if (!agentToRemove) return
+    if (!agentToRemove) return;
 
-    setIsRemovingAgent(agentToRemove)
-    setActionError(null)
+    setIsRemovingAgent(agentToRemove);
+    setActionError(null);
 
     try {
-      const response = await fetch(`/api/tenants/${tenantId}/agents/${encodeURIComponent(agentToRemove)}`, {
-        method: 'DELETE',
-      })
+      const response = await fetch(
+        `/api/tenants/${tenantId}/agents/${encodeURIComponent(agentToRemove)}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      if (!response.ok) throw new Error('Failed to remove agent')
+      if (!response.ok) throw new Error("Failed to remove agent");
 
-      mutate(`/api/tenants/${tenantId}`)
-      mutate('/api/agents')
-      setActionSuccess(`Agent "${agentToRemove}" has been removed from this tenant`)
+      mutate(`/api/tenants/${tenantId}`);
+      mutate("/api/agents");
+      setActionSuccess(`Agent "${agentToRemove}" has been removed from this tenant`);
     } catch (err) {
-      setActionError('Failed to remove agent')
+      setActionError("Failed to remove agent");
     } finally {
-      setIsRemovingAgent(null)
-      setAgentToRemove(null)
+      setIsRemovingAgent(null);
+      setAgentToRemove(null);
     }
-  }
+  };
 
   const handleToggleEnabled = () => {
     // If currently enabled, show warning before disabling
     if (tenant?.enabled) {
-      setShowDisableWarning(true)
+      setShowDisableWarning(true);
     } else {
       // If currently disabled, enable directly
-      confirmToggleEnabled()
+      confirmToggleEnabled();
     }
-  }
+  };
 
   const handleCheckHealth = async () => {
-    setIsCheckingHealth(true)
-    setActionError(null)
+    setIsCheckingHealth(true);
+    setActionError(null);
     try {
       const response = await fetch(`/api/tenants/${tenantId}/health`, {
-        method: 'POST',
-      })
+        method: "POST",
+      });
 
-      if (!response.ok) throw new Error('Failed to run health check')
+      if (!response.ok) throw new Error("Failed to run health check");
 
-      const result = await response.json()
+      const result = await response.json();
       setHealthResult({
         healthy: result.healthy,
         checks: result.checks,
         totalDurationMs: result.totalDurationMs,
         checkedAt: result.checkedAt,
-      })
+      });
 
       if (result.healthy) {
-        setActionSuccess('Health check passed - tenant is healthy')
+        setActionSuccess("Health check passed - tenant is healthy");
       } else {
-        setActionError('Health check failed - see details below')
+        setActionError("Health check failed - see details below");
       }
     } catch (err) {
-      setActionError('Failed to run health check')
+      setActionError("Failed to run health check");
     } finally {
-      setIsCheckingHealth(false)
+      setIsCheckingHealth(false);
     }
-  }
+  };
 
   const confirmToggleEnabled = async () => {
-    setIsTogglingStatus(true)
+    setIsTogglingStatus(true);
     try {
       const response = await fetch(`/api/tenants/${tenantId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: !tenant?.enabled }),
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to update status')
+      if (!response.ok) throw new Error("Failed to update status");
 
-      mutate(`/api/tenants/${tenantId}`)
-      mutate('/api/tenants')
-      setActionSuccess(`Tenant ${tenant?.enabled ? 'disabled' : 'enabled'} successfully`)
-      setShowDisableWarning(false)
+      mutate(`/api/tenants/${tenantId}`);
+      mutate("/api/tenants");
+      setActionSuccess(`Tenant ${tenant?.enabled ? "disabled" : "enabled"} successfully`);
+      setShowDisableWarning(false);
     } catch (err) {
-      setActionError('Failed to update tenant status')
+      setActionError("Failed to update tenant status");
     } finally {
-      setIsTogglingStatus(false)
+      setIsTogglingStatus(false);
     }
-  }
+  };
 
   if (error) {
     return (
       <div className="space-y-6">
-        <Link href="/tenants" className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors">
+        <Link
+          href="/tenants"
+          className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
           Back to Tenants
         </Link>
@@ -236,15 +263,23 @@ export default function TenantDetailPage() {
           <p className="text-rose-600 text-sm mt-1">Tenant not found or an error occurred.</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Link href="/tenants" className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors">
+        <Link
+          href="/tenants"
+          className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
           Back to Tenants
         </Link>
@@ -253,13 +288,16 @@ export default function TenantDetailPage() {
           <span className="ml-3 text-slate-500">Loading tenant details...</span>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
       {/* Back link */}
-      <Link href="/tenants" className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors">
+      <Link
+        href="/tenants"
+        className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 transition-colors"
+      >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
@@ -270,14 +308,32 @@ export default function TenantDetailPage() {
       {actionSuccess && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-5 h-5 text-emerald-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
             <span className="text-emerald-700">{actionSuccess}</span>
           </div>
-          <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-800">
+          <button
+            onClick={() => setActionSuccess(null)}
+            className="text-emerald-600 hover:text-emerald-800"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -286,14 +342,32 @@ export default function TenantDetailPage() {
       {actionError && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-5 h-5 text-rose-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <span className="text-rose-700">{actionError}</span>
           </div>
-          <button onClick={() => setActionError(null)} className="text-rose-600 hover:text-rose-800">
+          <button
+            onClick={() => setActionError(null)}
+            className="text-rose-600 hover:text-rose-800"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -317,11 +391,11 @@ export default function TenantDetailPage() {
             onClick={handleToggleEnabled}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               tenant?.enabled
-                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
             }`}
           >
-            {tenant?.enabled ? 'Disable Tenant' : 'Enable Tenant'}
+            {tenant?.enabled ? "Disable Tenant" : "Enable Tenant"}
           </button>
         </div>
       </div>
@@ -346,9 +420,14 @@ export default function TenantDetailPage() {
           className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+            />
           </svg>
-          {new URL(tenant?.environmentUrl || 'https://example.com').hostname}
+          {new URL(tenant?.environmentUrl || "https://example.com").hostname}
         </a>
       </div>
 
@@ -357,7 +436,9 @@ export default function TenantDetailPage() {
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Health Check</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Verify tenant environment connectivity and permissions</p>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Verify tenant environment connectivity and permissions
+            </p>
           </div>
           <button
             onClick={handleCheckHealth}
@@ -372,7 +453,12 @@ export default function TenantDetailPage() {
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 Check Health
               </>
@@ -383,26 +469,51 @@ export default function TenantDetailPage() {
           {healthResult ? (
             <div className="space-y-4">
               {/* Overall status */}
-              <div className={`flex items-center gap-3 p-4 rounded-lg ${healthResult.healthy ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'}`}>
+              <div
+                className={`flex items-center gap-3 p-4 rounded-lg ${healthResult.healthy ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200"}`}
+              >
                 {healthResult.healthy ? (
                   <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-6 h-6 text-emerald-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                 ) : (
                   <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-6 h-6 text-rose-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </div>
                 )}
                 <div>
-                  <p className={`font-semibold ${healthResult.healthy ? 'text-emerald-800' : 'text-rose-800'}`}>
-                    {healthResult.healthy ? 'Tenant is Healthy' : 'Health Check Failed'}
+                  <p
+                    className={`font-semibold ${healthResult.healthy ? "text-emerald-800" : "text-rose-800"}`}
+                  >
+                    {healthResult.healthy ? "Tenant is Healthy" : "Health Check Failed"}
                   </p>
                   <p className="text-sm text-slate-500" suppressHydrationWarning>
-                    Checked {new Date(healthResult.checkedAt).toLocaleString()} ({healthResult.totalDurationMs}ms)
+                    Checked {new Date(healthResult.checkedAt).toLocaleString()} (
+                    {healthResult.totalDurationMs}ms)
                   </p>
                 </div>
               </div>
@@ -412,20 +523,42 @@ export default function TenantDetailPage() {
                 {healthResult.checks.map((check, index) => (
                   <div
                     key={index}
-                    className={`flex items-center justify-between p-3 rounded-lg ${check.passed ? 'bg-slate-50' : 'bg-rose-50'}`}
+                    className={`flex items-center justify-between p-3 rounded-lg ${check.passed ? "bg-slate-50" : "bg-rose-50"}`}
                   >
                     <div className="flex items-center gap-3">
                       {check.passed ? (
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg
+                          className="w-5 h-5 text-emerald-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       ) : (
-                        <svg className="w-5 h-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                          className="w-5 h-5 text-rose-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       )}
                       <div>
-                        <p className="text-sm font-medium text-slate-700">{check.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                        <p className="text-sm font-medium text-slate-700">
+                          {check.name.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </p>
                         <p className="text-xs text-slate-500">{check.message}</p>
                       </div>
                     </div>
@@ -437,12 +570,24 @@ export default function TenantDetailPage() {
           ) : (
             <div className="text-center py-6">
               <div className="w-12 h-12 mx-auto mb-3 bg-slate-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="w-6 h-6 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <p className="text-slate-600 text-sm">No health check has been run yet</p>
-              <p className="text-slate-400 text-xs mt-1">Click &quot;Check Health&quot; to verify tenant connectivity</p>
+              <p className="text-slate-400 text-xs mt-1">
+                Click &quot;Check Health&quot; to verify tenant connectivity
+              </p>
             </div>
           )}
         </div>
@@ -458,7 +603,12 @@ export default function TenantDetailPage() {
               className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
               </svg>
               Edit Tags
             </button>
@@ -492,14 +642,24 @@ export default function TenantDetailPage() {
                       onClick={() => handleToggleTag(tag)}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                         selectedTags.includes(tag)
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
                       {tag}
                       {selectedTags.includes(tag) && (
-                        <svg className="w-3 h-3 ml-1.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        <svg
+                          className="w-3 h-3 ml-1.5 inline"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       )}
                     </button>
@@ -517,14 +677,14 @@ export default function TenantDetailPage() {
                     onChange={(e) => setNewTagInput(e.target.value)}
                     placeholder="Enter new tag name..."
                     className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreateTag()}
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateTag()}
                   />
                   <button
                     onClick={handleCreateTag}
                     disabled={!newTagInput.trim() || isCreatingTag}
                     className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg transition-colors"
                   >
-                    {isCreatingTag ? 'Creating...' : 'Create'}
+                    {isCreatingTag ? "Creating..." : "Create"}
                   </button>
                 </div>
               </div>
@@ -552,7 +712,9 @@ export default function TenantDetailPage() {
       <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900">Deployed Agents</h2>
-          <p className="text-sm text-slate-500 mt-1">Copilot Studio agents installed on this tenant</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Copilot Studio agents installed on this tenant
+          </p>
         </div>
         <div className="p-6">
           {tenant?.deployedAgents && tenant.deployedAgents.length > 0 ? (
@@ -564,8 +726,18 @@ export default function TenantDetailPage() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-gradient-to-br from-violet-100 to-violet-200 rounded-lg flex items-center justify-center">
-                      <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <svg
+                        className="w-5 h-5 text-violet-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
                       </svg>
                     </div>
                     <div>
@@ -579,19 +751,19 @@ export default function TenantDetailPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {agent.status === 'active' && (
+                    {agent.status === "active" && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                         Active
                       </span>
                     )}
-                    {agent.status === 'updating' && (
+                    {agent.status === "updating" && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
                         <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
                         Updating
                       </span>
                     )}
-                    {agent.status === 'failed' && (
+                    {agent.status === "failed" && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-700">
                         <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
                         Failed
@@ -606,8 +778,18 @@ export default function TenantDetailPage() {
                       {isRemovingAgent === agent.solutionName ? (
                         <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
                       ) : (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                       )}
                     </button>
@@ -618,8 +800,18 @@ export default function TenantDetailPage() {
           ) : (
             <div className="text-center py-8">
               <div className="w-16 h-16 mx-auto mb-4 bg-slate-100 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <svg
+                  className="w-8 h-8 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
                 </svg>
               </div>
               <p className="text-slate-600 font-medium">No agents deployed</p>
@@ -629,7 +821,12 @@ export default function TenantDetailPage() {
                 className="inline-flex items-center gap-2 mt-4 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
                 </svg>
                 Deploy an Agent
               </Link>
@@ -648,9 +845,11 @@ export default function TenantDetailPage() {
             <dl className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {Object.entries(tenant.metadata).map(([key, value]) => (
                 <div key={key} className="bg-slate-50 rounded-lg p-3">
-                  <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">{key}</dt>
+                  <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    {key}
+                  </dt>
                   <dd className="mt-1 text-sm font-medium text-slate-900">
-                    {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                    {typeof value === "object" ? JSON.stringify(value) : String(value)}
                   </dd>
                 </div>
               ))}
@@ -662,13 +861,23 @@ export default function TenantDetailPage() {
       {/* Deployment History */}
       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
         <p className="text-sm text-slate-600">
-          <svg className="w-4 h-4 inline-block mr-2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-4 h-4 inline-block mr-2 text-slate-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
-          View full deployment history for this tenant in the{' '}
+          View full deployment history for this tenant in the{" "}
           <Link href={`/deployments?tenant=${tenantId}`} className="text-blue-600 hover:underline">
             Deployments
-          </Link>{' '}
+          </Link>{" "}
           page.
         </p>
       </div>
@@ -680,8 +889,18 @@ export default function TenantDetailPage() {
             <div className="p-6">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  <svg
+                    className="w-6 h-6 text-rose-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
                   </svg>
                 </div>
                 <div>
@@ -692,33 +911,63 @@ export default function TenantDetailPage() {
 
               <div className="bg-slate-50 rounded-lg p-4 mb-4">
                 <p className="text-sm text-slate-700">
-                  You are about to remove <span className="font-semibold text-slate-900">{agentToRemove}</span> from <span className="font-semibold text-slate-900">{tenant?.name}</span>.
+                  You are about to remove{" "}
+                  <span className="font-semibold text-slate-900">{agentToRemove}</span> from{" "}
+                  <span className="font-semibold text-slate-900">{tenant?.name}</span>.
                 </p>
                 <ul className="mt-3 text-sm text-slate-600 space-y-1.5">
                   <li className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                     The agent will be uninstalled from this tenant
                   </li>
                   <li className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                     Users on this tenant will lose access to the agent
                   </li>
                   <li className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     You can redeploy the agent later if needed
                   </li>
                 </ul>
               </div>
 
-              <p className="text-sm text-slate-600 mb-4">
-                Are you sure you want to proceed?
-              </p>
+              <p className="text-sm text-slate-600 mb-4">Are you sure you want to proceed?</p>
             </div>
 
             <div className="flex gap-3 p-4 bg-slate-50 border-t border-slate-200">
@@ -733,7 +982,7 @@ export default function TenantDetailPage() {
                 disabled={isRemovingAgent !== null}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-rose-600 rounded-lg hover:bg-rose-700 disabled:opacity-50 transition-colors"
               >
-                {isRemovingAgent ? 'Removing...' : 'Yes, Remove Agent'}
+                {isRemovingAgent ? "Removing..." : "Yes, Remove Agent"}
               </button>
             </div>
           </div>
@@ -747,8 +996,18 @@ export default function TenantDetailPage() {
             <div className="p-6">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  <svg
+                    className="w-6 h-6 text-amber-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
                   </svg>
                 </div>
                 <div>
@@ -759,24 +1018,55 @@ export default function TenantDetailPage() {
 
               <div className="bg-amber-50 rounded-lg p-4 mb-4 border border-amber-100">
                 <p className="text-sm text-slate-700">
-                  You are about to disable <span className="font-semibold text-slate-900">{tenant?.name}</span>.
+                  You are about to disable{" "}
+                  <span className="font-semibold text-slate-900">{tenant?.name}</span>.
                 </p>
                 <ul className="mt-3 text-sm text-slate-600 space-y-1.5">
                   <li className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <svg
+                      className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
                     </svg>
                     This tenant will be excluded from future deployments
                   </li>
                   <li className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    <svg
+                      className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
                     </svg>
                     Existing deployed agents will remain active
                   </li>
                   <li className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                     You can re-enable this tenant at any time
                   </li>
@@ -785,10 +1075,15 @@ export default function TenantDetailPage() {
 
               {tenant?.deployedAgents && tenant.deployedAgents.length > 0 && (
                 <div className="bg-slate-50 rounded-lg p-3 mb-4">
-                  <p className="text-xs text-slate-500 mb-2">Currently deployed agents ({tenant.deployedAgents.length}):</p>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Currently deployed agents ({tenant.deployedAgents.length}):
+                  </p>
                   <div className="flex flex-wrap gap-1">
-                    {tenant.deployedAgents.map(agent => (
-                      <span key={agent.solutionName} className="text-xs bg-white border border-slate-200 px-2 py-0.5 rounded">
+                    {tenant.deployedAgents.map((agent) => (
+                      <span
+                        key={agent.solutionName}
+                        className="text-xs bg-white border border-slate-200 px-2 py-0.5 rounded"
+                      >
                         {agent.solutionName}
                       </span>
                     ))}
@@ -813,12 +1108,12 @@ export default function TenantDetailPage() {
                 disabled={isTogglingStatus}
                 className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors"
               >
-                {isTogglingStatus ? 'Disabling...' : 'Yes, Disable Tenant'}
+                {isTogglingStatus ? "Disabling..." : "Yes, Disable Tenant"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,55 +1,80 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+"use client";
 
 /**
  * Inline Risk Analysis Component
  * Compact risk analysis display for integration into the deployment form
  */
 
-import { useState, useEffect } from 'react'
-import { AlertCircle, AlertTriangle, CheckCircle, Info, ChevronDown, ChevronUp, ExternalLink, RefreshCw } from 'lucide-react'
-import type { RiskAnalysis, RiskIssue } from '@agentsync/core'
+import { useState, useEffect } from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  RefreshCw,
+} from "lucide-react";
+import type { RiskAnalysis, RiskIssue } from "@agentsync/core";
 
 interface InlineRiskAnalysisProps {
-  analysis: RiskAnalysis | null
-  loading?: boolean
-  onRefresh?: () => void
+  analysis: RiskAnalysis | null;
+  loading?: boolean;
+  onRefresh?: () => void;
 }
 
 const SEVERITY_CONFIG = {
   critical: {
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
     icon: AlertCircle,
-    label: 'BLOCKER',
+    label: "BLOCKER",
   },
   error: {
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
     icon: AlertCircle,
-    label: 'ERROR',
+    label: "ERROR",
   },
   warning: {
-    color: 'text-yellow-700',
-    bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-200',
+    color: "text-yellow-700",
+    bgColor: "bg-yellow-50",
+    borderColor: "border-yellow-200",
     icon: AlertTriangle,
-    label: 'WARNING',
+    label: "WARNING",
   },
   info: {
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
     icon: Info,
-    label: 'INFO',
+    label: "INFO",
   },
-}
+};
 
 function IssueCard({ issue }: { issue: RiskIssue }) {
-  const [showDetails, setShowDetails] = useState(false)
-  const config = SEVERITY_CONFIG[issue.severity]
-  const Icon = config.icon
+  const [showDetails, setShowDetails] = useState(false);
+  const config = SEVERITY_CONFIG[issue.severity];
+  const Icon = config.icon;
 
   return (
     <div className={`${config.bgColor} ${config.borderColor} border rounded-lg p-4`}>
@@ -57,12 +82,8 @@ function IssueCard({ issue }: { issue: RiskIssue }) {
         <Icon className={`${config.color} h-5 w-5 flex-shrink-0 mt-0.5`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs font-semibold ${config.color}`}>
-              {config.label}
-            </span>
-            {issue.category && (
-              <span className="text-xs text-gray-500">• {issue.category}</span>
-            )}
+            <span className={`text-xs font-semibold ${config.color}`}>{config.label}</span>
+            {issue.category && <span className="text-xs text-gray-500">• {issue.category}</span>}
           </div>
           <p className={`font-medium ${config.color} mb-2`}>{issue.message}</p>
 
@@ -106,8 +127,12 @@ function IssueCard({ issue }: { issue: RiskIssue }) {
               onClick={() => setShowDetails(!showDetails)}
               className="mt-2 text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1"
             >
-              {showDetails ? 'Hide' : 'Show'} details
-              {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {showDetails ? "Hide" : "Show"} details
+              {showDetails ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
             </button>
           )}
 
@@ -119,18 +144,18 @@ function IssueCard({ issue }: { issue: RiskIssue }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function InlineRiskAnalysis({ analysis, loading, onRefresh }: InlineRiskAnalysisProps) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(true);
 
   // Auto-expand when blockers are found
   useEffect(() => {
     if (analysis && analysis.blockers && analysis.blockers.length > 0) {
-      setExpanded(true)
+      setExpanded(true);
     }
-  }, [analysis])
+  }, [analysis]);
 
   if (loading) {
     return (
@@ -143,38 +168,39 @@ export function InlineRiskAnalysis({ analysis, loading, onRefresh }: InlineRiskA
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (!analysis) {
-    return null
+    return null;
   }
 
-  const blockers = analysis.blockers || []
-  const criticalIssues = analysis.issues.filter(i => i.severity === 'critical' || i.severity === 'error')
-  const warnings = analysis.issues.filter(i => i.severity === 'warning')
-  const infos = analysis.issues.filter(i => i.severity === 'info')
+  const blockers = analysis.blockers || [];
+  const criticalIssues = analysis.issues.filter(
+    (i) => i.severity === "critical" || i.severity === "error"
+  );
+  const warnings = analysis.issues.filter((i) => i.severity === "warning");
+  const infos = analysis.issues.filter((i) => i.severity === "info");
 
   // Determine overall status color
-  const statusColor = blockers.length > 0
-    ? 'bg-red-50 border-red-300'
-    : warnings.length > 0
-    ? 'bg-yellow-50 border-yellow-300'
-    : 'bg-green-50 border-green-300'
+  const statusColor =
+    blockers.length > 0
+      ? "bg-red-50 border-red-300"
+      : warnings.length > 0
+        ? "bg-yellow-50 border-yellow-300"
+        : "bg-green-50 border-green-300";
 
-  const statusIcon = blockers.length > 0
-    ? AlertCircle
-    : warnings.length > 0
-    ? AlertTriangle
-    : CheckCircle
+  const statusIcon =
+    blockers.length > 0 ? AlertCircle : warnings.length > 0 ? AlertTriangle : CheckCircle;
 
-  const statusIconColor = blockers.length > 0
-    ? 'text-red-600'
-    : warnings.length > 0
-    ? 'text-yellow-600'
-    : 'text-green-600'
+  const statusIconColor =
+    blockers.length > 0
+      ? "text-red-600"
+      : warnings.length > 0
+        ? "text-yellow-600"
+        : "text-green-600";
 
-  const StatusIcon = statusIcon
+  const StatusIcon = statusIcon;
 
   return (
     <div className={`${statusColor} border-2 rounded-lg overflow-hidden`}>
@@ -188,9 +214,14 @@ export function InlineRiskAnalysis({ analysis, loading, onRefresh }: InlineRiskA
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-900">
               {blockers.length > 0 ? (
-                <>Deployment Blocked - {blockers.length} issue{blockers.length > 1 ? 's' : ''} must be fixed</>
+                <>
+                  Deployment Blocked - {blockers.length} issue{blockers.length > 1 ? "s" : ""} must
+                  be fixed
+                </>
               ) : warnings.length > 0 ? (
-                <>Ready to Deploy - {warnings.length} warning{warnings.length > 1 ? 's' : ''}</>
+                <>
+                  Ready to Deploy - {warnings.length} warning{warnings.length > 1 ? "s" : ""}
+                </>
               ) : (
                 <>Ready to Deploy - All checks passed</>
               )}
@@ -198,7 +229,9 @@ export function InlineRiskAnalysis({ analysis, loading, onRefresh }: InlineRiskA
             <div className="flex items-center gap-3 text-sm text-gray-600 mt-0.5">
               <span>Success probability: {analysis.successProbability}%</span>
               <span>•</span>
-              <span>Est. duration: {analysis.estimatedDuration.min}-{analysis.estimatedDuration.max} min</span>
+              <span>
+                Est. duration: {analysis.estimatedDuration.min}-{analysis.estimatedDuration.max} min
+              </span>
             </div>
           </div>
         </button>
@@ -206,14 +239,14 @@ export function InlineRiskAnalysis({ analysis, loading, onRefresh }: InlineRiskA
           {onRefresh && (
             <button
               onClick={(e) => {
-                e.stopPropagation()
-                onRefresh()
+                e.stopPropagation();
+                onRefresh();
               }}
               disabled={loading}
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-white hover:bg-opacity-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh analysis"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
           )}
           {blockers.length > 0 && (
@@ -224,13 +257,9 @@ export function InlineRiskAnalysis({ analysis, loading, onRefresh }: InlineRiskA
           <button
             onClick={() => setExpanded(!expanded)}
             className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
-            title={expanded ? 'Collapse' : 'Expand'}
+            title={expanded ? "Collapse" : "Expand"}
           >
-            {expanded ? (
-              <ChevronUp className="h-5 w-5" />
-            ) : (
-              <ChevronDown className="h-5 w-5" />
-            )}
+            {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
           </button>
         </div>
       </div>
@@ -294,5 +323,5 @@ export function InlineRiskAnalysis({ analysis, loading, onRefresh }: InlineRiskA
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { z } from "zod";
 
 // ============================================================================
@@ -68,18 +84,20 @@ export const RollbackSettingsSchema = z.object({
 
 export const WebhookSchema = z.object({
   url: z.string().url(),
-  events: z.array(z.enum([
-    "deployment.started",
-    "deployment.completed",
-    "deployment.failed",
-    "wave.started",
-    "wave.completed",
-    "tenant.started",
-    "tenant.completed",
-    "tenant.failed",
-    "rollback.started",
-    "rollback.completed",
-  ])),
+  events: z.array(
+    z.enum([
+      "deployment.started",
+      "deployment.completed",
+      "deployment.failed",
+      "wave.started",
+      "wave.completed",
+      "tenant.started",
+      "tenant.completed",
+      "tenant.failed",
+      "rollback.started",
+      "rollback.completed",
+    ])
+  ),
   headers: z.record(z.string()).optional(),
   secret: z.string().optional(),
   retries: z.number().int().nonnegative().optional().default(3),
@@ -92,11 +110,13 @@ export const WebhookSchema = z.object({
 export const ScheduleSchema = z.object({
   cron: z.string().optional(),
   timezone: z.string().optional().default("UTC"),
-  maintenanceWindow: z.object({
-    start: z.string(), // e.g., "02:00"
-    end: z.string(),   // e.g., "06:00"
-    daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(), // 0 = Sunday
-  }).optional(),
+  maintenanceWindow: z
+    .object({
+      start: z.string(), // e.g., "02:00"
+      end: z.string(), // e.g., "06:00"
+      daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(), // 0 = Sunday
+    })
+    .optional(),
 });
 
 // ============================================================================
@@ -192,26 +212,32 @@ export const GlobalSettingsSchema = z.object({
   approval: ApprovalWorkflowSchema.optional(),
 
   // Rate limiting
-  rateLimit: z.object({
-    maxConcurrent: z.number().int().positive().optional().default(5),
-    delayBetweenTenants: z.string().optional().default("1s"),
-    maxRequestsPerMinute: z.number().int().positive().optional().default(60),
-  }).optional(),
+  rateLimit: z
+    .object({
+      maxConcurrent: z.number().int().positive().optional().default(5),
+      delayBetweenTenants: z.string().optional().default("1s"),
+      maxRequestsPerMinute: z.number().int().positive().optional().default(60),
+    })
+    .optional(),
 
   // Retry settings
-  retry: z.object({
-    maxAttempts: z.number().int().positive().optional().default(3),
-    initialDelay: z.string().optional().default("5s"),
-    maxDelay: z.string().optional().default("5m"),
-    backoffMultiplier: z.number().positive().optional().default(2),
-  }).optional(),
+  retry: z
+    .object({
+      maxAttempts: z.number().int().positive().optional().default(3),
+      initialDelay: z.string().optional().default("5s"),
+      maxDelay: z.string().optional().default("5m"),
+      backoffMultiplier: z.number().positive().optional().default(2),
+    })
+    .optional(),
 
   // Logging
-  logging: z.object({
-    level: z.enum(["debug", "info", "warn", "error"]).optional().default("info"),
-    includeTimestamps: z.boolean().optional().default(true),
-    format: z.enum(["json", "text"]).optional().default("text"),
-  }).optional(),
+  logging: z
+    .object({
+      level: z.enum(["debug", "info", "warn", "error"]).optional().default("info"),
+      includeTimestamps: z.boolean().optional().default(true),
+      format: z.enum(["json", "text"]).optional().default("text"),
+    })
+    .optional(),
 });
 
 // ============================================================================
@@ -281,15 +307,15 @@ export type DeploymentStatus = z.infer<typeof DeploymentStatusSchema>;
  */
 export const DEPLOYMENT_STATUS_CATEGORIES = {
   /** Running or successfully completed */
-  ACTIVE: ['completed', 'in_progress'] as const,
+  ACTIVE: ["completed", "in_progress"] as const,
   /** Waiting for approval, schedule, or processing */
-  PENDING_ACTION: ['pending', 'scheduled', 'awaiting_approval', 'approved'] as const,
+  PENDING_ACTION: ["pending", "scheduled", "awaiting_approval", "approved"] as const,
   /** Error states or stopped deployments */
-  FAILED: ['failed', 'rejected', 'cancelled', 'rolled_back', 'rolling_back'] as const,
+  FAILED: ["failed", "rejected", "cancelled", "rolled_back", "rolling_back"] as const,
   /** Final states - no more processing will occur */
-  TERMINAL: ['completed', 'failed', 'rolled_back', 'cancelled', 'rejected'] as const,
+  TERMINAL: ["completed", "failed", "rolled_back", "cancelled", "rejected"] as const,
   /** Can be retried (including rolled_back - user may want to redeploy) */
-  RETRYABLE: ['failed', 'cancelled', 'rolled_back'] as const,
+  RETRYABLE: ["failed", "cancelled", "rolled_back"] as const,
 } as const;
 
 // Helper type for status category arrays
@@ -302,27 +328,29 @@ export type StatusCategory = keyof typeof DEPLOYMENT_STATUS_CATEGORIES;
 export function calculateDeploymentStatus(
   tenantResults: Array<{ status: DeploymentStatus }>
 ): DeploymentStatus {
-  if (tenantResults.length === 0) return 'pending';
+  if (tenantResults.length === 0) return "pending";
 
-  const statuses = new Set(tenantResults.map(t => t.status));
+  const statuses = new Set(tenantResults.map((t) => t.status));
 
   // Check in priority order
-  if (statuses.has('in_progress')) return 'in_progress';
-  if (statuses.has('rolling_back')) return 'rolling_back';
+  if (statuses.has("in_progress")) return "in_progress";
+  if (statuses.has("rolling_back")) return "rolling_back";
 
   // Any failure means overall failed
-  const hasFailures = tenantResults.some(t =>
-    DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE.includes(t.status as typeof DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE[number])
+  const hasFailures = tenantResults.some((t) =>
+    DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE.includes(
+      t.status as (typeof DEPLOYMENT_STATUS_CATEGORIES.RETRYABLE)[number]
+    )
   );
-  if (hasFailures) return 'failed';
+  if (hasFailures) return "failed";
 
-  if (statuses.has('rolled_back')) return 'rolled_back';
-  if (statuses.has('completed')) return 'completed';
-  if (statuses.has('approved')) return 'approved';
-  if (statuses.has('awaiting_approval')) return 'awaiting_approval';
-  if (statuses.has('scheduled')) return 'scheduled';
+  if (statuses.has("rolled_back")) return "rolled_back";
+  if (statuses.has("completed")) return "completed";
+  if (statuses.has("approved")) return "approved";
+  if (statuses.has("awaiting_approval")) return "awaiting_approval";
+  if (statuses.has("scheduled")) return "scheduled";
 
-  return 'pending';
+  return "pending";
 }
 
 export const TenantDeploymentResultSchema = z.object({
@@ -341,13 +369,7 @@ export const TenantDeploymentResultSchema = z.object({
 
 export type TenantDeploymentResult = z.infer<typeof TenantDeploymentResultSchema>;
 
-export const DeploymentTriggerSchema = z.enum([
-  "manual",
-  "scheduled",
-  "webhook",
-  "api",
-  "cli",
-]);
+export const DeploymentTriggerSchema = z.enum(["manual", "scheduled", "webhook", "api", "cli"]);
 
 export type DeploymentTrigger = z.infer<typeof DeploymentTriggerSchema>;
 
@@ -368,12 +390,16 @@ export const DeploymentJobSchema = z.object({
   failedTenants: z.number().int().nonnegative(),
   currentWave: z.number().int().positive().optional(),
   totalWaves: z.number().int().positive().optional(),
-  approvals: z.array(z.object({
-    approver: z.string().email(),
-    approved: z.boolean(),
-    timestamp: z.string().datetime(),
-    comment: z.string().optional(),
-  })).optional(),
+  approvals: z
+    .array(
+      z.object({
+        approver: z.string().email(),
+        approved: z.boolean(),
+        timestamp: z.string().datetime(),
+        comment: z.string().optional(),
+      })
+    )
+    .optional(),
   rollbackFromDeploymentId: z.string().optional(),
   canRollback: z.boolean().optional(),
   // New fields for enhanced visibility
@@ -426,12 +452,14 @@ export const DeploymentSchema = z.object({
   waveNumber: z.number().int().positive().optional(),
 
   // URL override for tenant-specific URL templating
-  urlOverride: z.object({
-    tenant: z.string(),
-    sharepoint: z.string(),
-    dynamicsCrm: z.string(),
-    onmicrosoft: z.string(),
-  }).optional(),
+  urlOverride: z
+    .object({
+      tenant: z.string(),
+      sharepoint: z.string(),
+      dynamicsCrm: z.string(),
+      onmicrosoft: z.string(),
+    })
+    .optional(),
 });
 
 export type Deployment = z.infer<typeof DeploymentSchema>;
@@ -464,12 +492,16 @@ export const DeploymentBatchSchema = z.object({
   totalWaves: z.number().int().positive().optional(),
 
   // Approvals
-  approvals: z.array(z.object({
-    approver: z.string().email(),
-    approved: z.boolean(),
-    timestamp: z.string().datetime(),
-    comment: z.string().optional(),
-  })).optional(),
+  approvals: z
+    .array(
+      z.object({
+        approver: z.string().email(),
+        approved: z.boolean(),
+        timestamp: z.string().datetime(),
+        comment: z.string().optional(),
+      })
+    )
+    .optional(),
 
   // Metadata
   triggeredBy: DeploymentTriggerSchema.optional(),
@@ -478,7 +510,10 @@ export const DeploymentBatchSchema = z.object({
 export type DeploymentBatch = z.infer<typeof DeploymentBatchSchema>;
 
 // Helper to convert old DeploymentJob to new Deployment[] + DeploymentBatch
-export function migrateDeploymentJob(job: DeploymentJob): { batch: DeploymentBatch; deployments: Deployment[] } {
+export function migrateDeploymentJob(job: DeploymentJob): {
+  batch: DeploymentBatch;
+  deployments: Deployment[];
+} {
   const deployments: Deployment[] = job.tenantResults.map((result, index) => ({
     id: `${job.id}-${index}`,
     batchId: job.id,

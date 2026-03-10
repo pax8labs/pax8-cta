@@ -1,9 +1,25 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Shared Database Configuration
  * Ensures web and worker packages use the same SQLite database file
  */
 
-import { resolve } from 'path';
+import { resolve } from "path";
 
 /**
  * Get the absolute path to the SQLite database file
@@ -25,7 +41,7 @@ export function getDatabasePath(): string {
 
   // Default: resolve relative to current working directory
   // In monorepo, cwd is typically the repo root when using pnpm
-  return resolve(process.cwd(), 'data/agentsync.db');
+  return resolve(process.cwd(), "data/agentsync.db");
 }
 
 /**
@@ -34,7 +50,7 @@ export function getDatabasePath(): string {
  */
 export function logDatabaseConfig(): void {
   const path = getDatabasePath();
-  const source = process.env.DATABASE_PATH ? 'DATABASE_PATH env var' : 'default path';
+  const source = process.env.DATABASE_PATH ? "DATABASE_PATH env var" : "default path";
 
   console.log(`[Database] Using SQLite database: ${path}`);
   console.log(`[Database] Source: ${source}`);

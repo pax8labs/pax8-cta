@@ -48,6 +48,7 @@ echo "✅ Daily cleanup complete"
 ```
 
 **Schedule via cron:**
+
 ```cron
 0 2 * * * cd /path/to/agentsync && ./scripts/cleanup-sandbox.sh
 ```
@@ -104,6 +105,7 @@ redis-cli FLUSHDB
 4. **Alert if costs exceed $30/month**
 
 **View detailed breakdown:**
+
 ```bash
 az consumption usage list \
   --start-date $(date -d "1 month ago" +%Y-%m-%d) \
@@ -222,6 +224,7 @@ echo "✅ Cleanup complete"
 ```
 
 **Run monthly:**
+
 ```bash
 ./scripts/cleanup-power-platform-solutions.sh
 ```
@@ -262,6 +265,7 @@ pnpm cli tenants list --config ./config/tenants.sandbox.yaml
 ```
 
 **Mark old secret for deletion:**
+
 - Don't delete immediately (allow 24-48 hours grace period)
 - After validation, delete old secret in Azure Portal
 
@@ -356,6 +360,7 @@ curl http://localhost:3000/api/sandbox/health
 4. Select: **"Only notifications for failed workflows"**
 
 **Or use Slack integration:**
+
 ```yaml
 # Add to .github/workflows/sandbox-e2e.yml
 
@@ -396,6 +401,7 @@ redis-cli LRANGE bull:tenant-deployments:failed 0 -1
 ```
 
 **Alert thresholds:**
+
 - Failed jobs > 10: Investigate immediately
 - Waiting jobs > 50: Check worker is running
 - Active jobs stuck > 30 min: Check for hanging deployments
@@ -407,19 +413,20 @@ redis-cli LRANGE bull:tenant-deployments:failed 0 -1
 ### E2E Test Failures
 
 **Step 1: Check GitHub Actions logs**
+
 ```bash
 gh run view --log-failed
 ```
 
 **Step 2: Check common causes**
 
-| Error | Likely Cause | Solution |
-|-------|--------------|----------|
-| Timeout | Slow Power Platform API | Increase timeout in test |
-| Authentication failed | Expired client secret | Rotate secret (see above) |
-| Connection not found | Missing connection mapping | Update tenants.sandbox.yaml |
-| Solution import error | Invalid solution file | Re-export from source |
-| Redis connection failed | Redis not running in CI | Check services configuration |
+| Error                   | Likely Cause               | Solution                     |
+| ----------------------- | -------------------------- | ---------------------------- |
+| Timeout                 | Slow Power Platform API    | Increase timeout in test     |
+| Authentication failed   | Expired client secret      | Rotate secret (see above)    |
+| Connection not found    | Missing connection mapping | Update tenants.sandbox.yaml  |
+| Solution import error   | Invalid solution file      | Re-export from source        |
+| Redis connection failed | Redis not running in CI    | Check services configuration |
 
 **Step 3: Run test locally**
 
@@ -449,6 +456,7 @@ pac solution list --environment https://contoso-sandbox.crm.dynamics.com
 ### Integration Test Failures
 
 **Check Azure AD authentication:**
+
 ```bash
 # Test token acquisition
 az account get-access-token \
@@ -457,6 +465,7 @@ az account get-access-token \
 ```
 
 **Check Redis connectivity:**
+
 ```bash
 redis-cli -h localhost -p 6379 ping
 # Should return: PONG
@@ -467,17 +476,19 @@ redis-cli -h localhost -p 6379 ping
 **If tests are slow (> 20 min):**
 
 1. **Check solution size:**
+
    ```bash
    ls -lh ./test-solutions/*.zip
    # Should be < 1 MB
    ```
 
 2. **Reduce test concurrency:**
+
    ```yaml
    # In tenants.sandbox.yaml
    settings:
      rateLimit:
-       maxConcurrent: 1  # Reduce from 2
+       maxConcurrent: 1 # Reduce from 2
    ```
 
 3. **Skip health checks in tests:**
@@ -485,7 +496,7 @@ redis-cli -h localhost -p 6379 ping
    tenants:
      - name: "Contoso Sandbox"
        healthCheck:
-         enabled: false  # Temporarily disable
+         enabled: false # Temporarily disable
    ```
 
 ---
@@ -493,17 +504,20 @@ redis-cli -h localhost -p 6379 ping
 ## Runbook Checklists
 
 ### Daily Checklist
+
 - [ ] Automated cleanup script ran successfully
 - [ ] No critical test failures in past 24 hours
 - [ ] Redis memory usage < 80%
 
 ### Weekly Checklist
+
 - [ ] Review E2E test success rate
 - [ ] Check M365 Developer subscription expiration
 - [ ] Clear Redis queue backlog (if any)
 - [ ] Review GitHub Actions logs for patterns
 
 ### Monthly Checklist
+
 - [ ] Review Azure costs (target: < $30/month)
 - [ ] Check Power Platform capacity usage
 - [ ] Rotate client secrets (if < 14 days to expiry)
@@ -513,6 +527,7 @@ redis-cli -h localhost -p 6379 ping
 - [ ] Update documentation if processes changed
 
 ### Quarterly Checklist
+
 - [ ] Review and update test scenarios
 - [ ] Audit GitHub secrets and Key Vault access
 - [ ] Review sandbox architecture for optimizations
@@ -563,6 +578,7 @@ pnpm cli deploy \
 3. Confirm renewal
 4. Wait 10-15 minutes for reactivation
 5. Test access:
+
    ```bash
    pac admin list
    ```
@@ -578,11 +594,13 @@ pnpm cli deploy \
 ## Contact & Support
 
 **For sandbox issues:**
+
 - Check [SANDBOX_SETUP.md](./SANDBOX_SETUP.md) first
-- Review GitHub Issues
-- Ask in team Slack/chat
+- Search [GitHub Issues](https://github.com/pax8labs/agentsync/issues)
+- Open a new issue or start a discussion
 
 **For Azure/M365 issues:**
+
 - Azure Support: https://azure.microsoft.com/support/
 - Power Platform Community: https://powerusers.microsoft.com/
 

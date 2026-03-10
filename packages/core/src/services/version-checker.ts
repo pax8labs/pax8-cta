@@ -1,4 +1,20 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Solution Version Checker Service
  * Detects version drift between expected and deployed solution versions across tenants
  */
@@ -48,8 +64,8 @@ export interface VersionDriftSummary {
  * Returns: negative if a < b, 0 if equal, positive if a > b
  */
 export function compareVersions(a: string, b: string): number {
-  const partsA = a.split(".").map(p => parseInt(p, 10) || 0);
-  const partsB = b.split(".").map(p => parseInt(p, 10) || 0);
+  const partsA = a.split(".").map((p) => parseInt(p, 10) || 0);
+  const partsB = b.split(".").map((p) => parseInt(p, 10) || 0);
 
   const maxLen = Math.max(partsA.length, partsB.length);
 
@@ -123,16 +139,11 @@ export class VersionChecker {
       });
 
       const deployedSolutions = await client.querySolutions();
-      const solutionMap = new Map(
-        deployedSolutions.map(s => [s.uniquename.toLowerCase(), s])
-      );
+      const solutionMap = new Map(deployedSolutions.map((s) => [s.uniquename.toLowerCase(), s]));
 
-      const solutions: SolutionVersionInfo[] = expectedSolutions.map(expected => {
+      const solutions: SolutionVersionInfo[] = expectedSolutions.map((expected) => {
         const deployed = solutionMap.get(expected.uniqueName.toLowerCase());
-        const { status, drift } = getVersionStatus(
-          expected.version,
-          deployed?.version || null
-        );
+        const { status, drift } = getVersionStatus(expected.version, deployed?.version || null);
 
         return {
           uniqueName: expected.uniqueName,
@@ -167,7 +178,7 @@ export class VersionChecker {
         tenantId: tenant.tenantId,
         tenantName: tenant.name,
         environmentUrl: tenant.environmentUrl,
-        solutions: expectedSolutions.map(s => ({
+        solutions: expectedSolutions.map((s) => ({
           uniqueName: s.uniqueName,
           friendlyName: s.friendlyName,
           expectedVersion: s.version,
@@ -199,7 +210,7 @@ export class VersionChecker {
     for (let i = 0; i < tenants.length; i += CONCURRENCY) {
       const batch = tenants.slice(i, i + CONCURRENCY);
       const batchResults = await Promise.all(
-        batch.map(t => this.checkTenantVersions(t, expectedSolutions, tokenManager, skipCache))
+        batch.map((t) => this.checkTenantVersions(t, expectedSolutions, tokenManager, skipCache))
       );
       results.push(...batchResults);
     }
@@ -217,13 +228,13 @@ export class VersionChecker {
   ): Promise<VersionDriftSummary> {
     const statuses = await this.checkMultipleTenants(tenants, expectedSolutions, tokenManager);
 
-    const solutionSummary = expectedSolutions.map(solution => {
+    const solutionSummary = expectedSolutions.map((solution) => {
       let atVersion = 0;
       let behind = 0;
       let notDeployed = 0;
 
       for (const status of statuses) {
-        const solStatus = status.solutions.find(s => s.uniqueName === solution.uniqueName);
+        const solStatus = status.solutions.find((s) => s.uniqueName === solution.uniqueName);
         if (!solStatus || solStatus.status === "unknown") continue;
 
         if (solStatus.status === "current" || solStatus.status === "ahead") {
@@ -247,9 +258,11 @@ export class VersionChecker {
 
     return {
       totalTenants: statuses.length,
-      currentTenants: statuses.filter(s => s.overallStatus === "current").length,
-      outdatedTenants: statuses.filter(s => s.overallStatus === "outdated" || s.overallStatus === "mixed").length,
-      unknownTenants: statuses.filter(s => s.overallStatus === "unknown").length,
+      currentTenants: statuses.filter((s) => s.overallStatus === "current").length,
+      outdatedTenants: statuses.filter(
+        (s) => s.overallStatus === "outdated" || s.overallStatus === "mixed"
+      ).length,
+      unknownTenants: statuses.filter((s) => s.overallStatus === "unknown").length,
       solutionSummary,
     };
   }
@@ -269,15 +282,17 @@ export class VersionChecker {
   // Private Methods
   // ============================================================================
 
-  private calculateOverallStatus(solutions: SolutionVersionInfo[]): TenantVersionStatus["overallStatus"] {
-    const statuses = solutions.map(s => s.status);
+  private calculateOverallStatus(
+    solutions: SolutionVersionInfo[]
+  ): TenantVersionStatus["overallStatus"] {
+    const statuses = solutions.map((s) => s.status);
 
-    if (statuses.every(s => s === "unknown")) {
+    if (statuses.every((s) => s === "unknown")) {
       return "unknown";
     }
 
-    const hasOutdated = statuses.some(s => s === "outdated");
-    const hasCurrent = statuses.some(s => s === "current" || s === "ahead");
+    const hasOutdated = statuses.some((s) => s === "outdated");
+    const hasCurrent = statuses.some((s) => s === "current" || s === "ahead");
 
     if (hasOutdated && hasCurrent) {
       return "mixed";
@@ -364,24 +379,24 @@ export const versionChecker = new VersionChecker();
  */
 export function getDemoVersionDriftSummary(): VersionDriftSummary {
   const checker = new VersionChecker();
-  const expectedSolutions = DEMO_SOLUTIONS.map(s => ({
+  const expectedSolutions = DEMO_SOLUTIONS.map((s) => ({
     uniqueName: s.uniqueName,
     friendlyName: s.friendlyName,
     version: s.version,
   }));
 
   // Synchronously generate demo data
-  const statuses = DEMO_TENANTS.filter(t => t.enabled).map(tenant =>
+  const statuses = DEMO_TENANTS.filter((t) => t.enabled).map((tenant) =>
     checker["getDemoVersionStatus"](tenant, expectedSolutions)
   );
 
-  const solutionSummary = expectedSolutions.map(solution => {
+  const solutionSummary = expectedSolutions.map((solution) => {
     let atVersion = 0;
     let behind = 0;
     let notDeployed = 0;
 
     for (const status of statuses) {
-      const solStatus = status.solutions.find(s => s.uniqueName === solution.uniqueName);
+      const solStatus = status.solutions.find((s) => s.uniqueName === solution.uniqueName);
       if (!solStatus) continue;
 
       if (solStatus.status === "current" || solStatus.status === "ahead") {
@@ -405,9 +420,11 @@ export function getDemoVersionDriftSummary(): VersionDriftSummary {
 
   return {
     totalTenants: statuses.length,
-    currentTenants: statuses.filter(s => s.overallStatus === "current").length,
-    outdatedTenants: statuses.filter(s => s.overallStatus === "outdated" || s.overallStatus === "mixed").length,
-    unknownTenants: statuses.filter(s => s.overallStatus === "unknown").length,
+    currentTenants: statuses.filter((s) => s.overallStatus === "current").length,
+    outdatedTenants: statuses.filter(
+      (s) => s.overallStatus === "outdated" || s.overallStatus === "mixed"
+    ).length,
+    unknownTenants: statuses.filter((s) => s.overallStatus === "unknown").length,
     solutionSummary,
   };
 }
@@ -416,11 +433,11 @@ export function getDemoVersionDriftSummary(): VersionDriftSummary {
  * Get demo version status for a specific tenant
  */
 export function getDemoTenantVersionStatus(tenantId: string): TenantVersionStatus | null {
-  const tenant = DEMO_TENANTS.find(t => t.tenantId === tenantId);
+  const tenant = DEMO_TENANTS.find((t) => t.tenantId === tenantId);
   if (!tenant) return null;
 
   const checker = new VersionChecker();
-  const expectedSolutions = DEMO_SOLUTIONS.map(s => ({
+  const expectedSolutions = DEMO_SOLUTIONS.map((s) => ({
     uniqueName: s.uniqueName,
     friendlyName: s.friendlyName,
     version: s.version,

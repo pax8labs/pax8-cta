@@ -1,6 +1,22 @@
-import { NextResponse } from 'next/server';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-export const dynamic = 'force-dynamic';
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 
 /**
  * Liveness health check endpoint
@@ -24,7 +40,7 @@ export async function GET() {
     const startTime = Date.now();
 
     // Verify process can schedule async operations
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
 
     const responseTime = Date.now() - startTime;
 
@@ -32,8 +48,8 @@ export async function GET() {
     if (responseTime > 1000) {
       return NextResponse.json(
         {
-          status: 'unhealthy',
-          reason: 'Event loop severely delayed',
+          status: "unhealthy",
+          reason: "Event loop severely delayed",
           responseTime,
           timestamp: new Date().toISOString(),
         },
@@ -42,7 +58,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      status: 'alive',
+      status: "alive",
       uptime: process.uptime(),
       memoryUsage: {
         heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
@@ -56,8 +72,8 @@ export async function GET() {
     // If we can't even respond to this simple check, we're not alive
     return NextResponse.json(
       {
-        status: 'dead',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        status: "dead",
+        error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       },
       { status: 503 }

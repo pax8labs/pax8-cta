@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { TokenManager, TokenManagerConfig } from "../auth/token-manager.js";
 import { DataverseClient } from "../dataverse/client.js";
 import { SolutionOperations, ImportResult } from "../dataverse/solution-ops.js";
@@ -72,7 +88,11 @@ export class DeploymentService {
     const startedAt = new Date().toISOString();
     const startTime = Date.now();
 
-    const emitProgress = (step: RealDeploymentStepId, progress: number, status: RealDeploymentProgress["status"] = "in_progress") => {
+    const emitProgress = (
+      step: RealDeploymentStepId,
+      progress: number,
+      status: RealDeploymentProgress["status"] = "in_progress"
+    ) => {
       onProgress?.({
         tenantId: target.tenantId,
         tenantName: target.tenantName,
@@ -153,7 +173,9 @@ export class DeploymentService {
         emitProgress("configuring_variables", 85);
 
         const connectionOps = new ConnectionOperations(dataverseClient);
-        const varResult = await connectionOps.applyEnvironmentVariables(target.environmentVariables);
+        const varResult = await connectionOps.applyEnvironmentVariables(
+          target.environmentVariables
+        );
 
         if (!varResult.success) {
           console.warn("Environment variable warnings:", varResult.errors);
@@ -316,7 +338,9 @@ export class DeploymentService {
       try {
         await customerTokenManager.getDataverseToken(target.environmentUrl);
       } catch (error) {
-        errors.push(`Authentication failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+        errors.push(
+          `Authentication failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
         return { valid: false, errors, warnings };
       }
 
@@ -329,7 +353,9 @@ export class DeploymentService {
       try {
         await dataverseClient.querySolutions();
       } catch (error) {
-        errors.push(`Environment not accessible: ${error instanceof Error ? error.message : "Unknown error"}`);
+        errors.push(
+          `Environment not accessible: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
         return { valid: false, errors, warnings };
       }
 
@@ -338,7 +364,9 @@ export class DeploymentService {
         const connectionOps = new ConnectionOperations(dataverseClient);
 
         for (const mapping of target.connectionMappings) {
-          const connRef = await connectionOps.getConnectionReferenceByLogicalName(mapping.sourceLogicalName);
+          const connRef = await connectionOps.getConnectionReferenceByLogicalName(
+            mapping.sourceLogicalName
+          );
           if (!connRef) {
             warnings.push(`Connection reference not found: ${mapping.sourceLogicalName}`);
           }

@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Schedule } from "../config/schema.js";
 
 /**
@@ -18,10 +34,7 @@ export class SchedulerService {
   /**
    * Check if a deployment is allowed within the maintenance window
    */
-  isWithinMaintenanceWindow(
-    schedule: Schedule,
-    date: Date = new Date()
-  ): boolean {
+  isWithinMaintenanceWindow(schedule: Schedule, date: Date = new Date()): boolean {
     if (!schedule.maintenanceWindow) {
       return true; // No maintenance window = always allowed
     }
@@ -53,26 +66,17 @@ export class SchedulerService {
     // Handle windows that span midnight
     if (startTimeMinutes > endTimeMinutes) {
       // Window spans midnight (e.g., 22:00 - 06:00)
-      return (
-        currentTimeMinutes >= startTimeMinutes ||
-        currentTimeMinutes < endTimeMinutes
-      );
+      return currentTimeMinutes >= startTimeMinutes || currentTimeMinutes < endTimeMinutes;
     }
 
     // Normal window (e.g., 02:00 - 06:00)
-    return (
-      currentTimeMinutes >= startTimeMinutes &&
-      currentTimeMinutes < endTimeMinutes
-    );
+    return currentTimeMinutes >= startTimeMinutes && currentTimeMinutes < endTimeMinutes;
   }
 
   /**
    * Get the next maintenance window start time
    */
-  getNextMaintenanceWindow(
-    schedule: Schedule,
-    from: Date = new Date()
-  ): Date | null {
+  getNextMaintenanceWindow(schedule: Schedule, from: Date = new Date()): Date | null {
     if (!schedule.maintenanceWindow) {
       return null;
     }
@@ -157,10 +161,7 @@ export class SchedulerService {
     for (let i = 0; i < maxIterations; i++) {
       if (this.matchesCron(candidate, parsed)) {
         // Also check maintenance window if configured
-        if (
-          !schedule.maintenanceWindow ||
-          this.isWithinMaintenanceWindow(schedule, candidate)
-        ) {
+        if (!schedule.maintenanceWindow || this.isWithinMaintenanceWindow(schedule, candidate)) {
           return this.convertFromTimezone(candidate, schedule.timezone || "UTC");
         }
       }
@@ -389,8 +390,18 @@ export class SchedulerService {
 
     // Months
     const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
     if (parsed.months.length < 12) {
       parts.push(`in ${parsed.months.map((m) => monthNames[m - 1]).join(", ")}`);

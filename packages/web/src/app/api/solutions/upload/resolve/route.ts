@@ -1,6 +1,22 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { demoCustomAgents, CustomAgent } from "@/lib/demo-store";
-import { invalidRequest, notFound, conflict, internalError } from '@/lib/errors';
+import { invalidRequest, notFound, conflict, internalError } from "@/lib/errors";
 
 const DEMO_MODE = process.env.DEMO_MODE === "true" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -45,7 +61,7 @@ export async function POST(request: NextRequest) {
         publisherName: metadata?.publisherName || existing.publisherName,
         isManaged: metadata?.isManaged ?? existing.isManaged,
         // Reactivate if it was archived
-        status: existing.status === 'archived' ? 'active' : existing.status,
+        status: existing.status === "archived" ? "active" : existing.status,
         // Update solution data
         urlTemplates: urlTemplates || existing.urlTemplates,
         solutionBase64: solutionBase64 || existing.solutionBase64,
@@ -82,7 +98,7 @@ export async function POST(request: NextRequest) {
         description: metadata?.description,
         publisherName: metadata?.publisherName,
         isManaged: metadata?.isManaged ?? true,
-        status: 'active',
+        status: "active",
         createdAt: new Date().toISOString(),
         urlTemplates: urlTemplates || undefined,
         solutionBase64,
@@ -104,8 +120,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error resolving upload conflict:", error);
     return internalError(
-      'Failed to resolve conflict',
-      process.env.NODE_ENV === 'development' && error instanceof Error ? { error: error.message } : undefined
+      "Failed to resolve conflict",
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? { error: error.message }
+        : undefined
     );
   }
 }

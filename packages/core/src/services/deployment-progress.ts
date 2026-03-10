@@ -1,26 +1,42 @@
 /**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Real-time deployment progress tracking types and utilities
  *
  * Provides step-by-step visibility into the deployment process with
  * minimum display times to ensure each step is legible even when fast.
  */
 
-import { MIN_STEP_DISPLAY_MS } from '../constants.js';
+import { MIN_STEP_DISPLAY_MS } from "../constants.js";
 
 // Re-export for backward compatibility
 export { MIN_STEP_DISPLAY_MS };
 
 export type DeploymentStepId =
-  | 'authenticating'
-  | 'validating'
-  | 'exporting'
-  | 'uploading'
-  | 'importing'
-  | 'configuring'
-  | 'verifying'
-  | 'completing';
+  | "authenticating"
+  | "validating"
+  | "exporting"
+  | "uploading"
+  | "importing"
+  | "configuring"
+  | "verifying"
+  | "completing";
 
-export type DeploymentStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
+export type DeploymentStepStatus = "pending" | "in_progress" | "completed" | "failed" | "skipped";
 
 export interface DeploymentStep {
   id: DeploymentStepId;
@@ -36,7 +52,7 @@ export interface DeploymentStep {
 export interface TenantDeploymentProgress {
   tenantId: string;
   tenantName: string;
-  overallStatus: 'pending' | 'in_progress' | 'completed' | 'failed';
+  overallStatus: "pending" | "in_progress" | "completed" | "failed";
   currentStep: DeploymentStepId | null;
   steps: DeploymentStep[];
   progress: number; // 0-100
@@ -46,7 +62,12 @@ export interface TenantDeploymentProgress {
 }
 
 export interface DeploymentProgressEvent {
-  type: 'step_started' | 'step_completed' | 'step_failed' | 'tenant_completed' | 'deployment_completed';
+  type:
+    | "step_started"
+    | "step_completed"
+    | "step_failed"
+    | "tenant_completed"
+    | "deployment_completed";
   deploymentId: string;
   tenantId?: string;
   tenantName?: string;
@@ -62,54 +83,57 @@ export interface DeploymentProgressEvent {
  */
 export const DEPLOYMENT_STEPS: Record<DeploymentStepId, { label: string; description: string }> = {
   authenticating: {
-    label: 'Authenticating',
-    description: 'Connecting to tenant with GDAP credentials',
+    label: "Authenticating",
+    description: "Connecting to tenant with GDAP credentials",
   },
   validating: {
-    label: 'Validating',
-    description: 'Checking environment compatibility and permissions',
+    label: "Validating",
+    description: "Checking environment compatibility and permissions",
   },
   exporting: {
-    label: 'Exporting',
-    description: 'Exporting solution from source environment',
+    label: "Exporting",
+    description: "Exporting solution from source environment",
   },
   uploading: {
-    label: 'Uploading',
-    description: 'Transferring solution package to target',
+    label: "Uploading",
+    description: "Transferring solution package to target",
   },
   importing: {
-    label: 'Importing',
-    description: 'Installing solution in target environment',
+    label: "Importing",
+    description: "Installing solution in target environment",
   },
   configuring: {
-    label: 'Configuring',
-    description: 'Setting up connection references and variables',
+    label: "Configuring",
+    description: "Setting up connection references and variables",
   },
   verifying: {
-    label: 'Verifying',
-    description: 'Confirming deployment was successful',
+    label: "Verifying",
+    description: "Confirming deployment was successful",
   },
   completing: {
-    label: 'Completing',
-    description: 'Finalizing deployment and cleaning up',
+    label: "Completing",
+    description: "Finalizing deployment and cleaning up",
   },
 };
 
 /**
  * Create initial progress state for a tenant deployment
  */
-export function createInitialTenantProgress(tenantId: string, tenantName: string): TenantDeploymentProgress {
+export function createInitialTenantProgress(
+  tenantId: string,
+  tenantName: string
+): TenantDeploymentProgress {
   const steps: DeploymentStep[] = Object.entries(DEPLOYMENT_STEPS).map(([id, config]) => ({
     id: id as DeploymentStepId,
     label: config.label,
     description: config.description,
-    status: 'pending' as DeploymentStepStatus,
+    status: "pending" as DeploymentStepStatus,
   }));
 
   return {
     tenantId,
     tenantName,
-    overallStatus: 'pending',
+    overallStatus: "pending",
     currentStep: null,
     steps,
     progress: 0,
@@ -120,8 +144,8 @@ export function createInitialTenantProgress(tenantId: string, tenantName: string
  * Calculate progress percentage based on completed steps
  */
 export function calculateProgress(steps: DeploymentStep[]): number {
-  const completed = steps.filter(s => s.status === 'completed' || s.status === 'skipped').length;
-  const inProgress = steps.filter(s => s.status === 'in_progress').length;
+  const completed = steps.filter((s) => s.status === "completed" || s.status === "skipped").length;
+  const inProgress = steps.filter((s) => s.status === "in_progress").length;
   const total = steps.length;
 
   // Give partial credit for in-progress step
@@ -139,18 +163,18 @@ export function applyProgressEvent(
   const steps = [...progress.steps];
 
   switch (event.type) {
-    case 'step_started': {
+    case "step_started": {
       if (event.stepId) {
-        const stepIndex = steps.findIndex(s => s.id === event.stepId);
+        const stepIndex = steps.findIndex((s) => s.id === event.stepId);
         if (stepIndex !== -1) {
           steps[stepIndex] = {
             ...steps[stepIndex],
-            status: 'in_progress',
+            status: "in_progress",
             startedAt: event.timestamp,
             details: event.details,
           };
           updatedProgress.currentStep = event.stepId;
-          updatedProgress.overallStatus = 'in_progress';
+          updatedProgress.overallStatus = "in_progress";
           if (!updatedProgress.startedAt) {
             updatedProgress.startedAt = event.timestamp;
           }
@@ -159,13 +183,13 @@ export function applyProgressEvent(
       break;
     }
 
-    case 'step_completed': {
+    case "step_completed": {
       if (event.stepId) {
-        const stepIndex = steps.findIndex(s => s.id === event.stepId);
+        const stepIndex = steps.findIndex((s) => s.id === event.stepId);
         if (stepIndex !== -1) {
           steps[stepIndex] = {
             ...steps[stepIndex],
-            status: 'completed',
+            status: "completed",
             completedAt: event.timestamp,
             details: event.details,
           };
@@ -174,26 +198,26 @@ export function applyProgressEvent(
       break;
     }
 
-    case 'step_failed': {
+    case "step_failed": {
       if (event.stepId) {
-        const stepIndex = steps.findIndex(s => s.id === event.stepId);
+        const stepIndex = steps.findIndex((s) => s.id === event.stepId);
         if (stepIndex !== -1) {
           steps[stepIndex] = {
             ...steps[stepIndex],
-            status: 'failed',
+            status: "failed",
             completedAt: event.timestamp,
             error: event.error,
           };
           updatedProgress.error = event.error;
-          updatedProgress.overallStatus = 'failed';
+          updatedProgress.overallStatus = "failed";
           updatedProgress.completedAt = event.timestamp;
         }
       }
       break;
     }
 
-    case 'tenant_completed': {
-      updatedProgress.overallStatus = 'completed';
+    case "tenant_completed": {
+      updatedProgress.overallStatus = "completed";
       updatedProgress.completedAt = event.timestamp;
       updatedProgress.currentStep = null;
       break;
@@ -244,20 +268,20 @@ export async function* simulateDeploymentProgress(
   };
 
   const stepOrder: DeploymentStepId[] = [
-    'authenticating',
-    'validating',
-    'exporting',
-    'uploading',
-    'importing',
-    'configuring',
-    'verifying',
-    'completing',
+    "authenticating",
+    "validating",
+    "exporting",
+    "uploading",
+    "importing",
+    "configuring",
+    "verifying",
+    "completing",
   ];
 
   for (const stepId of stepOrder) {
     // Start step
     yield {
-      type: 'step_started',
+      type: "step_started",
       deploymentId,
       tenantId,
       tenantName,
@@ -267,12 +291,12 @@ export async function* simulateDeploymentProgress(
 
     // Simulate step processing with minimum display time
     const duration = Math.max(minDelay, stepDurations[stepId] / speedMultiplier);
-    await new Promise(resolve => setTimeout(resolve, duration));
+    await new Promise((resolve) => setTimeout(resolve, duration));
 
     // Check if this step should fail
     if (options?.failAtStep === stepId) {
       yield {
-        type: 'step_failed',
+        type: "step_failed",
         deploymentId,
         tenantId,
         tenantName,
@@ -285,7 +309,7 @@ export async function* simulateDeploymentProgress(
 
     // Complete step
     yield {
-      type: 'step_completed',
+      type: "step_completed",
       deploymentId,
       tenantId,
       tenantName,
@@ -296,7 +320,7 @@ export async function* simulateDeploymentProgress(
 
   // Deployment completed
   yield {
-    type: 'tenant_completed',
+    type: "tenant_completed",
     deploymentId,
     tenantId,
     tenantName,

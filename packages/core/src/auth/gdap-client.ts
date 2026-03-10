@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { TokenManager, TokenManagerConfig } from "./token-manager.js";
 
 export interface GdapClientConfig extends TokenManagerConfig {
@@ -71,9 +87,7 @@ export class GdapClient {
   /**
    * Get a specific delegated admin relationship by ID
    */
-  async getDelegatedAdminRelationship(
-    relationshipId: string
-  ): Promise<DelegatedAdminRelationship> {
+  async getDelegatedAdminRelationship(relationshipId: string): Promise<DelegatedAdminRelationship> {
     const token = await this.tokenManager.getGraphToken();
     const response = await fetch(
       `${this.graphBaseUrl}/tenantRelationships/delegatedAdminRelationships/${relationshipId}`,
@@ -99,8 +113,7 @@ export class GdapClient {
   async hasActiveRelationship(customerTenantId: string): Promise<boolean> {
     const relationships = await this.listDelegatedAdminRelationships();
     return relationships.some(
-      (rel) =>
-        rel.customer.tenantId === customerTenantId && rel.status === "active"
+      (rel) => rel.customer.tenantId === customerTenantId && rel.status === "active"
     );
   }
 
@@ -113,9 +126,7 @@ export class GdapClient {
     const powerPlatformAdminRoleId = "11648597-926c-4cf3-9c36-bcebb0ba8dcc";
 
     const relationships = await this.listDelegatedAdminRelationships();
-    const relationship = relationships.find(
-      (rel) => rel.customer.tenantId === customerTenantId
-    );
+    const relationship = relationships.find((rel) => rel.customer.tenantId === customerTenantId);
 
     if (!relationship || relationship.status !== "active") {
       return false;
@@ -130,10 +141,7 @@ export class GdapClient {
    * Get a token manager configured for accessing a specific customer tenant
    * Uses the partner's credentials with GDAP delegation
    */
-  getCustomerTokenManager(
-    customerTenantId: string,
-    partnerConfig: GdapClientConfig
-  ): TokenManager {
+  getCustomerTokenManager(customerTenantId: string, partnerConfig: GdapClientConfig): TokenManager {
     // For GDAP, we use the partner's app registration but target the customer tenant
     return new TokenManager({
       ...partnerConfig,

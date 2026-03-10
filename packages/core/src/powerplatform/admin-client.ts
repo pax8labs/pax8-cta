@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { TokenManager } from "../auth/token-manager.js";
 
 export interface PowerPlatformAdminConfig {
@@ -142,7 +158,7 @@ export class PowerPlatformAdminClient {
       throw new Error(`Failed to list environments: ${response.status} - ${error}`);
     }
 
-    const data = await response.json() as { value: PowerPlatformEnvironment[] };
+    const data = (await response.json()) as { value: PowerPlatformEnvironment[] };
     return data.value || [];
   }
 
@@ -185,8 +201,8 @@ export class PowerPlatformAdminClient {
     const linked = env.properties.linkedEnvironmentMetadata;
     const capacity = env.properties.capacity || [];
 
-    const dbCapacity = capacity.find(c => c.capacityType === "Database");
-    const fileCapacity = capacity.find(c => c.capacityType === "File");
+    const dbCapacity = capacity.find((c) => c.capacityType === "Database");
+    const fileCapacity = capacity.find((c) => c.capacityType === "File");
 
     return {
       id: env.id,
@@ -194,24 +210,36 @@ export class PowerPlatformAdminClient {
       uniqueName: linked?.uniqueName || env.name,
       domainName: linked?.domainName || "",
       type: env.properties.environmentSku,
-      instanceUrl: linked?.instanceUrl || env.properties.runtimeEndpoints?.microsoft_BusinessAppPlatform_linkedEnvironmentMetadata_instanceUrl || "",
-      instanceApiUrl: linked?.instanceApiUrl || env.properties.runtimeEndpoints?.microsoft_BusinessAppPlatform_linkedEnvironmentMetadata_instanceApiUrl || "",
+      instanceUrl:
+        linked?.instanceUrl ||
+        env.properties.runtimeEndpoints
+          ?.microsoft_BusinessAppPlatform_linkedEnvironmentMetadata_instanceUrl ||
+        "",
+      instanceApiUrl:
+        linked?.instanceApiUrl ||
+        env.properties.runtimeEndpoints
+          ?.microsoft_BusinessAppPlatform_linkedEnvironmentMetadata_instanceApiUrl ||
+        "",
       version: linked?.version || "",
       state: linked?.instanceState || env.properties.states?.runtime?.id || "Unknown",
       location: env.location,
       isDefault: env.properties.isDefault,
       createdTime: linked?.createdTime || env.properties.createdTime,
       capacity: {
-        database: dbCapacity ? {
-          used: dbCapacity.actualConsumption,
-          rated: dbCapacity.ratedConsumption,
-          unit: dbCapacity.capacityUnit,
-        } : undefined,
-        file: fileCapacity ? {
-          used: fileCapacity.actualConsumption,
-          rated: fileCapacity.ratedConsumption,
-          unit: fileCapacity.capacityUnit,
-        } : undefined,
+        database: dbCapacity
+          ? {
+              used: dbCapacity.actualConsumption,
+              rated: dbCapacity.ratedConsumption,
+              unit: dbCapacity.capacityUnit,
+            }
+          : undefined,
+        file: fileCapacity
+          ? {
+              used: fileCapacity.actualConsumption,
+              rated: fileCapacity.ratedConsumption,
+              unit: fileCapacity.capacityUnit,
+            }
+          : undefined,
       },
     };
   }
@@ -222,8 +250,8 @@ export class PowerPlatformAdminClient {
   async listEnvironmentSummaries(): Promise<EnvironmentSummary[]> {
     const environments = await this.listEnvironments();
     return environments
-      .filter(env => env.properties.linkedEnvironmentMetadata) // Only Dataverse-enabled environments
-      .map(env => this.toEnvironmentSummary(env));
+      .filter((env) => env.properties.linkedEnvironmentMetadata) // Only Dataverse-enabled environments
+      .map((env) => this.toEnvironmentSummary(env));
   }
 
   /**
@@ -231,8 +259,6 @@ export class PowerPlatformAdminClient {
    * Uses the BAP (Business Application Platform) scope
    */
   private async getAdminToken(): Promise<string> {
-    return this.config.tokenManager.getToken([
-      "https://api.bap.microsoft.com/.default"
-    ]);
+    return this.config.tokenManager.getToken(["https://api.bap.microsoft.com/.default"]);
   }
 }

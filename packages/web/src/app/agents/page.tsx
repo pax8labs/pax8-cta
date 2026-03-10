@@ -1,58 +1,78 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import useSWR from 'swr'
-import Link from 'next/link'
-import { AgentCard, AgentUploadModal } from '@/components/agents'
-import type { Agent } from '@/types/agent'
+"use client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import Link from "next/link";
+import { AgentCard, AgentUploadModal } from "@/components/agents";
+import type { Agent } from "@/types/agent";
 
-type ViewMode = 'active' | 'archived'
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+type ViewMode = "active" | "archived";
 
 export default function AgentsPage() {
-  const router = useRouter()
-  const { data, error, isLoading, mutate } = useSWR<{ agents: Agent[]; demoMode?: boolean }>('/api/agents', fetcher)
+  const router = useRouter();
+  const { data, error, isLoading, mutate } = useSWR<{ agents: Agent[]; demoMode?: boolean }>(
+    "/api/agents",
+    fetcher
+  );
 
   // UI state
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
-  const [showDeployments, setShowDeployments] = useState(false)
-  const [showAddAgent, setShowAddAgent] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('active')
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [showDeployments, setShowDeployments] = useState(false);
+  const [showAddAgent, setShowAddAgent] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("active");
 
   // Filter agents by search and view mode
   const filteredAgents = useMemo(() => {
-    const agents: Agent[] = data?.agents || []
+    const agents: Agent[] = data?.agents || [];
     // First filter by view mode (active/deprecated vs archived)
-    const byStatus = agents.filter(agent => {
-      const status = agent.status || 'active'
-      if (viewMode === 'archived') return status === 'archived'
-      return status !== 'archived' // active view shows both active and deprecated
-    })
+    const byStatus = agents.filter((agent) => {
+      const status = agent.status || "active";
+      if (viewMode === "archived") return status === "archived";
+      return status !== "archived"; // active view shows both active and deprecated
+    });
     // Then filter by search
-    if (!searchQuery) return byStatus
-    const query = searchQuery.toLowerCase()
-    return byStatus.filter(agent =>
-      agent.friendlyName.toLowerCase().includes(query) ||
-      agent.uniqueName.toLowerCase().includes(query) ||
-      agent.description?.toLowerCase().includes(query) ||
-      agent.category?.toLowerCase().includes(query) ||
-      agent.publisherName?.toLowerCase().includes(query)
-    )
-  }, [data?.agents, searchQuery, viewMode])
+    if (!searchQuery) return byStatus;
+    const query = searchQuery.toLowerCase();
+    return byStatus.filter(
+      (agent) =>
+        agent.friendlyName.toLowerCase().includes(query) ||
+        agent.uniqueName.toLowerCase().includes(query) ||
+        agent.description?.toLowerCase().includes(query) ||
+        agent.category?.toLowerCase().includes(query) ||
+        agent.publisherName?.toLowerCase().includes(query)
+    );
+  }, [data?.agents, searchQuery, viewMode]);
 
   // Count archived agents for the tab badge
   const archivedCount = useMemo(() => {
-    const agents: Agent[] = data?.agents || []
-    return agents.filter(a => (a.status || 'active') === 'archived').length
-  }, [data?.agents])
+    const agents: Agent[] = data?.agents || [];
+    return agents.filter((a) => (a.status || "active") === "archived").length;
+  }, [data?.agents]);
 
   const handleDeploy = (agent: Agent) => {
-    router.push(`/deployments/new?agent=${agent.id}`)
-  }
+    router.push(`/deployments/new?agent=${agent.id}`);
+  };
 
   return (
     <div className="space-y-4">
@@ -73,28 +93,32 @@ export default function AgentsPage() {
         {/* View toggle */}
         <div className="flex border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
           <button
-            onClick={() => setViewMode('active')}
+            onClick={() => setViewMode("active")}
             className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-              viewMode === 'active'
-                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              viewMode === "active"
+                ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
             }`}
           >
             Active
           </button>
           <button
-            onClick={() => setViewMode('archived')}
+            onClick={() => setViewMode("archived")}
             className={`px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              viewMode === 'archived'
-                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              viewMode === "archived"
+                ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
             }`}
           >
             Archived
             {archivedCount > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                viewMode === 'archived' ? 'bg-slate-700 dark:bg-slate-300' : 'bg-slate-200 dark:bg-slate-700'
-              }`}>
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  viewMode === "archived"
+                    ? "bg-slate-700 dark:bg-slate-300"
+                    : "bg-slate-200 dark:bg-slate-700"
+                }`}
+              >
                 {archivedCount}
               </span>
             )}
@@ -103,8 +127,18 @@ export default function AgentsPage() {
 
         {/* Search */}
         <div className="flex-1 relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
           <input
             type="text"
@@ -115,21 +149,32 @@ export default function AgentsPage() {
           />
         </div>
         {data?.demoMode && (
-          <span className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">Demo</span>
+          <span className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
+            Demo
+          </span>
         )}
         <span className="text-xs text-slate-400">{filteredAgents.length} agents</span>
       </div>
 
       {/* Agents Grid */}
       {error ? (
-        <div className="p-4 text-center text-sm text-rose-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">Failed to load agents</div>
+        <div className="p-4 text-center text-sm text-rose-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+          Failed to load agents
+        </div>
       ) : isLoading ? (
-        <div className="p-4 text-center text-sm text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">Loading...</div>
+        <div className="p-4 text-center text-sm text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+          Loading...
+        </div>
       ) : filteredAgents.length === 0 ? (
         <div className="p-6 text-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
-          <p className="text-slate-500 dark:text-slate-400 text-sm">{searchQuery ? 'No matching agents' : 'No agents found'}</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">
+            {searchQuery ? "No matching agents" : "No agents found"}
+          </p>
           {!searchQuery && (
-            <button onClick={() => setShowAddAgent(true)} className="text-sm text-blue-600 hover:text-blue-700 mt-1">
+            <button
+              onClick={() => setShowAddAgent(true)}
+              className="text-sm text-blue-600 hover:text-blue-700 mt-1"
+            >
               Add first agent →
             </button>
           )}
@@ -143,11 +188,13 @@ export default function AgentsPage() {
               isSelected={selectedAgent?.id === agent.id}
               isExpanded={expandedAgentId === agent.id}
               onSelect={setSelectedAgent}
-              onToggleExpand={() => setExpandedAgentId(expandedAgentId === agent.id ? null : agent.id)}
+              onToggleExpand={() =>
+                setExpandedAgentId(expandedAgentId === agent.id ? null : agent.id)
+              }
               onDeploy={handleDeploy}
               onShowDeployments={() => {
-                setSelectedAgent(agent)
-                setShowDeployments(true)
+                setSelectedAgent(agent);
+                setShowDeployments(true);
               }}
               onRefresh={() => mutate()}
             />
@@ -159,10 +206,14 @@ export default function AgentsPage() {
       {selectedAgent && !showDeployments && (
         <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
           <div className="flex items-center gap-3">
-            <span className="font-medium text-slate-900 dark:text-white">{selectedAgent.friendlyName}</span>
+            <span className="font-medium text-slate-900 dark:text-white">
+              {selectedAgent.friendlyName}
+            </span>
             <span className="text-slate-500 dark:text-slate-400">v{selectedAgent.version}</span>
             {selectedAgent.totalDeployments > 0 && (
-              <span className="text-emerald-600 dark:text-emerald-400">{selectedAgent.totalDeployments} tenants</span>
+              <span className="text-emerald-600 dark:text-emerald-400">
+                {selectedAgent.totalDeployments} tenants
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -180,7 +231,12 @@ export default function AgentsPage() {
             >
               Deploy →
             </button>
-            <button onClick={() => setSelectedAgent(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1">✕</button>
+            <button
+              onClick={() => setSelectedAgent(null)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
@@ -191,8 +247,8 @@ export default function AgentsPage() {
           agent={selectedAgent}
           onClose={() => setShowDeployments(false)}
           onDeploy={() => {
-            setShowDeployments(false)
-            handleDeploy(selectedAgent)
+            setShowDeployments(false);
+            handleDeploy(selectedAgent);
           }}
         />
       )}
@@ -204,7 +260,7 @@ export default function AgentsPage() {
         onSuccess={() => mutate()}
       />
     </div>
-  )
+  );
 }
 
 // Deployed tenants modal - kept inline as it's simple
@@ -213,9 +269,9 @@ function DeployedTenantsModal({
   onClose,
   onDeploy,
 }: {
-  agent: Agent
-  onClose: () => void
-  onDeploy: () => void
+  agent: Agent;
+  onClose: () => void;
+  onDeploy: () => void;
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -223,9 +279,16 @@ function DeployedTenantsModal({
         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
           <div>
             <h3 className="font-medium text-slate-900 dark:text-white">{agent.friendlyName}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{agent.totalDeployments} tenants</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {agent.totalDeployments} tenants
+            </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">✕</button>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Tenant list as table */}
@@ -242,14 +305,24 @@ function DeployedTenantsModal({
               className="grid grid-cols-[1fr_60px_70px] gap-2 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
             >
               <div className="truncate text-slate-900 dark:text-white">{deployment.tenantName}</div>
-              <div className="text-right text-slate-500 dark:text-slate-400 tabular-nums">v{deployment.version}</div>
+              <div className="text-right text-slate-500 dark:text-slate-400 tabular-nums">
+                v{deployment.version}
+              </div>
               <div className="text-right">
-                <span className={`text-xs ${
-                  deployment.status === 'active' ? 'text-emerald-600 dark:text-emerald-400' :
-                  deployment.status === 'updating' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
-                }`}>
-                  {deployment.status === 'active' ? '✓ ok' :
-                   deployment.status === 'updating' ? '◐ updating' : '✗ failed'}
+                <span
+                  className={`text-xs ${
+                    deployment.status === "active"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : deployment.status === "updating"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-rose-600 dark:text-rose-400"
+                  }`}
+                >
+                  {deployment.status === "active"
+                    ? "✓ ok"
+                    : deployment.status === "updating"
+                      ? "◐ updating"
+                      : "✗ failed"}
                 </span>
               </div>
             </Link>
@@ -266,5 +339,5 @@ function DeployedTenantsModal({
         </div>
       </div>
     </div>
-  )
+  );
 }

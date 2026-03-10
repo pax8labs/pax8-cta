@@ -1,23 +1,31 @@
-import { z } from 'zod';
-import { ValidationError } from './errors.js';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { z } from "zod";
+import { ValidationError } from "./errors.js";
 
 /**
  * Configuration schema with validation
  */
 const ConfigSchema = z.object({
   // AgentSync API configuration
-  apiBaseUrl: z
-    .string()
-    .url('API_BASE_URL must be a valid URL')
-    .default('http://localhost:3000'),
+  apiBaseUrl: z.string().url("API_BASE_URL must be a valid URL").default("http://localhost:3000"),
 
   // Request timeouts
-  requestTimeoutMs: z
-    .number()
-    .int()
-    .min(1000)
-    .max(300000)
-    .default(30000),
+  requestTimeoutMs: z.number().int().min(1000).max(300000).default(30000),
 
   // Retry configuration
   maxRetries: z.number().int().min(0).max(10).default(3),
@@ -29,14 +37,12 @@ const ConfigSchema = z.object({
   circuitBreakerResetMs: z.number().int().min(1000).max(300000).default(60000),
 
   // Logging
-  logLevel: z
-    .enum(['error', 'warn', 'info', 'debug'])
-    .default('info'),
-  logFormat: z.enum(['json', 'pretty']).default('json'),
+  logLevel: z.enum(["error", "warn", "info", "debug"]).default("info"),
+  logFormat: z.enum(["json", "pretty"]).default("json"),
 
   // MCP server info
-  serverName: z.string().default('agentsync-mcp'),
-  serverVersion: z.string().default('1.0.0'),
+  serverName: z.string().default("agentsync-mcp"),
+  serverVersion: z.string().default("1.0.0"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -51,9 +57,7 @@ export function loadConfig(): Config {
       requestTimeoutMs: process.env.REQUEST_TIMEOUT_MS
         ? parseInt(process.env.REQUEST_TIMEOUT_MS, 10)
         : undefined,
-      maxRetries: process.env.MAX_RETRIES
-        ? parseInt(process.env.MAX_RETRIES, 10)
-        : undefined,
+      maxRetries: process.env.MAX_RETRIES ? parseInt(process.env.MAX_RETRIES, 10) : undefined,
       retryDelayMs: process.env.RETRY_DELAY_MS
         ? parseInt(process.env.RETRY_DELAY_MS, 10)
         : undefined,
@@ -75,7 +79,7 @@ export function loadConfig(): Config {
     return config;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errors = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      const errors = error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
       throw new ValidationError(`Configuration validation failed: ${errors}`);
     }
     throw error;

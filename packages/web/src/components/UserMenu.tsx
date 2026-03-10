@@ -1,8 +1,24 @@
-'use client';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useSession, signOut } from 'next-auth/react';
-import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
+"use client";
+
+import { useSession, signOut } from "next-auth/react";
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 
 export function UserMenu() {
   const { data: session, status } = useSession();
@@ -16,11 +32,11 @@ export function UserMenu() {
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="flex items-center gap-2 p-1.5 rounded-full">
         <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
@@ -36,19 +52,25 @@ export function UserMenu() {
       >
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center text-white shadow-sm">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+            />
           </svg>
         </div>
       </Link>
     );
   }
 
-  const initials = session.user?.name
-    ?.split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || '?';
+  const initials =
+    session.user?.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "?";
 
   return (
     <div className="relative" ref={menuRef}>
@@ -59,7 +81,7 @@ export function UserMenu() {
         {session.user?.image ? (
           <img
             src={session.user.image}
-            alt={session.user.name || 'User'}
+            alt={session.user.name || "User"}
             className="w-9 h-9 rounded-full ring-2 ring-white shadow-sm"
           />
         ) : (
@@ -76,7 +98,7 @@ export function UserMenu() {
               {session.user?.image ? (
                 <img
                   src={session.user.image}
-                  alt={session.user.name || 'User'}
+                  alt={session.user.name || "User"}
                   className="w-10 h-10 rounded-full"
                 />
               ) : (
@@ -88,9 +110,7 @@ export function UserMenu() {
                 <p className="text-sm font-semibold text-slate-900 truncate">
                   {session.user?.name}
                 </p>
-                <p className="text-xs text-slate-500 truncate">
-                  {session.user?.email}
-                </p>
+                <p className="text-xs text-slate-500 truncate">{session.user?.email}</p>
               </div>
             </div>
             {session.user?.roles && session.user.roles.length > 0 && (
@@ -111,12 +131,22 @@ export function UserMenu() {
             <button
               onClick={() => {
                 setIsOpen(false);
-                signOut({ callbackUrl: '/auth/signin' });
+                signOut({ callbackUrl: "/auth/signin" });
               }}
               className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
             >
-              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg
+                className="w-4 h-4 text-slate-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
               Sign out
             </button>

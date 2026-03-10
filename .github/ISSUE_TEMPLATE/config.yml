@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/agentsync/agentsync/blob/main/README.md
+    about: Please check the documentation before opening an issue
+  - name: Questions and Discussions
+    url: https://github.com/agentsync/agentsync/issues
+    about: For questions and general discussions, please use GitHub Issues

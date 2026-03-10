@@ -1,33 +1,56 @@
-'use client'
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import { useState, FormEvent, KeyboardEvent } from 'react'
+"use client";
+
+import { useState, FormEvent, KeyboardEvent } from "react";
 
 interface ChatInputProps {
-  onSend: (message: string) => void
-  disabled?: boolean
-  placeholder?: string
+  onSend: (message: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
 }
 
-export function ChatInput({ onSend, disabled = false, placeholder = 'Ask me anything...' }: ChatInputProps) {
-  const [input, setInput] = useState('')
+export function ChatInput({
+  onSend,
+  disabled = false,
+  placeholder = "Ask me anything...",
+}: ChatInputProps) {
+  const [input, setInput] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (input.trim() && !disabled) {
-      onSend(input.trim())
-      setInput('')
+      onSend(input.trim());
+      setInput("");
     }
-  }
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e)
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-gray-300 dark:border-gray-800 p-3 bg-white dark:bg-[#252526]">
+    <form
+      onSubmit={handleSubmit}
+      className="border-t border-gray-300 dark:border-gray-800 p-3 bg-white dark:bg-[#252526]"
+    >
       <div className="flex gap-2 items-end">
         <textarea
           value={input}
@@ -50,5 +73,5 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Ask me anyt
         ↵ send • ⇧↵ new line
       </p>
     </form>
-  )
+  );
 }

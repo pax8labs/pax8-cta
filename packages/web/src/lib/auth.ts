@@ -1,9 +1,25 @@
-import { NextAuthOptions, Profile } from 'next-auth';
-import AzureADProvider from 'next-auth/providers/azure-ad';
-import CredentialsProvider from 'next-auth/providers/credentials';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { NextAuthOptions, Profile } from "next-auth";
+import AzureADProvider from "next-auth/providers/azure-ad";
+import CredentialsProvider from "next-auth/providers/credentials";
 
 // Check if demo mode is enabled
-const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1';
+const isDemoMode = process.env.DEMO_MODE === "true" || process.env.DEMO_MODE === "1";
 
 /**
  * Extended Azure AD profile with optional roles claim
@@ -13,7 +29,7 @@ interface AzureADProfile extends Profile {
   roles?: string[];
 }
 
-declare module 'next-auth' {
+declare module "next-auth" {
   interface Session {
     accessToken?: string;
     user: {
@@ -33,41 +49,48 @@ declare module 'next-auth' {
 
 // Demo mode provider that auto-authenticates
 const demoProvider = CredentialsProvider({
-  id: 'demo',
-  name: 'Demo Mode',
+  id: "demo",
+  name: "Demo Mode",
   credentials: {},
   async authorize() {
     return {
-      id: 'demo-user',
-      name: 'Demo User',
-      email: 'demo@agentsync.local',
-      roles: ['Admin'],
+      id: "demo-user",
+      name: "Demo User",
+      email: "demo@agentsync.local",
+      roles: ["Admin"],
     };
   },
 });
 
 // Production Azure AD provider
 // SECURITY: No default values - these MUST be set explicitly in production
-if (!isDemoMode && (!process.env.AZURE_AD_CLIENT_ID || !process.env.AZURE_AD_CLIENT_SECRET || !process.env.AZURE_AD_TENANT_ID)) {
+if (
+  !isDemoMode &&
+  (!process.env.AZURE_AD_CLIENT_ID ||
+    !process.env.AZURE_AD_CLIENT_SECRET ||
+    !process.env.AZURE_AD_TENANT_ID)
+) {
   throw new Error(
-    'CRITICAL: Azure AD credentials not configured. Set AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, and AZURE_AD_TENANT_ID environment variables. ' +
-    'For development/testing only, you can enable DEMO_MODE=true (NOT for production use).'
+    "CRITICAL: Azure AD credentials not configured. Set AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, and AZURE_AD_TENANT_ID environment variables. " +
+      "For development/testing only, you can enable DEMO_MODE=true (NOT for production use)."
   );
 }
 
-const azureProvider = !isDemoMode ? AzureADProvider({
-  clientId: process.env.AZURE_AD_CLIENT_ID!,
-  clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-  tenantId: process.env.AZURE_AD_TENANT_ID!,
-  authorization: {
-    params: {
-      scope: 'openid email profile User.Read',
-    },
-  },
-}) : null;
+const azureProvider = !isDemoMode
+  ? AzureADProvider({
+      clientId: process.env.AZURE_AD_CLIENT_ID!,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+      tenantId: process.env.AZURE_AD_TENANT_ID!,
+      authorization: {
+        params: {
+          scope: "openid email profile User.Read",
+        },
+      },
+    })
+  : null;
 
 export const authOptions: NextAuthOptions = {
-  providers: isDemoMode ? [demoProvider] : (azureProvider ? [azureProvider] : [demoProvider]),
+  providers: isDemoMode ? [demoProvider] : azureProvider ? [azureProvider] : [demoProvider],
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account) {
@@ -89,7 +112,7 @@ export const authOptions: NextAuthOptions = {
     async redirect({ url, baseUrl }) {
       // Always redirect to dashboard after sign-in
       // This prevents redirect issues with directory listings
-      if (url.startsWith('/')) {
+      if (url.startsWith("/")) {
         return `${baseUrl}${url}`;
       }
       if (url.startsWith(baseUrl)) {
@@ -100,26 +123,28 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/auth/signin',
-    error: '/auth/error',
+    signIn: "/auth/signin",
+    error: "/auth/error",
   },
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 8 * 60 * 60, // 8 hours
   },
   secret: (() => {
     if (isDemoMode) {
-      console.warn('⚠️  WARNING: Running in DEMO MODE - Authentication is bypassed! DO NOT use in production.');
-      return 'demo-secret-for-local-testing-only';
+      console.warn(
+        "⚠️  WARNING: Running in DEMO MODE - Authentication is bypassed! DO NOT use in production."
+      );
+      return "demo-secret-for-local-testing-only";
     }
     if (!process.env.NEXTAUTH_SECRET) {
       throw new Error(
-        'CRITICAL: NEXTAUTH_SECRET is not set. Generate a secure secret with: openssl rand -base64 32'
+        "CRITICAL: NEXTAUTH_SECRET is not set. Generate a secure secret with: openssl rand -base64 32"
       );
     }
     if (process.env.NEXTAUTH_SECRET.length < 32) {
       throw new Error(
-        'CRITICAL: NEXTAUTH_SECRET is too short (minimum 32 characters). Generate a secure secret with: openssl rand -base64 32'
+        "CRITICAL: NEXTAUTH_SECRET is too short (minimum 32 characters). Generate a secure secret with: openssl rand -base64 32"
       );
     }
     return process.env.NEXTAUTH_SECRET;
@@ -128,14 +153,14 @@ export const authOptions: NextAuthOptions = {
 
 // Role-based access control helper
 export function hasRole(roles: string[] | undefined, requiredRole: string): boolean {
-  return roles?.includes(requiredRole) || roles?.includes('Admin') || false;
+  return roles?.includes(requiredRole) || roles?.includes("Admin") || false;
 }
 
 // Defined roles for the application
 export const AppRoles = {
-  ADMIN: 'Admin',
-  DEPLOYER: 'Deployer',
-  VIEWER: 'Viewer',
+  ADMIN: "Admin",
+  DEPLOYER: "Deployer",
+  VIEWER: "Viewer",
 } as const;
 
 export type AppRole = (typeof AppRoles)[keyof typeof AppRoles];

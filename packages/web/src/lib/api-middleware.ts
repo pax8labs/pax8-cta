@@ -1,8 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession, Session } from 'next-auth';
-import { authOptions, hasRole, AppRole, AppRoles } from './auth';
-import { hasUserTenantAccess } from './repositories/user-tenant-repository';
-import { writeAuditLog } from './repositories/audit-repository';
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession, Session } from "next-auth";
+import { authOptions, hasRole, AppRole, AppRoles } from "./auth";
+import { hasUserTenantAccess } from "./repositories/user-tenant-repository";
+import { writeAuditLog } from "./repositories/audit-repository";
 
 /**
  * Result type for authentication/authorization checks
@@ -26,15 +42,15 @@ export type AuthResult = Session | NextResponse;
  */
 export async function requireAuth(): Promise<AuthResult> {
   // In demo mode, bypass authentication for Claude Code integration
-  if (process.env.DEMO_MODE === 'true') {
+  if (process.env.DEMO_MODE === "true") {
     const mockSession: Session = {
       user: {
-        id: 'demo-user',
-        email: 'demo@agentsync.local',
-        name: 'Demo User',
-        roles: [AppRoles.ADMIN, AppRoles.DEPLOYER, AppRoles.VIEWER]
+        id: "demo-user",
+        email: "demo@agentsync.local",
+        name: "Demo User",
+        roles: [AppRoles.ADMIN, AppRoles.DEPLOYER, AppRoles.VIEWER],
       },
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };
     return mockSession;
   }
@@ -44,8 +60,8 @@ export async function requireAuth(): Promise<AuthResult> {
   if (!session || !session.user) {
     return NextResponse.json(
       {
-        error: 'Unauthorized',
-        message: 'You must be authenticated to access this resource'
+        error: "Unauthorized",
+        message: "You must be authenticated to access this resource",
       },
       { status: 401 }
     );
@@ -74,10 +90,10 @@ export async function requireRole(requiredRole: AppRole): Promise<AuthResult> {
   if (!hasRole(session.user.roles, requiredRole)) {
     return NextResponse.json(
       {
-        error: 'Forbidden',
+        error: "Forbidden",
         message: `This action requires the ${requiredRole} role`,
         requiredRole,
-        userRoles: session.user.roles || []
+        userRoles: session.user.roles || [],
       },
       { status: 403 }
     );
@@ -104,15 +120,15 @@ export async function requireRoles(allowedRoles: AppRole[]): Promise<AuthResult>
   if (session instanceof NextResponse) return session; // Auth failed
 
   const userRoles = session.user.roles || [];
-  const hasAnyRole = allowedRoles.some(role => hasRole(userRoles, role));
+  const hasAnyRole = allowedRoles.some((role) => hasRole(userRoles, role));
 
   if (!hasAnyRole) {
     return NextResponse.json(
       {
-        error: 'Forbidden',
-        message: `This action requires one of the following roles: ${allowedRoles.join(', ')}`,
+        error: "Forbidden",
+        message: `This action requires one of the following roles: ${allowedRoles.join(", ")}`,
         allowedRoles,
-        userRoles
+        userRoles,
       },
       { status: 403 }
     );
@@ -143,9 +159,9 @@ export async function requireApproverEmail(allowedApprovers: string[]): Promise<
   if (!userEmail || !allowedApprovers.includes(userEmail)) {
     return NextResponse.json(
       {
-        error: 'Forbidden',
-        message: 'You are not authorized to approve deployments',
-        allowedApprovers: allowedApprovers.length > 0 ? allowedApprovers : undefined
+        error: "Forbidden",
+        message: "You are not authorized to approve deployments",
+        allowedApprovers: allowedApprovers.length > 0 ? allowedApprovers : undefined,
       },
       { status: 403 }
     );
@@ -182,10 +198,10 @@ export async function requireTenantAccess(
   if (session instanceof NextResponse) return session; // Auth failed
 
   const userId = session.user.id;
-  const softEnforce = options.softEnforce ?? (process.env.TENANT_ACCESS_SOFT_ENFORCE === 'true');
+  const softEnforce = options.softEnforce ?? process.env.TENANT_ACCESS_SOFT_ENFORCE === "true";
 
   // In demo mode, allow all access
-  if (process.env.DEMO_MODE === 'true') {
+  if (process.env.DEMO_MODE === "true") {
     return session;
   }
 
@@ -199,23 +215,18 @@ export async function requireTenantAccess(
 
   if (!hasAccess) {
     // Log the access violation
-    logAuthFailure(
-      userId,
-      `/tenant/${tenantId}`,
-      'forbidden',
-      {
-        tenantId,
-        userRoles: session.user.roles,
-        reason: 'No tenant assignment found'
-      }
-    );
+    logAuthFailure(userId, `/tenant/${tenantId}`, "forbidden", {
+      tenantId,
+      userRoles: session.user.roles,
+      reason: "No tenant assignment found",
+    });
 
     // In soft enforcement mode, log but allow
     if (softEnforce) {
-      console.warn('[TENANT ACCESS] Soft enforcement: allowing access despite missing assignment', {
+      console.warn("[TENANT ACCESS] Soft enforcement: allowing access despite missing assignment", {
         userId,
         tenantId,
-        userEmail: session.user.email
+        userEmail: session.user.email,
       });
       return session;
     }
@@ -223,9 +234,9 @@ export async function requireTenantAccess(
     // Hard enforcement: deny access
     return NextResponse.json(
       {
-        error: 'Forbidden',
-        message: 'You do not have access to this tenant',
-        tenantId
+        error: "Forbidden",
+        message: "You do not have access to this tenant",
+        tenantId,
       },
       { status: 403 }
     );
@@ -257,17 +268,17 @@ export function isSession(result: AuthResult): result is Session {
 export function logAuthFailure(
   userId: string | undefined,
   endpoint: string,
-  reason: 'unauthorized' | 'forbidden',
+  reason: "unauthorized" | "forbidden",
   details?: Record<string, unknown>
 ) {
   const timestamp = new Date().toISOString();
 
-  console.warn('[AUTH FAILURE]', {
+  console.warn("[AUTH FAILURE]", {
     userId,
     endpoint,
     reason,
     timestamp,
-    ...details
+    ...details,
   });
 
   // Write to audit log system
@@ -277,17 +288,17 @@ export function logAuthFailure(
       action: `AUTH_FAILURE_${reason.toUpperCase()}`,
       userId,
       userEmail: details?.userEmail as string | undefined,
-      resourceType: 'access_control',
+      resourceType: "access_control",
       resourceId: details?.tenantId as string | undefined,
       resourceName: endpoint,
       details: {
         reason,
-        ...details
+        ...details,
       },
       success: false,
-      errorMessage: `${reason} access to ${endpoint}`
+      errorMessage: `${reason} access to ${endpoint}`,
     });
   } catch (error) {
-    console.error('[AUTH FAILURE] Failed to write audit log:', error);
+    console.error("[AUTH FAILURE] Failed to write audit log:", error);
   }
 }

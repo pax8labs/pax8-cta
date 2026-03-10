@@ -1,3 +1,19 @@
+/**
+ * Copyright 2024 Pax8 Labs
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { demoCustomAgents, CustomAgent, AgentUrlTemplates } from "@/lib/demo-store";
 import JSZip from "jszip";
@@ -5,7 +21,7 @@ import { UrlTemplater } from "@agentsync/core";
 import { requireRoles, logAuthFailure } from "@/lib/api-middleware";
 import { AppRoles } from "@/lib/auth";
 import { apiRateLimit, createRateLimitResponse } from "@/lib/rate-limit";
-import { invalidRequest, internalError } from '@/lib/errors';
+import { invalidRequest, internalError } from "@/lib/errors";
 
 const DEMO_MODE = process.env.DEMO_MODE === "true" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -22,7 +38,7 @@ interface SolutionComponent {
 }
 
 interface TenantSpecificValue {
-  type: 'sharepoint_url' | 'dataverse_url' | 'custom_url' | 'environment_variable';
+  type: "sharepoint_url" | "dataverse_url" | "custom_url" | "environment_variable";
   value: string;
   location: string; // file path where found
   description?: string;
@@ -69,8 +85,9 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
   }
 
   // LocalizedNames contains the friendly name
-  const friendlyNameMatch = solutionXmlContent.match(/<LocalizedName[^>]*description="([^"]*)"[^>]*languagecode="1033"/i)
-    || solutionXmlContent.match(/<LocalizedName[^>]*languagecode="1033"[^>]*description="([^"]*)"/i);
+  const friendlyNameMatch =
+    solutionXmlContent.match(/<LocalizedName[^>]*description="([^"]*)"[^>]*languagecode="1033"/i) ||
+    solutionXmlContent.match(/<LocalizedName[^>]*languagecode="1033"[^>]*description="([^"]*)"/i);
   const friendlyName = friendlyNameMatch ? friendlyNameMatch[1] : uniqueName;
 
   const version = getTag(solutionXmlContent, "Version") || "1.0.0.0";
@@ -80,11 +97,15 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
   const isManaged = managedValue === "1" || managedValue === "2";
 
   // Publisher info
-  const publisherMatch = solutionXmlContent.match(/<Publisher>[\s\S]*?<UniqueName>([^<]*)<\/UniqueName>[\s\S]*?<\/Publisher>/i);
+  const publisherMatch = solutionXmlContent.match(
+    /<Publisher>[\s\S]*?<UniqueName>([^<]*)<\/UniqueName>[\s\S]*?<\/Publisher>/i
+  );
   const publisherName = publisherMatch ? publisherMatch[1] : "Unknown";
 
   // Description (optional)
-  const descriptionMatch = solutionXmlContent.match(/<Descriptions>[\s\S]*?<Description[^>]*description="([^"]*)"[^>]*languagecode="1033"/i);
+  const descriptionMatch = solutionXmlContent.match(
+    /<Descriptions>[\s\S]*?<Description[^>]*description="([^"]*)"[^>]*languagecode="1033"/i
+  );
   const description = descriptionMatch ? descriptionMatch[1] : undefined;
 
   // Extract connection references from connectionreferences folder
@@ -111,9 +132,11 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
   if (customizationsFile) {
     const customizationsContent = await customizationsFile.async("text");
     // Look for connectionreference elements
-    const connRefMatches = customizationsContent.matchAll(/<connectionreference[^>]*connectionreferencelogicalname="([^"]*)"[^>]*connectorid="([^"]*)"/gi);
+    const connRefMatches = customizationsContent.matchAll(
+      /<connectionreference[^>]*connectionreferencelogicalname="([^"]*)"[^>]*connectorid="([^"]*)"/gi
+    );
     for (const match of connRefMatches) {
-      if (!connectionReferences.find(cr => cr.name === match[1])) {
+      if (!connectionReferences.find((cr) => cr.name === match[1])) {
         connectionReferences.push({
           name: match[1],
           connectorId: match[2],
@@ -136,18 +159,18 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
   const allFileNames = Object.keys(zip.files);
   for (const fileName of allFileNames) {
     const fileNameLower = fileName.toLowerCase();
-    if (fileNameLower.includes('.knowledge.')) {
-      if (fileNameLower.includes('sharepoint')) {
-        knowledgeSources.push('SharePoint');
+    if (fileNameLower.includes(".knowledge.")) {
+      if (fileNameLower.includes("sharepoint")) {
+        knowledgeSources.push("SharePoint");
       }
-      if (fileNameLower.includes('dataverse')) {
-        knowledgeSources.push('Dataverse');
+      if (fileNameLower.includes("dataverse")) {
+        knowledgeSources.push("Dataverse");
       }
-      if (fileNameLower.includes('website') || fileNameLower.includes('publicweb')) {
-        knowledgeSources.push('Website');
+      if (fileNameLower.includes("website") || fileNameLower.includes("publicweb")) {
+        knowledgeSources.push("Website");
       }
-      if (fileNameLower.includes('file') || fileNameLower.includes('document')) {
-        knowledgeSources.push('Uploaded Files');
+      if (fileNameLower.includes("file") || fileNameLower.includes("document")) {
+        knowledgeSources.push("Uploaded Files");
       }
     }
   }
@@ -158,14 +181,14 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
     try {
       const content = await file.async("text");
       const contentLower = content.toLowerCase();
-      if (contentLower.includes('sharepointsearchsource') || contentLower.includes('sharepoint')) {
-        knowledgeSources.push('SharePoint');
+      if (contentLower.includes("sharepointsearchsource") || contentLower.includes("sharepoint")) {
+        knowledgeSources.push("SharePoint");
       }
-      if (contentLower.includes('dataversesource') || contentLower.includes('dataverse')) {
-        knowledgeSources.push('Dataverse');
+      if (contentLower.includes("dataversesource") || contentLower.includes("dataverse")) {
+        knowledgeSources.push("Dataverse");
       }
-      if (contentLower.includes('websitesource') || contentLower.includes('publicwebsite')) {
-        knowledgeSources.push('Website');
+      if (contentLower.includes("websitesource") || contentLower.includes("publicwebsite")) {
+        knowledgeSources.push("Website");
       }
 
       // Extract tenant-specific SharePoint URLs
@@ -173,13 +196,13 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
       if (spMatches) {
         for (const url of spMatches) {
           // Clean up the URL (remove trailing punctuation)
-          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, '');
-          if (!tenantSpecificValues.find(v => v.value === cleanUrl)) {
+          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, "");
+          if (!tenantSpecificValues.find((v) => v.value === cleanUrl)) {
             tenantSpecificValues.push({
-              type: 'sharepoint_url',
+              type: "sharepoint_url",
               value: cleanUrl,
               location: file.name,
-              description: 'SharePoint site URL - must be configured per tenant',
+              description: "SharePoint site URL - must be configured per tenant",
             });
           }
         }
@@ -189,13 +212,13 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
       const dynMatches = content.match(dynamicsUrlPattern);
       if (dynMatches) {
         for (const url of dynMatches) {
-          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, '');
-          if (!tenantSpecificValues.find(v => v.value === cleanUrl)) {
+          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, "");
+          if (!tenantSpecificValues.find((v) => v.value === cleanUrl)) {
             tenantSpecificValues.push({
-              type: 'dataverse_url',
+              type: "dataverse_url",
               value: cleanUrl,
               location: file.name,
-              description: 'Dataverse environment URL - must be configured per tenant',
+              description: "Dataverse environment URL - must be configured per tenant",
             });
           }
         }
@@ -216,43 +239,56 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
       const contentLower = content.toLowerCase();
 
       // SharePoint indicators
-      if (contentLower.includes('sharepoint') ||
-          contentLower.includes('sharepointsites') ||
-          contentLower.includes('sharepointdocumentlocation') ||
-          contentLower.includes('/sites/') ||
-          contentLower.includes('.sharepoint.com')) {
-        knowledgeSources.push('SharePoint');
+      if (
+        contentLower.includes("sharepoint") ||
+        contentLower.includes("sharepointsites") ||
+        contentLower.includes("sharepointdocumentlocation") ||
+        contentLower.includes("/sites/") ||
+        contentLower.includes(".sharepoint.com")
+      ) {
+        knowledgeSources.push("SharePoint");
       }
 
       // Dataverse indicators
-      if (contentLower.includes('dataverse') ||
-          contentLower.includes('crm.dynamics.com') ||
-          contentLower.includes('entitysetname')) {
-        knowledgeSources.push('Dataverse');
+      if (
+        contentLower.includes("dataverse") ||
+        contentLower.includes("crm.dynamics.com") ||
+        contentLower.includes("entitysetname")
+      ) {
+        knowledgeSources.push("Dataverse");
       }
 
       // Website/URL indicators
-      if (contentLower.includes('publicwebsite') ||
-          contentLower.includes('websiteurl') ||
-          contentLower.includes('"type":"website"') ||
-          contentLower.includes('"type": "website"')) {
-        knowledgeSources.push('Website');
+      if (
+        contentLower.includes("publicwebsite") ||
+        contentLower.includes("websiteurl") ||
+        contentLower.includes('"type":"website"') ||
+        contentLower.includes('"type": "website"')
+      ) {
+        knowledgeSources.push("Website");
       }
 
       // File upload indicators
-      if (contentLower.includes('uploadedfiles') ||
-          contentLower.includes('documentknowledge') ||
-          contentLower.includes('"type":"files"') ||
-          contentLower.includes('"type": "files"')) {
-        knowledgeSources.push('Uploaded Files');
+      if (
+        contentLower.includes("uploadedfiles") ||
+        contentLower.includes("documentknowledge") ||
+        contentLower.includes('"type":"files"') ||
+        contentLower.includes('"type": "files"')
+      ) {
+        knowledgeSources.push("Uploaded Files");
       }
 
       // Try to parse as JSON for component info
-      if (file.name.includes('botcomponent') || file.name.includes('agentcomponent')) {
+      if (file.name.includes("botcomponent") || file.name.includes("agentcomponent")) {
         const data = JSON.parse(content);
         components.push({
-          type: data.componenttype || data['@odata.type'] || 'component',
-          name: data.name || data.schemaname || data.displayname || file.name.split('/').pop() || file.name,
+          type: data.componenttype || data["@odata.type"] || "component",
+          name:
+            data.name ||
+            data.schemaname ||
+            data.displayname ||
+            file.name.split("/").pop() ||
+            file.name,
           id: data.botcomponentid || data.agentcomponentid,
         });
       }
@@ -264,38 +300,41 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
   // Scan ALL XML files for data sources (botcomponent.xml files contain knowledge source info)
   const xmlFiles = zip.file(/\.xml$/i);
   for (const file of xmlFiles) {
-    if (file.name === 'solution.xml' || file.name === '[Content_Types].xml') continue;
+    if (file.name === "solution.xml" || file.name === "[Content_Types].xml") continue;
     try {
       const content = await file.async("text");
       const contentLower = content.toLowerCase();
 
       // Check for SharePoint references
-      if (contentLower.includes('sharepoint') ||
-          contentLower.includes('.sharepoint.com') ||
-          contentLower.includes('sharepointsearchsource')) {
-        knowledgeSources.push('SharePoint');
+      if (
+        contentLower.includes("sharepoint") ||
+        contentLower.includes(".sharepoint.com") ||
+        contentLower.includes("sharepointsearchsource")
+      ) {
+        knowledgeSources.push("SharePoint");
       }
       // Check for Dataverse references
-      if (contentLower.includes('dataverse') ||
-          contentLower.includes('crm.dynamics.com') ||
-          contentLower.includes('dataversesource')) {
-        knowledgeSources.push('Dataverse');
+      if (
+        contentLower.includes("dataverse") ||
+        contentLower.includes("crm.dynamics.com") ||
+        contentLower.includes("dataversesource")
+      ) {
+        knowledgeSources.push("Dataverse");
       }
       // Check for website references
-      if (contentLower.includes('websitesource') ||
-          contentLower.includes('publicwebsite')) {
-        knowledgeSources.push('Website');
+      if (contentLower.includes("websitesource") || contentLower.includes("publicwebsite")) {
+        knowledgeSources.push("Website");
       }
 
       // Extract component info from botcomponent.xml files
-      if (file.name.endsWith('botcomponent.xml')) {
+      if (file.name.endsWith("botcomponent.xml")) {
         // Parse component type and name
         const nameMatch = content.match(/<name>([^<]*)<\/name>/i);
         const typeMatch = content.match(/<componenttype>([^<]*)<\/componenttype>/i);
         const schemaMatch = content.match(/schemaname="([^"]*)"/i);
         if (schemaMatch) {
           components.push({
-            type: typeMatch ? `type-${typeMatch[1]}` : 'botcomponent',
+            type: typeMatch ? `type-${typeMatch[1]}` : "botcomponent",
             name: nameMatch ? nameMatch[1] : schemaMatch[1],
             id: schemaMatch[1],
           });
@@ -306,13 +345,13 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
       const spMatches = content.match(sharepointUrlPattern);
       if (spMatches) {
         for (const url of spMatches) {
-          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, '');
-          if (!tenantSpecificValues.find(v => v.value === cleanUrl)) {
+          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, "");
+          if (!tenantSpecificValues.find((v) => v.value === cleanUrl)) {
             tenantSpecificValues.push({
-              type: 'sharepoint_url',
+              type: "sharepoint_url",
               value: cleanUrl,
               location: file.name,
-              description: 'SharePoint site URL - must be configured per tenant',
+              description: "SharePoint site URL - must be configured per tenant",
             });
           }
         }
@@ -321,13 +360,13 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
       const dynMatches = content.match(dynamicsUrlPattern);
       if (dynMatches) {
         for (const url of dynMatches) {
-          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, '');
-          if (!tenantSpecificValues.find(v => v.value === cleanUrl)) {
+          const cleanUrl = url.replace(/[,;:'")\]}>]+$/, "");
+          if (!tenantSpecificValues.find((v) => v.value === cleanUrl)) {
             tenantSpecificValues.push({
-              type: 'dataverse_url',
+              type: "dataverse_url",
               value: cleanUrl,
               location: file.name,
-              description: 'Dataverse environment URL - must be configured per tenant',
+              description: "Dataverse environment URL - must be configured per tenant",
             });
           }
         }
@@ -340,14 +379,14 @@ async function parseSolutionZip(zipBuffer: ArrayBuffer): Promise<SolutionMetadat
   // Check for Copilot knowledge configuration in other places
   const allFiles = Object.keys(zip.files);
   for (const fileName of allFiles) {
-    if (fileName.includes('knowledge') || fileName.includes('datasource')) {
+    if (fileName.includes("knowledge") || fileName.includes("datasource")) {
       const file = zip.file(fileName);
       if (file && !file.dir) {
         try {
           const content = await file.async("text");
-          if (content.includes('sharepoint') || content.includes('SharePoint')) {
-            if (!knowledgeSources.includes('SharePoint')) {
-              knowledgeSources.push('SharePoint');
+          if (content.includes("sharepoint") || content.includes("SharePoint")) {
+            if (!knowledgeSources.includes("SharePoint")) {
+              knowledgeSources.push("SharePoint");
             }
           }
         } catch {
@@ -386,7 +425,7 @@ export async function POST(request: NextRequest) {
   // Require Admin or Deployer role to upload solutions
   const session = await requireRoles([AppRoles.ADMIN, AppRoles.DEPLOYER]);
   if (session instanceof NextResponse) {
-    logAuthFailure(undefined, '/api/solutions/upload', 'forbidden', { action: 'upload_solution' });
+    logAuthFailure(undefined, "/api/solutions/upload", "forbidden", { action: "upload_solution" });
     return session;
   }
 
@@ -422,7 +461,7 @@ export async function POST(request: NextRequest) {
     const urlTemplates = urlTemplater.createAgentUrlTemplates(detectedUrls);
 
     // Store solution as base64 for later deploy-time modification
-    const solutionBase64 = Buffer.from(arrayBuffer).toString('base64');
+    const solutionBase64 = Buffer.from(arrayBuffer).toString("base64");
 
     // In demo mode or real mode, add to the custom agents store
     const newAgent: CustomAgent = {
@@ -433,7 +472,7 @@ export async function POST(request: NextRequest) {
       description: metadata.description,
       publisherName: metadata.publisherName,
       isManaged: metadata.isManaged,
-      status: 'active',
+      status: "active",
       createdAt: new Date().toISOString(),
       urlTemplates: urlTemplates || undefined,
       solutionBase64,
@@ -481,8 +520,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error uploading solution:", error);
     return internalError(
-      'Failed to process solution file',
-      process.env.NODE_ENV === 'development' && error instanceof Error ? { error: error.message } : undefined
+      "Failed to process solution file",
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? { error: error.message }
+        : undefined
     );
   }
 }
