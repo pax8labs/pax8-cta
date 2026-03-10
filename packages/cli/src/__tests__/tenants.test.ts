@@ -14,17 +14,24 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Command } from 'commander';
-import { ConsoleCapture, mockEnv, stripAnsi, containsText, mockSpinner, extractJson } from './test-utils.js';
-import { DEMO_TENANTS } from '@agentsync/core';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { Command } from "commander";
+import {
+  ConsoleCapture,
+  mockEnv,
+  stripAnsi,
+  containsText,
+  mockSpinner,
+  extractJson,
+} from "./test-utils.js";
+import { DEMO_TENANTS } from "@agentsync/core";
 
 // Mock ora to avoid spinner interference with console capture
-vi.mock('ora', () => ({
+vi.mock("ora", () => ({
   default: vi.fn(() => mockSpinner()),
 }));
 
-describe('Tenants Command (fleet)', () => {
+describe("Tenants Command (fleet)", () => {
   let consoleCapture: ConsoleCapture;
   let restoreEnv: () => void;
 
@@ -33,7 +40,7 @@ describe('Tenants Command (fleet)', () => {
     consoleCapture.start();
 
     // Enable demo mode for tests
-    restoreEnv = mockEnv({ DEMO_MODE: 'true' });
+    restoreEnv = mockEnv({ DEMO_MODE: "true" });
 
     // Reset modules to get fresh command instance for each test
     vi.resetModules();
@@ -45,76 +52,93 @@ describe('Tenants Command (fleet)', () => {
     vi.restoreAllMocks();
   });
 
-  describe('list command', () => {
-    it('should list all tenants in demo mode', async () => {
+  describe("list command", () => {
+    it("should list all tenants in demo mode", async () => {
       // Dynamically import to get fresh command instance
-      const { tenantsCommand } = await import('../commands/tenants.js');
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
 
       // Create a test program
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Execute "fleet list" command
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show demo mode warning
-      expect(containsText(output, 'DEMO MODE')).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
 
       // Should show all demo tenants
-      DEMO_TENANTS.forEach(tenant => {
+      DEMO_TENANTS.forEach((tenant) => {
         expect(containsText(cleanOutput, tenant.name)).toBe(true);
       });
 
       // Should show fleet size - check for "10 destinations" since there are 10 tenants
-      expect(containsText(cleanOutput, `Fleet size: ${DEMO_TENANTS.length} destinations`)).toBe(true);
+      expect(containsText(cleanOutput, `Fleet size: ${DEMO_TENANTS.length} destinations`)).toBe(
+        true
+      );
     });
 
-    it('should filter tenants by tag', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should filter tenants by tag", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Execute with tag filter - use "enterprise" which exists in demo data
-      await program.parseAsync(['node', 'test', 'fleet', 'list', '--tag', 'enterprise']);
+      await program.parseAsync(["node", "test", "fleet", "list", "--tag", "enterprise"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // When filtering, output shows "X tenants with tags: enterprise" instead of "Fleet size:"
       // Count tenants with enterprise tag
-      const enterpriseTenants = DEMO_TENANTS.filter(t => t.tags?.includes('enterprise'));
-      expect(containsText(cleanOutput, `${enterpriseTenants.length} tenants with tags: enterprise`)).toBe(true);
+      const enterpriseTenants = DEMO_TENANTS.filter((t) => t.tags?.includes("enterprise"));
+      expect(
+        containsText(cleanOutput, `${enterpriseTenants.length} tenants with tags: enterprise`)
+      ).toBe(true);
     });
 
-    it('should support multiple tags', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should support multiple tags", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Execute with multiple tags - use tags that a tenant has together (e.g., enterprise + priority)
-      await program.parseAsync(['node', 'test', 'fleet', 'list', '--tag', 'enterprise', 'priority']);
+      await program.parseAsync([
+        "node",
+        "test",
+        "fleet",
+        "list",
+        "--tag",
+        "enterprise",
+        "priority",
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Tag filter uses AND logic - tenant must have ALL specified tags
-      const filteredTenants = DEMO_TENANTS.filter(t =>
-        t.tags?.includes('enterprise') && t.tags?.includes('priority')
+      const filteredTenants = DEMO_TENANTS.filter(
+        (t) => t.tags?.includes("enterprise") && t.tags?.includes("priority")
       );
 
       // When filtering, output shows "X tenants with tags: enterprise AND priority"
-      expect(containsText(cleanOutput, `${filteredTenants.length} tenants with tags: enterprise AND priority`)).toBe(true);
+      expect(
+        containsText(
+          cleanOutput,
+          `${filteredTenants.length} tenants with tags: enterprise AND priority`
+        )
+      ).toBe(true);
     });
 
-    it('should show enabled/disabled status', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show enabled/disabled status", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -124,27 +148,27 @@ describe('Tenants Command (fleet)', () => {
     });
 
     it('should support "tenants" alias', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Execute using "tenants" alias
-      await program.parseAsync(['node', 'test', 'tenants', 'list']);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
 
       // Should work the same as "fleet"
-      expect(containsText(output, 'DEMO MODE')).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
       expect(containsText(output, `Fleet size: ${DEMO_TENANTS.length} destinations`)).toBe(true);
     });
 
     it('should support "ls" alias for list', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Execute using "ls" alias
-      await program.parseAsync(['node', 'test', 'fleet', 'ls']);
+      await program.parseAsync(["node", "test", "fleet", "ls"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -153,112 +177,114 @@ describe('Tenants Command (fleet)', () => {
     });
   });
 
-  describe('output formatting', () => {
-    it('should display tenants in a table format', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("output formatting", () => {
+    it("should display tenants in a table format", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should have table headers
-      expect(containsText(cleanOutput, 'Destination')).toBe(true);
-      expect(containsText(cleanOutput, 'Tenant ID')).toBe(true);
-      expect(containsText(cleanOutput, 'Port (Environment)')).toBe(true);
-      expect(containsText(cleanOutput, 'Tags')).toBe(true);
-      expect(containsText(cleanOutput, 'Active')).toBe(true);
+      expect(containsText(cleanOutput, "Destination")).toBe(true);
+      expect(containsText(cleanOutput, "Tenant ID")).toBe(true);
+      expect(containsText(cleanOutput, "Port (Environment)")).toBe(true);
+      expect(containsText(cleanOutput, "Tags")).toBe(true);
+      expect(containsText(cleanOutput, "Active")).toBe(true);
     });
 
-    it('should truncate tenant IDs', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should truncate tenant IDs", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show truncated tenant IDs (first 8 chars + ...)
-      DEMO_TENANTS.forEach(tenant => {
-        const truncatedId = tenant.tenantId.slice(0, 8) + '...';
+      DEMO_TENANTS.forEach((tenant) => {
+        const truncatedId = tenant.tenantId.slice(0, 8) + "...";
         expect(containsText(cleanOutput, truncatedId)).toBe(true);
       });
     });
 
     it('should show "-" for missing tags', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // If any tenant has no tags, should show "-"
-      const tenantsWithoutTags = DEMO_TENANTS.filter(t => !t.tags || t.tags.length === 0);
+      const tenantsWithoutTags = DEMO_TENANTS.filter((t) => !t.tags || t.tags.length === 0);
       if (tenantsWithoutTags.length > 0) {
         // Check for "-" in the tags column
-        expect(cleanOutput).toContain('-');
+        expect(cleanOutput).toContain("-");
       }
     });
   });
 
-  describe('demo mode behavior', () => {
-    it('should show demo mode warning', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("demo mode behavior", () => {
+    it("should show demo mode warning", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, 'DEMO MODE')).toBe(true);
-      expect(containsText(output, 'Using mock data')).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
+      expect(containsText(output, "Using mock data")).toBe(true);
     });
 
-    it('should use DEMO_TENANTS data', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should use DEMO_TENANTS data", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Verify it's using the demo data
-      expect(containsText(cleanOutput, `${DEMO_TENANTS.length} destinations from demo fleet`)).toBe(true);
+      expect(containsText(cleanOutput, `${DEMO_TENANTS.length} destinations from demo fleet`)).toBe(
+        true
+      );
     });
 
-    it('should show count of active destinations', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show count of active destinations", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list']);
+      await program.parseAsync(["node", "test", "fleet", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      const activeCount = DEMO_TENANTS.filter(t => t.enabled).length;
+      const activeCount = DEMO_TENANTS.filter((t) => t.enabled).length;
       expect(containsText(cleanOutput, `${activeCount} active`)).toBe(true);
     });
   });
 
-  describe('show command', () => {
-    it('should show tenant details by name', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("show command", () => {
+    it("should show tenant details by name", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'fleet', 'show', tenant.name]);
+      await program.parseAsync(["node", "test", "fleet", "show", tenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -269,31 +295,31 @@ describe('Tenants Command (fleet)', () => {
       expect(containsText(cleanOutput, tenant.environmentUrl)).toBe(true);
     });
 
-    it('should show tenant details by partial name', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show tenant details by partial name", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Search for "Contoso" which should match "Contoso Corporation"
-      await program.parseAsync(['node', 'test', 'fleet', 'show', 'contoso']);
+      await program.parseAsync(["node", "test", "fleet", "show", "contoso"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should find the tenant
-      const contoso = DEMO_TENANTS.find(t => t.name.toLowerCase().includes('contoso'));
+      const contoso = DEMO_TENANTS.find((t) => t.name.toLowerCase().includes("contoso"));
       if (contoso) {
         expect(containsText(cleanOutput, contoso.name)).toBe(true);
       }
     });
 
-    it('should show enabled/disabled status', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show enabled/disabled status", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'fleet', 'show', tenant.name]);
+      await program.parseAsync(["node", "test", "fleet", "show", tenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -302,60 +328,60 @@ describe('Tenants Command (fleet)', () => {
       expect(cleanOutput).toMatch(/Active|Disabled/);
     });
 
-    it('should show tags', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show tags", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      const tenantWithTags = DEMO_TENANTS.find(t => t.tags && t.tags.length > 0);
+      const tenantWithTags = DEMO_TENANTS.find((t) => t.tags && t.tags.length > 0);
       if (tenantWithTags) {
-        await program.parseAsync(['node', 'test', 'fleet', 'show', tenantWithTags.name]);
+        await program.parseAsync(["node", "test", "fleet", "show", tenantWithTags.name]);
 
         const output = consoleCapture.getAllOutput();
         const cleanOutput = stripAnsi(output);
 
         // Should show tags
-        expect(containsText(cleanOutput, 'Tags:')).toBe(true);
+        expect(containsText(cleanOutput, "Tags:")).toBe(true);
       }
     });
 
-    it('should show agents when --agents flag is used', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show agents when --agents flag is used", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'fleet', 'show', tenant.name, '--agents']);
+      await program.parseAsync(["node", "test", "fleet", "show", tenant.name, "--agents"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show deployed agents section
-      expect(containsText(cleanOutput, 'Deployed Agents')).toBe(true);
+      expect(containsText(cleanOutput, "Deployed Agents")).toBe(true);
     });
 
-    it('should show health when --health flag is used', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show health when --health flag is used", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'fleet', 'show', tenant.name, '--health']);
+      await program.parseAsync(["node", "test", "fleet", "show", tenant.name, "--health"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show health section
-      expect(containsText(cleanOutput, 'Health Status')).toBe(true);
+      expect(containsText(cleanOutput, "Health Status")).toBe(true);
     });
 
-    it('should output JSON when --json flag is used', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should output JSON when --json flag is used", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'fleet', 'show', tenant.name, '--json']);
+      await program.parseAsync(["node", "test", "fleet", "show", tenant.name, "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -366,14 +392,14 @@ describe('Tenants Command (fleet)', () => {
       expect(json!.tenantId).toBe(tenant.tenantId);
     });
 
-    it('should handle tenant not found', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should handle tenant not found", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Use a non-existent tenant name
       try {
-        await program.parseAsync(['node', 'test', 'fleet', 'show', 'nonexistent-tenant-xyz']);
+        await program.parseAsync(["node", "test", "fleet", "show", "nonexistent-tenant-xyz"]);
       } catch {
         // Expected to throw due to process.exit
       }
@@ -382,62 +408,62 @@ describe('Tenants Command (fleet)', () => {
       const cleanOutput = stripAnsi(output);
 
       // Should show error message
-      expect(containsText(cleanOutput, 'not found')).toBe(true);
+      expect(containsText(cleanOutput, "not found")).toBe(true);
     });
   });
 
-  describe('health command', () => {
-    it('should show fleet-wide health summary', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("health command", () => {
+    it("should show fleet-wide health summary", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'health']);
+      await program.parseAsync(["node", "test", "fleet", "health"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show health summary
-      expect(containsText(cleanOutput, 'Fleet Health Summary')).toBe(true);
-      expect(containsText(cleanOutput, 'healthy')).toBe(true);
+      expect(containsText(cleanOutput, "Fleet Health Summary")).toBe(true);
+      expect(containsText(cleanOutput, "healthy")).toBe(true);
     });
 
-    it('should show health for specific tenant', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show health for specific tenant", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'fleet', 'health', tenant.name]);
+      await program.parseAsync(["node", "test", "fleet", "health", tenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show tenant-specific health
       expect(containsText(cleanOutput, tenant.name)).toBe(true);
-      expect(containsText(cleanOutput, 'Health Details')).toBe(true);
+      expect(containsText(cleanOutput, "Health Details")).toBe(true);
     });
 
-    it('should filter by tag', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should filter by tag", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'health', '--tag', 'enterprise']);
+      await program.parseAsync(["node", "test", "fleet", "health", "--tag", "enterprise"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show health summary
-      expect(containsText(cleanOutput, 'Fleet Health Summary')).toBe(true);
+      expect(containsText(cleanOutput, "Fleet Health Summary")).toBe(true);
     });
 
-    it('should output JSON when --json flag is used', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should output JSON when --json flag is used", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'health', '--json']);
+      await program.parseAsync(["node", "test", "fleet", "health", "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -449,13 +475,13 @@ describe('Tenants Command (fleet)', () => {
       expect(json!.tenants).toBeDefined();
     });
 
-    it('should output JSON for specific tenant', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should output JSON for specific tenant", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'fleet', 'health', tenant.name, '--json']);
+      await program.parseAsync(["node", "test", "fleet", "health", tenant.name, "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -467,13 +493,13 @@ describe('Tenants Command (fleet)', () => {
       expect(json!.checks).toBeDefined();
     });
 
-    it('should handle tenant not found in health command', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should handle tenant not found in health command", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       try {
-        await program.parseAsync(['node', 'test', 'fleet', 'health', 'nonexistent-tenant']);
+        await program.parseAsync(["node", "test", "fleet", "health", "nonexistent-tenant"]);
       } catch {
         // Expected to throw due to process.exit
       }
@@ -481,18 +507,18 @@ describe('Tenants Command (fleet)', () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'not found')).toBe(true);
+      expect(containsText(cleanOutput, "not found")).toBe(true);
     });
   });
 
-  describe('list search and filter', () => {
-    it('should filter by search query', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("list search and filter", () => {
+    it("should filter by search query", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Search for "contoso"
-      await program.parseAsync(['node', 'test', 'fleet', 'list', '--search', 'contoso']);
+      await program.parseAsync(["node", "test", "fleet", "list", "--search", "contoso"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -501,40 +527,40 @@ describe('Tenants Command (fleet)', () => {
       expect(containsText(cleanOutput, 'matching "contoso"')).toBe(true);
     });
 
-    it('should filter by enabled status', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should filter by enabled status", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list', '--status', 'enabled']);
+      await program.parseAsync(["node", "test", "fleet", "list", "--status", "enabled"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show status filter info
-      expect(containsText(cleanOutput, 'status: enabled')).toBe(true);
+      expect(containsText(cleanOutput, "status: enabled")).toBe(true);
     });
 
-    it('should filter by disabled status', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should filter by disabled status", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list', '--status', 'disabled']);
+      await program.parseAsync(["node", "test", "fleet", "list", "--status", "disabled"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show status filter info
-      expect(containsText(cleanOutput, 'status: disabled')).toBe(true);
+      expect(containsText(cleanOutput, "status: disabled")).toBe(true);
     });
 
-    it('should output JSON when --json flag is used on list', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should output JSON when --json flag is used on list", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(['node', 'test', 'fleet', 'list', '--json']);
+      await program.parseAsync(["node", "test", "fleet", "list", "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -546,81 +572,90 @@ describe('Tenants Command (fleet)', () => {
       expect(json!.active).toBeDefined();
     });
 
-    it('should combine multiple filters', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should combine multiple filters", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Combine tag and status filter
-      await program.parseAsync(['node', 'test', 'fleet', 'list', '--tag', 'enterprise', '--status', 'enabled']);
+      await program.parseAsync([
+        "node",
+        "test",
+        "fleet",
+        "list",
+        "--tag",
+        "enterprise",
+        "--status",
+        "enabled",
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show both filters
-      expect(containsText(cleanOutput, 'enterprise')).toBe(true);
-      expect(containsText(cleanOutput, 'status: enabled')).toBe(true);
+      expect(containsText(cleanOutput, "enterprise")).toBe(true);
+      expect(containsText(cleanOutput, "status: enabled")).toBe(true);
     });
   });
 
-  describe('enable command', () => {
-    it('should enable a tenant in demo mode', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("enable command", () => {
+    it("should enable a tenant in demo mode", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Get a disabled tenant from demo data
-      const disabledTenant = DEMO_TENANTS.find(t => !t.enabled) || DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'enable', disabledTenant.name]);
+      const disabledTenant = DEMO_TENANTS.find((t) => !t.enabled) || DEMO_TENANTS[0];
+      await program.parseAsync(["node", "test", "tenants", "enable", disabledTenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show demo mode warning
-      expect(containsText(output, 'DEMO MODE')).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
       // Should show success or already enabled message
       expect(
-        containsText(cleanOutput, 'enabled') || containsText(cleanOutput, 'already enabled')
+        containsText(cleanOutput, "enabled") || containsText(cleanOutput, "already enabled")
       ).toBe(true);
     });
 
-    it('should show already enabled message for enabled tenant', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show already enabled message for enabled tenant", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Get an enabled tenant from demo data
-      const enabledTenant = DEMO_TENANTS.find(t => t.enabled) || DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'enable', enabledTenant.name]);
+      const enabledTenant = DEMO_TENANTS.find((t) => t.enabled) || DEMO_TENANTS[0];
+      await program.parseAsync(["node", "test", "tenants", "enable", enabledTenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'already enabled')).toBe(true);
+      expect(containsText(cleanOutput, "already enabled")).toBe(true);
     });
 
-    it('should handle tenant not found', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should handle tenant not found", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       try {
-        await program.parseAsync(['node', 'test', 'tenants', 'enable', 'nonexistent-tenant']);
+        await program.parseAsync(["node", "test", "tenants", "enable", "nonexistent-tenant"]);
       } catch {
         // Expected to throw due to process.exit
       }
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, 'not found')).toBe(true);
+      expect(containsText(output, "not found")).toBe(true);
     });
 
-    it('should output JSON when --json flag is used', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should output JSON when --json flag is used", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      const tenant = DEMO_TENANTS.find(t => !t.enabled) || DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'enable', tenant.name, '--json']);
+      const tenant = DEMO_TENANTS.find((t) => !t.enabled) || DEMO_TENANTS[0];
+      await program.parseAsync(["node", "test", "tenants", "enable", tenant.name, "--json"]);
 
       const output = consoleCapture.getAllOutput();
       const json = extractJson<{ success: boolean; tenant: string; enabled: boolean }>(output);
@@ -633,82 +668,95 @@ describe('Tenants Command (fleet)', () => {
     });
   });
 
-  describe('disable command', () => {
-    it('should disable a tenant in demo mode', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("disable command", () => {
+    it("should disable a tenant in demo mode", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Get an enabled tenant from demo data
-      const enabledTenant = DEMO_TENANTS.find(t => t.enabled) || DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'disable', enabledTenant.name]);
+      const enabledTenant = DEMO_TENANTS.find((t) => t.enabled) || DEMO_TENANTS[0];
+      await program.parseAsync(["node", "test", "tenants", "disable", enabledTenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should show demo mode warning
-      expect(containsText(output, 'DEMO MODE')).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
       // Should show success message
-      expect(containsText(cleanOutput, 'disabled')).toBe(true);
+      expect(containsText(cleanOutput, "disabled")).toBe(true);
     });
 
-    it('should show already disabled message for disabled tenant', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should show already disabled message for disabled tenant", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       // Get a disabled tenant from demo data
-      const disabledTenant = DEMO_TENANTS.find(t => !t.enabled) || DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'disable', disabledTenant.name]);
+      const disabledTenant = DEMO_TENANTS.find((t) => !t.enabled) || DEMO_TENANTS[0];
+      await program.parseAsync(["node", "test", "tenants", "disable", disabledTenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // If already disabled, should show that message
       if (!disabledTenant.enabled) {
-        expect(containsText(cleanOutput, 'already disabled')).toBe(true);
+        expect(containsText(cleanOutput, "already disabled")).toBe(true);
       }
     });
 
-    it('should include reason when provided', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should include reason when provided", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      const tenant = DEMO_TENANTS.find(t => t.enabled) || DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'disable', tenant.name, '--reason', 'Maintenance window']);
+      const tenant = DEMO_TENANTS.find((t) => t.enabled) || DEMO_TENANTS[0];
+      await program.parseAsync([
+        "node",
+        "test",
+        "tenants",
+        "disable",
+        tenant.name,
+        "--reason",
+        "Maintenance window",
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Maintenance window')).toBe(true);
+      expect(containsText(cleanOutput, "Maintenance window")).toBe(true);
     });
 
-    it('should handle tenant not found', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should handle tenant not found", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       try {
-        await program.parseAsync(['node', 'test', 'tenants', 'disable', 'nonexistent-tenant']);
+        await program.parseAsync(["node", "test", "tenants", "disable", "nonexistent-tenant"]);
       } catch {
         // Expected to throw due to process.exit
       }
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, 'not found')).toBe(true);
+      expect(containsText(output, "not found")).toBe(true);
     });
 
-    it('should output JSON when --json flag is used', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should output JSON when --json flag is used", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      const tenant = DEMO_TENANTS.find(t => t.enabled) || DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'disable', tenant.name, '--json']);
+      const tenant = DEMO_TENANTS.find((t) => t.enabled) || DEMO_TENANTS[0];
+      await program.parseAsync(["node", "test", "tenants", "disable", tenant.name, "--json"]);
 
       const output = consoleCapture.getAllOutput();
-      const json = extractJson<{ success: boolean; tenant: string; enabled: boolean; reason: string | null }>(output);
+      const json = extractJson<{
+        success: boolean;
+        tenant: string;
+        enabled: boolean;
+        reason: string | null;
+      }>(output);
 
       if (json) {
         expect(json.success).toBe(true);
@@ -717,103 +765,150 @@ describe('Tenants Command (fleet)', () => {
     });
   });
 
-  describe('tag command', () => {
-    it('should show current tags when no operation specified', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+  describe("tag command", () => {
+    it("should show current tags when no operation specified", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'tag', tenant.name]);
+      await program.parseAsync(["node", "test", "tenants", "tag", tenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'No tag operation specified')).toBe(true);
-      expect(containsText(cleanOutput, 'Current tags')).toBe(true);
+      expect(containsText(cleanOutput, "No tag operation specified")).toBe(true);
+      expect(containsText(cleanOutput, "Current tags")).toBe(true);
     });
 
-    it('should add tags to tenant', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should add tags to tenant", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'tag', tenant.name, '--add', 'new-tag', 'another-tag']);
+      await program.parseAsync([
+        "node",
+        "test",
+        "tenants",
+        "tag",
+        tenant.name,
+        "--add",
+        "new-tag",
+        "another-tag",
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Updated tags')).toBe(true);
-      expect(containsText(cleanOutput, 'new-tag')).toBe(true);
-      expect(containsText(cleanOutput, 'another-tag')).toBe(true);
+      expect(containsText(cleanOutput, "Updated tags")).toBe(true);
+      expect(containsText(cleanOutput, "new-tag")).toBe(true);
+      expect(containsText(cleanOutput, "another-tag")).toBe(true);
     });
 
-    it('should remove tags from tenant', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should remove tags from tenant", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      const existingTag = tenant.tags?.[0] || 'enterprise';
-      await program.parseAsync(['node', 'test', 'tenants', 'tag', tenant.name, '--remove', existingTag]);
+      const existingTag = tenant.tags?.[0] || "enterprise";
+      await program.parseAsync([
+        "node",
+        "test",
+        "tenants",
+        "tag",
+        tenant.name,
+        "--remove",
+        existingTag,
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Updated tags')).toBe(true);
-      expect(containsText(cleanOutput, 'Before:')).toBe(true);
-      expect(containsText(cleanOutput, 'After:')).toBe(true);
+      expect(containsText(cleanOutput, "Updated tags")).toBe(true);
+      expect(containsText(cleanOutput, "Before:")).toBe(true);
+      expect(containsText(cleanOutput, "After:")).toBe(true);
     });
 
-    it('should set tags to replace all existing', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should set tags to replace all existing", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'tag', tenant.name, '--set', 'tag1,tag2,tag3']);
+      await program.parseAsync([
+        "node",
+        "test",
+        "tenants",
+        "tag",
+        tenant.name,
+        "--set",
+        "tag1,tag2,tag3",
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Updated tags')).toBe(true);
-      expect(containsText(cleanOutput, 'tag1')).toBe(true);
-      expect(containsText(cleanOutput, 'tag2')).toBe(true);
-      expect(containsText(cleanOutput, 'tag3')).toBe(true);
+      expect(containsText(cleanOutput, "Updated tags")).toBe(true);
+      expect(containsText(cleanOutput, "tag1")).toBe(true);
+      expect(containsText(cleanOutput, "tag2")).toBe(true);
+      expect(containsText(cleanOutput, "tag3")).toBe(true);
     });
 
-    it('should handle tenant not found', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should handle tenant not found", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       try {
-        await program.parseAsync(['node', 'test', 'tenants', 'tag', 'nonexistent-tenant', '--add', 'tag']);
+        await program.parseAsync([
+          "node",
+          "test",
+          "tenants",
+          "tag",
+          "nonexistent-tenant",
+          "--add",
+          "tag",
+        ]);
       } catch {
         // Expected to throw due to process.exit
       }
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, 'not found')).toBe(true);
+      expect(containsText(output, "not found")).toBe(true);
     });
 
-    it('should output JSON when --json flag is used', async () => {
-      const { tenantsCommand } = await import('../commands/tenants.js');
+    it("should output JSON when --json flag is used", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(['node', 'test', 'tenants', 'tag', tenant.name, '--add', 'json-test-tag', '--json']);
+      await program.parseAsync([
+        "node",
+        "test",
+        "tenants",
+        "tag",
+        tenant.name,
+        "--add",
+        "json-test-tag",
+        "--json",
+      ]);
 
       const output = consoleCapture.getAllOutput();
-      const json = extractJson<{ success: boolean; tenant: string; before: string[]; after: string[] }>(output);
+      const json = extractJson<{
+        success: boolean;
+        tenant: string;
+        before: string[];
+        after: string[];
+      }>(output);
 
       expect(json).not.toBeNull();
       expect(json!.success).toBe(true);
       expect(json!.before).toBeDefined();
       expect(json!.after).toBeDefined();
-      expect(json!.after).toContain('json-test-tag');
+      expect(json!.after).toContain("json-test-tag");
     });
   });
 });

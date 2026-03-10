@@ -16,15 +16,11 @@
 
 import { Command } from "commander";
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
-import {
-  loadConfig,
-  getClientSecret,
-  filterTenantsByTags,
-  TenantConfig,
-} from "@agentsync/core";
+import { loadConfig, getClientSecret, filterTenantsByTags, TenantConfig } from "@agentsync/core";
 import { DeploymentQueueManager } from "@agentsync/worker";
 import { isDemoModeEnabled, getDemoTenants } from "./demo.js";
 
@@ -37,20 +33,14 @@ export const deployCommand = new Command("deploy")
   .option("-t, --tag <tags...>", "Ship only to destinations with these tags")
   .option("--all", "Ship to all destinations in the fleet")
   .option("--dry-run", "Preview shipment without shipping")
-  .option(
-    "--redis <url>",
-    "Redis URL for shipping dock",
-    "redis://localhost:6379"
-  )
+  .option("--redis <url>", "Redis URL for shipping dock", "redis://localhost:6379")
   .action(async (options) => {
     const spinner = ora("Loading shipping manifest...").start();
 
     try {
       // Validate options
       if (!options.all && (!options.tag || options.tag.length === 0)) {
-        spinner.fail(
-          chalk.red("Must specify --all or --tag to select destinations")
-        );
+        spinner.fail(chalk.red("Must specify --all or --tag to select destinations"));
         process.exit(1);
       }
 
@@ -96,7 +86,9 @@ export const deployCommand = new Command("deploy")
         console.log(`  Package:       ${options.solution || options.agentPackage}`);
         console.log(`  Destinations:  ${destinations.length}`);
         console.log();
-        console.log(chalk.gray(`Use 'agentsync track --shipment ${demoShipmentId}' to track progress`));
+        console.log(
+          chalk.gray(`Use 'agentsync track --shipment ${demoShipmentId}' to track progress`)
+        );
         console.log(chalk.yellow("\nNote: In demo mode, no actual deployment occurs"));
         return;
       }
@@ -141,9 +133,7 @@ export const deployCommand = new Command("deploy")
       console.log();
 
       if (options.dryRun) {
-        console.log(
-          chalk.yellow("Dry run - no agent packages will be shipped")
-        );
+        console.log(chalk.yellow("Dry run - no agent packages will be shipped"));
         return;
       }
 
@@ -154,7 +144,7 @@ export const deployCommand = new Command("deploy")
       spinner.start("Connecting to shipping dock...");
       const queueManager = new DeploymentQueueManager(options.redis);
 
-      const shipmentId = crypto.randomUUID();
+      const shipmentId = randomUUID();
       const agentPackagePath = resolve(options.agentPackage || options.solution);
 
       spinner.text = "Loading agent packages onto shipping dock...";
@@ -175,25 +165,15 @@ export const deployCommand = new Command("deploy")
       console.log(`  Agent package:         ${agentPackagePath}`);
       console.log(`  Destinations:  ${destinations.length}`);
       console.log();
-      console.log(
-        chalk.gray(
-          `Use 'agentsync track --shipment ${shipmentId}' to track progress`
-        )
-      );
+      console.log(chalk.gray(`Use 'agentsync track --shipment ${shipmentId}' to track progress`));
       console.log();
-      console.log(
-        chalk.yellow(
-          "Note: Make sure the dockworker is running to process shipments:"
-        )
-      );
+      console.log(chalk.yellow("Note: Make sure the dockworker is running to process shipments:"));
       console.log(chalk.gray("  pnpm worker"));
 
       await queueManager.close();
     } catch (error) {
       spinner.fail(chalk.red("Shipment failed"));
-      console.error(
-        chalk.red(error instanceof Error ? error.message : String(error))
-      );
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
   });

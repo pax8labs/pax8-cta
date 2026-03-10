@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { isDemoMode, DEMO_SOLUTIONS } from '@agentsync/core'
-import { demoCustomAgents, demoAgentStatus, demoDeployedAgents, AgentStatus } from '@/lib/demo-store'
-import { invalidRequest, notFound, internalError } from '@/lib/errors'
+import { NextRequest, NextResponse } from "next/server";
+import { isDemoMode, DEMO_SOLUTIONS } from "@agentsync/core";
+import {
+  demoCustomAgents,
+  demoAgentStatus,
+  demoDeployedAgents,
+  AgentStatus,
+} from "@/lib/demo-store";
+import { invalidRequest, notFound, internalError } from "@/lib/errors";
 
 interface RouteParams {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -16,54 +21,54 @@ interface RouteParams {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params
-    const body = await request.json()
-    const { status } = body as { status: AgentStatus }
+    const { id } = await params;
+    const body = await request.json();
+    const { status } = body as { status: AgentStatus };
 
     if (!id) {
-      return invalidRequest('Agent ID is required')
+      return invalidRequest("Agent ID is required");
     }
 
-    if (!status || !['active', 'deprecated', 'archived'].includes(status)) {
-      return invalidRequest('Invalid status. Must be: active, deprecated, or archived')
+    if (!status || !["active", "deprecated", "archived"].includes(status)) {
+      return invalidRequest("Invalid status. Must be: active, deprecated, or archived");
     }
 
     if (isDemoMode()) {
       // Check if agent exists (either built-in or custom)
-      const builtIn = DEMO_SOLUTIONS.find((s: { uniqueName: string }) => s.uniqueName === id)
-      const customAgent = demoCustomAgents.get(id)
+      const builtIn = DEMO_SOLUTIONS.find((s: { uniqueName: string }) => s.uniqueName === id);
+      const customAgent = demoCustomAgents.get(id);
 
       if (!builtIn && !customAgent) {
-        return notFound('Agent', id)
+        return notFound("Agent", id);
       }
 
-      const agentName = builtIn?.friendlyName || customAgent?.friendlyName
+      const agentName = builtIn?.friendlyName || customAgent?.friendlyName;
 
       // If archiving, we need to uninstall from all tenants
-      let uninstalledTenants: string[] = []
-      if (status === 'archived') {
+      const uninstalledTenants: string[] = [];
+      if (status === "archived") {
         // Find and remove from all tenants
         demoDeployedAgents.forEach((agents, tenantId) => {
-          const beforeCount = agents.length
-          const filtered = agents.filter(a => a.solutionName !== agentName)
+          const beforeCount = agents.length;
+          const filtered = agents.filter((a) => a.solutionName !== agentName);
           if (filtered.length < beforeCount) {
-            uninstalledTenants.push(tenantId)
-            demoDeployedAgents.set(tenantId, filtered)
+            uninstalledTenants.push(tenantId);
+            demoDeployedAgents.set(tenantId, filtered);
           }
-        })
+        });
       }
 
       // Update status
       if (customAgent) {
         // For custom agents, update the agent object directly
-        demoCustomAgents.set(id, { ...customAgent, status })
+        demoCustomAgents.set(id, { ...customAgent, status });
       } else {
         // For built-in agents, use the status store
-        if (status === 'active') {
+        if (status === "active") {
           // Remove from store (defaults to active)
-          demoAgentStatus.delete(id)
+          demoAgentStatus.delete(id);
         } else {
-          demoAgentStatus.set(id, status)
+          demoAgentStatus.set(id, status);
         }
       }
 
@@ -72,22 +77,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         message: `Agent "${agentName}" status changed to ${status}`,
         status,
         uninstalledTenants: uninstalledTenants.length > 0 ? uninstalledTenants : undefined,
-      })
+      });
     }
 
     // Real mode - would update in Dataverse
     return NextResponse.json(
-      { error: 'Real agent status update not yet implemented' },
+      { error: "Real agent status update not yet implemented" },
       { status: 501 }
-    )
+    );
   } catch (error) {
-    console.error('Update agent status error:', error)
+    console.error("Update agent status error:", error);
     return internalError(
-      'Failed to update agent status',
-      process.env.NODE_ENV === 'development' && error instanceof Error
+      "Failed to update agent status",
+      process.env.NODE_ENV === "development" && error instanceof Error
         ? { error: error.message }
         : undefined
-    )
+    );
   }
 }
 
@@ -96,44 +101,41 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = await params
+    const { id } = await params;
 
     if (!id) {
-      return invalidRequest('Agent ID is required')
+      return invalidRequest("Agent ID is required");
     }
 
     if (isDemoMode()) {
-      const builtIn = DEMO_SOLUTIONS.find((s: { uniqueName: string }) => s.uniqueName === id)
-      const customAgent = demoCustomAgents.get(id)
+      const builtIn = DEMO_SOLUTIONS.find((s: { uniqueName: string }) => s.uniqueName === id);
+      const customAgent = demoCustomAgents.get(id);
 
       if (!builtIn && !customAgent) {
-        return notFound('Agent', id)
+        return notFound("Agent", id);
       }
 
-      let status: AgentStatus = 'active'
+      let status: AgentStatus = "active";
       if (customAgent) {
-        status = customAgent.status || 'active'
+        status = customAgent.status || "active";
       } else if (builtIn) {
-        status = demoAgentStatus.get(id) || 'active'
+        status = demoAgentStatus.get(id) || "active";
       }
 
       return NextResponse.json({
         id,
         status,
-      })
+      });
     }
 
-    return NextResponse.json(
-      { error: 'Real agent status not yet implemented' },
-      { status: 501 }
-    )
+    return NextResponse.json({ error: "Real agent status not yet implemented" }, { status: 501 });
   } catch (error) {
-    console.error('Get agent status error:', error)
+    console.error("Get agent status error:", error);
     return internalError(
-      'Failed to get agent status',
-      process.env.NODE_ENV === 'development' && error instanceof Error
+      "Failed to get agent status",
+      process.env.NODE_ENV === "development" && error instanceof Error
         ? { error: error.message }
         : undefined
-    )
+    );
   }
 }

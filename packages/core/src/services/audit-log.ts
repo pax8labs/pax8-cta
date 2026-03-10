@@ -1,25 +1,25 @@
 export type AuditAction =
-  | 'deployment.created'
-  | 'deployment.started'
-  | 'deployment.completed'
-  | 'deployment.failed'
-  | 'deployment.cancelled'
-  | 'deployment.retried'
-  | 'rollback.initiated'
-  | 'rollback.completed'
-  | 'rollback.failed'
-  | 'solution.exported'
-  | 'solution.imported'
-  | 'tenant.added'
-  | 'tenant.updated'
-  | 'tenant.removed'
-  | 'config.changed'
-  | 'user.login'
-  | 'user.logout'
-  | 'api.access'
-  | 'scheduled.deployment.triggered'
-  | 'scheduled.deployment.registered'
-  | 'scheduled.deployment.removed';
+  | "deployment.created"
+  | "deployment.started"
+  | "deployment.completed"
+  | "deployment.failed"
+  | "deployment.cancelled"
+  | "deployment.retried"
+  | "rollback.initiated"
+  | "rollback.completed"
+  | "rollback.failed"
+  | "solution.exported"
+  | "solution.imported"
+  | "tenant.added"
+  | "tenant.updated"
+  | "tenant.removed"
+  | "config.changed"
+  | "user.login"
+  | "user.logout"
+  | "api.access"
+  | "scheduled.deployment.triggered"
+  | "scheduled.deployment.registered"
+  | "scheduled.deployment.removed";
 
 export interface AuditLogEntry {
   id: string;
@@ -69,7 +69,7 @@ class InMemoryAuditStorage implements AuditLogStorage {
   }
 
   async query(query: AuditLogQuery): Promise<AuditLogEntry[]> {
-    let results = this.entries.filter((entry) => {
+    const results = this.entries.filter((entry) => {
       if (query.startDate && entry.timestamp < query.startDate) return false;
       if (query.endDate && entry.timestamp > query.endDate) return false;
       if (query.userId && entry.userId !== query.userId) return false;
@@ -102,17 +102,19 @@ class ConsoleAuditStorage implements AuditLogStorage {
 
   async write(entry: AuditLogEntry): Promise<void> {
     if (this.structuredLogging) {
-      console.log(JSON.stringify({
-        level: entry.success ? 'info' : 'warn',
-        type: 'audit',
-        ...entry,
-        timestamp: entry.timestamp.toISOString(),
-      }));
+      console.log(
+        JSON.stringify({
+          level: entry.success ? "info" : "warn",
+          type: "audit",
+          ...entry,
+          timestamp: entry.timestamp.toISOString(),
+        })
+      );
     } else {
-      const status = entry.success ? 'SUCCESS' : 'FAILED';
+      const status = entry.success ? "SUCCESS" : "FAILED";
       console.log(
         `[AUDIT] ${entry.timestamp.toISOString()} ${status} ${entry.action} ` +
-        `user=${entry.userId} resource=${entry.resourceType}/${entry.resourceId || 'n/a'}`
+          `user=${entry.userId} resource=${entry.resourceType}/${entry.resourceId || "n/a"}`
       );
     }
   }
@@ -137,7 +139,7 @@ export class AuditLogService {
       // Default: use both in-memory and console logging
       this.storages = [
         new InMemoryAuditStorage(),
-        new ConsoleAuditStorage(process.env.NODE_ENV === 'production'),
+        new ConsoleAuditStorage(process.env.NODE_ENV === "production"),
       ];
     }
   }
@@ -205,9 +207,9 @@ export class AuditLogService {
     deploymentId: string,
     details: Record<string, unknown>
   ): Promise<void> {
-    await this.log('deployment.created', {
+    await this.log("deployment.created", {
       userId,
-      resourceType: 'deployment',
+      resourceType: "deployment",
       resourceId: deploymentId,
       details,
     });
@@ -219,9 +221,9 @@ export class AuditLogService {
     success: boolean,
     details: Record<string, unknown>
   ): Promise<void> {
-    await this.log(success ? 'deployment.completed' : 'deployment.failed', {
+    await this.log(success ? "deployment.completed" : "deployment.failed", {
       userId,
-      resourceType: 'deployment',
+      resourceType: "deployment",
       resourceId: deploymentId,
       success,
       details,
@@ -236,9 +238,9 @@ export class AuditLogService {
     success: boolean,
     errorMessage?: string
   ): Promise<void> {
-    await this.log(success ? 'rollback.completed' : 'rollback.failed', {
+    await this.log(success ? "rollback.completed" : "rollback.failed", {
       userId,
-      resourceType: 'tenant',
+      resourceType: "tenant",
       resourceId: tenantId,
       resourceName: tenantName,
       success,
@@ -254,10 +256,10 @@ export class AuditLogService {
     userAgent: string,
     success: boolean
   ): Promise<void> {
-    await this.log('user.login', {
+    await this.log("user.login", {
       userId,
       userEmail,
-      resourceType: 'auth',
+      resourceType: "auth",
       ipAddress,
       userAgent,
       success,
@@ -271,9 +273,9 @@ export class AuditLogService {
     ipAddress: string,
     statusCode: number
   ): Promise<void> {
-    await this.log('api.access', {
+    await this.log("api.access", {
       userId,
-      resourceType: 'api',
+      resourceType: "api",
       resourceId: path,
       success: statusCode < 400,
       details: { method, statusCode },

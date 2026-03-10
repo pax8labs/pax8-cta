@@ -7,7 +7,10 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
-    "lint": "pnpm -r lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test -- --coverage",
@@ -22,12 +25,28 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "db:migrate": "echo 'Run: psql $DATABASE_URL < packages/core/src/db/schema.sql'",
-    "clean": "pnpm -r exec rm -rf dist .next node_modules/.cache"
+    "clean": "pnpm -r exec rm -rf dist .next node_modules/.cache",
+    "prepare": "husky || true"
   },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
     "@types/node": "20.11.0",
-    "eslint": "10.0.3",
-    "typescript": "5.3.3"
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.4.2",
+    "typescript": "5.3.3",
+    "typescript-eslint": "^8.21.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,json,md}": [
+      "prettier --write"
+    ]
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {

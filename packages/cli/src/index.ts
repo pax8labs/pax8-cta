@@ -28,9 +28,9 @@ import { importCommand } from "./commands/import.js";
 import { analyzeCommand } from "./commands/analyze.js";
 import { deployCommand } from "./commands/deploy.js";
 import { statusCommand } from "./commands/status.js";
-import { tenantsCommand } from "./commands/tenants.js";
-import { agentsCommand } from "./commands/agents.js";
-import { deploymentsCommand } from "./commands/deployments.js";
+import { tenantsCommand } from "./commands/tenants/index.js";
+import { agentsCommand } from "./commands/agents/index.js";
+import { deploymentsCommand } from "./commands/deployments/index.js";
 import { resolveUrlCommand } from "./commands/resolve-url.js";
 import { initCommand } from "./commands/init.js";
 import { demoCommand } from "./commands/demo.js";
@@ -77,8 +77,8 @@ export function createProgram(): Command {
 
 // Show banner if no arguments provided OR showing top-level help (not command-specific help)
 const args = process.argv.slice(2);
-const knownCommands = createProgram().commands.flatMap(cmd => [cmd.name(), ...cmd.aliases()]);
-const hasCommand = args.some(arg => knownCommands.includes(arg));
+const knownCommands = createProgram().commands.flatMap((cmd) => [cmd.name(), ...cmd.aliases()]);
+const hasCommand = args.some((arg) => knownCommands.includes(arg));
 const isTopLevelHelp = (args.includes("--help") || args.includes("-h")) && !hasCommand;
 const shouldShowBanner = args.length === 0 || isTopLevelHelp;
 

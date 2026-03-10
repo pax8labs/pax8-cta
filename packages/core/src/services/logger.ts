@@ -1,4 +1,7 @@
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogContext {
   [key: string]: unknown;
@@ -23,14 +26,27 @@ export interface LogTransport {
   log(entry: LogEntry): void;
 }
 
+/** Trace context stored in AsyncLocalStorage */
+interface TraceContext {
+  traceId: string;
+  spanId?: string;
+}
+
+/**
+ * AsyncLocalStorage for trace context.
+ * This ensures each async context (e.g., HTTP request) has its own trace IDs
+ * without leaking between concurrent requests.
+ */
+const traceStorage = new AsyncLocalStorage<TraceContext>();
+
 // Console transport with JSON output for production
 class ConsoleTransport implements LogTransport {
   private structured: boolean;
   private colors: boolean;
 
   constructor(options?: { structured?: boolean; colors?: boolean }) {
-    this.structured = options?.structured ?? process.env.NODE_ENV === 'production';
-    this.colors = options?.colors ?? process.env.NODE_ENV !== 'production';
+    this.structured = options?.structured ?? process.env.NODE_ENV === "production";
+    this.colors = options?.colors ?? process.env.NODE_ENV !== "production";
   }
 
   log(entry: LogEntry): void {
@@ -38,18 +54,21 @@ class ConsoleTransport implements LogTransport {
       console.log(JSON.stringify(entry));
     } else {
       const levelColors: Record<LogLevel, string> = {
-        debug: '\x1b[90m',
-        info: '\x1b[32m',
-        warn: '\x1b[33m',
-        error: '\x1b[31m',
+        debug: "\x1b[90m",
+        info: "\x1b[32m",
+        warn: "\x1b[33m",
+        error: "\x1b[31m",
       };
-      const reset = '\x1b[0m';
-      const color = this.colors ? levelColors[entry.level] : '';
-      const resetCode = this.colors ? reset : '';
+      const reset = "\x1b[0m";
+      const color = this.colors ? levelColors[entry.level] : "";
+      const resetCode = this.colors ? reset : "";
 
       let output = `${entry.timestamp} ${color}${entry.level.toUpperCase().padEnd(5)}${resetCode}`;
       if (entry.service) {
         output += ` [${entry.service}]`;
+      }
+      if (entry.traceId) {
+        output += ` [${entry.traceId.slice(0, 8)}]`;
       }
       output += ` ${entry.message}`;
 
@@ -74,8 +93,6 @@ export class Logger {
   private transports: LogTransport[] = [];
   private minLevel: LogLevel;
   private defaultContext: LogContext = {};
-  private static traceId?: string;
-  private static spanId?: string;
 
   private static levelOrder: Record<LogLevel, number> = {
     debug: 0,
@@ -92,7 +109,7 @@ export class Logger {
   }) {
     this.service = options?.service;
     this.transports = options?.transports ?? [new ConsoleTransport()];
-    this.minLevel = options?.minLevel ?? (process.env.LOG_LEVEL as LogLevel) ?? 'info';
+    this.minLevel = options?.minLevel ?? (process.env.LOG_LEVEL as LogLevel) ?? "info";
     this.defaultContext = options?.defaultContext ?? {};
   }
 
@@ -106,13 +123,16 @@ export class Logger {
     context?: LogContext,
     error?: Error
   ): LogEntry {
+    // Get trace context from AsyncLocalStorage
+    const traceCtx = traceStorage.getStore();
+
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
       message,
       service: this.service,
-      traceId: Logger.traceId,
-      spanId: Logger.spanId,
+      traceId: traceCtx?.traceId,
+      spanId: traceCtx?.spanId,
       context: { ...this.defaultContext, ...context },
     };
 
@@ -137,19 +157,19 @@ export class Logger {
   }
 
   debug(message: string, context?: LogContext): void {
-    this.log('debug', message, context);
+    this.log("debug", message, context);
   }
 
   info(message: string, context?: LogContext): void {
-    this.log('info', message, context);
+    this.log("info", message, context);
   }
 
   warn(message: string, context?: LogContext, error?: Error): void {
-    this.log('warn', message, context, error);
+    this.log("warn", message, context, error);
   }
 
   error(message: string, error?: Error, context?: LogContext): void {
-    this.log('error', message, context, error);
+    this.log("error", message, context, error);
   }
 
   child(options: { service?: string; context?: LogContext }): Logger {
@@ -161,28 +181,54 @@ export class Logger {
     });
   }
 
-  // Static methods for trace context
-  static setTraceContext(traceId: string, spanId?: string): void {
-    Logger.traceId = traceId;
-    Logger.spanId = spanId;
+  /**
+   * Run a function with trace context.
+   * All logs within the callback (and any async operations it spawns)
+   * will automatically include the traceId and spanId.
+   */
+  static runWithTrace<T>(traceId: string, spanId: string | undefined, fn: () => T): T {
+    return traceStorage.run({ traceId, spanId }, fn);
   }
 
-  static clearTraceContext(): void {
-    Logger.traceId = undefined;
-    Logger.spanId = undefined;
+  /**
+   * Run an async function with trace context.
+   */
+  static async runWithTraceAsync<T>(
+    traceId: string,
+    spanId: string | undefined,
+    fn: () => Promise<T>
+  ): Promise<T> {
+    return traceStorage.run({ traceId, spanId }, fn);
   }
 
+  /**
+   * Get the current trace context (if any).
+   */
+  static getTraceContext(): TraceContext | undefined {
+    return traceStorage.getStore();
+  }
+
+  /**
+   * Generate a new trace ID.
+   */
   static generateTraceId(): string {
-    return crypto.randomUUID().replace(/-/g, '');
+    return randomUUID().replace(/-/g, "");
+  }
+
+  /**
+   * Generate a new span ID.
+   */
+  static generateSpanId(): string {
+    return randomUUID().slice(0, 16);
   }
 }
 
 // Pre-configured loggers for different services
-export const coreLogger = new Logger({ service: 'core' });
-export const authLogger = new Logger({ service: 'auth' });
-export const deploymentLogger = new Logger({ service: 'deployment' });
-export const workerLogger = new Logger({ service: 'worker' });
-export const apiLogger = new Logger({ service: 'api' });
+export const coreLogger = new Logger({ service: "core" });
+export const authLogger = new Logger({ service: "auth" });
+export const deploymentLogger = new Logger({ service: "deployment" });
+export const workerLogger = new Logger({ service: "worker" });
+export const apiLogger = new Logger({ service: "api" });
 
 // Request logging middleware helper
 export function createRequestLogger(
@@ -226,4 +272,33 @@ export async function timedOperation<T>(
     logger.error(`Failed: ${operation}`, error as Error, { ...context, durationMs: duration });
     throw error;
   }
+}
+
+/**
+ * Middleware helper to wrap request handlers with trace context.
+ * Use this in your HTTP framework to automatically trace all requests.
+ *
+ * @example
+ * // Express middleware
+ * app.use((req, res, next) => {
+ *   withTraceContext(() => next());
+ * });
+ */
+export function withTraceContext<T>(fn: () => T, traceId?: string, spanId?: string): T {
+  const effectiveTraceId = traceId ?? Logger.generateTraceId();
+  const effectiveSpanId = spanId ?? Logger.generateSpanId();
+  return Logger.runWithTrace(effectiveTraceId, effectiveSpanId, fn);
+}
+
+/**
+ * Async version of withTraceContext.
+ */
+export async function withTraceContextAsync<T>(
+  fn: () => Promise<T>,
+  traceId?: string,
+  spanId?: string
+): Promise<T> {
+  const effectiveTraceId = traceId ?? Logger.generateTraceId();
+  const effectiveSpanId = spanId ?? Logger.generateSpanId();
+  return Logger.runWithTraceAsync(effectiveTraceId, effectiveSpanId, fn);
 }

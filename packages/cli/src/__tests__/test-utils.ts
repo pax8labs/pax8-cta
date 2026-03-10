@@ -25,10 +25,10 @@
  * - Managing test environment
  */
 
-import { vi } from 'vitest';
-import { spawn } from 'child_process';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { vi } from "vitest";
+import { spawn } from "child_process";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -51,11 +51,11 @@ export class ConsoleCapture {
     this.errors = [];
 
     console.log = vi.fn((...args: any[]) => {
-      this.logs.push(args.map(a => String(a)).join(' '));
+      this.logs.push(args.map((a) => String(a)).join(" "));
     });
 
     console.error = vi.fn((...args: any[]) => {
-      this.errors.push(args.map(a => String(a)).join(' '));
+      this.errors.push(args.map((a) => String(a)).join(" "));
     });
   }
 
@@ -73,7 +73,7 @@ export class ConsoleCapture {
   }
 
   getAllOutput(): string {
-    return [...this.logs, ...this.errors].join('\n');
+    return [...this.logs, ...this.errors].join("\n");
   }
 
   clear() {
@@ -86,7 +86,7 @@ export class ConsoleCapture {
  * Mock process.exit to prevent tests from actually exiting
  */
 export function mockProcessExit() {
-  const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null) => {
+  const exitSpy = vi.spyOn(process, "exit").mockImplementation((code?: string | number | null) => {
     throw new Error(`process.exit(${code})`);
   }) as any;
 
@@ -111,7 +111,7 @@ export function mockEnv(vars: Record<string, string>) {
  */
 export function stripAnsi(str: string): string {
   // eslint-disable-next-line no-control-regex
-  return str.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+  return str.replace(/\x1B\[[0-9;]*[JKmsu]/g, "");
 }
 
 /**
@@ -124,30 +124,30 @@ export function containsText(output: string, text: string): boolean {
 /**
  * Mock ora spinner to avoid animation in tests
  */
-export function mockSpinner() {
+export function mockSpinner(): Record<string, unknown> {
   return {
-    start: vi.fn(function(this: any, text?: string) {
+    start: vi.fn(function (this: any, text?: string) {
       if (text) this.text = text;
       return this;
     }),
-    succeed: vi.fn(function(this: any, text?: string) {
+    succeed: vi.fn(function (this: any, text?: string) {
       if (text) console.log(text);
       return this;
     }),
-    fail: vi.fn(function(this: any, text?: string) {
+    fail: vi.fn(function (this: any, text?: string) {
       if (text) console.error(text);
       return this;
     }),
-    warn: vi.fn(function(this: any, text?: string) {
+    warn: vi.fn(function (this: any, text?: string) {
       if (text) console.log(text);
       return this;
     }),
-    info: vi.fn(function(this: any, text?: string) {
+    info: vi.fn(function (this: any, text?: string) {
       if (text) console.log(text);
       return this;
     }),
     stop: vi.fn().mockReturnThis(),
-    text: '',
+    text: "",
   };
 }
 
@@ -186,42 +186,34 @@ export interface CliRunnerOptions {
  * expect(result.stdout).toContain('DEPLOYMENT ID');
  * ```
  */
-export async function runCli(
-  args: string[],
-  options: CliRunnerOptions = {}
-): Promise<CliResult> {
-  const {
-    env = {},
-    cwd = resolve(__dirname, '../..'),
-    timeout = 30000,
-    stdin,
-  } = options;
+export async function runCli(args: string[], options: CliRunnerOptions = {}): Promise<CliResult> {
+  const { env = {}, cwd = resolve(__dirname, "../.."), timeout = 30000, stdin } = options;
 
   const startTime = Date.now();
 
   // Use tsx to run the TypeScript source directly
-  const cliPath = resolve(__dirname, '../index.ts');
+  const cliPath = resolve(__dirname, "../index.ts");
 
   return new Promise((resolvePromise, reject) => {
-    const proc = spawn('npx', ['tsx', cliPath, ...args], {
+    const proc = spawn("npx", ["tsx", cliPath, ...args], {
       cwd,
       env: {
         ...process.env,
-        DEMO_MODE: 'true', // Default to demo mode in tests
-        NO_COLOR: '1', // Disable colors for easier parsing
+        DEMO_MODE: "true", // Default to demo mode in tests
+        NO_COLOR: "1", // Disable colors for easier parsing
         ...env,
       },
       shell: true,
     });
 
-    let stdout = '';
-    let stderr = '';
+    let stdout = "";
+    let stderr = "";
 
-    proc.stdout.on('data', (data) => {
+    proc.stdout.on("data", (data) => {
       stdout += data.toString();
     });
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr.on("data", (data) => {
       stderr += data.toString();
     });
 
@@ -231,11 +223,11 @@ export async function runCli(
     }
 
     const timeoutId = setTimeout(() => {
-      proc.kill('SIGTERM');
+      proc.kill("SIGTERM");
       reject(new Error(`CLI command timed out after ${timeout}ms`));
     }, timeout);
 
-    proc.on('close', (code) => {
+    proc.on("close", (code) => {
       clearTimeout(timeoutId);
       const duration = Date.now() - startTime;
 
@@ -248,7 +240,7 @@ export async function runCli(
       });
     });
 
-    proc.on('error', (err) => {
+    proc.on("error", (err) => {
       clearTimeout(timeoutId);
       reject(err);
     });
@@ -266,9 +258,9 @@ export async function runCliExpectSuccess(
   if (result.exitCode !== 0) {
     throw new Error(
       `CLI command failed with exit code ${result.exitCode}:\n` +
-      `Args: ${args.join(' ')}\n` +
-      `Stdout: ${result.stdout}\n` +
-      `Stderr: ${result.stderr}`
+        `Args: ${args.join(" ")}\n` +
+        `Stdout: ${result.stdout}\n` +
+        `Stderr: ${result.stderr}`
     );
   }
   return result;
@@ -285,8 +277,8 @@ export async function runCliExpectFailure(
   if (result.exitCode === 0) {
     throw new Error(
       `CLI command unexpectedly succeeded:\n` +
-      `Args: ${args.join(' ')}\n` +
-      `Stdout: ${result.stdout}`
+        `Args: ${args.join(" ")}\n` +
+        `Stdout: ${result.stdout}`
     );
   }
   return result;
@@ -315,20 +307,20 @@ export interface ParsedTable {
  */
 export function parseTable(output: string): ParsedTable {
   const lines = stripAnsi(output)
-    .split('\n')
-    .filter(line => line.trim())
-    .filter(line => !line.match(/^[┌└├─┬┴┼┐┘┤]+$/)); // Filter box-drawing borders
+    .split("\n")
+    .filter((line) => line.trim())
+    .filter((line) => !line.match(/^[┌└├─┬┴┼┐┘┤]+$/)); // Filter box-drawing borders
 
   const headers: string[] = [];
   const rawRows: string[][] = [];
 
   for (const line of lines) {
     // Check if line contains table data (has │ separators)
-    if (line.includes('│')) {
+    if (line.includes("│")) {
       const cells = line
-        .split('│')
-        .map(cell => cell.trim())
-        .filter(cell => cell !== '');
+        .split("│")
+        .map((cell) => cell.trim())
+        .filter((cell) => cell !== "");
 
       if (headers.length === 0) {
         // First row with data is headers
@@ -340,10 +332,10 @@ export function parseTable(output: string): ParsedTable {
   }
 
   // Convert to records
-  const rows = rawRows.map(row => {
+  const rows = rawRows.map((row) => {
     const record: Record<string, string> = {};
     headers.forEach((header, i) => {
-      record[header] = row[i] || '';
+      record[header] = row[i] || "";
     });
     return record;
   });
@@ -355,7 +347,7 @@ export function parseTable(output: string): ParsedTable {
  * Extract a specific column from parsed table
  */
 export function getColumn(table: ParsedTable, columnName: string): string[] {
-  return table.rows.map(row => row[columnName] || '');
+  return table.rows.map((row) => row[columnName] || "");
 }
 
 /**
@@ -366,9 +358,7 @@ export function findRow(
   columnName: string,
   value: string
 ): Record<string, string> | undefined {
-  return table.rows.find(row =>
-    row[columnName]?.toLowerCase().includes(value.toLowerCase())
-  );
+  return table.rows.find((row) => row[columnName]?.toLowerCase().includes(value.toLowerCase()));
 }
 
 // ============================================================================
@@ -394,32 +384,30 @@ export interface MockApiResponse {
  * vi.stubGlobal('fetch', mockFetch);
  * ```
  */
-export function createMockFetch(
-  responses: Record<string, MockApiResponse>
-): typeof fetch {
+export function createMockFetch(responses: Record<string, MockApiResponse>): typeof fetch {
   return vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input.toString();
-    const path = new URL(url, 'http://localhost').pathname;
+    const url = typeof input === "string" ? input : input.toString();
+    const path = new URL(url, "http://localhost").pathname;
 
     const mockResponse = responses[path];
 
     if (!mockResponse) {
-      return new Response(JSON.stringify({ error: 'Not found' }), {
+      return new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     if (mockResponse.error) {
       return new Response(JSON.stringify({ error: mockResponse.error }), {
         status: mockResponse.status || 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify(mockResponse.data), {
       status: mockResponse.status || 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }) as typeof fetch;
 }
@@ -467,7 +455,7 @@ export function expectJson<T = unknown>(output: string): T {
 /**
  * Generate a unique test ID
  */
-export function testId(prefix = 'test'): string {
+export function testId(prefix = "test"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -485,7 +473,7 @@ export async function waitFor(
     if (await condition()) {
       return;
     }
-    await new Promise(resolve => setTimeout(resolve, interval));
+    await new Promise((resolve) => setTimeout(resolve, interval));
   }
 
   throw new Error(`Condition not met within ${timeout}ms`);
