@@ -404,31 +404,77 @@ export const initCommand = new Command("init")
         );
 
         if (discoverTenants.toLowerCase() === "y" || discoverTenants.toLowerCase() === "yes") {
-          const discovered = await discoverGdapTenants(partnerTenantId, partnerClientId);
+          const discovered = await discoverGdapTenantsWithEnvironments(
+            partnerTenantId,
+            partnerClientId
+          );
 
           if (discovered.length > 0) {
             console.log();
-            console.log(chalk.cyan(`Found ${discovered.length} GDAP customer(s):`));
-            console.log();
 
-            // Let user select which tenants to add
+            // Let user select which tenants/environments to add
             for (const tenant of discovered) {
-              const add = await rl.question(
-                chalk.white(`   Add ${tenant.name}? `) + chalk.gray("(y/n) ")
-              );
-              if (add.toLowerCase() === "y" || add.toLowerCase() === "yes") {
-                // Ask for environment URL since GDAP doesn't provide it
-                const envUrl = await rl.question(
-                  chalk.white(`   Environment URL for ${tenant.name}: `) +
-                    chalk.gray("(e.g., https://contoso.crm.dynamics.com) ")
+              if (tenant.environments.length === 0) {
+                console.log(
+                  chalk.gray(`   ${tenant.name}: No Dataverse environments found, skipping`)
                 );
-                if (envUrl) {
+                continue;
+              }
+
+              const add = await rl.question(
+                chalk.white(`   Add ${tenant.name}? `) +
+                  chalk.gray(`(${tenant.environments.length} environment(s)) `) +
+                  chalk.gray("(y/n) ")
+              );
+
+              if (add.toLowerCase() === "y" || add.toLowerCase() === "yes") {
+                // If multiple environments, let them pick or add all
+                if (tenant.environments.length === 1) {
+                  const env = tenant.environments[0];
                   tenants.push({
                     tenantId: tenant.tenantId,
-                    name: tenant.name,
-                    environmentUrl: envUrl,
+                    name: `${tenant.name}`,
+                    environmentUrl: env.instanceUrl,
                   });
-                  console.log(chalk.green(`   ✓ Added ${tenant.name}`));
+                  console.log(chalk.green(`   ✓ Added ${tenant.name} (${env.displayName})`));
+                } else {
+                  // Multiple environments - show list
+                  console.log(chalk.cyan(`   Environments for ${tenant.name}:`));
+                  tenant.environments.forEach((env, i) => {
+                    console.log(
+                      chalk.gray(
+                        `     ${i + 1}. ${env.displayName} (${env.type}) - ${env.instanceUrl}`
+                      )
+                    );
+                  });
+
+                  const envChoice = await rl.question(
+                    chalk.white("   Add which? ") + chalk.gray("(number, 'all', or 'skip') ")
+                  );
+
+                  if (envChoice.toLowerCase() === "all") {
+                    for (const env of tenant.environments) {
+                      tenants.push({
+                        tenantId: tenant.tenantId,
+                        name: `${tenant.name} - ${env.displayName}`,
+                        environmentUrl: env.instanceUrl,
+                      });
+                    }
+                    console.log(
+                      chalk.green(`   ✓ Added all ${tenant.environments.length} environments`)
+                    );
+                  } else if (envChoice.toLowerCase() !== "skip") {
+                    const envIndex = parseInt(envChoice, 10) - 1;
+                    if (envIndex >= 0 && envIndex < tenant.environments.length) {
+                      const env = tenant.environments[envIndex];
+                      tenants.push({
+                        tenantId: tenant.tenantId,
+                        name: `${tenant.name} - ${env.displayName}`,
+                        environmentUrl: env.instanceUrl,
+                      });
+                      console.log(chalk.green(`   ✓ Added ${env.displayName}`));
+                    }
+                  }
                 }
               }
             }
@@ -722,20 +768,32 @@ async function testCredentialsAndGdap(
   }
 }
 
+interface DiscoveredEnvironment {
+  displayName: string;
+  type: string;
+  instanceUrl: string;
+}
+
+interface DiscoveredTenant {
+  tenantId: string;
+  name: string;
+  environments: DiscoveredEnvironment[];
+}
+
 /**
- * Discover customer tenants via GDAP relationships
+ * Discover customer tenants via GDAP and their Power Platform environments
  */
-async function discoverGdapTenants(
+async function discoverGdapTenantsWithEnvironments(
   partnerTenantId: string,
   partnerClientId: string
-): Promise<Array<{ tenantId: string; name: string }>> {
+): Promise<DiscoveredTenant[]> {
   const spinner = ora("Discovering GDAP customers...").start();
 
   try {
     const { getClientSecretWithFallback } = await import("../lib/credentials.js");
     const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
 
-    const { GdapClient } = await import("@agentsync/core");
+    const { GdapClient, TokenManager, PowerPlatformAdminClient } = await import("@agentsync/core");
     const gdapClient = new GdapClient({
       tenantId: partnerTenantId,
       clientId: partnerClientId,
@@ -752,12 +810,66 @@ async function discoverGdapTenants(
       return [];
     }
 
-    spinner.succeed(`Found ${relationships.length} customer(s) via GDAP`);
+    spinner.succeed(`Found ${relationships.length} GDAP customer(s)`);
 
-    return relationships.map((rel) => ({
-      tenantId: rel.customer.tenantId,
-      name: rel.customer.displayName,
-    }));
+    // Now discover environments for each tenant
+    const results: DiscoveredTenant[] = [];
+
+    for (const rel of relationships) {
+      const envSpinner = ora(
+        `   Discovering environments for ${rel.customer.displayName}...`
+      ).start();
+
+      try {
+        // Create token manager for the customer tenant (using GDAP delegation)
+        const customerTokenManager = new TokenManager({
+          tenantId: rel.customer.tenantId,
+          clientId: partnerClientId,
+          clientSecret,
+        });
+
+        const adminClient = new PowerPlatformAdminClient({
+          tokenManager: customerTokenManager,
+        });
+
+        const environments = await adminClient.listEnvironmentSummaries();
+
+        // Filter to production/sandbox environments with Dataverse
+        const dataverseEnvs = environments.filter(
+          (env) =>
+            env.instanceUrl &&
+            (env.type === "Production" || env.type === "Sandbox" || env.type === "Default")
+        );
+
+        results.push({
+          tenantId: rel.customer.tenantId,
+          name: rel.customer.displayName,
+          environments: dataverseEnvs.map((env) => ({
+            displayName: env.displayName,
+            type: env.type,
+            instanceUrl: env.instanceUrl,
+          })),
+        });
+
+        if (dataverseEnvs.length > 0) {
+          envSpinner.succeed(
+            `   ${rel.customer.displayName}: ${dataverseEnvs.length} environment(s)`
+          );
+        } else {
+          envSpinner.warn(`   ${rel.customer.displayName}: No Dataverse environments`);
+        }
+      } catch (envError) {
+        // Couldn't discover environments for this tenant
+        envSpinner.warn(`   ${rel.customer.displayName}: Could not discover environments`);
+        results.push({
+          tenantId: rel.customer.tenantId,
+          name: rel.customer.displayName,
+          environments: [],
+        });
+      }
+    }
+
+    return results;
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     spinner.warn("Could not discover GDAP customers");
