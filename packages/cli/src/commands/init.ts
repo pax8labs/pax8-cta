@@ -564,6 +564,10 @@ tenants:${tenantsYaml}
       writeFileSync(configPath, configContent);
       spinner.succeed(`Configuration saved to ${configPath}`);
 
+      // Disable demo mode since user is setting up real credentials
+      const { saveCliConfig } = await import("./demo.js");
+      saveCliConfig({ demoMode: false });
+
       // Offer to test credentials and discover GDAP tenants
       console.log();
       const testConnection = await rl.question(
