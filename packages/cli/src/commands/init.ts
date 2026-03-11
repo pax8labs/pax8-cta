@@ -58,7 +58,7 @@ function readMaskedInput(prompt: string): Promise<string> {
         // Enter pressed - cleanup and resolve
         process.stdin.setRawMode?.(false);
         process.stdin.removeListener("data", handler);
-        process.stdin.pause();
+        // Don't pause stdin - let readline continue to work
         originalWrite("\n");
         resolve(input);
       } else if (char === "\x7f" || char === "\b") {
