@@ -29,7 +29,7 @@ export const inspectCommand = new Command("inspect")
     const spinner = ora("Loading fleet manifest...").start();
 
     try {
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
 
       let destinations = config.tenants.filter((t) => t.enabled);

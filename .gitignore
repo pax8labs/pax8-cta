@@ -54,3 +54,6 @@ data/
 # Playwright
 playwright-report/
 test-results/
+.env.sandbox
+config/tenants.sandbox.yaml
+test-solutions/

@@ -123,6 +123,7 @@ export class DeploymentService {
       const dataverseClient = new DataverseClient({
         environmentUrl: target.environmentUrl,
         tokenManager: customerTokenManager,
+        clientId: this.config.clientId,
       });
 
       // Quick health check - try to query solutions
@@ -348,6 +349,7 @@ export class DeploymentService {
       const dataverseClient = new DataverseClient({
         environmentUrl: target.environmentUrl,
         tokenManager: customerTokenManager,
+        clientId: this.config.clientId,
       });
 
       try {

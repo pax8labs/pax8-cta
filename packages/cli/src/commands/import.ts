@@ -21,7 +21,7 @@ import ora from "ora";
 import {
   loadConfig,
   getClientSecret,
-  getTenantById,
+  findTenant,
   TokenManager,
   DataverseClient,
   SolutionOperations,
@@ -42,12 +42,12 @@ export const importCommand = new Command("import")
 
     try {
       // Load config
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
 
-      // Find target tenant (destination)
+      // Find target tenant (destination) by ID, name, or environment URL
       const destinationId = options.destination || options.tenant;
-      const destination = getTenantById(config, destinationId);
+      const destination = findTenant(config, destinationId);
       if (!destination) {
         throw new Error(`Destination '${destinationId}' not found in manifest`);
       }
@@ -102,9 +102,7 @@ export const importCommand = new Command("import")
       }
     } catch (error) {
       spinner.fail(chalk.red("Delivery failed"));
-      console.error(
-        chalk.red(error instanceof Error ? error.message : String(error))
-      );
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
   });

@@ -31,6 +31,7 @@ import { statusCommand } from "./commands/status.js";
 import { tenantsCommand } from "./commands/tenants/index.js";
 import { agentsCommand } from "./commands/agents/index.js";
 import { deploymentsCommand } from "./commands/deployments/index.js";
+import { solutionsCommand } from "./commands/solutions/index.js";
 import { resolveUrlCommand } from "./commands/resolve-url.js";
 import { initCommand } from "./commands/init.js";
 import { demoCommand } from "./commands/demo.js";
@@ -69,6 +70,7 @@ export function createProgram(): Command {
   program.addCommand(statusCommand);
   program.addCommand(tenantsCommand);
   program.addCommand(agentsCommand);
+  program.addCommand(solutionsCommand);
   program.addCommand(resolveUrlCommand);
   program.addCommand(telemetryCommand);
 

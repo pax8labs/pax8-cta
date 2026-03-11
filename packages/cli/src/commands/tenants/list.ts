@@ -121,7 +121,7 @@ export const listCommand = new Command("list")
       }
 
       // Real mode - load config
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
       spinner.succeed(`Loaded ${config.tenants.length} destinations from manifest`);
 

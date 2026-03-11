@@ -49,7 +49,7 @@ export const showCommand = new Command("show")
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
       } else {
-        const configPath = resolve(options.config);
+        const configPath = resolve(process.cwd(), options.config);
         const config = await loadConfig(configPath);
         tenants = config.tenants;
         spinner.stop();

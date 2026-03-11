@@ -94,7 +94,7 @@ export const deployCommand = new Command("deploy")
       }
 
       // Load config
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
       spinner.succeed("Manifest loaded");
 

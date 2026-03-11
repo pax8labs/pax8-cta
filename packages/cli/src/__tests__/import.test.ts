@@ -14,26 +14,32 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Command } from 'commander';
-import { ConsoleCapture, mockEnv, containsText, mockSpinner, mockProcessExit } from './test-utils.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { Command } from "commander";
+import {
+  ConsoleCapture,
+  mockEnv,
+  containsText,
+  mockSpinner,
+  mockProcessExit,
+} from "./test-utils.js";
 
 // Mock @agentsync/core
-vi.mock('@agentsync/core', () => ({
+vi.mock("@agentsync/core", () => ({
   loadConfig: vi.fn(),
   getClientSecret: vi.fn(),
-  getTenantById: vi.fn(),
+  findTenant: vi.fn(),
   TokenManager: vi.fn(),
   DataverseClient: vi.fn(),
   SolutionOperations: vi.fn(),
 }));
 
 // Mock ora
-vi.mock('ora', () => ({
+vi.mock("ora", () => ({
   default: vi.fn(() => mockSpinner()),
 }));
 
-describe('Import Command (deliver)', () => {
+describe("Import Command (deliver)", () => {
   let consoleCapture: ConsoleCapture;
   let restoreEnv: () => void;
   let exitSpy: any;
@@ -56,253 +62,280 @@ describe('Import Command (deliver)', () => {
     vi.restoreAllMocks();
   });
 
-  describe('required options', () => {
-    it('should have --solution as required option', async () => {
-      const { importCommand } = await import('../commands/import.js');
+  describe("required options", () => {
+    it("should have --solution as required option", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
-      const solutionOption = importCommand.options.find(opt => opt.long === '--solution');
+      const solutionOption = importCommand.options.find((opt) => opt.long === "--solution");
       expect(solutionOption).toBeDefined();
       expect(solutionOption?.required).toBe(true);
     });
 
-    it('should have --tenant as required option', async () => {
-      const { importCommand } = await import('../commands/import.js');
+    it("should have --tenant as required option", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
-      const tenantOption = importCommand.options.find(opt => opt.long === '--tenant');
+      const tenantOption = importCommand.options.find((opt) => opt.long === "--tenant");
       expect(tenantOption).toBeDefined();
       expect(tenantOption?.required).toBe(true);
     });
   });
 
-  describe('option aliases', () => {
+  describe("option aliases", () => {
     it('should accept "deliver" as alias for "import"', async () => {
-      const { importCommand } = await import('../commands/import.js');
+      const { importCommand } = await import("../commands/import.js");
       const program = new Command();
       program.exitOverride();
       program.addCommand(importCommand);
 
       // Verify the alias exists
-      expect(importCommand.aliases()).toContain('deliver');
+      expect(importCommand.aliases()).toContain("deliver");
     });
 
-    it('should accept --agentPackage as alias for --solution', async () => {
-      const { importCommand } = await import('../commands/import.js');
+    it("should accept --agentPackage as alias for --solution", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
       // Check that the option exists
-      const solutionOption = importCommand.options.find(opt => opt.long === '--solution');
-      const agentPackageOption = importCommand.options.find(opt => opt.long === '--agentPackage');
+      const solutionOption = importCommand.options.find((opt) => opt.long === "--solution");
+      const agentPackageOption = importCommand.options.find((opt) => opt.long === "--agentPackage");
 
       expect(solutionOption).toBeDefined();
       expect(agentPackageOption).toBeDefined();
     });
 
-    it('should accept --destination as alias for --tenant', async () => {
-      const { importCommand } = await import('../commands/import.js');
+    it("should accept --destination as alias for --tenant", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
-      const tenantOption = importCommand.options.find(opt => opt.long === '--tenant');
-      const destinationOption = importCommand.options.find(opt => opt.long === '--destination');
+      const tenantOption = importCommand.options.find((opt) => opt.long === "--tenant");
+      const destinationOption = importCommand.options.find((opt) => opt.long === "--destination");
 
       expect(tenantOption).toBeDefined();
       expect(destinationOption).toBeDefined();
     });
   });
 
-  describe('error handling', () => {
-    it('should error when tenant not found in config', async () => {
-      const { loadConfig, getTenantById } = await import('@agentsync/core');
+  describe("error handling", () => {
+    it("should error when tenant not found in config", async () => {
+      const { loadConfig, findTenant } = await import("@agentsync/core");
 
       vi.mocked(loadConfig).mockResolvedValue({
-        version: '2.0',
-        partner: { tenantId: 'partner-id', clientId: 'client-id' },
-        source: { tenantId: 'source-id', environmentUrl: 'https://source.crm.dynamics.com' },
+        version: "2.0",
+        partner: { tenantId: "partner-id", clientId: "client-id" },
+        source: { tenantId: "source-id", environmentUrl: "https://source.crm.dynamics.com" },
         tenants: [],
       } as any);
 
-      vi.mocked(getTenantById).mockReturnValue(undefined);
+      vi.mocked(findTenant).mockReturnValue(undefined);
 
-      const { importCommand } = await import('../commands/import.js');
+      const { importCommand } = await import("../commands/import.js");
       const program = new Command();
       program.addCommand(importCommand);
 
       try {
         await program.parseAsync([
-          'node', 'test', 'deliver',
-          '--solution', './test.zip',
-          '--tenant', 'unknown-id'
+          "node",
+          "test",
+          "deliver",
+          "--solution",
+          "./test.zip",
+          "--tenant",
+          "unknown-id",
         ]);
       } catch (error: any) {
-        expect(error.message).toContain('process.exit(1)');
+        expect(error.message).toContain("process.exit(1)");
       }
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, 'not found in manifest')).toBe(true);
+      expect(containsText(output, "not found in manifest")).toBe(true);
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
 
-  describe('configuration', () => {
-    it('should use default config path if not specified', async () => {
-      const { loadConfig } = await import('@agentsync/core');
+  describe("configuration", () => {
+    it("should use default config path if not specified", async () => {
+      const { loadConfig } = await import("@agentsync/core");
 
       vi.mocked(loadConfig).mockResolvedValue({
-        version: '2.0',
-        partner: { tenantId: 'partner-id', clientId: 'client-id' },
-        source: { tenantId: 'source-id', environmentUrl: 'https://source.crm.dynamics.com' },
+        version: "2.0",
+        partner: { tenantId: "partner-id", clientId: "client-id" },
+        source: { tenantId: "source-id", environmentUrl: "https://source.crm.dynamics.com" },
         tenants: [],
       } as any);
 
-      const { importCommand } = await import('../commands/import.js');
+      const { importCommand } = await import("../commands/import.js");
 
       // Check default config option
-      const configOption = importCommand.options.find(opt => opt.long === '--config');
-      expect(configOption?.defaultValue).toBe('./config/tenants.yaml');
+      const configOption = importCommand.options.find((opt) => opt.long === "--config");
+      expect(configOption?.defaultValue).toBe("./config/tenants.yaml");
     });
 
-    it('should support custom config path', async () => {
-      const { importCommand } = await import('../commands/import.js');
+    it("should support custom config path", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
-      const configOption = importCommand.options.find(opt => opt.long === '--config');
+      const configOption = importCommand.options.find((opt) => opt.long === "--config");
       expect(configOption).toBeDefined();
     });
   });
 
-  describe('import options', () => {
-    it('should support --no-overwrite flag', async () => {
-      const { importCommand } = await import('../commands/import.js');
+  describe("import options", () => {
+    it("should support --no-overwrite flag", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
-      const overwriteOption = importCommand.options.find(opt => opt.long === '--no-overwrite');
+      const overwriteOption = importCommand.options.find((opt) => opt.long === "--no-overwrite");
       expect(overwriteOption).toBeDefined();
     });
 
-    it('should support --no-publish flag', async () => {
-      const { importCommand } = await import('../commands/import.js');
+    it("should support --no-publish flag", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
-      const publishOption = importCommand.options.find(opt => opt.long === '--no-publish');
+      const publishOption = importCommand.options.find((opt) => opt.long === "--no-publish");
       expect(publishOption).toBeDefined();
     });
   });
 
-  describe('command description', () => {
-    it('should have appropriate description', async () => {
-      const { importCommand } = await import('../commands/import.js');
+  describe("command description", () => {
+    it("should have appropriate description", async () => {
+      const { importCommand } = await import("../commands/import.js");
 
-      expect(importCommand.description()).toContain('agent package');
-      expect(importCommand.description()).toContain('tenant');
+      expect(importCommand.description()).toContain("agent package");
+      expect(importCommand.description()).toContain("tenant");
     });
   });
 
-  describe('successful delivery', () => {
-    it('should deliver solution successfully when all mocks resolve', async () => {
+  describe("successful delivery", () => {
+    it("should deliver solution successfully when all mocks resolve", async () => {
       const {
         loadConfig,
         getClientSecret,
-        getTenantById,
+        findTenant,
         TokenManager,
         DataverseClient,
         SolutionOperations,
-      } = await import('@agentsync/core');
+      } = await import("@agentsync/core");
 
       // Mock config
       vi.mocked(loadConfig).mockResolvedValue({
-        version: '2.0',
-        partner: { tenantId: 'partner-id', clientId: 'client-id' },
-        source: { tenantId: 'source-id', environmentUrl: 'https://source.crm.dynamics.com' },
+        version: "2.0",
+        partner: { tenantId: "partner-id", clientId: "client-id" },
+        source: { tenantId: "source-id", environmentUrl: "https://source.crm.dynamics.com" },
         tenants: [
-          { name: 'Test Tenant', tenantId: 'test-id', environmentUrl: 'https://test.crm.dynamics.com', enabled: true }
+          {
+            name: "Test Tenant",
+            tenantId: "test-id",
+            environmentUrl: "https://test.crm.dynamics.com",
+            enabled: true,
+          },
         ],
       } as any);
 
       // Mock tenant found
-      vi.mocked(getTenantById).mockReturnValue({
-        name: 'Test Tenant',
-        tenantId: 'test-id',
-        environmentUrl: 'https://test.crm.dynamics.com',
+      vi.mocked(findTenant).mockReturnValue({
+        name: "Test Tenant",
+        tenantId: "test-id",
+        environmentUrl: "https://test.crm.dynamics.com",
         enabled: true,
       } as any);
 
       // Mock client secret
-      vi.mocked(getClientSecret).mockReturnValue('mock-secret');
+      vi.mocked(getClientSecret).mockReturnValue("mock-secret");
 
       // Mock classes
       vi.mocked(TokenManager).mockImplementation(() => ({}) as any);
       vi.mocked(DataverseClient).mockImplementation(() => ({}) as any);
 
-      const mockImportSolutionAsync = vi.fn().mockResolvedValue('job-123');
+      const mockImportSolutionAsync = vi.fn().mockResolvedValue("job-123");
       const mockWaitForImport = vi.fn().mockResolvedValue({ success: true });
 
-      vi.mocked(SolutionOperations).mockImplementation(() => ({
-        importSolutionAsync: mockImportSolutionAsync,
-        waitForImport: mockWaitForImport,
-      }) as any);
+      vi.mocked(SolutionOperations).mockImplementation(
+        () =>
+          ({
+            importSolutionAsync: mockImportSolutionAsync,
+            waitForImport: mockWaitForImport,
+          }) as any
+      );
 
-      const { importCommand } = await import('../commands/import.js');
+      const { importCommand } = await import("../commands/import.js");
       const program = new Command();
       program.addCommand(importCommand);
 
       await program.parseAsync([
-        'node', 'test', 'deliver',
-        '--solution', './test.zip',
-        '--tenant', 'test-id'
+        "node",
+        "test",
+        "deliver",
+        "--solution",
+        "./test.zip",
+        "--tenant",
+        "test-id",
       ]);
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, 'delivered successfully')).toBe(true);
+      expect(containsText(output, "delivered successfully")).toBe(true);
       expect(mockImportSolutionAsync).toHaveBeenCalled();
       expect(mockWaitForImport).toHaveBeenCalled();
     });
 
-    it('should handle delivery failure', async () => {
+    it("should handle delivery failure", async () => {
       const {
         loadConfig,
         getClientSecret,
-        getTenantById,
+        findTenant,
         TokenManager,
         DataverseClient,
         SolutionOperations,
-      } = await import('@agentsync/core');
+      } = await import("@agentsync/core");
 
       vi.mocked(loadConfig).mockResolvedValue({
-        version: '2.0',
-        partner: { tenantId: 'partner-id', clientId: 'client-id' },
-        source: { tenantId: 'source-id', environmentUrl: 'https://source.crm.dynamics.com' },
+        version: "2.0",
+        partner: { tenantId: "partner-id", clientId: "client-id" },
+        source: { tenantId: "source-id", environmentUrl: "https://source.crm.dynamics.com" },
         tenants: [],
       } as any);
 
-      vi.mocked(getTenantById).mockReturnValue({
-        name: 'Test Tenant',
-        tenantId: 'test-id',
-        environmentUrl: 'https://test.crm.dynamics.com',
+      vi.mocked(findTenant).mockReturnValue({
+        name: "Test Tenant",
+        tenantId: "test-id",
+        environmentUrl: "https://test.crm.dynamics.com",
         enabled: true,
       } as any);
 
-      vi.mocked(getClientSecret).mockReturnValue('mock-secret');
+      vi.mocked(getClientSecret).mockReturnValue("mock-secret");
       vi.mocked(TokenManager).mockImplementation(() => ({}) as any);
       vi.mocked(DataverseClient).mockImplementation(() => ({}) as any);
 
-      const mockImportSolutionAsync = vi.fn().mockResolvedValue('job-123');
-      const mockWaitForImport = vi.fn().mockResolvedValue({ success: false, error: 'Import failed' });
+      const mockImportSolutionAsync = vi.fn().mockResolvedValue("job-123");
+      const mockWaitForImport = vi
+        .fn()
+        .mockResolvedValue({ success: false, error: "Import failed" });
 
-      vi.mocked(SolutionOperations).mockImplementation(() => ({
-        importSolutionAsync: mockImportSolutionAsync,
-        waitForImport: mockWaitForImport,
-      }) as any);
+      vi.mocked(SolutionOperations).mockImplementation(
+        () =>
+          ({
+            importSolutionAsync: mockImportSolutionAsync,
+            waitForImport: mockWaitForImport,
+          }) as any
+      );
 
-      const { importCommand } = await import('../commands/import.js');
+      const { importCommand } = await import("../commands/import.js");
       const program = new Command();
       program.addCommand(importCommand);
 
       try {
         await program.parseAsync([
-          'node', 'test', 'deliver',
-          '--solution', './test.zip',
-          '--tenant', 'test-id'
+          "node",
+          "test",
+          "deliver",
+          "--solution",
+          "./test.zip",
+          "--tenant",
+          "test-id",
         ]);
       } catch (error: any) {
-        expect(error.message).toContain('process.exit(1)');
+        expect(error.message).toContain("process.exit(1)");
       }
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, 'Import failed') || containsText(output, 'Delivery failed')).toBe(true);
+      expect(containsText(output, "Import failed") || containsText(output, "Delivery failed")).toBe(
+        true
+      );
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });

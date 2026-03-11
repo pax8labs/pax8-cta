@@ -136,6 +136,7 @@ export class VersionChecker {
       const client = new DataverseClient({
         environmentUrl: tenant.environmentUrl,
         tokenManager,
+        clientId: tokenManager.getClientId(),
       });
 
       const deployedSolutions = await client.querySolutions();

@@ -30,7 +30,10 @@ import {
 
 export const resolveUrlCommand = new Command("resolve-url")
   .description("Resolve an M365 agent URL and export the containing solution")
-  .requiredOption("-u, --url <url>", "M365 agent URL (e.g., https://m365.cloud.microsoft/chat/?titleId=...)")
+  .requiredOption(
+    "-u, --url <url>",
+    "M365 agent URL (e.g., https://m365.cloud.microsoft/chat/?titleId=...)"
+  )
   .option("-o, --output <path>", "Output directory for the solution", "./agent packages")
   .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
   .option("--unmanaged", "Export as unmanaged solution (default: managed)")
@@ -41,7 +44,7 @@ export const resolveUrlCommand = new Command("resolve-url")
 
     try {
       // Load config
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
       spinner.succeed("Configuration loaded");
 
@@ -132,7 +135,9 @@ export const resolveUrlCommand = new Command("resolve-url")
         managed,
         outputPath,
       });
-      spinner.succeed(`Solution exported: ${chalk.green(metadata.friendlyName)} v${metadata.version}`);
+      spinner.succeed(
+        `Solution exported: ${chalk.green(metadata.friendlyName)} v${metadata.version}`
+      );
 
       console.log();
       console.log(chalk.bold("Export Complete:"));
@@ -146,9 +151,7 @@ export const resolveUrlCommand = new Command("resolve-url")
       );
     } catch (error) {
       spinner.fail(chalk.red("Failed"));
-      console.error(
-        chalk.red(error instanceof Error ? error.message : String(error))
-      );
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
   });

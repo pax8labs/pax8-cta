@@ -58,9 +58,7 @@ export const analyzeCommand = new Command("analyze")
     try {
       // Validate options
       if (!options.all && (!options.tag || options.tag.length === 0)) {
-        spinner.fail(
-          chalk.red("Must specify --all or --tag to select destinations")
-        );
+        spinner.fail(chalk.red("Must specify --all or --tag to select destinations"));
         process.exit(1);
       }
 
@@ -121,7 +119,7 @@ export const analyzeCommand = new Command("analyze")
       }
 
       // Load config
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
       spinner.succeed("Manifest loaded");
 
@@ -182,9 +180,7 @@ export const analyzeCommand = new Command("analyze")
       displayAnalysis(analysis, destinations.length, options.json);
     } catch (error) {
       spinner.fail(chalk.red("Risk analysis failed"));
-      console.error(
-        chalk.red(error instanceof Error ? error.message : String(error))
-      );
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
   });
@@ -200,8 +196,8 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
     analysis.score === "critical" || analysis.score === "high"
       ? chalk.red
       : analysis.score === "medium"
-      ? chalk.yellow
-      : chalk.green;
+        ? chalk.yellow
+        : chalk.green;
 
   console.log(chalk.bold("═".repeat(70)));
   console.log(chalk.bold.cyan("                         RISK ANALYSIS REPORT"));
@@ -213,9 +209,15 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
   console.log(`  Risk Score:           ${scoreColor(analysis.score.toUpperCase())}`);
   console.log(`  Confidence:           ${analysis.confidence}%`);
   console.log(`  Success Probability:  ${analysis.successProbability}%`);
-  console.log(`  Estimated Duration:   ${analysis.estimatedDuration.min}-${analysis.estimatedDuration.max} minutes`);
-  console.log(`  Can Proceed:          ${analysis.canProceed ? chalk.green("YES") : chalk.red("NO")}`);
-  console.log(`  Requires Approval:    ${analysis.requiresApproval ? chalk.yellow("YES") : chalk.green("NO")}`);
+  console.log(
+    `  Estimated Duration:   ${analysis.estimatedDuration.min}-${analysis.estimatedDuration.max} minutes`
+  );
+  console.log(
+    `  Can Proceed:          ${analysis.canProceed ? chalk.green("YES") : chalk.red("NO")}`
+  );
+  console.log(
+    `  Requires Approval:    ${analysis.requiresApproval ? chalk.yellow("YES") : chalk.green("NO")}`
+  );
   console.log(`  Analyzed Tenants:     ${tenantCount}`);
   console.log();
 

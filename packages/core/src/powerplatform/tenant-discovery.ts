@@ -214,6 +214,7 @@ export class TenantDiscoveryService {
     const dataverseClient = new DataverseClient({
       environmentUrl,
       tokenManager: customerTokenManager,
+      clientId: this.partnerConfig.clientId,
     });
 
     // Query solutions

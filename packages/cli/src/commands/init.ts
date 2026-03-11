@@ -77,7 +77,7 @@ export const initCommand = new Command("init")
       console.log();
       console.log(chalk.yellow("⚠️  Client Secret"));
       console.log(chalk.gray("For security, store your client secret in an environment variable:"));
-      console.log(chalk.white("  export AGENTSYNC_CLIENT_SECRET=\"your-secret-here\""));
+      console.log(chalk.white('  export AGENTSYNC_CLIENT_SECRET="your-secret-here"'));
       console.log();
 
       // Ask about sample tenants
@@ -90,7 +90,7 @@ export const initCommand = new Command("init")
       // Create config
       const spinner = ora("Creating configuration...").start();
 
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const configDir = dirname(configPath);
 
       if (!existsSync(configDir)) {
@@ -118,8 +118,8 @@ settings:
 
 # Your Tenants
 tenants:${
-  includeSample
-    ? `
+        includeSample
+          ? `
   # Sample tenant - replace with your actual tenants
   - tenantId: "00000000-0000-0000-0000-000000000000"
     name: "Sample Client"
@@ -128,7 +128,7 @@ tenants:${
     tags:
       - production
       - enterprise`
-    : `
+          : `
   # Add your tenants here:
   # - tenantId: "tenant-guid-here"
   #   name: "Client Name"
@@ -136,7 +136,7 @@ tenants:${
   #   enabled: true
   #   tags:
   #     - production`
-}
+      }
 `;
 
       writeFileSync(configPath, configContent);
@@ -147,7 +147,7 @@ tenants:${
       console.log();
       console.log(chalk.cyan("Next steps:"));
       console.log(chalk.gray("  1. Set your client secret:"));
-      console.log(chalk.white("     export AGENTSYNC_CLIENT_SECRET=\"your-secret\""));
+      console.log(chalk.white('     export AGENTSYNC_CLIENT_SECRET="your-secret"'));
       console.log();
       console.log(chalk.gray("  2. Add your tenant destinations to:"));
       console.log(chalk.white(`     ${configPath}`));

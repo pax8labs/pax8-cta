@@ -61,13 +61,18 @@ export const exportCommand = new Command("export")
         const outputPath = `${outputDir}/${options.solution}_${timestamp}_${suffix}.zip`;
 
         // Find demo solution (relative to CLI dist or source)
-        const demoSolutionPath = join(__dirname, "../../demo-data/solutions/ProductQADemo_1_0_0_2_managed.zip");
+        const demoSolutionPath = join(
+          __dirname,
+          "../../demo-data/solutions/ProductQADemo_1_0_0_2_managed.zip"
+        );
 
         if (existsSync(demoSolutionPath)) {
           copyFileSync(demoSolutionPath, outputPath);
         } else {
           // Fallback - create a simple message
-          console.log(chalk.yellow("Note: Demo solution file not found, but in production this would create:"));
+          console.log(
+            chalk.yellow("Note: Demo solution file not found, but in production this would create:")
+          );
           console.log(chalk.cyan(`  ${outputPath}`));
         }
 
@@ -77,12 +82,14 @@ export const exportCommand = new Command("export")
         console.log(`  Type:     ${managed ? "Managed" : "Unmanaged"}`);
         console.log(`  Package:  ${chalk.cyan(outputPath)}`);
         console.log();
-        console.log(chalk.gray(`Use 'agentsync ship --solution ${outputPath} --all' to ship to your fleet`));
+        console.log(
+          chalk.gray(`Use 'agentsync ship --solution ${outputPath} --all' to ship to your fleet`)
+        );
         return;
       }
 
       // Load config
-      const configPath = resolve(options.config);
+      const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
       spinner.succeed("Manifest loaded");
 
@@ -134,9 +141,7 @@ export const exportCommand = new Command("export")
       );
     } catch (error) {
       spinner.fail(chalk.red("Packing failed"));
-      console.error(
-        chalk.red(error instanceof Error ? error.message : String(error))
-      );
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
   });

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import crypto from "node:crypto";
 
 import { writeFile, readFile, mkdir, readdir, unlink, stat } from "node:fs/promises";
 import { join } from "node:path";

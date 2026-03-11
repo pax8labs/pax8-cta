@@ -19,6 +19,7 @@ import { TokenManager } from "../auth/token-manager.js";
 export interface DataverseClientConfig {
   environmentUrl: string;
   tokenManager: TokenManager;
+  clientId?: string;
 }
 
 export interface DataverseError {
@@ -29,6 +30,94 @@ export interface DataverseError {
     type: string;
     stacktrace: string;
   };
+}
+
+export interface ErrorContext {
+  operation?: string;
+  environmentUrl?: string;
+  clientId?: string;
+}
+
+/**
+ * Format Dataverse errors with helpful guidance for common authentication issues
+ */
+export function formatDataverseError(
+  error: DataverseError,
+  statusCode: number,
+  context?: ErrorContext
+): string {
+  const errorMessage = error.message;
+  const innerMessage = error.innererror?.message || "";
+  const fullMessage = `${errorMessage}${innerMessage ? ` - ${innerMessage}` : ""}`;
+
+  // Check for common S2S authentication patterns
+  const isNotMemberError =
+    /user is not a member of the organization/i.test(fullMessage) ||
+    /not a member of.*environment/i.test(fullMessage);
+
+  const isPrivilegeError =
+    /prvRead/i.test(fullMessage) ||
+    /prvWrite/i.test(fullMessage) ||
+    /prvCreate/i.test(fullMessage) ||
+    /prvDelete/i.test(fullMessage) ||
+    /insufficient.*privilege/i.test(fullMessage) ||
+    /missing privilege/i.test(fullMessage) ||
+    /access.*denied/i.test(fullMessage);
+
+  const isForbiddenError = statusCode === 403;
+  const isUnauthorizedError = statusCode === 401;
+
+  // Build helpful error message
+  let helpfulMessage = `Authentication failed: ${fullMessage}\n`;
+
+  if (isNotMemberError) {
+    helpfulMessage += `\nThe application is not registered as a user in the Power Platform environment.\n`;
+    helpfulMessage += `\nTo fix:\n`;
+    helpfulMessage += `1. Go to https://admin.powerplatform.microsoft.com\n`;
+    helpfulMessage += `2. Select the environment → Settings → Users + permissions → Application users\n`;
+    helpfulMessage += `3. Click "+ New app user" and add your application\n`;
+    if (context?.clientId) {
+      helpfulMessage += `   Client ID: ${context.clientId}\n`;
+    }
+    helpfulMessage += `4. Assign the "System Administrator" security role\n`;
+    helpfulMessage += `5. Save and retry the command\n`;
+  } else if (isPrivilegeError || isForbiddenError) {
+    helpfulMessage += `\nThe application lacks required permissions in the Power Platform environment.\n`;
+    helpfulMessage += `\nTo fix:\n`;
+    helpfulMessage += `1. Go to https://admin.powerplatform.microsoft.com\n`;
+    helpfulMessage += `2. Select the environment → Settings → Users + permissions → Application users\n`;
+    helpfulMessage += `3. Find your application user`;
+    if (context?.clientId) {
+      helpfulMessage += ` (Client ID: ${context.clientId})`;
+    }
+    helpfulMessage += `\n`;
+    helpfulMessage += `4. Click "Manage security roles" or "Edit"\n`;
+    helpfulMessage += `5. Ensure "System Administrator" role is assigned\n`;
+    helpfulMessage += `   (Required privileges: prvReadSolution, prvWriteSolution, prvCreateSolution, etc.)\n`;
+    helpfulMessage += `6. Save and retry the command\n`;
+  } else if (isUnauthorizedError) {
+    helpfulMessage += `\nAuthentication token could not be acquired or is invalid.\n`;
+    helpfulMessage += `\nTo fix:\n`;
+    helpfulMessage += `1. Verify the app registration in Azure Portal:\n`;
+    helpfulMessage += `   - Go to https://portal.azure.com → Azure Active Directory → App registrations\n`;
+    if (context?.clientId) {
+      helpfulMessage += `   - Find your app (Client ID: ${context.clientId})\n`;
+    }
+    helpfulMessage += `2. Check API permissions:\n`;
+    helpfulMessage += `   - Ensure "Dynamics CRM" or "Common Data Service" permission is added\n`;
+    helpfulMessage += `   - Permission type: "user_impersonation" (delegated) or ".default" (application)\n`;
+    helpfulMessage += `   - Verify "Grant admin consent" has been clicked\n`;
+    helpfulMessage += `3. Verify client secret:\n`;
+    helpfulMessage += `   - Check if the secret has expired\n`;
+    helpfulMessage += `   - Generate a new secret if needed and update your configuration\n`;
+    helpfulMessage += `4. Retry the command\n`;
+  }
+
+  if (context?.environmentUrl) {
+    helpfulMessage += `\nEnvironment: ${context.environmentUrl}`;
+  }
+
+  return helpfulMessage;
 }
 
 /**
@@ -178,13 +267,14 @@ export class DataverseClient {
     try {
       const errorBody = (await response.json()) as { error?: DataverseError };
       if (errorBody.error) {
-        errorMessage = `Dataverse API error: ${errorBody.error.message}`;
-        if (errorBody.error.innererror) {
-          errorMessage += ` - ${errorBody.error.innererror.message}`;
-        }
+        // Use formatted error with helpful guidance
+        errorMessage = formatDataverseError(errorBody.error, response.status, {
+          environmentUrl: this.config.environmentUrl,
+          clientId: this.config.clientId,
+        });
       }
     } catch {
-      // Ignore JSON parse errors
+      // Ignore JSON parse errors - fall back to basic error
     }
 
     throw new Error(errorMessage);

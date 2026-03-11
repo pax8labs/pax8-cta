@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import crypto from "node:crypto";
 
 import { writeFile, readFile } from "node:fs/promises";
 import { DataverseClient, SolutionRecord } from "./client.js";

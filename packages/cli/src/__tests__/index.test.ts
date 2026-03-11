@@ -14,47 +14,47 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mockEnv } from './test-utils.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mockEnv } from "./test-utils.js";
 
 // Mock ora
-vi.mock('ora', () => ({
+vi.mock("ora", () => ({
   default: vi.fn(() => ({
     start: vi.fn().mockReturnThis(),
     succeed: vi.fn().mockReturnThis(),
     fail: vi.fn().mockReturnThis(),
     stop: vi.fn().mockReturnThis(),
-    text: '',
+    text: "",
   })),
 }));
 
 // Mock telemetry
-vi.mock('../lib/telemetry.js', () => ({
+vi.mock("../lib/telemetry.js", () => ({
   isTelemetryEnabled: vi.fn(() => false),
   hasShownFirstRunNotice: vi.fn(() => true),
   markFirstRunNoticeShown: vi.fn(),
-  getFirstRunNotice: vi.fn(() => 'Test notice'),
+  getFirstRunNotice: vi.fn(() => "Test notice"),
   trackCommand: vi.fn(),
   trackFirstRun: vi.fn(),
   shutdownTelemetry: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock banner
-vi.mock('../lib/banner.js', () => ({
+vi.mock("../lib/banner.js", () => ({
   showBanner: vi.fn(),
   showWelcome: vi.fn(),
 }));
 
 // Mock repl
-vi.mock('../lib/repl.js', () => ({
+vi.mock("../lib/repl.js", () => ({
   startRepl: vi.fn().mockResolvedValue(undefined),
 }));
 
-describe('CLI Entry Point', () => {
+describe("CLI Entry Point", () => {
   let restoreEnv: () => void;
 
   beforeEach(() => {
-    restoreEnv = mockEnv({ DEMO_MODE: 'true' });
+    restoreEnv = mockEnv({ DEMO_MODE: "true" });
     vi.resetModules();
   });
 
@@ -63,38 +63,38 @@ describe('CLI Entry Point', () => {
     vi.restoreAllMocks();
   });
 
-  describe('createProgram', () => {
-    it('should create a Commander program with all commands', async () => {
+  describe("createProgram", () => {
+    it("should create a Commander program with all commands", async () => {
       // Import the module to test createProgram
-      const { createProgram } = await import('../index.js');
+      const { createProgram } = await import("../index.js");
 
       const program = createProgram();
 
-      expect(program.name()).toBe('agentsync');
-      expect(program.description()).toContain('AgentSync');
+      expect(program.name()).toBe("agentsync");
+      expect(program.description()).toContain("AgentSync");
     });
 
-    it('should have all expected commands registered', async () => {
-      const { createProgram } = await import('../index.js');
+    it("should have all expected commands registered", async () => {
+      const { createProgram } = await import("../index.js");
 
       const program = createProgram();
-      const commandNames = program.commands.map(cmd => cmd.name());
+      const commandNames = program.commands.map((cmd) => cmd.name());
 
       // Verify core commands are registered (some may be aliases)
-      expect(commandNames).toContain('init');
-      expect(commandNames).toContain('demo');
-      expect(commandNames).toContain('analyze');
-      expect(commandNames).toContain('deployments');
-      expect(commandNames).toContain('agents');
-      expect(commandNames).toContain('resolve-url');
-      expect(commandNames).toContain('telemetry');
+      expect(commandNames).toContain("init");
+      expect(commandNames).toContain("demo");
+      expect(commandNames).toContain("analyze");
+      expect(commandNames).toContain("deployments");
+      expect(commandNames).toContain("agents");
+      expect(commandNames).toContain("resolve-url");
+      expect(commandNames).toContain("telemetry");
 
       // Commands with aliases - check either name or alias
-      const hasExportOrPack = commandNames.includes('export') || commandNames.includes('pack');
-      const hasDeployOrShip = commandNames.includes('deploy') || commandNames.includes('ship');
-      const hasStatusOrTrack = commandNames.includes('status') || commandNames.includes('track');
-      const hasTenantsOrFleet = commandNames.includes('tenants') || commandNames.includes('fleet');
-      const hasImport = commandNames.includes('import') || commandNames.includes('deliver');
+      const hasExportOrPack = commandNames.includes("export") || commandNames.includes("pack");
+      const hasDeployOrShip = commandNames.includes("deploy") || commandNames.includes("ship");
+      const hasStatusOrTrack = commandNames.includes("status") || commandNames.includes("track");
+      const hasTenantsOrFleet = commandNames.includes("tenants") || commandNames.includes("fleet");
+      const hasImport = commandNames.includes("import") || commandNames.includes("deliver");
 
       expect(hasExportOrPack).toBe(true);
       expect(hasDeployOrShip).toBe(true);
@@ -103,17 +103,17 @@ describe('CLI Entry Point', () => {
       expect(hasImport).toBe(true);
     });
 
-    it('should have correct number of commands', async () => {
-      const { createProgram } = await import('../index.js');
+    it("should have correct number of commands", async () => {
+      const { createProgram } = await import("../index.js");
 
       const program = createProgram();
 
-      // Should have 12 commands registered
-      expect(program.commands.length).toBe(12);
+      // Should have 13 commands registered (including solutions)
+      expect(program.commands.length).toBe(13);
     });
 
-    it('should have version set', async () => {
-      const { createProgram } = await import('../index.js');
+    it("should have version set", async () => {
+      const { createProgram } = await import("../index.js");
 
       const program = createProgram();
 

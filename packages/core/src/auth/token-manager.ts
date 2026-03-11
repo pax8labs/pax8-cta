@@ -38,8 +38,10 @@ export class TokenManager {
   private msalClient: ConfidentialClientApplication;
   private tokenCache: Map<string, CachedToken> = new Map();
   private readonly TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes before expiry
+  private readonly config: TokenManagerConfig;
 
   constructor(config: TokenManagerConfig) {
+    this.config = config;
     const msalConfig: Configuration = {
       auth: {
         clientId: config.clientId,
@@ -48,6 +50,13 @@ export class TokenManager {
       },
     };
     this.msalClient = new ConfidentialClientApplication(msalConfig);
+  }
+
+  /**
+   * Get the client ID for this token manager
+   */
+  getClientId(): string {
+    return this.config.clientId;
   }
 
   /**
@@ -92,15 +101,58 @@ export class TokenManager {
   }
 
   private async acquireToken(scopes: string[]): Promise<AuthenticationResult> {
-    const result = await this.msalClient.acquireTokenByClientCredential({
-      scopes,
-    });
+    try {
+      const result = await this.msalClient.acquireTokenByClientCredential({
+        scopes,
+      });
 
-    if (!result) {
-      throw new Error("Failed to acquire token - no result returned");
+      if (!result) {
+        throw new Error("Failed to acquire token - no result returned");
+      }
+
+      return result;
+    } catch (error) {
+      // Enhance error message with helpful guidance
+      let errorMessage = `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}`;
+
+      const errorString = String(error);
+
+      // Check for common authentication errors
+      if (/AADSTS700016/i.test(errorString)) {
+        // Application not found in directory
+        errorMessage += `\n\nThe application (Client ID: ${this.config.clientId}) is not registered in the tenant.\n`;
+        errorMessage += `\nTo fix:\n`;
+        errorMessage += `1. Verify the Client ID in your configuration\n`;
+        errorMessage += `2. Go to https://portal.azure.com → Azure Active Directory → App registrations\n`;
+        errorMessage += `3. Ensure the app is registered in the correct tenant\n`;
+        errorMessage += `4. Check that the app has not been deleted\n`;
+      } else if (/AADSTS7000215/i.test(errorString)) {
+        // Invalid client secret
+        errorMessage += `\n\nThe client secret for application (Client ID: ${this.config.clientId}) is invalid.\n`;
+        errorMessage += `\nTo fix:\n`;
+        errorMessage += `1. Go to https://portal.azure.com → Azure Active Directory → App registrations\n`;
+        errorMessage += `2. Find your application and go to "Certificates & secrets"\n`;
+        errorMessage += `3. Generate a new client secret\n`;
+        errorMessage += `4. Update your configuration with the new secret\n`;
+        errorMessage += `5. Note: Secrets expire - check the expiration date\n`;
+      } else if (/AADSTS50034/i.test(errorString)) {
+        // User account not found
+        errorMessage += `\n\nThe application (Client ID: ${this.config.clientId}) account does not exist in tenant ${this.config.tenantId}.\n`;
+        errorMessage += `\nTo fix:\n`;
+        errorMessage += `1. Verify the Tenant ID in your configuration\n`;
+        errorMessage += `2. Ensure the application is registered in the correct Azure AD tenant\n`;
+      } else if (/invalid_client/i.test(errorString) || /AADSTS700016/i.test(errorString)) {
+        errorMessage += `\n\nAuthentication credentials are invalid for application (Client ID: ${this.config.clientId}).\n`;
+        errorMessage += `\nTo fix:\n`;
+        errorMessage += `1. Verify Client ID and Client Secret are correct\n`;
+        errorMessage += `2. Check if the client secret has expired\n`;
+        errorMessage += `3. Ensure the application has the required API permissions:\n`;
+        errorMessage += `   - For Power Platform: "Dynamics CRM" → "user_impersonation"\n`;
+        errorMessage += `   - Click "Grant admin consent" after adding permissions\n`;
+      }
+
+      throw new Error(errorMessage);
     }
-
-    return result;
   }
 
   private cacheToken(key: string, result: AuthenticationResult): void {
