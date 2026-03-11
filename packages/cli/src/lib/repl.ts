@@ -14,34 +14,34 @@
  * limitations under the License.
  */
 
-import { createInterface } from "node:readline/promises";
 import chalk from "chalk";
 import type { Command } from "commander";
+import { question, closeInput } from "./input.js";
+import { setReplMode } from "./spinner.js";
+
+class ReplExitIntercepted extends Error {
+  constructor(public code: number) {
+    super(`process.exit(${code}) intercepted`);
+  }
+}
 
 export async function startRepl(createProgram: () => Command): Promise<void> {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: chalk.cyan("AgentSync> "),
-  });
-
+  setReplMode(true);
   console.log();
   console.log(chalk.gray("Interactive mode - Type 'help' for commands or 'exit' to quit"));
   console.log();
 
-  rl.prompt();
-
-  for await (const line of rl) {
+  while (true) {
+    const line = await question(chalk.cyan("AgentSync> "));
     const input = line.trim();
 
     if (!input) {
-      rl.prompt();
       continue;
     }
 
     if (input === "exit" || input === "quit") {
       console.log(chalk.gray("Goodbye!"));
-      rl.close();
+      closeInput();
       break;
     }
 
@@ -52,18 +52,48 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
       // Create a fresh program instance for this command
       const program = createProgram();
 
-      // Capture output instead of exiting on error
+      // Prevent commander from calling process.exit() on help/errors.
+      // exitOverride must be set on all subcommands too.
       program.exitOverride();
+      for (const cmd of program.commands) {
+        cmd.exitOverride();
+        for (const sub of cmd.commands) {
+          sub.exitOverride();
+        }
+      }
 
-      await program.parseAsync(args, { from: "user" });
+      // Intercept process.exit() so command error handlers don't kill the REPL
+      const originalExit = process.exit;
+      process.exit = ((code?: number) => {
+        throw new ReplExitIntercepted(code ?? 0);
+      }) as never;
+
+      try {
+        await program.parseAsync(args, { from: "user" });
+      } finally {
+        process.exit = originalExit;
+      }
     } catch (error) {
+      if (error instanceof ReplExitIntercepted) {
+        // Command called process.exit() — already printed its own error, just continue
+        console.log();
+        continue;
+      }
       if (error instanceof Error && "code" in error) {
         const commanderError = error as { code: string; message: string };
-        if (commanderError.code === "commander.unknownCommand") {
+        if (
+          commanderError.code === "commander.unknownCommand" ||
+          commanderError.code === "commander.unknownOption"
+        ) {
           console.error(chalk.red(`Unknown command: ${input}`));
           console.log(chalk.gray("Type 'help' to see available commands"));
-        } else if (commanderError.code === "commander.help") {
+        } else if (
+          commanderError.code === "commander.help" ||
+          commanderError.code === "commander.helpDisplayed"
+        ) {
           // Help was displayed, do nothing
+        } else if (commanderError.code === "commander.version") {
+          // Version was displayed, do nothing
         } else {
           console.error(chalk.red(commanderError.message));
         }
@@ -73,7 +103,6 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
     }
 
     console.log();
-    rl.prompt();
   }
 }
 
