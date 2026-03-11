@@ -19,8 +19,8 @@ import chalk from "chalk";
 import ora, { Ora } from "ora";
 import { interactiveLogin, storeCredentials } from "./auth.js";
 import { GraphClient } from "./graph-client.js";
-import { TenantDiscoveryService } from "@agentsync/core";
-import type { DiscoveredTenant } from "@agentsync/core";
+import { TenantDiscoveryService, TokenManager, PowerPlatformAdminClient } from "@agentsync/core";
+import type { DiscoveredTenant, EnvironmentSummary } from "@agentsync/core";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
@@ -38,8 +38,61 @@ interface WizardContext {
   appObjectId?: string;
   clientSecret?: string;
   discoveredTenants?: DiscoveredTenant[];
+  powerPlatformEnvironments?: EnvironmentSummary[];
   partnerTenantId?: string;
   partnerClientId?: string;
+}
+
+/**
+ * Validate the setup by checking app registration and permissions
+ */
+async function validateSetup(ctx: WizardContext): Promise<{
+  appExists: boolean;
+  permissionsConfigured: boolean;
+}> {
+  let appExists = false;
+  let permissionsConfigured = false;
+
+  try {
+    // Check if app still exists
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/applications/${ctx.appObjectId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${ctx.accessToken}`,
+        },
+      }
+    );
+
+    if (response.ok) {
+      appExists = true;
+
+      // Check permissions
+      const app = (await response.json()) as {
+        requiredResourceAccess: Array<{
+          resourceAppId: string;
+          resourceAccess: Array<{ id: string; type: string }>;
+        }>;
+      };
+
+      const dynamicsResourceId = "00000007-0000-0000-c000-000000000000";
+      const userImpersonationId = "78ce3f0f-a1ce-49c2-8cde-64b5c0896db4";
+
+      const dynamicsPermission = app.requiredResourceAccess?.find(
+        (p) => p.resourceAppId === dynamicsResourceId
+      );
+
+      if (dynamicsPermission) {
+        permissionsConfigured = dynamicsPermission.resourceAccess.some(
+          (ra) => ra.id === userImpersonationId
+        );
+      }
+    }
+  } catch (error) {
+    // Validation errors are not critical
+  }
+
+  return { appExists, permissionsConfigured };
 }
 
 /**
@@ -142,26 +195,36 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
 
     spinner = ora("Adding Dynamics CRM permission...").start();
 
+    let permissionAddedSuccessfully = false;
     try {
       await graphClient.addDynamicsPermission(ctx.appObjectId!);
       await graphClient.ensureServicePrincipal(ctx.appId!);
       spinner.succeed(chalk.green("Dynamics CRM permission added"));
+      permissionAddedSuccessfully = true;
     } catch (error) {
       spinner.warn(chalk.yellow("Could not add permission automatically"));
-      console.log(chalk.gray("\nYou may need to add it manually:"));
-      console.log(chalk.white("  1. Go to portal.azure.com → Azure Active Directory"));
-      console.log(chalk.white("  2. Find your app → API permissions"));
-      console.log(chalk.white("  3. Add 'Dynamics CRM' → 'user_impersonation'"));
-      console.log(chalk.white("  4. Grant admin consent\n"));
+      console.log(chalk.yellow("\nManual step required:"));
+      console.log(
+        chalk.white(
+          `1. Open: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/${ctx.appId}/isMSAApp~/false`
+        )
+      );
+      console.log(
+        chalk.white('2. Click "Add a permission" → "Dynamics CRM" → "user_impersonation"')
+      );
+      console.log(chalk.white('3. Click "Grant admin consent"'));
+      console.log(
+        chalk.gray(`\nError details: ${error instanceof Error ? error.message : "Unknown error"}\n`)
+      );
     }
 
     // Admin consent notice
     console.log();
     console.log(chalk.yellow("⚠️  Admin Consent Required"));
-    console.log(chalk.gray("Your IT admin needs to grant consent for API permissions."));
+    console.log(chalk.gray("An IT admin needs to grant consent for API permissions."));
     console.log(
       chalk.white(
-        `  Visit: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/${ctx.appId}/isMSAApp~/false\n`
+        `  Direct link: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/${ctx.appId}/isMSAApp~/false\n`
       )
     );
 
@@ -170,7 +233,7 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
         type: "confirm",
         name: "consentGranted",
         message: "Has admin consent been granted? (Skip if you're unsure)",
-        default: false,
+        default: permissionAddedSuccessfully,
       },
     ]);
 
@@ -252,26 +315,62 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
         spinner = ora("Discovering environments (this may take a minute)...").start();
 
         try {
-          const discoveryService = new TenantDiscoveryService({
+          // Use PowerPlatformAdminClient for environment discovery
+          const tokenManager = new TokenManager({
             tenantId: ctx.tenantId!,
             clientId: ctx.appId!,
             clientSecret: ctx.clientSecret!,
           });
 
-          ctx.discoveredTenants = await discoveryService.discoverTenants();
+          const adminClient = new PowerPlatformAdminClient({ tokenManager });
+          ctx.powerPlatformEnvironments = await adminClient.listEnvironmentSummaries();
 
           spinner.succeed(
-            chalk.green(`Found ${ctx.discoveredTenants.length} tenant(s) with environments`)
+            chalk.green(
+              `Found ${ctx.powerPlatformEnvironments.length} Power Platform environment(s)`
+            )
           );
 
-          if (ctx.discoveredTenants.length === 0) {
+          if (ctx.powerPlatformEnvironments.length === 0) {
             console.log(chalk.yellow("\nNo environments found."));
             console.log(chalk.gray("Create one at: https://admin.powerplatform.microsoft.com\n"));
+          } else {
+            // Display discovered environments
+            console.log(chalk.cyan("\nDiscovered environments:\n"));
+            for (const env of ctx.powerPlatformEnvironments) {
+              console.log(chalk.white(`  • ${env.displayName}`));
+              console.log(chalk.gray(`    Type: ${env.type}`));
+              console.log(chalk.gray(`    URL: ${env.instanceUrl}`));
+              console.log(chalk.gray(`    Location: ${env.location}\n`));
+            }
+          }
+
+          // Also try legacy tenant discovery for backward compatibility
+          try {
+            const discoveryService = new TenantDiscoveryService({
+              tenantId: ctx.tenantId!,
+              clientId: ctx.appId!,
+              clientSecret: ctx.clientSecret!,
+            });
+
+            ctx.discoveredTenants = await discoveryService.discoverTenants();
+          } catch (error) {
+            // Legacy discovery failure is not critical
+            console.log(
+              chalk.gray(
+                `Note: Legacy tenant discovery skipped (${error instanceof Error ? error.message : "Unknown error"})`
+              )
+            );
           }
         } catch (error) {
           spinner.fail("Failed to discover environments");
           console.log(
             chalk.gray(`  ${error instanceof Error ? error.message : "Unknown error"}\n`)
+          );
+          console.log(
+            chalk.yellow(
+              "You can add environments manually to your configuration file after setup.\n"
+            )
           );
         }
       }
@@ -279,9 +378,68 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
 
     // Step 6: Select environments
     let selectedTenants: DiscoveredTenant[] = [];
+    let selectedEnvironments: EnvironmentSummary[] = [];
     let sourceTenant: DiscoveredTenant | undefined;
+    let sourceEnvironment: EnvironmentSummary | undefined;
 
-    if (ctx.discoveredTenants && ctx.discoveredTenants.length > 0) {
+    // Use Power Platform environments if available, otherwise fall back to discovered tenants
+    if (ctx.powerPlatformEnvironments && ctx.powerPlatformEnvironments.length > 0) {
+      console.log(chalk.cyan.bold("\nStep 6: Environment Selection\n"));
+
+      // Select environments to add to config
+      const envChoices = ctx.powerPlatformEnvironments.map((env) => ({
+        name: `${env.displayName} (${env.type}) - ${env.instanceUrl}`,
+        value: env.id,
+        checked: true,
+      }));
+
+      const { selectedEnvIds } = await inquirer.prompt([
+        {
+          type: "checkbox",
+          name: "selectedEnvIds",
+          message: "Select environments to add to your configuration:",
+          choices: envChoices,
+        },
+      ]);
+
+      selectedEnvironments = ctx.powerPlatformEnvironments.filter((env) =>
+        selectedEnvIds.includes(env.id)
+      );
+
+      if (selectedEnvironments.length > 0) {
+        // Ask if one should be marked as source
+        const { hasSource } = await inquirer.prompt([
+          {
+            type: "confirm",
+            name: "hasSource",
+            message: "Do you have a dedicated source environment for agent development?",
+            default: false,
+          },
+        ]);
+
+        if (hasSource && selectedEnvironments.length > 1) {
+          const sourceChoices = selectedEnvironments.map((env) => ({
+            name: `${env.displayName} (${env.type})`,
+            value: env.id,
+          }));
+
+          const { sourceEnvId } = await inquirer.prompt([
+            {
+              type: "list",
+              name: "sourceEnvId",
+              message: "Select source environment (where agents are developed):",
+              choices: sourceChoices,
+            },
+          ]);
+
+          sourceEnvironment = selectedEnvironments.find((env) => env.id === sourceEnvId);
+          selectedEnvironments = selectedEnvironments.filter((env) => env.id !== sourceEnvId);
+        }
+
+        ctx.partnerTenantId = ctx.tenantId;
+        ctx.partnerClientId = ctx.appId;
+      }
+    } else if (ctx.discoveredTenants && ctx.discoveredTenants.length > 0) {
       console.log(chalk.cyan.bold("\nStep 6: Environment Selection\n"));
 
       // Filter tenants with environments
@@ -328,26 +486,61 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
 
           selectedTenants = tenantsWithEnvs.filter((t) => targetTenantIds.includes(t.tenantId));
         }
-      }
-
-      // Optional tags
-      if (selectedTenants.length > 0) {
-        await inquirer.prompt([
-          {
-            type: "input",
-            name: "tags",
-            message: "Add tags for target environments (comma-separated, optional):",
-            default: "production",
-          },
-        ]);
 
         ctx.partnerTenantId = ctx.tenantId;
         ctx.partnerClientId = ctx.appId;
       }
     }
 
-    // Step 7: Generate configuration
-    console.log(chalk.cyan.bold("\nStep 7: Configuration\n"));
+    // Step 7: Validation
+    console.log(chalk.cyan.bold("\nStep 7: Validation\n"));
+
+    spinner = ora("Validating setup...").start();
+
+    const validationResults = await validateSetup(ctx);
+
+    if (validationResults.appExists) {
+      spinner.succeed(chalk.green("App registration verified"));
+    } else {
+      spinner.warn(chalk.yellow("Could not verify app registration"));
+    }
+
+    console.log();
+    console.log(chalk.cyan("Setup Summary:\n"));
+    console.log(chalk.white(`  App Registration: ${ctx.appId}`));
+    console.log(chalk.white(`  Tenant ID: ${ctx.tenantId}`));
+    console.log(
+      chalk.white(
+        `  API Permissions: ${validationResults.permissionsConfigured ? chalk.green("Configured") : chalk.yellow("Needs configuration")}`
+      )
+    );
+    console.log(
+      chalk.white(
+        `  Admin Consent: ${consentGranted ? chalk.green("Granted") : chalk.yellow("Pending")}`
+      )
+    );
+    console.log(
+      chalk.white(
+        `  Client Secret: ${ctx.clientSecret ? chalk.green("Created") : chalk.yellow("Not created")}`
+      )
+    );
+
+    if (selectedEnvironments.length > 0) {
+      console.log(chalk.white(`  Environments: ${selectedEnvironments.length} selected`));
+      if (sourceEnvironment) {
+        console.log(chalk.white(`  Source Environment: ${sourceEnvironment.displayName}`));
+      }
+    } else if (selectedTenants.length > 0) {
+      console.log(chalk.white(`  Tenants: ${selectedTenants.length} selected`));
+      if (sourceTenant) {
+        console.log(chalk.white(`  Source Tenant: ${sourceTenant.displayName}`));
+      }
+    }
+
+    console.log();
+
+    // Step 8: Generate configuration
+    console.log(chalk.cyan.bold("Step 8: Configuration\n"));
 
     spinner = ora("Generating configuration...").start();
 
@@ -361,37 +554,56 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
       clientId: ctx.appId!,
       sourceTenant,
       targetTenants: selectedTenants,
+      sourceEnvironment,
+      targetEnvironments: selectedEnvironments,
       useEnvVar: true,
     });
 
     writeFileSync(resolve(process.cwd(), configPath), configContent);
     spinner.succeed(chalk.green(`Configuration saved to ${configPath}`));
 
-    // Step 8: Success and next steps
+    // Step 9: Success and next steps
     console.log();
     console.log(chalk.green.bold("✓ Setup Complete!\n"));
 
     console.log(chalk.cyan("Next steps:\n"));
 
+    let stepNumber = 1;
+
     if (!ctx.clientSecret) {
-      console.log(chalk.white("1. Set your client secret:"));
-      console.log(chalk.gray(`   export AGENTSYNC_CLIENT_SECRET="your-secret-here"\n`));
-    }
-
-    if (!consentGranted) {
-      console.log(chalk.white("2. Grant admin consent for API permissions:"));
+      console.log(chalk.white(`${stepNumber}. Store your client secret securely:`));
+      console.log(chalk.gray(`   agentsync auth login`));
       console.log(
-        chalk.gray(`   Visit portal.azure.com → App registrations → ${appName} → API permissions\n`)
+        chalk.gray(
+          `   (or set environment variable: export AGENTSYNC_CLIENT_SECRET="your-secret")\n`
+        )
       );
+      stepNumber++;
     }
 
-    if (!selectedTenants.length && ctx.discoveredTenants) {
-      console.log(chalk.white("3. Add target tenants to your configuration:"));
+    if (!consentGranted || !validationResults.permissionsConfigured) {
+      console.log(chalk.white(`${stepNumber}. Grant admin consent for API permissions:`));
+      console.log(
+        chalk.gray(
+          `   ${chalk.underline(`https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/${ctx.appId}/isMSAApp~/false`)}\n`
+        )
+      );
+      stepNumber++;
+    }
+
+    if (selectedEnvironments.length === 0 && selectedTenants.length === 0) {
+      console.log(chalk.white(`${stepNumber}. Add target environments to your configuration:`));
       console.log(chalk.gray(`   Edit ${configPath}\n`));
+      stepNumber++;
     }
 
-    console.log(chalk.white("4. Test your setup:"));
+    console.log(chalk.white(`${stepNumber}. Test your setup:`));
     console.log(chalk.gray("   agentsync tenants list\n"));
+
+    if (selectedEnvironments.length > 0 || selectedTenants.length > 0) {
+      console.log(chalk.white("You can now deploy agents with:"));
+      console.log(chalk.gray("   agentsync deploy <agent-name>\n"));
+    }
 
     console.log(chalk.dim("Need help? Visit: https://github.com/pax8labs/agentsync\n"));
 
@@ -424,11 +636,14 @@ interface ConfigOptions {
   clientId: string;
   sourceTenant?: DiscoveredTenant;
   targetTenants: DiscoveredTenant[];
+  sourceEnvironment?: EnvironmentSummary;
+  targetEnvironments: EnvironmentSummary[];
   useEnvVar: boolean;
 }
 
 function generateConfig(options: ConfigOptions): string {
-  const { tenantId, clientId, sourceTenant, targetTenants } = options;
+  const { tenantId, clientId, sourceTenant, targetTenants, sourceEnvironment, targetEnvironments } =
+    options;
 
   let config = `# AgentSync Configuration File
 # Generated by interactive setup wizard
@@ -450,7 +665,41 @@ settings:
 
 `;
 
-  if (sourceTenant && targetTenants.length > 0) {
+  // Use Power Platform environments if available
+  if (sourceEnvironment && targetEnvironments.length > 0) {
+    config += `# Source Environment\n`;
+    config += `source:\n`;
+    config += `  tenantId: "${tenantId}"\n`;
+    config += `  name: "${sourceEnvironment.displayName}"\n`;
+    config += `  environmentUrl: "${sourceEnvironment.instanceUrl}"\n`;
+    config += `\n`;
+
+    config += `# Target Environments\n`;
+    config += `tenants:\n`;
+
+    for (const env of targetEnvironments) {
+      config += `  - tenantId: "${tenantId}"\n`;
+      config += `    name: "${env.displayName}"\n`;
+      config += `    environmentUrl: "${env.instanceUrl}"\n`;
+      config += `    enabled: true\n`;
+      config += `    tags:\n`;
+      config += `      - ${env.type.toLowerCase()}\n`;
+    }
+  } else if (targetEnvironments.length > 0) {
+    // All environments as targets (no dedicated source)
+    config += `# Power Platform Environments\n`;
+    config += `tenants:\n`;
+
+    for (const env of targetEnvironments) {
+      config += `  - tenantId: "${tenantId}"\n`;
+      config += `    name: "${env.displayName}"\n`;
+      config += `    environmentUrl: "${env.instanceUrl}"\n`;
+      config += `    enabled: true\n`;
+      config += `    tags:\n`;
+      config += `      - ${env.type.toLowerCase()}\n`;
+    }
+  } else if (sourceTenant && targetTenants.length > 0) {
+    // Legacy tenant-based config
     config += `# Source Environment\n`;
     config += `source:\n`;
     config += `  tenantId: "${sourceTenant.tenantId}"\n`;

@@ -19,13 +19,8 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
-import {
-  loadConfig,
-  getClientSecret,
-  TenantConfig,
-  TokenManager,
-  DataverseClient,
-} from "@agentsync/core";
+import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
+import { getClientSecretWithFallback } from "../lib/credentials.js";
 
 interface SetupStatus {
   tenantName: string;
@@ -101,7 +96,7 @@ export const setupCommand = new Command("setup")
       }
 
       // Verify client secret is available
-      getClientSecret();
+      await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
 
       console.log();
       console.log(chalk.bold(`Checking ${targets.length} environment(s)...`));
@@ -190,7 +185,7 @@ async function checkSetupStatus(
   config: { partner: { tenantId: string; clientId: string } },
   tenant: TenantConfig
 ): Promise<SetupStatus> {
-  const clientSecret = getClientSecret();
+  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
   const tokenManager = new TokenManager({
     tenantId: tenant.tenantId,
     clientId: config.partner.clientId,
@@ -285,7 +280,7 @@ async function setupTenant(
   tenant: TenantConfig,
   status: SetupStatus
 ): Promise<void> {
-  const clientSecret = getClientSecret();
+  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
   const tokenManager = new TokenManager({
     tenantId: tenant.tenantId,
     clientId: config.partner.clientId,

@@ -20,12 +20,12 @@ import chalk from "chalk";
 import ora from "ora";
 import {
   loadConfig,
-  getClientSecret,
   findTenant,
   TokenManager,
   DataverseClient,
   SolutionOperations,
 } from "@agentsync/core";
+import { getClientSecretWithFallback } from "../lib/credentials.js";
 
 export const importCommand = new Command("import")
   .alias("deliver")
@@ -55,7 +55,7 @@ export const importCommand = new Command("import")
 
       // Get client secret
       spinner.start("Establishing shipping route...");
-      const clientSecret = getClientSecret();
+      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
 
       // Create token manager for the customer tenant
       const tokenManager = new TokenManager({

@@ -37,6 +37,8 @@ import { initCommand } from "./commands/init.js";
 import { demoCommand } from "./commands/demo.js";
 import { telemetryCommand } from "./commands/telemetry.js";
 import { setupCommand } from "./commands/setup.js";
+import { authCommand } from "./commands/auth.js";
+import { validateCommand } from "./commands/validate.js";
 import { showBanner, showWelcome } from "./lib/banner.js";
 import { startRepl } from "./lib/repl.js";
 import {
@@ -63,6 +65,7 @@ export function createProgram(): Command {
 
   program.addCommand(initCommand);
   program.addCommand(demoCommand);
+  program.addCommand(authCommand);
   program.addCommand(exportCommand);
   program.addCommand(importCommand);
   program.addCommand(analyzeCommand);
@@ -74,6 +77,7 @@ export function createProgram(): Command {
   program.addCommand(solutionsCommand);
   program.addCommand(resolveUrlCommand);
   program.addCommand(setupCommand);
+  program.addCommand(validateCommand);
   program.addCommand(telemetryCommand);
 
   return program;

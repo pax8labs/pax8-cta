@@ -39,6 +39,11 @@ vi.mock("ora", () => ({
   default: vi.fn(() => mockSpinner()),
 }));
 
+// Mock credentials
+vi.mock("../lib/credentials.js", () => ({
+  getClientSecretWithFallback: vi.fn().mockResolvedValue("test-secret"),
+}));
+
 describe("Import Command (deliver)", () => {
   let consoleCapture: ConsoleCapture;
   let restoreEnv: () => void;

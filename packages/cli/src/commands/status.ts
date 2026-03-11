@@ -15,18 +15,17 @@
  */
 
 import { Command } from "commander";
+import { resolve } from "node:path";
+import { existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
 import { DeploymentQueueManager } from "@agentsync/worker";
 import { isDemoModeEnabled } from "./demo.js";
 import { DEMO_TENANTS } from "@agentsync/core";
-import {
-  formatStatus,
-  formatTimeAgo,
-  calculateDuration,
-  truncate,
-} from "../lib/formatters.js";
+import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib/formatters.js";
+import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
+import { getClientSecretWithFallback } from "../lib/credentials.js";
 
 // Mock deployment data for demo mode
 const DEMO_DEPLOYMENTS = [
@@ -60,14 +59,18 @@ const DEMO_DEPLOYMENTS = [
 ];
 
 function getDemoDeploymentDetails(trackingId: string) {
-  const deployment = DEMO_DEPLOYMENTS.find(d => d.id === trackingId);
+  const deployment = DEMO_DEPLOYMENTS.find((d) => d.id === trackingId);
   if (!deployment) return null;
 
   const tenantResults = DEMO_TENANTS.slice(0, deployment.totalTenants).map((tenant, i) => {
     let status = "completed";
     let error: string | undefined = undefined;
-    let startedAt: string | undefined = new Date(Date.now() - 10 * 60 * 1000 + i * 2 * 60 * 1000).toISOString();
-    let completedAt: string | undefined = new Date(Date.now() - 5 * 60 * 1000 + i * 2 * 60 * 1000).toISOString();
+    let startedAt: string | undefined = new Date(
+      Date.now() - 10 * 60 * 1000 + i * 2 * 60 * 1000
+    ).toISOString();
+    let completedAt: string | undefined = new Date(
+      Date.now() - 5 * 60 * 1000 + i * 2 * 60 * 1000
+    ).toISOString();
 
     if (deployment.status === "in_progress") {
       if (i === deployment.completedTenants) {
@@ -101,20 +104,45 @@ function getDemoDeploymentDetails(trackingId: string) {
   };
 }
 
+interface SetupStatus {
+  tenantName: string;
+  environmentUrl: string;
+  appRegistered: boolean;
+  roleAssigned: boolean;
+  status: "ready" | "needs_setup" | "partial" | "error";
+  error?: string;
+  userId?: string;
+}
+
+interface SystemUser {
+  systemuserid: string;
+  fullname?: string;
+  applicationid?: string;
+  isdisabled?: boolean;
+}
+
+interface SecurityRole {
+  roleid: string;
+  name: string;
+}
+
 export const statusCommand = new Command("status")
   .alias("track")
   .description("Check the status of a deployment")
   .option("-d, --deployment <id>", "Deployment ID to track")
   .option("-s, --shipment <id>", "Shipment tracking number (alias for --deployment)")
   .option("-l, --list", "List all recent shipments")
-  .option(
-    "--redis <url>",
-    "Redis URL for shipping dock",
-    "redis://localhost:6379"
-  )
+  .option("--redis <url>", "Redis URL for shipping dock", "redis://localhost:6379")
   .option("-w, --watch", "Watch for status changes")
   .option("--interval <ms>", "Watch interval in milliseconds", "5000")
+  .option("--setup", "Show comprehensive setup status")
+  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
   .action(async (options) => {
+    // Handle --setup flag
+    if (options.setup) {
+      await handleSetupStatus(options);
+      return;
+    }
     // Handle --list flag
     if (options.list) {
       if (isDemoModeEnabled()) {
@@ -127,11 +155,14 @@ export const statusCommand = new Command("status")
           style: { head: ["cyan"] },
         });
 
-        DEMO_DEPLOYMENTS.forEach(d => {
+        DEMO_DEPLOYMENTS.forEach((d) => {
           const progress = `${d.completedTenants}/${d.totalTenants}`;
-          const statusText = d.status === "completed"
-            ? (d.failedTenants > 0 ? chalk.yellow("⚠ Completed") : chalk.green("✓ Completed"))
-            : chalk.yellow("🚚 In Progress");
+          const statusText =
+            d.status === "completed"
+              ? d.failedTenants > 0
+                ? chalk.yellow("⚠ Completed")
+                : chalk.green("✓ Completed")
+              : chalk.yellow("🚚 In Progress");
           const timeAgo = getTimeAgo(d.createdAt);
 
           table.push([
@@ -148,7 +179,9 @@ export const statusCommand = new Command("status")
         console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
         return;
       } else {
-        console.error(chalk.red("--list flag requires Redis connection (not yet implemented in non-demo mode)"));
+        console.error(
+          chalk.red("--list flag requires Redis connection (not yet implemented in non-demo mode)")
+        );
         console.log(chalk.gray("Try demo mode: agentsync demo on"));
         process.exit(1);
       }
@@ -157,7 +190,9 @@ export const statusCommand = new Command("status")
     const trackingId = options.shipment || options.deployment;
 
     if (!trackingId) {
-      console.error(chalk.red("Must specify --shipment or --deployment tracking number, or use --list"));
+      console.error(
+        chalk.red("Must specify --shipment or --deployment tracking number, or use --list")
+      );
       process.exit(1);
     }
 
@@ -171,7 +206,7 @@ export const statusCommand = new Command("status")
         console.log(chalk.yellow(`Shipment '${trackingId}' not found`));
         console.log();
         console.log(chalk.gray("Available demo shipments:"));
-        DEMO_DEPLOYMENTS.forEach(d => {
+        DEMO_DEPLOYMENTS.forEach((d) => {
           console.log(chalk.gray(`  - ${chalk.cyan(d.id)} (${d.solutionName})`));
         });
         return;
@@ -187,9 +222,7 @@ export const statusCommand = new Command("status")
         `  Delivered:   ${shipment.completedTenants}/${shipment.totalTenants} destinations`
       );
       if (shipment.failedTenants > 0) {
-        console.log(
-          `  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`
-        );
+        console.log(`  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`);
       }
       console.log();
 
@@ -202,10 +235,7 @@ export const statusCommand = new Command("status")
       });
 
       shipment.tenantResults.forEach((result) => {
-        const duration = calculateDuration(
-          result.startedAt,
-          result.completedAt
-        );
+        const duration = calculateDuration(result.startedAt, result.completedAt);
         table.push([
           result.tenantName,
           formatShippingStatus(result.status),
@@ -230,9 +260,7 @@ export const statusCommand = new Command("status")
         const shipment = await queueManager.getDeploymentStatus(trackingId);
 
         if (!shipment) {
-          console.log(
-            chalk.yellow(`Shipment '${trackingId}' not found`)
-          );
+          console.log(chalk.yellow(`Shipment '${trackingId}' not found`));
           return false;
         }
 
@@ -252,9 +280,7 @@ export const statusCommand = new Command("status")
           `  Delivered:   ${shipment.completedTenants}/${shipment.totalTenants} destinations`
         );
         if (shipment.failedTenants > 0) {
-          console.log(
-            `  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`
-          );
+          console.log(`  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`);
         }
         console.log();
 
@@ -280,15 +306,12 @@ export const statusCommand = new Command("status")
               rolled_back: 2,
               failed: 3,
               rejected: 3,
-              cancelled: 4
+              cancelled: 4,
             };
             return (order[a.status] ?? 5) - (order[b.status] ?? 5);
           })
           .forEach((result) => {
-            const duration = calculateDuration(
-              result.startedAt,
-              result.completedAt
-            );
+            const duration = calculateDuration(result.startedAt, result.completedAt);
             table.push([
               result.tenantName,
               formatShippingStatus(result.status),
@@ -301,27 +324,18 @@ export const statusCommand = new Command("status")
 
         if (options.watch) {
           console.log();
-          console.log(
-            chalk.gray(
-              `Refreshing every ${options.interval}ms... (Ctrl+C to stop)`
-            )
-          );
+          console.log(chalk.gray(`Refreshing every ${options.interval}ms... (Ctrl+C to stop)`));
         }
 
         // Return true if shipment is still in transit
-        return (
-          shipment.status === "pending" ||
-          shipment.status === "in_progress"
-        );
+        return shipment.status === "pending" || shipment.status === "in_progress";
       };
 
       if (options.watch) {
         // Watch mode
         let isInTransit = await displayStatus();
         while (isInTransit) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, parseInt(options.interval, 10))
-          );
+          await new Promise((resolve) => setTimeout(resolve, parseInt(options.interval, 10)));
           isInTransit = await displayStatus();
         }
         console.log();
@@ -333,9 +347,7 @@ export const statusCommand = new Command("status")
       await queueManager.close();
     } catch (error) {
       spinner.fail(chalk.red("Failed to track shipment"));
-      console.error(
-        chalk.red(error instanceof Error ? error.message : String(error))
-      );
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
   });
@@ -345,3 +357,272 @@ const formatShippingStatus = (status: string) => formatStatus(status, "shipping"
 
 // Alias for backward compatibility
 const getTimeAgo = formatTimeAgo;
+
+/**
+ * Handle --setup flag to show comprehensive setup status
+ */
+async function handleSetupStatus(options: { config: string }): Promise<void> {
+  const spinner = ora("Loading configuration...").start();
+
+  try {
+    // Check config file existence
+    const configPath = resolve(process.cwd(), options.config);
+    const configExists = existsSync(configPath);
+
+    console.log();
+    console.log(chalk.bold("Configuration Status"));
+    console.log("─".repeat(50));
+
+    if (configExists) {
+      console.log(`  Config file:     ${chalk.green("✓")} Found at ${configPath}`);
+    } else {
+      console.log(`  Config file:     ${chalk.red("✗")} Not found at ${configPath}`);
+      spinner.stop();
+      console.log();
+      console.log(chalk.yellow("Next steps:"));
+      console.log(`  1. Create config file at ${configPath}`);
+      console.log("  2. Then run 'agentsync status --setup' again");
+      return;
+    }
+
+    // Load config
+    const config = await loadConfig(configPath);
+    spinner.text = "Configuration loaded";
+
+    // Check client secret
+    let hasClientSecret = false;
+    try {
+      await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      hasClientSecret = true;
+      console.log(`  Client secret:   ${chalk.green("✓")} Found (environment or keychain)`);
+    } catch (error) {
+      console.log(`  Client secret:   ${chalk.red("✗")} Not found in environment or keychain`);
+    }
+
+    // Show source environment info
+    if (config.source) {
+      console.log(`  Source env:      ${chalk.green("✓")} ${config.source.environmentUrl}`);
+    }
+
+    console.log();
+    spinner.succeed("Configuration loaded");
+
+    if (!hasClientSecret) {
+      console.log();
+      console.log(chalk.yellow("Cannot check tenant setup without client secret."));
+      console.log();
+      console.log(chalk.yellow("Next steps:"));
+      console.log("  1. Set PARTNER_CLIENT_SECRET environment variable");
+      console.log("  2. Then run 'agentsync status --setup' again");
+      return;
+    }
+
+    // Get enabled tenants
+    const enabledTenants = config.tenants.filter((t) => t.enabled);
+
+    if (enabledTenants.length === 0) {
+      console.log();
+      console.log(chalk.yellow("No enabled tenants found in configuration."));
+      return;
+    }
+
+    console.log();
+    console.log(chalk.bold(`Checking ${enabledTenants.length} tenant(s)...`));
+    console.log();
+
+    // Check setup status for each tenant
+    const statuses: SetupStatus[] = [];
+    for (const tenant of enabledTenants) {
+      const status = await checkSetupStatus(config, tenant);
+      statuses.push(status);
+    }
+
+    // Display per-tenant status
+    displaySetupStatus(statuses);
+
+    // Calculate summary
+    const readyCount = statuses.filter((s) => s.status === "ready").length;
+    const needsSetupCount = statuses.filter(
+      (s) => s.status === "needs_setup" || s.status === "partial"
+    ).length;
+    const errorCount = statuses.filter((s) => s.status === "error").length;
+
+    console.log();
+    console.log(chalk.bold("Overall Readiness:"));
+    console.log(`  ${chalk.green(`${readyCount} of ${statuses.length} tenant(s) ready`)}`);
+
+    if (needsSetupCount > 0 || errorCount > 0) {
+      console.log();
+      console.log(chalk.bold("Next steps:"));
+
+      const tenantsNeedingSetup = statuses.filter(
+        (s) => s.status === "needs_setup" || s.status === "partial"
+      );
+
+      if (tenantsNeedingSetup.length > 0) {
+        if (tenantsNeedingSetup.length === enabledTenants.length) {
+          console.log(`  1. Run ${chalk.cyan("'agentsync setup --all'")} to create app users`);
+        } else {
+          console.log("  1. Setup individual tenants:");
+          tenantsNeedingSetup.forEach((s) => {
+            console.log(`     ${chalk.cyan(`agentsync setup --tenant "${s.tenantName}"`)}`);
+          });
+        }
+        console.log(`  2. Then: ${chalk.cyan("agentsync deploy --all --solution ./agent.zip")}`);
+      }
+
+      if (errorCount > 0) {
+        console.log();
+        console.log(
+          chalk.yellow(`  Note: ${errorCount} tenant(s) have errors. Check the details above.`)
+        );
+      }
+    }
+  } catch (error) {
+    spinner.fail(chalk.red("Failed to check setup status"));
+    console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+    process.exit(1);
+  }
+}
+
+/**
+ * Check setup status for a tenant using Dataverse Web API
+ * (Reused from setup.ts)
+ */
+async function checkSetupStatus(
+  config: { partner: { tenantId: string; clientId: string } },
+  tenant: TenantConfig
+): Promise<SetupStatus> {
+  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+  const tokenManager = new TokenManager({
+    tenantId: tenant.tenantId,
+    clientId: config.partner.clientId,
+    clientSecret: clientSecret,
+  });
+
+  const client = new DataverseClient({
+    environmentUrl: tenant.environmentUrl,
+    tokenManager,
+  });
+
+  try {
+    // Check if app user exists
+    const appId = config.partner.clientId;
+    const result = await client.get<{ value: SystemUser[] }>("/systemusers", {
+      $filter: `applicationid eq '${appId}'`,
+      $select: "systemuserid,fullname,applicationid,isdisabled",
+    });
+
+    if (result.value.length === 0) {
+      return {
+        tenantName: tenant.name,
+        environmentUrl: tenant.environmentUrl,
+        appRegistered: false,
+        roleAssigned: false,
+        status: "needs_setup",
+      };
+    }
+
+    const user = result.value[0];
+
+    // Check if System Administrator role is assigned
+    const rolesResult = await client.get<{ value: SecurityRole[] }>(
+      `/systemusers(${user.systemuserid})/systemuserroles_association`,
+      {
+        $select: "roleid,name",
+      }
+    );
+
+    const hasAdminRole = rolesResult.value.some((r) => r.name === "System Administrator");
+
+    if (!hasAdminRole) {
+      return {
+        tenantName: tenant.name,
+        environmentUrl: tenant.environmentUrl,
+        appRegistered: true,
+        roleAssigned: false,
+        status: "partial",
+        userId: user.systemuserid,
+      };
+    }
+
+    return {
+      tenantName: tenant.name,
+      environmentUrl: tenant.environmentUrl,
+      appRegistered: true,
+      roleAssigned: true,
+      status: "ready",
+      userId: user.systemuserid,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Check if it's an auth error (app not registered)
+    if (errorMsg.includes("not a member of the organization")) {
+      return {
+        tenantName: tenant.name,
+        environmentUrl: tenant.environmentUrl,
+        appRegistered: false,
+        roleAssigned: false,
+        status: "needs_setup",
+        error: "App not registered in this environment",
+      };
+    }
+
+    return {
+      tenantName: tenant.name,
+      environmentUrl: tenant.environmentUrl,
+      appRegistered: false,
+      roleAssigned: false,
+      status: "error",
+      error: errorMsg,
+    };
+  }
+}
+
+/**
+ * Display setup status in a table
+ * (Reused from setup.ts)
+ */
+function displaySetupStatus(statuses: SetupStatus[]): void {
+  const table = new Table({
+    head: ["Tenant", "App Registered", "System Admin Role", "Status"],
+    style: { head: ["cyan"] },
+  });
+
+  for (const status of statuses) {
+    const appRegistered = status.appRegistered ? chalk.green("Yes") : chalk.red("No");
+    const roleAssigned = status.roleAssigned
+      ? chalk.green("Yes")
+      : status.appRegistered
+        ? chalk.yellow("No")
+        : chalk.gray("-");
+
+    let statusText: string;
+    if (status.status === "ready") {
+      statusText = chalk.green("Ready");
+    } else if (status.status === "needs_setup") {
+      statusText = chalk.yellow("Needs Setup");
+    } else if (status.status === "partial") {
+      statusText = chalk.yellow("Needs Role");
+    } else {
+      statusText = chalk.red("Error");
+    }
+
+    const row = [status.tenantName, appRegistered, roleAssigned, statusText];
+
+    table.push(row);
+  }
+
+  console.log(table.toString());
+
+  // Show errors if any
+  const errors = statuses.filter((s) => s.error);
+  if (errors.length > 0) {
+    console.log();
+    console.log(chalk.bold("Notes:"));
+    for (const status of errors) {
+      console.log(chalk.yellow(`  ${status.tenantName}: ${status.error}`));
+    }
+  }
+}

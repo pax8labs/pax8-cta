@@ -18,7 +18,8 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
-import { loadConfig, getClientSecret, GdapClient } from "@agentsync/core";
+import { loadConfig, GdapClient } from "@agentsync/core";
+import { getClientSecretWithFallback } from "../../lib/credentials.js";
 
 export const inspectCommand = new Command("inspect")
   .alias("validate")
@@ -42,7 +43,7 @@ export const inspectCommand = new Command("inspect")
       spinner.succeed(`Loaded ${destinations.length} destinations to inspect`);
 
       // Get client secret
-      const clientSecret = getClientSecret();
+      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
 
       // Create GDAP client
       const gdapClient = new GdapClient({

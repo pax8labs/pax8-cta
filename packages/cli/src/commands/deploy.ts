@@ -24,7 +24,6 @@ import ora from "ora";
 import Table from "cli-table3";
 import {
   loadConfig,
-  getClientSecret,
   filterTenantsByTags,
   TenantConfig,
   TokenManager,
@@ -33,6 +32,30 @@ import {
 } from "@agentsync/core";
 import { DeploymentQueueManager } from "@agentsync/worker";
 import { isDemoModeEnabled, getDemoTenants } from "./demo.js";
+import { getClientSecretWithFallback } from "../lib/credentials.js";
+import { formatError, printError } from "../lib/error-handler.js";
+
+interface SystemUser {
+  systemuserid: string;
+  fullname?: string;
+  applicationid?: string;
+  isdisabled?: boolean;
+}
+
+interface SecurityRole {
+  roleid: string;
+  name: string;
+}
+
+interface BusinessUnit {
+  businessunitid: string;
+  name: string;
+}
+
+interface PrepareEnvironmentResult {
+  success: boolean;
+  message: string;
+}
 
 export const deployCommand = new Command("deploy")
   .alias("ship")
@@ -170,7 +193,7 @@ export const deployCommand = new Command("deploy")
 
         try {
           // Authenticate and create client
-          const clientSecret = getClientSecret();
+          const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
           const tokenManager = new TokenManager({
             tenantId: config.partner.tenantId,
             clientId: config.partner.clientId,
@@ -211,12 +234,11 @@ export const deployCommand = new Command("deploy")
           console.log();
         } catch (error) {
           spinner.fail(chalk.red("Export failed"));
-          if (error instanceof Error && error.message.includes("not found")) {
-            console.error(chalk.red(`\nSolution '${solutionArg}' not found in source environment`));
-            console.error(chalk.gray("\nTip: Use 'agentsync list' to see available solutions"));
-          } else {
-            console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-          }
+
+          // Format and print structured error with recovery guidance
+          const agentSyncError = formatError(error);
+          printError(agentSyncError);
+
           process.exit(1);
         }
       } else {
@@ -256,7 +278,40 @@ export const deployCommand = new Command("deploy")
       }
 
       // Verify client secret is available
-      getClientSecret();
+      await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+
+      // Auto-setup app users if needed (unless --no-auto-setup)
+      if (options.autoSetup !== false) {
+        console.log(chalk.bold("Checking application users..."));
+        let setupCount = 0;
+        let warningCount = 0;
+
+        for (const tenant of destinations) {
+          const prepareSpinner = ora(`Checking ${tenant.name}...`).start();
+          const prepared = await prepareEnvironment(config, tenant);
+
+          if (prepared.success) {
+            prepareSpinner.succeed(chalk.green(`${tenant.name}: ${prepared.message}`));
+            if (prepared.message.includes("Created") || prepared.message.includes("Assigned")) {
+              setupCount++;
+            }
+          } else {
+            prepareSpinner.warn(chalk.yellow(`${tenant.name}: ${prepared.message}`));
+            warningCount++;
+          }
+        }
+
+        console.log();
+        if (setupCount > 0) {
+          console.log(chalk.green(`✓ ${setupCount} environment(s) setup completed`));
+        }
+        if (warningCount > 0) {
+          console.log(
+            chalk.yellow(`⚠ ${warningCount} environment(s) skipped (see warnings above)`)
+          );
+        }
+        console.log();
+      }
 
       // Create deployment (shipment)
       spinner.start("Connecting to shipping dock...");
@@ -299,7 +354,10 @@ export const deployCommand = new Command("deploy")
       }
     } catch (error) {
       spinner.fail(chalk.red("Shipment failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+
+      // Format and print structured error with recovery guidance
+      const agentSyncError = formatError(error);
+      printError(agentSyncError);
 
       // Clean up temp package on error
       if (tempPackagePath && existsSync(tempPackagePath)) {
@@ -313,3 +371,178 @@ export const deployCommand = new Command("deploy")
       process.exit(1);
     }
   });
+
+/**
+ * Prepare environment by ensuring app user exists and has proper permissions
+ * Reuses logic from setup.ts checkSetupStatus and setupTenant functions
+ */
+async function prepareEnvironment(
+  config: { partner: { tenantId: string; clientId: string } },
+  tenant: TenantConfig
+): Promise<PrepareEnvironmentResult> {
+  try {
+    const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+    const tokenManager = new TokenManager({
+      tenantId: tenant.tenantId,
+      clientId: config.partner.clientId,
+      clientSecret: clientSecret,
+    });
+
+    const client = new DataverseClient({
+      environmentUrl: tenant.environmentUrl,
+      tokenManager,
+    });
+
+    const appId = config.partner.clientId;
+
+    // Check if app user exists
+    const userResult = await client.get<{ value: SystemUser[] }>("/systemusers", {
+      $filter: `applicationid eq '${appId}'`,
+      $select: "systemuserid,fullname,applicationid,isdisabled",
+    });
+
+    let userId: string | undefined;
+    let appRegistered = userResult.value.length > 0;
+
+    // Create app user if needed
+    if (!appRegistered) {
+      try {
+        // Get root business unit
+        const buResult = await client.get<{ value: BusinessUnit[] }>("/businessunits", {
+          $filter: "parentbusinessunitid eq null",
+          $select: "businessunitid,name",
+        });
+
+        if (buResult.value.length === 0) {
+          return {
+            success: false,
+            message: "Could not find root business unit",
+          };
+        }
+
+        const buId = buResult.value[0].businessunitid;
+
+        // Create app user
+        await client.post("/systemusers", {
+          applicationid: appId,
+          "businessunitid@odata.bind": `/businessunits(${buId})`,
+        });
+
+        // Get the newly created user's ID
+        const newUserResult = await client.get<{ value: SystemUser[] }>("/systemusers", {
+          $filter: `applicationid eq '${appId}'`,
+          $select: "systemuserid",
+        });
+
+        if (newUserResult.value.length === 0) {
+          return {
+            success: false,
+            message: "Failed to create app user",
+          };
+        }
+
+        userId = newUserResult.value[0].systemuserid;
+        appRegistered = true;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        if (errorMsg.includes("not a member of the organization")) {
+          return {
+            success: false,
+            message:
+              "App not registered (requires manual bootstrap in Power Platform admin center)",
+          };
+        }
+        return {
+          success: false,
+          message: `Failed to create app user: ${errorMsg}`,
+        };
+      }
+    } else {
+      userId = userResult.value[0].systemuserid;
+    }
+
+    // Check if System Administrator role is assigned
+    const rolesResult = await client.get<{ value: SecurityRole[] }>(
+      `/systemusers(${userId})/systemuserroles_association`,
+      {
+        $select: "roleid,name",
+      }
+    );
+
+    const hasAdminRole = rolesResult.value.some((r) => r.name === "System Administrator");
+
+    // Assign System Administrator role if needed
+    if (!hasAdminRole) {
+      try {
+        // Get System Administrator role
+        const roleResult = await client.get<{ value: SecurityRole[] }>("/roles", {
+          $filter: "name eq 'System Administrator'",
+          $select: "roleid,name",
+        });
+
+        if (roleResult.value.length === 0) {
+          return {
+            success: false,
+            message: "Could not find System Administrator role",
+          };
+        }
+
+        const roleId = roleResult.value[0].roleid;
+
+        // Assign role to user
+        const apiUrl = tenant.environmentUrl.replace(/\/$/, "") + "/api/data/v9.2";
+        await client.post(`/systemusers(${userId})/systemuserroles_association/$ref`, {
+          "@odata.id": `${apiUrl}/roles(${roleId})`,
+        });
+
+        // Determine what was done
+        if (userResult.value.length === 0) {
+          return {
+            success: true,
+            message: "Created app user and assigned System Administrator role",
+          };
+        } else {
+          return {
+            success: true,
+            message: "Assigned System Administrator role",
+          };
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          message: `Failed to assign role: ${errorMsg}`,
+        };
+      }
+    }
+
+    // If we created the user, report that
+    if (userResult.value.length === 0) {
+      return {
+        success: true,
+        message: "Created app user with System Administrator role",
+      };
+    }
+
+    // Otherwise, everything was already ready
+    return {
+      success: true,
+      message: "Ready",
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Check if it's an auth error (app not registered)
+    if (errorMsg.includes("not a member of the organization")) {
+      return {
+        success: false,
+        message: "App not registered (requires manual bootstrap in Power Platform admin center)",
+      };
+    }
+
+    return {
+      success: false,
+      message: `Error: ${errorMsg}`,
+    };
+  }
+}

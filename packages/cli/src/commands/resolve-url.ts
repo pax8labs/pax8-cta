@@ -21,12 +21,12 @@ import ora from "ora";
 import Table from "cli-table3";
 import {
   loadConfig,
-  getClientSecret,
   TokenManager,
   DataverseClient,
   SolutionOperations,
   AgentResolver,
 } from "@agentsync/core";
+import { getClientSecretWithFallback } from "../lib/credentials.js";
 
 export const resolveUrlCommand = new Command("resolve-url")
   .description("Resolve an M365 agent URL and export the containing solution")
@@ -50,7 +50,7 @@ export const resolveUrlCommand = new Command("resolve-url")
 
       // Authenticate
       spinner.start("Authenticating...");
-      const clientSecret = getClientSecret();
+      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
 
       const tokenManager = new TokenManager({
         tenantId: config.partner.tenantId,

@@ -21,13 +21,13 @@ import ora from "ora";
 import Table from "cli-table3";
 import {
   loadConfig,
-  getClientSecret,
   TokenManager,
   DataverseClient,
   SolutionOperations,
   isDemoMode as isDemoModeCore,
   DEMO_SOLUTIONS,
 } from "@agentsync/core";
+import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { isDemoModeEnabled } from "../demo.js";
 
 export const listCommand = new Command("list")
@@ -96,7 +96,7 @@ export const listCommand = new Command("list")
 
       // Get client secret
       spinner.start("Authenticating...");
-      const clientSecret = getClientSecret();
+      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
 
       const tokenManager = new TokenManager({
         tenantId: config.partner.tenantId,

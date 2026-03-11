@@ -99,8 +99,11 @@ export const initCommand = new Command("init")
       // Client Secret info
       console.log();
       console.log(chalk.yellow("⚠️  Client Secret"));
-      console.log(chalk.gray("For security, store your client secret in an environment variable:"));
-      console.log(chalk.white('  export AGENTSYNC_CLIENT_SECRET="your-secret-here"'));
+      console.log(chalk.gray("For security, store your client secret using one of these methods:"));
+      console.log(chalk.white("  1. OS Keychain (recommended): agentsync auth login"));
+      console.log(
+        chalk.white('  2. Environment variable: export AGENTSYNC_CLIENT_SECRET="your-secret"')
+      );
       console.log();
 
       // Ask about sample tenants
@@ -169,14 +172,14 @@ tenants:${
       console.log(chalk.green("✓ Setup complete!"));
       console.log();
       console.log(chalk.cyan("Next steps:"));
-      console.log(chalk.gray("  1. Set your client secret:"));
-      console.log(chalk.white('     export AGENTSYNC_CLIENT_SECRET="your-secret"'));
+      console.log(chalk.gray("  1. Store your client secret securely:"));
+      console.log(chalk.white("     agentsync auth login"));
       console.log();
       console.log(chalk.gray("  2. Add your tenant destinations to:"));
       console.log(chalk.white(`     ${configPath}`));
       console.log();
       console.log(chalk.gray("  3. Verify GDAP access:"));
-      console.log(chalk.white("     agentsync fleet inspect"));
+      console.log(chalk.white("     agentsync tenants inspect"));
       console.log();
       console.log(chalk.dim("Or explore in demo mode first: agentsync demo on"));
     } catch (error) {

@@ -20,14 +20,9 @@ import { fileURLToPath } from "node:url";
 import { copyFileSync, mkdirSync, existsSync } from "node:fs";
 import chalk from "chalk";
 import ora from "ora";
-import {
-  loadConfig,
-  getClientSecret,
-  TokenManager,
-  DataverseClient,
-  SolutionOperations,
-} from "@agentsync/core";
+import { loadConfig, TokenManager, DataverseClient, SolutionOperations } from "@agentsync/core";
 import { isDemoModeEnabled } from "./demo.js";
+import { getClientSecretWithFallback } from "../lib/credentials.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -95,7 +90,7 @@ export const exportCommand = new Command("export")
 
       // Get client secret
       spinner.start("Authenticating with directory...");
-      const clientSecret = getClientSecret();
+      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
 
       const tokenManager = new TokenManager({
         tenantId: config.partner.tenantId,

@@ -212,6 +212,8 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       expect(result.exitCode).toBe(1);
       expect(
         containsText(result.output, "Config file not found") ||
+          containsText(result.output, "Configuration file") ||
+          containsText(result.output, "not found") ||
           containsText(result.output, "Failed")
       ).toBe(true);
     });
