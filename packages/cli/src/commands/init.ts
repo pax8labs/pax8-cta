@@ -424,9 +424,7 @@ export const initCommand = new Command("init")
         }
       }
 
-      rl.close();
-
-      // Create config
+      // Create config (keep rl open for test prompt later)
       const spinner = ora("Creating configuration...").start();
 
       const configPath = resolve(process.cwd(), options.config);
@@ -478,6 +476,18 @@ tenants:${tenantsYaml}
       writeFileSync(configPath, configContent);
       spinner.succeed(`Configuration saved to ${configPath}`);
 
+      // Offer to test credentials and discover GDAP tenants
+      console.log();
+      const testConnection = await rl.question(
+        chalk.cyan("Test your credentials now? ") + chalk.gray("(y/n) ")
+      );
+
+      rl.close();
+
+      if (testConnection.toLowerCase() === "y" || testConnection.toLowerCase() === "yes") {
+        await testCredentialsAndGdap(partnerTenantId, partnerClientId, tenants, options.config);
+      }
+
       console.log();
       console.log(chalk.green.bold("✓ Setup complete!\n"));
 
@@ -521,3 +531,151 @@ tenants:${tenantsYaml}
       process.exit(1);
     }
   });
+
+/**
+ * Test credentials and optionally discover GDAP relationships
+ */
+async function testCredentialsAndGdap(
+  partnerTenantId: string,
+  partnerClientId: string,
+  configuredTenants: Array<{ tenantId: string; name: string; environmentUrl: string }>,
+  _configPath: string
+): Promise<void> {
+  console.log();
+
+  // Try to get a token to verify credentials work
+  const spinner = ora("Testing credentials...").start();
+
+  try {
+    const { getClientSecretWithFallback } = await import("../lib/credentials.js");
+    const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+
+    const { TokenManager } = await import("@agentsync/core");
+    const tokenManager = new TokenManager({
+      tenantId: partnerTenantId,
+      clientId: partnerClientId,
+      clientSecret,
+    });
+
+    // Test getting a Graph token
+    await tokenManager.getGraphToken();
+    spinner.succeed("Credentials valid - authentication successful");
+
+    // Try to discover GDAP relationships
+    spinner.start("Checking GDAP relationships...");
+    try {
+      const { GdapClient } = await import("@agentsync/core");
+      const gdapClient = new GdapClient({
+        tenantId: partnerTenantId,
+        clientId: partnerClientId,
+        clientSecret,
+      });
+
+      const relationships = await gdapClient.listDelegatedAdminRelationships();
+
+      if (relationships.length === 0) {
+        spinner.warn("No active GDAP relationships found");
+        console.log(
+          chalk.gray("   You may need to set up GDAP relationships with your customers.")
+        );
+        console.log(
+          chalk.gray("   See: https://learn.microsoft.com/en-us/partner-center/gdap-introduction")
+        );
+      } else {
+        spinner.succeed(`Found ${relationships.length} active GDAP relationship(s)`);
+        console.log();
+
+        // Show discovered tenants
+        console.log(chalk.cyan("   Your GDAP customers:"));
+        for (const rel of relationships) {
+          const isConfigured = configuredTenants.some((t) => t.tenantId === rel.customer.tenantId);
+          const status = isConfigured ? chalk.green("✓ configured") : chalk.yellow("not in config");
+          console.log(chalk.white(`   • ${rel.customer.displayName}`) + chalk.gray(` (${status})`));
+        }
+
+        // Count unconfigured
+        const unconfigured = relationships.filter(
+          (rel) => !configuredTenants.some((t) => t.tenantId === rel.customer.tenantId)
+        );
+        if (unconfigured.length > 0) {
+          console.log();
+          console.log(
+            chalk.yellow(
+              `   ${unconfigured.length} customer(s) not yet in your config. Run 'agentsync tenants discover' to add them.`
+            )
+          );
+        }
+      }
+    } catch (gdapError) {
+      // GDAP discovery failed - might not have Graph permissions
+      spinner.warn("Could not check GDAP relationships");
+      const errMsg = gdapError instanceof Error ? gdapError.message : String(gdapError);
+      if (errMsg.includes("403") || errMsg.includes("Authorization")) {
+        console.log(
+          chalk.gray(
+            "   Your app may need Directory.Read.All or similar permissions for GDAP discovery."
+          )
+        );
+      } else {
+        console.log(chalk.gray(`   ${errMsg.slice(0, 80)}`));
+      }
+    }
+
+    // Test connectivity to configured tenants
+    if (configuredTenants.length > 0) {
+      console.log();
+      console.log(chalk.cyan("Testing tenant connectivity..."));
+      for (const tenant of configuredTenants) {
+        const tenantSpinner = ora(`   ${tenant.name}...`).start();
+        try {
+          const tenantTokenManager = new TokenManager({
+            tenantId: tenant.tenantId,
+            clientId: partnerClientId,
+            clientSecret,
+          });
+
+          const { DataverseClient } = await import("@agentsync/core");
+          const client = new DataverseClient({
+            environmentUrl: tenant.environmentUrl,
+            tokenManager: tenantTokenManager,
+          });
+
+          // Try to query to verify connectivity
+          await client.get("/WhoAmI");
+          tenantSpinner.succeed(`   ${tenant.name}: Connected`);
+        } catch (tenantError) {
+          const errMsg = tenantError instanceof Error ? tenantError.message : String(tenantError);
+          if (errMsg.includes("not a member") || errMsg.includes("AADSTS50020")) {
+            tenantSpinner.fail(`   ${tenant.name}: App user not registered`);
+            console.log(chalk.gray(`      Run: agentsync setup --tenant "${tenant.name}"`));
+          } else if (errMsg.includes("403") || errMsg.includes("privilege")) {
+            tenantSpinner.fail(`   ${tenant.name}: Missing permissions`);
+            console.log(chalk.gray("      App user needs System Administrator role"));
+          } else {
+            tenantSpinner.fail(`   ${tenant.name}: Connection failed`);
+            console.log(chalk.gray(`      ${errMsg.slice(0, 60)}`));
+          }
+        }
+      }
+    }
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    spinner.fail("Credential test failed");
+
+    if (errMsg.includes("AADSTS7000215") || errMsg.includes("Invalid client secret")) {
+      console.log(chalk.red("   Invalid client secret"));
+      console.log(chalk.gray("   Make sure you copied the secret Value, not the Secret ID"));
+    } else if (errMsg.includes("AADSTS700016")) {
+      console.log(chalk.red("   Application not found"));
+      console.log(chalk.gray("   Verify the Client ID is correct"));
+    } else if (errMsg.includes("AADSTS90002")) {
+      console.log(chalk.red("   Tenant not found"));
+      console.log(chalk.gray("   Verify the Tenant ID is correct"));
+    } else {
+      console.log(chalk.red(`   ${errMsg.slice(0, 80)}`));
+    }
+
+    console.log();
+    console.log(chalk.yellow("You can fix these issues and run 'agentsync validate' later."));
+  }
+}
