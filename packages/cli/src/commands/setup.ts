@@ -160,6 +160,32 @@ export const setupCommand = new Command("setup")
   });
 
 /**
+ * Discover environment ID from environment URL using Power Platform Admin API
+ */
+async function discoverEnvironmentId(
+  tokenManager: TokenManager,
+  environmentUrl: string
+): Promise<string | null> {
+  try {
+    const adminClient = new PowerPlatformAdminClient({ tokenManager });
+    const environments = await adminClient.listEnvironmentSummaries();
+
+    // Normalize URL for comparison
+    const normalizedUrl = environmentUrl.toLowerCase().replace(/\/$/, "");
+
+    for (const env of environments) {
+      const envUrl = env.instanceUrl.toLowerCase().replace(/\/$/, "");
+      if (envUrl === normalizedUrl) {
+        return env.id;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Check setup status for a tenant
  */
 async function checkSetupStatus(
@@ -174,23 +200,31 @@ async function checkSetupStatus(
       clientSecret: clientSecret,
     });
 
-    // Check if environmentId is provided
-    if (!tenant.environmentId) {
-      return {
-        tenantName: tenant.name,
-        environmentUrl: tenant.environmentUrl,
-        appRegistered: false,
-        roleAssigned: false,
-        status: "error",
-        error: "Missing environmentId in configuration",
-      };
+    // Get environmentId - either from config or discover it
+    let environmentId = tenant.environmentId;
+    if (!environmentId) {
+      environmentId =
+        (await discoverEnvironmentId(tokenManager, tenant.environmentUrl)) ?? undefined;
+      if (!environmentId) {
+        return {
+          tenantName: tenant.name,
+          environmentUrl: tenant.environmentUrl,
+          appRegistered: false,
+          roleAssigned: false,
+          status: "error",
+          error:
+            "Could not discover environment ID. Ensure the app has Power Platform Admin API access.",
+        };
+      }
+      // Cache it for later use
+      (tenant as TenantConfig & { environmentId: string }).environmentId = environmentId;
     }
 
     const adminClient = new PowerPlatformAdminClient({ tokenManager });
 
     // Check if app user exists
     const appUser = await adminClient.checkApplicationUserExists(
-      tenant.environmentId,
+      environmentId,
       config.partner.clientId
     );
 
@@ -239,16 +273,21 @@ async function setupTenant(
     clientSecret: clientSecret,
   });
 
-  if (!tenant.environmentId) {
-    throw new Error(
-      "Missing environmentId in configuration. Please add the environment ID to your tenant configuration."
-    );
+  // Get environmentId - either from config or discover it
+  let environmentId = tenant.environmentId;
+  if (!environmentId) {
+    environmentId = (await discoverEnvironmentId(tokenManager, tenant.environmentUrl)) ?? undefined;
+    if (!environmentId) {
+      throw new Error(
+        "Could not discover environment ID. Ensure the app has Power Platform Admin API access."
+      );
+    }
   }
 
   const adminClient = new PowerPlatformAdminClient({ tokenManager });
 
   const result = await adminClient.setupApplicationUser(
-    tenant.environmentId,
+    environmentId,
     tenant.environmentUrl,
     config.partner.clientId
   );
