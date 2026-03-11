@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TenantConfig, Config } from '@agentsync/core';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { TenantConfig, Config } from "@agentsync/core";
 
 // Use vi.hoisted to ensure mocks are available before imports
 const mockWorkerLogger = vi.hoisted(() => ({
@@ -10,8 +10,8 @@ const mockWorkerLogger = vi.hoisted(() => ({
 }));
 
 const mockSolutionOps = vi.hoisted(() => ({
-  importSolutionAsync: vi.fn().mockResolvedValue('import-job-123'),
-  waitForImport: vi.fn().mockResolvedValue({ success: true, importJobId: 'import-job-123' }),
+  importSolutionAsync: vi.fn().mockResolvedValue("import-job-123"),
+  waitForImport: vi.fn().mockResolvedValue({ success: true, importJobId: "import-job-123" }),
 }));
 
 const mockConnectionOps = vi.hoisted(() => ({
@@ -22,12 +22,12 @@ const mockConnectionOps = vi.hoisted(() => ({
 const mockHealthCheckService = vi.hoisted(() => ({
   checkTenantHealth: vi.fn().mockResolvedValue({
     healthy: true,
-    checks: [{ name: 'api', passed: true }],
+    checks: [{ name: "api", passed: true }],
   }),
 }));
 
 const mockRollbackService = vi.hoisted(() => ({
-  createSnapshot: vi.fn().mockResolvedValue({ id: 'snapshot-123' }),
+  createSnapshot: vi.fn().mockResolvedValue({ id: "snapshot-123" }),
   getLatestSnapshot: vi.fn().mockResolvedValue(null),
   rollback: vi.fn().mockResolvedValue({ success: true }),
 }));
@@ -49,14 +49,14 @@ const mockWorker = vi.hoisted(() => ({
 }));
 
 // Mock BullMQ
-vi.mock('bullmq', () => ({
+vi.mock("bullmq", () => ({
   Worker: vi.fn().mockImplementation((_name, processor, _options) => {
     // Store the processor function so we can test it
     const workerInstance = { ...mockWorker, _processor: processor };
     return workerInstance;
   }),
   Queue: vi.fn().mockImplementation(() => ({
-    add: vi.fn().mockResolvedValue({ id: 'job-123' }),
+    add: vi.fn().mockResolvedValue({ id: "job-123" }),
     addBulk: vi.fn().mockResolvedValue([]),
     close: vi.fn().mockResolvedValue(undefined),
   })),
@@ -68,9 +68,9 @@ vi.mock('bullmq', () => ({
 }));
 
 // Mock @agentsync/core modules with hoisted mocks
-vi.mock('@agentsync/core', () => ({
+vi.mock("@agentsync/core", () => ({
   TokenManager: vi.fn().mockImplementation(() => ({
-    getToken: vi.fn().mockResolvedValue('mock-token'),
+    getToken: vi.fn().mockResolvedValue("mock-token"),
   })),
   DataverseClient: vi.fn().mockImplementation(() => ({
     get: vi.fn().mockResolvedValue({ value: [] }),
@@ -84,9 +84,9 @@ vi.mock('@agentsync/core', () => ({
   SchedulerService: vi.fn().mockImplementation(() => ({
     isWithinMaintenanceWindow: vi.fn().mockReturnValue(true),
     validateCron: vi.fn().mockReturnValue({ valid: true }),
-    describeCron: vi.fn().mockReturnValue('Every day at midnight'),
+    describeCron: vi.fn().mockReturnValue("Every day at midnight"),
   })),
-  getClientSecret: vi.fn().mockReturnValue('mock-client-secret'),
+  getClientSecret: vi.fn().mockReturnValue("mock-client-secret"),
   getEffectiveConnectionMappings: vi.fn().mockReturnValue([]),
   getEffectiveEnvironmentVariables: vi.fn().mockReturnValue([]),
   getEffectiveRollbackSettings: vi.fn().mockReturnValue({
@@ -97,11 +97,11 @@ vi.mock('@agentsync/core', () => ({
   timedOperation: vi.fn().mockImplementation(async (_logger, _name, fn) => fn()),
   getAuditLog: vi.fn().mockReturnValue(mockAuditLog),
   parseRedisUrl: vi.fn().mockReturnValue({
-    host: 'localhost',
+    host: "localhost",
     port: 6379,
     maxRetriesPerRequest: null,
   }),
-  DEFAULT_REDIS_URL: 'redis://localhost:6379',
+  DEFAULT_REDIS_URL: "redis://localhost:6379",
   DEFAULT_WORKER_CONCURRENCY: 5,
   DEFAULT_RATE_LIMIT_MAX: 10,
   DEFAULT_RATE_LIMIT_DURATION_MS: 1000,
@@ -126,30 +126,28 @@ import {
   createTenantDeploymentWorker,
   createScheduledDeploymentWorker,
   cleanupWorker,
-} from '../processor.js';
-import { Worker } from 'bullmq';
-import {
-  getEffectiveRollbackSettings,
-  getEffectiveConnectionMappings,
-} from '@agentsync/core';
+} from "../processor.js";
+import { Worker } from "bullmq";
+import { getEffectiveRollbackSettings, getEffectiveConnectionMappings } from "@agentsync/core";
 
-describe('Processor', () => {
+describe("Processor", () => {
   const mockTenant = {
-    tenantId: 'tenant-123',
-    name: 'Test Tenant',
-    environmentUrl: 'https://test.crm.dynamics.com',
+    tenantId: "tenant-123",
+    name: "Test Tenant",
+    environmentUrl: "https://test.crm.dynamics.com",
     enabled: true,
+    autoSetup: true,
     tags: [],
   } as TenantConfig;
 
   const mockConfig = {
-    version: '2.0',
+    version: "2.0",
     source: {
-      environmentUrl: 'https://source.crm.dynamics.com',
+      environmentUrl: "https://source.crm.dynamics.com",
     },
     partner: {
-      tenantId: 'partner-tenant-123',
-      clientId: 'partner-client-123',
+      tenantId: "partner-tenant-123",
+      clientId: "partner-client-123",
     },
     tenants: [mockTenant],
   } as Config;
@@ -158,18 +156,21 @@ describe('Processor', () => {
     vi.clearAllMocks();
 
     // Reset mock implementations
-    mockSolutionOps.importSolutionAsync.mockResolvedValue('import-job-123');
-    mockSolutionOps.waitForImport.mockResolvedValue({ success: true, importJobId: 'import-job-123' });
+    mockSolutionOps.importSolutionAsync.mockResolvedValue("import-job-123");
+    mockSolutionOps.waitForImport.mockResolvedValue({
+      success: true,
+      importJobId: "import-job-123",
+    });
     mockHealthCheckService.checkTenantHealth.mockResolvedValue({
       healthy: true,
-      checks: [{ name: 'api', passed: true }],
+      checks: [{ name: "api", passed: true }],
     });
-    mockRollbackService.createSnapshot.mockResolvedValue({ id: 'snapshot-123' });
+    mockRollbackService.createSnapshot.mockResolvedValue({ id: "snapshot-123" });
     vi.mocked(getEffectiveRollbackSettings).mockReturnValue({
       enabled: false,
       keepVersions: 3,
       autoRollbackOnFailure: false,
-      rollbackTimeout: '10m',
+      rollbackTimeout: "10m",
     });
     vi.mocked(getEffectiveConnectionMappings).mockReturnValue([]);
   });
@@ -178,16 +179,16 @@ describe('Processor', () => {
     await cleanupWorker();
   });
 
-  describe('createTenantDeploymentWorker', () => {
-    it('should create a worker with default options', () => {
+  describe("createTenantDeploymentWorker", () => {
+    it("should create a worker with default options", () => {
       const worker = createTenantDeploymentWorker();
 
       expect(Worker).toHaveBeenCalledWith(
-        'tenant-deployments',
+        "tenant-deployments",
         expect.any(Function),
         expect.objectContaining({
           connection: expect.objectContaining({
-            host: 'localhost',
+            host: "localhost",
             port: 6379,
           }),
           concurrency: 5,
@@ -196,9 +197,9 @@ describe('Processor', () => {
       expect(worker.on).toBeDefined();
     });
 
-    it('should create a worker with custom options', () => {
+    it("should create a worker with custom options", () => {
       const worker = createTenantDeploymentWorker({
-        redisUrl: 'redis://custom:6380',
+        redisUrl: "redis://custom:6380",
         concurrency: 10,
         rateLimitMax: 20,
         rateLimitDuration: 2000,
@@ -208,11 +209,11 @@ describe('Processor', () => {
       expect(worker).toBeDefined();
     });
 
-    it('should initialize services when config is provided', () => {
+    it("should initialize services when config is provided", () => {
       createTenantDeploymentWorker({ config: mockConfig });
 
       expect(mockWorkerLogger.info).toHaveBeenCalledWith(
-        'Worker services initialized',
+        "Worker services initialized",
         expect.objectContaining({
           hasRollback: true,
           hasHealthCheck: true,
@@ -220,35 +221,35 @@ describe('Processor', () => {
       );
     });
 
-    it('should register event handlers', () => {
+    it("should register event handlers", () => {
       const worker = createTenantDeploymentWorker();
 
-      expect(worker.on).toHaveBeenCalledWith('completed', expect.any(Function));
-      expect(worker.on).toHaveBeenCalledWith('failed', expect.any(Function));
-      expect(worker.on).toHaveBeenCalledWith('error', expect.any(Function));
+      expect(worker.on).toHaveBeenCalledWith("completed", expect.any(Function));
+      expect(worker.on).toHaveBeenCalledWith("failed", expect.any(Function));
+      expect(worker.on).toHaveBeenCalledWith("error", expect.any(Function));
     });
   });
 
-  describe('processTenantDeployment (via worker processor)', () => {
+  describe("processTenantDeployment (via worker processor)", () => {
     const createMockJob = (overrides = {}) => ({
-      id: 'job-123',
+      id: "job-123",
       data: {
-        deploymentId: 'deploy-123',
-        solutionPath: '/path/to/solution.zip',
-        solutionName: 'TestSolution',
+        deploymentId: "deploy-123",
+        solutionPath: "/path/to/solution.zip",
+        solutionName: "TestSolution",
         tenant: mockTenant,
-        partnerTenantId: 'partner-tenant-123',
-        partnerClientId: 'partner-client-123',
+        partnerTenantId: "partner-tenant-123",
+        partnerClientId: "partner-client-123",
         config: mockConfig,
         ...overrides,
       },
       attemptsMade: 0,
       updateProgress: vi.fn().mockResolvedValue(undefined),
-      getState: vi.fn().mockResolvedValue('active'),
+      getState: vi.fn().mockResolvedValue("active"),
       log: vi.fn(),
     });
 
-    it('should process a successful deployment', async () => {
+    it("should process a successful deployment", async () => {
       const worker = createTenantDeploymentWorker({ config: mockConfig });
       // @ts-expect-error - accessing internal processor for testing
       const processor = worker._processor;
@@ -257,12 +258,12 @@ describe('Processor', () => {
       const result = await processor(mockJob);
 
       expect(result.success).toBe(true);
-      expect(result.tenantId).toBe('tenant-123');
-      expect(result.tenantName).toBe('Test Tenant');
+      expect(result.tenantId).toBe("tenant-123");
+      expect(result.tenantName).toBe("Test Tenant");
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
     });
 
-    it('should log deployment start', async () => {
+    it("should log deployment start", async () => {
       const worker = createTenantDeploymentWorker({ config: mockConfig });
       // @ts-expect-error - accessing internal processor for testing
       const processor = worker._processor;
@@ -271,16 +272,16 @@ describe('Processor', () => {
       await processor(mockJob);
 
       expect(mockWorkerLogger.info).toHaveBeenCalledWith(
-        'Starting deployment',
+        "Starting deployment",
         expect.objectContaining({
-          jobId: 'job-123',
-          deploymentId: 'deploy-123',
-          tenant: 'Test Tenant',
+          jobId: "job-123",
+          deploymentId: "deploy-123",
+          tenant: "Test Tenant",
         })
       );
     });
 
-    it('should update job progress during deployment', async () => {
+    it("should update job progress during deployment", async () => {
       const worker = createTenantDeploymentWorker({ config: mockConfig });
       // @ts-expect-error - accessing internal processor for testing
       const processor = worker._processor;
@@ -292,11 +293,11 @@ describe('Processor', () => {
       expect(mockJob.updateProgress).toHaveBeenCalled();
     });
 
-    it('should handle import failure', async () => {
+    it("should handle import failure", async () => {
       mockSolutionOps.waitForImport.mockResolvedValueOnce({
         success: false,
-        importJobId: 'import-job-456',
-        error: 'Solution import failed: missing dependency',
+        importJobId: "import-job-456",
+        error: "Solution import failed: missing dependency",
       });
 
       const worker = createTenantDeploymentWorker({ config: mockConfig });
@@ -307,17 +308,17 @@ describe('Processor', () => {
       const result = await processor(mockJob);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('missing dependency');
+      expect(result.error).toContain("missing dependency");
     });
 
-    it('should run pre-deployment health check when enabled', async () => {
+    it("should run pre-deployment health check when enabled", async () => {
       const configWithHealthCheck: Config = {
         ...mockConfig,
         settings: {
           healthCheck: {
             enabled: true,
             expectedStatus: 200,
-            timeout: '30s',
+            timeout: "30s",
             retries: 2,
           },
         },
@@ -332,15 +333,15 @@ describe('Processor', () => {
 
       // Health check should have been called
       expect(mockWorkerLogger.info).toHaveBeenCalledWith(
-        'Running pre-deployment health check',
+        "Running pre-deployment health check",
         expect.any(Object)
       );
     });
 
-    it('should fail deployment when pre-deployment health check fails', async () => {
+    it("should fail deployment when pre-deployment health check fails", async () => {
       mockHealthCheckService.checkTenantHealth.mockResolvedValueOnce({
         healthy: false,
-        checks: [{ name: 'api', passed: false }],
+        checks: [{ name: "api", passed: false }],
       });
 
       const configWithHealthCheck: Config = {
@@ -349,7 +350,7 @@ describe('Processor', () => {
           healthCheck: {
             enabled: true,
             expectedStatus: 200,
-            timeout: '30s',
+            timeout: "30s",
             retries: 3,
           },
         },
@@ -363,15 +364,15 @@ describe('Processor', () => {
       const result = await processor(mockJob);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('health check failed');
+      expect(result.error).toContain("health check failed");
     });
 
-    it('should create rollback snapshot when enabled', async () => {
+    it("should create rollback snapshot when enabled", async () => {
       vi.mocked(getEffectiveRollbackSettings).mockReturnValue({
         enabled: true,
         keepVersions: 3,
         autoRollbackOnFailure: false,
-        rollbackTimeout: '10m',
+        rollbackTimeout: "10m",
       });
 
       const worker = createTenantDeploymentWorker({ config: mockConfig });
@@ -382,13 +383,13 @@ describe('Processor', () => {
       await processor(mockJob);
 
       expect(mockWorkerLogger.info).toHaveBeenCalledWith(
-        'Creating rollback snapshot',
+        "Creating rollback snapshot",
         expect.any(Object)
       );
     });
 
-    it('should handle exceptions gracefully', async () => {
-      mockSolutionOps.importSolutionAsync.mockRejectedValueOnce(new Error('Network error'));
+    it("should handle exceptions gracefully", async () => {
+      mockSolutionOps.importSolutionAsync.mockRejectedValueOnce(new Error("Network error"));
 
       const worker = createTenantDeploymentWorker({ config: mockConfig });
       // @ts-expect-error - accessing internal processor for testing
@@ -398,13 +399,13 @@ describe('Processor', () => {
       const result = await processor(mockJob);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Network error');
+      expect(result.error).toBe("Network error");
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
     });
 
-    it('should apply connection mappings after import', async () => {
+    it("should apply connection mappings after import", async () => {
       vi.mocked(getEffectiveConnectionMappings).mockReturnValue([
-        { sourceLogicalName: 'conn1', targetConnectionId: 'conn-id-1' },
+        { sourceLogicalName: "conn1", targetConnectionId: "conn-id-1" },
       ]);
 
       const worker = createTenantDeploymentWorker({ config: mockConfig });
@@ -416,12 +417,12 @@ describe('Processor', () => {
 
       // Connection mappings should be applied
       expect(mockWorkerLogger.info).toHaveBeenCalledWith(
-        'Configuring connection references',
+        "Configuring connection references",
         expect.objectContaining({ count: 1 })
       );
     });
 
-    it('should log audit entry on successful deployment', async () => {
+    it("should log audit entry on successful deployment", async () => {
       const worker = createTenantDeploymentWorker({ config: mockConfig });
       // @ts-expect-error - accessing internal processor for testing
       const processor = worker._processor;
@@ -430,18 +431,18 @@ describe('Processor', () => {
       await processor(mockJob);
 
       expect(mockAuditLog.log).toHaveBeenCalledWith(
-        'solution.imported',
+        "solution.imported",
         expect.objectContaining({
-          userId: 'worker',
-          resourceType: 'tenant',
-          resourceId: 'tenant-123',
+          userId: "worker",
+          resourceType: "tenant",
+          resourceId: "tenant-123",
           success: true,
         })
       );
     });
 
-    it('should log audit entry on failed deployment', async () => {
-      mockSolutionOps.importSolutionAsync.mockRejectedValueOnce(new Error('Import error'));
+    it("should log audit entry on failed deployment", async () => {
+      mockSolutionOps.importSolutionAsync.mockRejectedValueOnce(new Error("Import error"));
 
       const worker = createTenantDeploymentWorker({ config: mockConfig });
       // @ts-expect-error - accessing internal processor for testing
@@ -451,32 +452,32 @@ describe('Processor', () => {
       await processor(mockJob);
 
       expect(mockAuditLog.log).toHaveBeenCalledWith(
-        'solution.imported',
+        "solution.imported",
         expect.objectContaining({
           success: false,
-          errorMessage: 'Import error',
+          errorMessage: "Import error",
         })
       );
     });
 
-    it('should auto-rollback when import fails and autoRollbackOnFailure is enabled', async () => {
+    it("should auto-rollback when import fails and autoRollbackOnFailure is enabled", async () => {
       mockSolutionOps.waitForImport.mockResolvedValueOnce({
         success: false,
-        importJobId: 'import-job-789',
-        error: 'Import failed',
+        importJobId: "import-job-789",
+        error: "Import failed",
       });
 
       mockRollbackService.getLatestSnapshot.mockResolvedValueOnce({
-        id: 'snapshot-latest',
-        solutionName: 'TestSolution',
-        tenantId: 'tenant-123',
+        id: "snapshot-latest",
+        solutionName: "TestSolution",
+        tenantId: "tenant-123",
       });
 
       vi.mocked(getEffectiveRollbackSettings).mockReturnValue({
         enabled: true,
         keepVersions: 3,
         autoRollbackOnFailure: true,
-        rollbackTimeout: '10m',
+        rollbackTimeout: "10m",
       });
 
       const worker = createTenantDeploymentWorker({ config: mockConfig });
@@ -487,19 +488,19 @@ describe('Processor', () => {
       await processor(mockJob);
 
       expect(mockWorkerLogger.info).toHaveBeenCalledWith(
-        'Initiating auto-rollback',
+        "Initiating auto-rollback",
         expect.any(Object)
       );
       expect(mockRollbackService.rollback).toHaveBeenCalled();
     });
   });
 
-  describe('createScheduledDeploymentWorker', () => {
-    it('should create a scheduled deployment worker', () => {
+  describe("createScheduledDeploymentWorker", () => {
+    it("should create a scheduled deployment worker", () => {
       const worker = createScheduledDeploymentWorker();
 
       expect(Worker).toHaveBeenCalledWith(
-        'scheduled-deployments',
+        "scheduled-deployments",
         expect.any(Function),
         expect.objectContaining({
           concurrency: 1, // Should only process one schedule at a time
@@ -508,24 +509,24 @@ describe('Processor', () => {
       expect(worker).toBeDefined();
     });
 
-    it('should register event handlers', () => {
+    it("should register event handlers", () => {
       const worker = createScheduledDeploymentWorker();
 
-      expect(worker.on).toHaveBeenCalledWith('completed', expect.any(Function));
-      expect(worker.on).toHaveBeenCalledWith('failed', expect.any(Function));
-      expect(worker.on).toHaveBeenCalledWith('error', expect.any(Function));
+      expect(worker.on).toHaveBeenCalledWith("completed", expect.any(Function));
+      expect(worker.on).toHaveBeenCalledWith("failed", expect.any(Function));
+      expect(worker.on).toHaveBeenCalledWith("error", expect.any(Function));
     });
   });
 
-  describe('cleanupWorker', () => {
-    it('should clean up worker resources', async () => {
+  describe("cleanupWorker", () => {
+    it("should clean up worker resources", async () => {
       // First initialize services
       createTenantDeploymentWorker({ config: mockConfig });
 
       // Then cleanup
       await cleanupWorker();
 
-      expect(mockWorkerLogger.info).toHaveBeenCalledWith('Cleaning up worker resources');
+      expect(mockWorkerLogger.info).toHaveBeenCalledWith("Cleaning up worker resources");
     });
   });
 });

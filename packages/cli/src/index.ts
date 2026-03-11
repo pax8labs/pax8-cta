@@ -36,6 +36,7 @@ import { resolveUrlCommand } from "./commands/resolve-url.js";
 import { initCommand } from "./commands/init.js";
 import { demoCommand } from "./commands/demo.js";
 import { telemetryCommand } from "./commands/telemetry.js";
+import { setupCommand } from "./commands/setup.js";
 import { showBanner, showWelcome } from "./lib/banner.js";
 import { startRepl } from "./lib/repl.js";
 import {
@@ -72,6 +73,7 @@ export function createProgram(): Command {
   program.addCommand(agentsCommand);
   program.addCommand(solutionsCommand);
   program.addCommand(resolveUrlCommand);
+  program.addCommand(setupCommand);
   program.addCommand(telemetryCommand);
 
   return program;

@@ -15,27 +15,49 @@
  */
 
 import { Command } from "commander";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { existsSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
-import { loadConfig, getClientSecret, filterTenantsByTags, TenantConfig } from "@agentsync/core";
+import {
+  loadConfig,
+  getClientSecret,
+  filterTenantsByTags,
+  TenantConfig,
+  TokenManager,
+  DataverseClient,
+  SolutionOperations,
+} from "@agentsync/core";
 import { DeploymentQueueManager } from "@agentsync/worker";
 import { isDemoModeEnabled, getDemoTenants } from "./demo.js";
 
 export const deployCommand = new Command("deploy")
   .alias("ship")
-  .description("Deploy agent packages to tenants")
-  .requiredOption("-s, --solution <path>", "Path to agent package (solution zip)")
+  .description("Deploy agent packages to tenants (from solution name or zip file)")
+  .requiredOption(
+    "-s, --solution <name|path>",
+    "Solution name or path to agent package (solution zip)"
+  )
   .option("--agentPackage <path>", "Alias for --solution")
   .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
   .option("-t, --tag <tags...>", "Ship only to destinations with these tags")
   .option("--all", "Ship to all destinations in the fleet")
   .option("--dry-run", "Preview shipment without shipping")
+  .option("--managed", "Export as managed solution (default, used with solution name)")
+  .option("--unmanaged", "Export as unmanaged solution (used with solution name)")
+  .option("--keep-package", "Keep exported package after deployment (used with solution name)")
+  .option("--package-dir <path>", "Directory for exported package (default: temp directory)")
+  .option("--no-auto-setup", "Disable automatic application user setup")
   .option("--redis <url>", "Redis URL for shipping dock", "redis://localhost:6379")
   .action(async (options) => {
     const spinner = ora("Loading shipping manifest...").start();
+
+    // Declare these outside try block so they're accessible in catch
+    let agentPackagePath: string;
+    let tempPackagePath: string | null = null;
 
     try {
       // Validate options
@@ -44,10 +66,24 @@ export const deployCommand = new Command("deploy")
         process.exit(1);
       }
 
+      // Determine if this is a solution name or file path
+      const solutionArg = options.agentPackage || options.solution;
+      // Treat as file path if it ends with .zip (regardless of existence - we'll validate later)
+      const isFilePath = solutionArg.endsWith(".zip");
+
       // Check for demo mode
       if (isDemoModeEnabled()) {
         spinner.succeed("Demo fleet manifest loaded");
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
+
+        // In demo mode, show export simulation if solution name provided
+        if (!isFilePath) {
+          console.log(chalk.bold("📤 Export Simulation:"));
+          console.log(`  Solution:      ${chalk.green(solutionArg)}`);
+          console.log(`  Version:       1.0.0.2 (demo)`);
+          console.log(`  Type:          ${options.unmanaged ? "Unmanaged" : "Managed"}`);
+          console.log();
+        }
 
         const destinations = getDemoTenants(options);
 
@@ -83,7 +119,7 @@ export const deployCommand = new Command("deploy")
         console.log();
         console.log(chalk.bold("📋 Shipment Details:"));
         console.log(`  Tracking #:    ${chalk.cyan(demoShipmentId)}`);
-        console.log(`  Package:       ${options.solution || options.agentPackage}`);
+        console.log(`  Package:       ${isFilePath ? solutionArg : `${solutionArg} (exported)`}`);
         console.log(`  Destinations:  ${destinations.length}`);
         console.log();
         console.log(
@@ -98,7 +134,7 @@ export const deployCommand = new Command("deploy")
       const config = await loadConfig(configPath);
       spinner.succeed("Manifest loaded");
 
-      // Get target tenants (destinations)
+      // Get target tenants (destinations) - do this early to fail fast on invalid selection
       let destinations: TenantConfig[];
       if (options.all) {
         destinations = config.tenants.filter((t) => t.enabled);
@@ -109,6 +145,88 @@ export const deployCommand = new Command("deploy")
       if (destinations.length === 0) {
         spinner.fail(chalk.red("No destinations matched the selection criteria"));
         process.exit(1);
+      }
+
+      // If solution name provided, export it first
+      if (!isFilePath) {
+        // Validate source environment is configured
+        if (!config.source || !config.source.environmentUrl) {
+          spinner.fail(chalk.red("Source environment not configured"));
+          console.error(
+            chalk.red(
+              "\nTo deploy from solution name, configure a source environment in your config file:"
+            )
+          );
+          console.error(chalk.gray("  source:"));
+          console.error(chalk.gray("    tenantId: <tenant-id>"));
+          console.error(chalk.gray("    environmentUrl: <environment-url>"));
+          console.error(
+            chalk.gray("\nOr set environment variables: SOURCE_TENANT_ID, SOURCE_ENVIRONMENT_URL")
+          );
+          process.exit(1);
+        }
+
+        spinner.start(`Exporting solution '${solutionArg}' from source...`);
+
+        try {
+          // Authenticate and create client
+          const clientSecret = getClientSecret();
+          const tokenManager = new TokenManager({
+            tenantId: config.partner.tenantId,
+            clientId: config.partner.clientId,
+            clientSecret,
+          });
+
+          const dataverseClient = new DataverseClient({
+            environmentUrl: config.source.environmentUrl,
+            tokenManager,
+          });
+
+          const solutionOps = new SolutionOperations(dataverseClient);
+
+          // Determine export options
+          const managed = !options.unmanaged;
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+          const suffix = managed ? "managed" : "unmanaged";
+
+          // Determine output directory
+          const outputDir = options.packageDir ? resolve(options.packageDir) : tmpdir();
+          const outputPath = join(outputDir, `${solutionArg}_${timestamp}_${suffix}.zip`);
+
+          // Export solution
+          const metadata = await solutionOps.exportSolution(solutionArg, {
+            managed,
+            outputPath,
+          });
+
+          spinner.succeed(
+            `Exported ${chalk.green(metadata.friendlyName)} v${metadata.version} (${suffix})`
+          );
+
+          agentPackagePath = outputPath;
+          if (!options.keepPackage) {
+            tempPackagePath = outputPath;
+          }
+
+          console.log();
+        } catch (error) {
+          spinner.fail(chalk.red("Export failed"));
+          if (error instanceof Error && error.message.includes("not found")) {
+            console.error(chalk.red(`\nSolution '${solutionArg}' not found in source environment`));
+            console.error(chalk.gray("\nTip: Use 'agentsync list' to see available solutions"));
+          } else {
+            console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+          }
+          process.exit(1);
+        }
+      } else {
+        agentPackagePath = resolve(solutionArg);
+
+        // Validate file exists (skip in dry-run mode where we just want to preview)
+        if (!options.dryRun && !existsSync(agentPackagePath)) {
+          spinner.fail(chalk.red(`Package not found: ${agentPackagePath}`));
+          process.exit(1);
+        }
       }
 
       // Display destinations
@@ -145,7 +263,6 @@ export const deployCommand = new Command("deploy")
       const queueManager = new DeploymentQueueManager(options.redis);
 
       const shipmentId = randomUUID();
-      const agentPackagePath = resolve(options.agentPackage || options.solution);
 
       spinner.text = "Loading agent packages onto shipping dock...";
 
@@ -171,9 +288,28 @@ export const deployCommand = new Command("deploy")
       console.log(chalk.gray("  pnpm worker"));
 
       await queueManager.close();
+
+      // Clean up temp package if needed
+      if (tempPackagePath && existsSync(tempPackagePath)) {
+        try {
+          unlinkSync(tempPackagePath);
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      }
     } catch (error) {
       spinner.fail(chalk.red("Shipment failed"));
       console.error(chalk.red(error instanceof Error ? error.message : String(error)));
+
+      // Clean up temp package on error
+      if (tempPackagePath && existsSync(tempPackagePath)) {
+        try {
+          unlinkSync(tempPackagePath);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+
       process.exit(1);
     }
   });

@@ -27,7 +27,30 @@ export const initCommand = new Command("init")
   .description("Initialize AgentSync with guided setup")
   .option("-c, --config <path>", "Path to create manifest file", DEFAULT_CONFIG_PATH)
   .option("--demo", "Set up in demo mode (skip credential prompts)")
+  .option("--interactive", "Run interactive setup wizard with Azure AD app creation")
   .action(async (options) => {
+    // Handle interactive mode
+    if (options.interactive) {
+      const { runInteractiveWizard } = await import("../lib/interactive-wizard.js");
+
+      try {
+        const result = await runInteractiveWizard(options.config);
+
+        if (result.success) {
+          process.exit(0);
+        } else {
+          process.exit(1);
+        }
+      } catch (error) {
+        console.error(chalk.red("\n✖ Interactive setup failed"));
+        if (error instanceof Error) {
+          console.error(chalk.red(error.message));
+        }
+        process.exit(1);
+      }
+      return;
+    }
+
     console.log(chalk.cyan.bold("\n🚀 AgentSync Setup Wizard\n"));
 
     if (options.demo) {

@@ -72,6 +72,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://contoso-prod.crm.dynamics.com",
     tags: ["enterprise", "priority", "east-coast"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Manufacturing",
       employees: 5000,
@@ -84,6 +85,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://fabrikam-prod.crm.dynamics.com",
     tags: ["enterprise", "west-coast"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Retail",
       employees: 2500,
@@ -96,6 +98,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://adventureworks.crm.dynamics.com",
     tags: ["smb", "midwest"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Tourism",
       employees: 150,
@@ -108,6 +111,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://northwind.crm.dynamics.com",
     tags: ["smb", "priority"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Food & Beverage",
       employees: 300,
@@ -120,6 +124,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://woodgrove.crm.dynamics.com",
     tags: ["enterprise", "finance", "priority"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Financial Services",
       employees: 8000,
@@ -132,6 +137,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://tailspin.crm.dynamics.com",
     tags: ["smb", "retail"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Retail",
       employees: 75,
@@ -144,6 +150,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://wingtip.crm.dynamics.com",
     tags: ["smb", "retail"],
     enabled: false, // Disabled for demo
+    autoSetup: true,
     metadata: {
       industry: "Retail",
       employees: 50,
@@ -157,6 +164,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://litware.crm.dynamics.com",
     tags: ["enterprise", "technology"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Technology",
       employees: 1200,
@@ -169,6 +177,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://proseware.crm.dynamics.com",
     tags: ["smb", "technology"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Software",
       employees: 200,
@@ -181,6 +190,7 @@ export const DEMO_TENANTS: TenantConfig[] = [
     environmentUrl: "https://coho.crm.dynamics.com",
     tags: ["smb", "hospitality"],
     enabled: true,
+    autoSetup: true,
     metadata: {
       industry: "Hospitality",
       employees: 45,

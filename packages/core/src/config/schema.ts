@@ -160,6 +160,7 @@ export const TenantConfigSchema = z.object({
   name: z.string().min(1),
   tenantId: z.string().uuid(),
   environmentUrl: z.string().url(),
+  environmentId: z.string().optional(), // Power Platform environment ID for app user setup
   tags: z.array(z.string()).optional().default([]),
   enabled: z.boolean().optional().default(true),
 
@@ -177,6 +178,9 @@ export const TenantConfigSchema = z.object({
 
   // Tenant-specific schedule overrides
   schedule: ScheduleSchema.optional(),
+
+  // Auto-setup application user (default: true, can be set to false to disable)
+  autoSetup: z.boolean().default(true),
 
   // Metadata
   metadata: z.record(z.unknown()).optional(),
@@ -210,6 +214,9 @@ export const GlobalSettingsSchema = z.object({
 
   // Approval workflow
   approval: ApprovalWorkflowSchema.optional(),
+
+  // Auto-setup application users (default: true, can be overridden per tenant)
+  autoSetup: z.boolean().optional(),
 
   // Rate limiting
   rateLimit: z

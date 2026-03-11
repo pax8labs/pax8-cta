@@ -19,6 +19,7 @@ import { DataverseClient } from "../dataverse/client.js";
 import { SolutionOperations, ImportResult } from "../dataverse/solution-ops.js";
 import { ConnectionOperations } from "../dataverse/connection-refs.js";
 import { ConnectionMapping, EnvironmentVariable } from "../config/schema.js";
+import { PowerPlatformAdminClient } from "../powerplatform/admin-client.js";
 
 export interface DeploymentServiceConfig extends TokenManagerConfig {
   // Partner/MSP tenant credentials for GDAP access
@@ -28,8 +29,10 @@ export interface DeploymentTarget {
   tenantId: string;
   tenantName: string;
   environmentUrl: string;
+  environmentId?: string; // Power Platform environment ID for app user setup
   connectionMappings?: ConnectionMapping[];
   environmentVariables?: EnvironmentVariable[];
+  autoSetup?: boolean; // Whether to auto-setup app user if missing (default: true)
 }
 
 export interface RealDeploymentProgress {
@@ -127,7 +130,45 @@ export class DeploymentService {
       });
 
       // Quick health check - try to query solutions
-      await dataverseClient.querySolutions();
+      try {
+        await dataverseClient.querySolutions();
+      } catch (error) {
+        // Check if this is an app user setup issue
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isAppUserError = this.isAppUserNotRegisteredError(errorMessage);
+
+        if (isAppUserError) {
+          // Check if auto-setup is enabled (default: true)
+          const autoSetup = target.autoSetup !== false;
+
+          if (!autoSetup) {
+            // Auto-setup is disabled, provide helpful error message
+            throw new Error(
+              `Application user not registered in environment.\n\n` +
+                `Auto-setup is disabled (autoSetup: false in config).\n\n` +
+                `To fix manually:\n` +
+                `1. Go to https://admin.powerplatform.microsoft.com\n` +
+                `2. Select the environment → Settings → Users + permissions → Application users\n` +
+                `3. Click "+ New app user" and add your application (Client ID: ${this.config.clientId})\n` +
+                `4. Assign the "System Administrator" security role\n` +
+                `5. Save and retry the deployment\n\n` +
+                `Or enable auto-setup by removing 'autoSetup: false' from your tenant configuration.`
+            );
+          }
+
+          // Auto-setup the application user
+          console.log(
+            `Application user not registered. Auto-setting up for ${target.tenantName}...`
+          );
+          await this.setupApplicationUser(target, customerTokenManager);
+
+          // Retry the query
+          await dataverseClient.querySolutions();
+        } else {
+          // Re-throw other errors
+          throw error;
+        }
+      }
       emitProgress("validating", 30);
 
       // Step 3: Import solution
@@ -383,6 +424,70 @@ export class DeploymentService {
     } catch (error) {
       errors.push(`Validation error: ${error instanceof Error ? error.message : "Unknown error"}`);
       return { valid: false, errors, warnings };
+    }
+  }
+
+  /**
+   * Check if an error message indicates the app user is not registered
+   */
+  private isAppUserNotRegisteredError(errorMessage: string): boolean {
+    return (
+      /user is not a member of the organization/i.test(errorMessage) ||
+      /not a member of.*environment/i.test(errorMessage) ||
+      /application is not registered as a user/i.test(errorMessage)
+    );
+  }
+
+  /**
+   * Setup application user in an environment
+   */
+  private async setupApplicationUser(
+    target: DeploymentTarget,
+    tokenManager: TokenManager
+  ): Promise<void> {
+    // We need the environment ID for the Power Platform Admin API
+    if (!target.environmentId) {
+      // Try to extract from URL (e.g., https://org.crm.dynamics.com -> org)
+      // This is a fallback - ideally environmentId should be provided in config
+      const match = target.environmentUrl.match(/https:\/\/([^.]+)\./);
+      if (!match) {
+        throw new Error(
+          "Cannot auto-setup application user: environmentId not provided in target configuration.\n" +
+            "Please add 'environmentId' to your tenant configuration or set 'autoSetup: false' to disable auto-setup."
+        );
+      }
+      // Note: This is the org name, not the full environment ID
+      // The Admin API requires the full ID like: /providers/Microsoft.BusinessAppPlatform/scopes/admin/environments/{guid}
+      throw new Error(
+        "Cannot auto-setup application user: environmentId not provided in target configuration.\n" +
+          "Please add 'environmentId' to your tenant configuration.\n" +
+          "You can find the environment ID in the Power Platform Admin Center URL when viewing the environment."
+      );
+    }
+
+    const adminClient = new PowerPlatformAdminClient({
+      tokenManager,
+    });
+
+    try {
+      const result = await adminClient.setupApplicationUser(
+        target.environmentId,
+        target.environmentUrl,
+        this.config.clientId
+      );
+
+      if (result.created) {
+        console.log(`✓ ${result.message}`);
+      } else {
+        console.log(`✓ ${result.message}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to auto-setup application user: ${errorMessage}\n\n` +
+          `You can disable auto-setup by setting 'autoSetup: false' in your tenant configuration,\n` +
+          `then follow the manual setup instructions.`
+      );
     }
   }
 }
