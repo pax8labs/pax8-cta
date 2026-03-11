@@ -53,7 +53,7 @@ export const exportCommand = new Command("export")
         const managed = !options.unmanaged;
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
         const suffix = managed ? "managed" : "unmanaged";
-        const outputPath = `${outputDir}/${options.solution}_${timestamp}_${suffix}.zip`;
+        const outputPath = join(outputDir, `${options.solution}_${timestamp}_${suffix}.zip`);
 
         // Find demo solution (relative to CLI dist or source)
         const demoSolutionPath = join(
@@ -111,7 +111,13 @@ export const exportCommand = new Command("export")
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       const suffix = managed ? "managed" : "unmanaged";
       const outputDir = resolve(options.output);
-      const outputPath = `${outputDir}/${options.solution}_${timestamp}_${suffix}.zip`;
+
+      // Create output directory if it doesn't exist
+      if (!existsSync(outputDir)) {
+        mkdirSync(outputDir, { recursive: true });
+      }
+
+      const outputPath = join(outputDir, `${options.solution}_${timestamp}_${suffix}.zip`);
 
       // Export solution
       spinner.start(`Packing solution '${options.solution}' into agent package...`);

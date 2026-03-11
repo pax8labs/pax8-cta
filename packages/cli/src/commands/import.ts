@@ -97,7 +97,9 @@ export const importCommand = new Command("import")
           chalk.green(`📦 Agent package delivered successfully to ${destination.name}`)
         );
       } else {
-        spinner.fail(chalk.red(`Delivery failed: ${result.error}`));
+        const errorMsg =
+          result.error || "Unknown error - check solution compatibility and permissions";
+        spinner.fail(chalk.red(`Delivery failed: ${errorMsg}`));
         process.exit(1);
       }
     } catch (error) {

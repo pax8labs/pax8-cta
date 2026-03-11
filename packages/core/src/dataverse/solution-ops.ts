@@ -236,8 +236,17 @@ export class SolutionOperations {
           const errorMatch = job.data.match(/<errortext>([^<]+)<\/errortext>/);
           if (errorMatch) {
             error = errorMatch[1];
+          } else {
+            // Try to extract component name that failed
+            const componentMatch = job.data.match(/<name>([^<]+)<\/name>/);
+            error = componentMatch
+              ? `Import failed for component: ${componentMatch[1]}`
+              : "Import failed - check solution compatibility";
           }
         }
+      } else if (completed && !job.data) {
+        // Completed but no data - unusual, treat as potential failure
+        error = "Import completed but no result data returned";
       }
 
       return {
