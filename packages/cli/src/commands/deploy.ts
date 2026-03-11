@@ -74,6 +74,7 @@ export const deployCommand = new Command("deploy")
   .option("--keep-package", "Keep exported package after deployment (used with solution name)")
   .option("--package-dir <path>", "Directory for exported package (default: temp directory)")
   .option("--no-auto-setup", "Disable automatic application user setup")
+  .option("--direct", "Deploy directly without requiring a worker (sequential)")
   .option("--redis <url>", "Redis URL for shipping dock", "redis://localhost:6379")
   .action(async (options) => {
     const spinner = ora("Loading shipping manifest...").start();
@@ -371,36 +372,108 @@ export const deployCommand = new Command("deploy")
         console.log();
       }
 
-      // Create deployment (shipment)
-      spinner.start("Connecting to shipping dock...");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      // Deploy - either direct or via queue
+      if (options.direct) {
+        // Direct deployment - import to each tenant sequentially
+        console.log(chalk.bold("Deploying directly to destinations...\n"));
 
-      const shipmentId = randomUUID();
+        const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+        let successCount = 0;
+        let failCount = 0;
 
-      spinner.text = "Loading agent packages onto shipping dock...";
+        for (const tenant of destinations) {
+          const tenantSpinner = ora(`Deploying to ${tenant.name}...`).start();
 
-      await queueManager.addTenantDeploymentsBulk(
-        shipmentId,
-        agentPackagePath,
-        destinations,
-        config.partner.tenantId,
-        config.partner.clientId
-      );
+          try {
+            const tokenManager = new TokenManager({
+              tenantId: tenant.tenantId,
+              clientId: config.partner.clientId,
+              clientSecret,
+            });
 
-      spinner.succeed(chalk.green("Shipment dispatched successfully"));
+            const dataverseClient = new DataverseClient({
+              environmentUrl: tenant.environmentUrl,
+              tokenManager,
+            });
 
-      console.log();
-      console.log(chalk.bold("Shipment Details:"));
-      console.log(`  Tracking #:    ${chalk.cyan(shipmentId)}`);
-      console.log(`  Agent package:         ${agentPackagePath}`);
-      console.log(`  Destinations:  ${destinations.length}`);
-      console.log();
-      console.log(chalk.gray(`Use 'agentsync track --shipment ${shipmentId}' to track progress`));
-      console.log();
-      console.log(chalk.yellow("Note: Make sure the dockworker is running to process shipments:"));
-      console.log(chalk.gray("  pnpm worker"));
+            const solutionOps = new SolutionOperations(dataverseClient);
 
-      await queueManager.close();
+            // Start async import
+            const importJobId = await solutionOps.importSolutionAsync(agentPackagePath, {
+              overwriteUnmanagedCustomizations: true,
+              publishWorkflows: true,
+            });
+
+            // Wait for completion with progress
+            const result = await solutionOps.waitForImport(importJobId, {
+              pollIntervalMs: 3000,
+              timeoutMs: 300000,
+              onProgress: (progress) => {
+                tenantSpinner.text = `Deploying to ${tenant.name}... ${Math.round(progress)}%`;
+              },
+            });
+
+            if (result.success) {
+              tenantSpinner.succeed(chalk.green(`${tenant.name}: Deployed successfully`));
+              successCount++;
+            } else {
+              tenantSpinner.fail(
+                chalk.red(`${tenant.name}: ${result.error || "Deployment failed"}`)
+              );
+              failCount++;
+            }
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            tenantSpinner.fail(chalk.red(`${tenant.name}: ${errorMsg}`));
+            failCount++;
+          }
+        }
+
+        console.log();
+        console.log(chalk.bold("Deployment Summary:"));
+        console.log(`  Total:     ${destinations.length}`);
+        console.log(`  ${chalk.green("Success:")}  ${successCount}`);
+        if (failCount > 0) {
+          console.log(`  ${chalk.red("Failed:")}   ${failCount}`);
+        }
+
+        if (failCount > 0) {
+          process.exit(1);
+        }
+      } else {
+        // Queue-based deployment
+        spinner.start("Connecting to shipping dock...");
+        const queueManager = new DeploymentQueueManager(options.redis);
+
+        const shipmentId = randomUUID();
+
+        spinner.text = "Loading agent packages onto shipping dock...";
+
+        await queueManager.addTenantDeploymentsBulk(
+          shipmentId,
+          agentPackagePath,
+          destinations,
+          config.partner.tenantId,
+          config.partner.clientId
+        );
+
+        spinner.succeed(chalk.green("Shipment dispatched successfully"));
+
+        console.log();
+        console.log(chalk.bold("Shipment Details:"));
+        console.log(`  Tracking #:    ${chalk.cyan(shipmentId)}`);
+        console.log(`  Agent package:         ${agentPackagePath}`);
+        console.log(`  Destinations:  ${destinations.length}`);
+        console.log();
+        console.log(chalk.gray(`Use 'agentsync track --shipment ${shipmentId}' to track progress`));
+        console.log();
+        console.log(
+          chalk.yellow("Note: Make sure the dockworker is running to process shipments:")
+        );
+        console.log(chalk.gray("  pnpm worker"));
+
+        await queueManager.close();
+      }
 
       // Clean up temp package if needed
       if (tempPackagePath && existsSync(tempPackagePath)) {
