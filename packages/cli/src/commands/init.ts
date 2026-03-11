@@ -21,7 +21,6 @@ import { existsSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { exec } from "node:child_process";
-import * as readline from "node:readline";
 
 const DEFAULT_CONFIG_PATH = "./config/tenants.yaml";
 
@@ -43,48 +42,24 @@ function openUrl(url: string): void {
  */
 function readMaskedInput(prompt: string): Promise<string> {
   return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    // Disable output
     const originalWrite = process.stdout.write.bind(process.stdout);
     let input = "";
-    let masking = false;
-
-    process.stdout.write = (
-      chunk: string | Uint8Array,
-      encodingOrCallback?: BufferEncoding | ((err?: Error | undefined) => void),
-      callback?: (err?: Error | undefined) => void
-    ): boolean => {
-      if (masking && typeof chunk === "string") {
-        // Only mask the actual input characters, not the prompt
-        return true; // Suppress echo
-      }
-      if (typeof encodingOrCallback === "function") {
-        return originalWrite(chunk, encodingOrCallback);
-      }
-      return originalWrite(chunk, encodingOrCallback, callback);
-    };
 
     // Write prompt
     originalWrite(prompt);
-    masking = true;
 
-    // Handle keypress
+    // Handle keypress in raw mode
     process.stdin.setRawMode?.(true);
     process.stdin.resume();
-    process.stdin.on("data", function handler(key: Buffer) {
-      const char = key.toString();
+    process.stdin.setEncoding("utf8");
 
+    const handler = (char: string): void => {
       if (char === "\r" || char === "\n") {
-        // Enter pressed
+        // Enter pressed - cleanup and resolve
         process.stdin.setRawMode?.(false);
         process.stdin.removeListener("data", handler);
-        process.stdout.write = originalWrite;
+        process.stdin.pause();
         originalWrite("\n");
-        rl.close();
         resolve(input);
       } else if (char === "\x7f" || char === "\b") {
         // Backspace
@@ -95,15 +70,17 @@ function readMaskedInput(prompt: string): Promise<string> {
       } else if (char === "\x03") {
         // Ctrl+C
         process.stdin.setRawMode?.(false);
-        process.stdout.write = originalWrite;
-        rl.close();
+        process.stdin.removeListener("data", handler);
+        originalWrite("\n");
         process.exit(1);
       } else if (char >= " ") {
         // Printable character
         input += char;
         originalWrite("*");
       }
-    });
+    };
+
+    process.stdin.on("data", handler);
   });
 }
 
@@ -499,22 +476,43 @@ tenants:${tenantsYaml}
 `;
 
       writeFileSync(configPath, configContent);
-      spinner.succeed(`Configuration saved`);
+      spinner.succeed(`Configuration saved to ${configPath}`);
 
       console.log();
       console.log(chalk.green.bold("✓ Setup complete!\n"));
 
-      console.log(chalk.white("To deploy agents, you need to add target tenants to your config."));
-      console.log(chalk.white("Edit: ") + chalk.cyan(configPath));
-      console.log();
-      console.log(chalk.gray("Example tenant entry:"));
-      console.log(chalk.gray("  tenants:"));
-      console.log(chalk.gray('    - tenantId: "customer-tenant-guid"'));
-      console.log(chalk.gray('      name: "Contoso"'));
-      console.log(chalk.gray('      environmentUrl: "https://contoso.crm.dynamics.com"'));
-      console.log(chalk.gray("      enabled: true"));
-      console.log();
-      console.log(chalk.white("Then run: ") + chalk.cyan("agentsync tenants list"));
+      if (tenants.length > 0) {
+        // User added tenants - show next steps for deployment
+        console.log(chalk.cyan("Next steps:"));
+        console.log();
+        console.log(chalk.white("  1. Verify your tenants:"));
+        console.log(chalk.gray("     agentsync tenants list -c " + options.config));
+        console.log();
+        console.log(chalk.white("  2. Export a solution from your source environment:"));
+        console.log(chalk.gray("     agentsync export --solution YourSolutionName"));
+        console.log();
+        console.log(chalk.white("  3. Deploy to your tenants:"));
+        console.log(chalk.gray("     agentsync deploy --solution ./exports/YourSolution.zip"));
+        console.log();
+      } else {
+        // No tenants yet - guide them to add some
+        console.log(chalk.cyan("Next steps:"));
+        console.log();
+        console.log(chalk.white("  1. Add target tenants to your config:"));
+        console.log(chalk.gray("     " + configPath));
+        console.log();
+        console.log(chalk.gray("     Example:"));
+        console.log(chalk.gray("     tenants:"));
+        console.log(chalk.gray('       - tenantId: "customer-tenant-guid"'));
+        console.log(chalk.gray('         name: "Contoso"'));
+        console.log(chalk.gray('         environmentUrl: "https://contoso.crm.dynamics.com"'));
+        console.log(chalk.gray("         enabled: true"));
+        console.log();
+        console.log(chalk.white("  2. Verify your configuration:"));
+        console.log(chalk.gray("     agentsync tenants list -c " + options.config));
+        console.log();
+      }
+      console.log(chalk.dim("Run 'agentsync --help' to see all available commands."));
     } catch (error) {
       console.error(chalk.red("\n✖ Setup failed"));
       if (error instanceof Error) {
