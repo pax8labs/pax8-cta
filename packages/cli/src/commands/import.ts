@@ -28,8 +28,7 @@ import {
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 
 export const importCommand = new Command("import")
-  .alias("deliver")
-  .description("Import an agent package to a single tenant (for testing)")
+  .description("Import a solution to a single tenant")
   .requiredOption("-s, --solution <path>", "Path to agent package (solution zip)")
   .option("--agentPackage <path>", "Alias for --solution")
   .requiredOption("-t, --tenant <id>", "Destination tenant ID")

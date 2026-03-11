@@ -28,8 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const exportCommand = new Command("export")
-  .alias("pack")
-  .description("Export a Copilot Studio solution as a deployable package")
+  .description("Export a solution from source environment")
   .requiredOption("-s, --solution <name>", "Solution unique name to pack")
   .option("-o, --output <path>", "Output directory for the agent package", "./agent packages")
   .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")

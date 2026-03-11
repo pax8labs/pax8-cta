@@ -21,9 +21,9 @@ import { showCommand } from "./show.js";
 import { healthCommand } from "./health.js";
 import { enableCommand, disableCommand, tagCommand } from "./manage.js";
 
-export const tenantsCommand = new Command("tenants")
-  .alias("fleet")
-  .description("Manage your tenants");
+export const tenantsCommand = new Command("tenants").description(
+  "Manage tenants (list, inspect, health)"
+);
 
 // Register subcommands
 tenantsCommand.addCommand(listCommand);

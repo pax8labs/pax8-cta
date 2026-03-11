@@ -31,9 +31,9 @@ import {
  *
  * Follows the resource-action pattern: `agentsync deployments <action>`
  */
-export const deploymentsCommand = new Command("deployments")
-  .alias("deps")
-  .description("Manage deployments - list, show, approve, cancel, retry, rollback");
+export const deploymentsCommand = new Command("deployments").description(
+  "Manage deployments (list, approve, cancel, rollback)"
+);
 
 // Register subcommands
 deploymentsCommand.addCommand(listCommand);

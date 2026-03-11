@@ -58,8 +58,7 @@ interface PrepareEnvironmentResult {
 }
 
 export const deployCommand = new Command("deploy")
-  .alias("ship")
-  .description("Deploy agent packages to tenants (from solution name or zip file)")
+  .description("Deploy a solution to multiple tenants")
   .requiredOption(
     "-s, --solution <name|path>",
     "Solution name or path to agent package (solution zip)"
