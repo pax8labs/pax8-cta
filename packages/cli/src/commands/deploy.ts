@@ -189,11 +189,70 @@ export const deployCommand = new Command("deploy")
           process.exit(1);
         }
 
+        // Get client secret once for reuse
+        const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+
+        // Auto-detect solution mode if not explicitly specified
+        let managed = !options.unmanaged;
+        if (!options.managed && !options.unmanaged) {
+          spinner.start("Detecting solution mode in target environments...");
+
+          const modeCheck = await detectSolutionMode(
+            solutionArg,
+            destinations,
+            config.partner.clientId,
+            clientSecret
+          );
+
+          if (modeCheck.hasConflict) {
+            spinner.warn(chalk.yellow("Mixed solution modes detected in targets"));
+            console.log();
+            console.log(chalk.yellow("⚠ Warning: Solution exists with different modes:"));
+            if (modeCheck.managedCount > 0) {
+              console.log(chalk.gray(`  ${modeCheck.managedCount} target(s) have it as managed`));
+            }
+            if (modeCheck.unmanagedCount > 0) {
+              console.log(
+                chalk.gray(`  ${modeCheck.unmanagedCount} target(s) have it as unmanaged`)
+              );
+            }
+            if (modeCheck.notInstalledCount > 0) {
+              console.log(
+                chalk.gray(`  ${modeCheck.notInstalledCount} target(s) don't have it installed`)
+              );
+            }
+            console.log();
+            console.log(chalk.gray("Use --managed or --unmanaged to specify which mode to use."));
+            console.log(chalk.gray("Targets with mismatched mode will fail to import."));
+            console.log();
+            // Default to majority mode
+            managed = modeCheck.managedCount >= modeCheck.unmanagedCount;
+            console.log(
+              chalk.cyan(`Proceeding with ${managed ? "managed" : "unmanaged"} mode (majority)`)
+            );
+            console.log();
+          } else if (modeCheck.unmanagedCount > 0) {
+            // All existing installations are unmanaged
+            managed = false;
+            spinner.succeed(
+              `Auto-detected: exporting as unmanaged (matches ${modeCheck.unmanagedCount} target(s))`
+            );
+          } else if (modeCheck.managedCount > 0) {
+            // All existing installations are managed
+            managed = true;
+            spinner.succeed(
+              `Auto-detected: exporting as managed (matches ${modeCheck.managedCount} target(s))`
+            );
+          } else {
+            // Not installed anywhere - use default (managed)
+            spinner.succeed("Solution not installed in targets - using managed mode (default)");
+          }
+        }
+
         spinner.start(`Exporting solution '${solutionArg}' from source...`);
 
         try {
-          // Authenticate and create client
-          const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+          // Authenticate and create client for source
           const tokenManager = new TokenManager({
             tenantId: config.partner.tenantId,
             clientId: config.partner.clientId,
@@ -207,8 +266,7 @@ export const deployCommand = new Command("deploy")
 
           const solutionOps = new SolutionOperations(dataverseClient);
 
-          // Determine export options
-          const managed = !options.unmanaged;
+          // Export with detected/specified mode
           const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
           const suffix = managed ? "managed" : "unmanaged";
 
@@ -545,4 +603,80 @@ async function prepareEnvironment(
       message: `Error: ${errorMsg}`,
     };
   }
+}
+
+interface SolutionRecord {
+  solutionid: string;
+  uniquename: string;
+  ismanaged: boolean;
+}
+
+interface SolutionModeCheck {
+  managedCount: number;
+  unmanagedCount: number;
+  notInstalledCount: number;
+  hasConflict: boolean;
+}
+
+/**
+ * Check solution installation mode across target environments
+ * Returns counts of managed/unmanaged/not-installed to help auto-detect export mode
+ */
+async function detectSolutionMode(
+  solutionName: string,
+  targets: TenantConfig[],
+  clientId: string,
+  clientSecret: string
+): Promise<SolutionModeCheck> {
+  let managedCount = 0;
+  let unmanagedCount = 0;
+  let notInstalledCount = 0;
+
+  // Check each target in parallel for speed
+  const checks = targets.map(async (tenant) => {
+    try {
+      const tokenManager = new TokenManager({
+        tenantId: tenant.tenantId,
+        clientId,
+        clientSecret,
+      });
+
+      const client = new DataverseClient({
+        environmentUrl: tenant.environmentUrl,
+        tokenManager,
+      });
+
+      const result = await client.get<{ value: SolutionRecord[] }>("/solutions", {
+        $filter: `uniquename eq '${solutionName}'`,
+        $select: "solutionid,uniquename,ismanaged",
+      });
+
+      if (result.value.length === 0) {
+        return "not_installed";
+      }
+
+      return result.value[0].ismanaged ? "managed" : "unmanaged";
+    } catch {
+      // If we can't check, assume not installed (will fail at import if wrong)
+      return "not_installed";
+    }
+  });
+
+  const results = await Promise.all(checks);
+
+  for (const mode of results) {
+    if (mode === "managed") managedCount++;
+    else if (mode === "unmanaged") unmanagedCount++;
+    else notInstalledCount++;
+  }
+
+  // Conflict if we have both managed and unmanaged installations
+  const hasConflict = managedCount > 0 && unmanagedCount > 0;
+
+  return {
+    managedCount,
+    unmanagedCount,
+    notInstalledCount,
+    hasConflict,
+  };
 }
