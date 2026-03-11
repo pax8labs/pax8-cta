@@ -24,7 +24,6 @@ export interface BotRecord {
   name: string;
   schemaname?: string;
   solutionid?: string;
-  _solutionid_value?: string;
   statecode: number;
   statuscode: number;
   createdon: string;
@@ -118,8 +117,7 @@ export class AgentResolver {
    */
   async listBots(): Promise<BotRecord[]> {
     const result = await this.client.get<{ value: BotRecord[] }>("/bots", {
-      $select:
-        "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,_solutionid_value,componentstate",
+      $select: "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,componentstate",
       $orderby: "modifiedon desc",
     });
     return result.value;
@@ -131,8 +129,7 @@ export class AgentResolver {
   async getBotById(botId: string): Promise<BotRecord | null> {
     try {
       const result = await this.client.get<BotRecord>(`/bots(${botId})`, {
-        $select:
-          "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,_solutionid_value,componentstate",
+        $select: "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,componentstate",
       });
       return result;
     } catch (error) {
@@ -149,7 +146,7 @@ export class AgentResolver {
    */
   async searchBotsByName(searchTerm: string): Promise<BotRecord[]> {
     const result = await this.client.get<{ value: BotRecord[] }>("/bots", {
-      $select: "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,_solutionid_value",
+      $select: "botid,name,schemaname,statecode,statuscode,createdon,modifiedon,componentstate",
       $filter: `contains(name, '${searchTerm}')`,
       $orderby: "modifiedon desc",
     });
@@ -162,20 +159,7 @@ export class AgentResolver {
    * Uses the solutioncomponent table to find which solution contains the bot
    */
   async findSolutionForBot(botId: string): Promise<SolutionRecord | null> {
-    // First, try to find the bot to get its direct solution reference
-    const bot = await this.getBotById(botId);
-    if (bot?._solutionid_value) {
-      // Bot has a direct solution reference
-      const solution = await this.client.get<SolutionRecord>(
-        `/solutions(${bot._solutionid_value})`,
-        {
-          $select: "solutionid,uniquename,friendlyname,version,ismanaged",
-        }
-      );
-      return solution;
-    }
-
-    // Otherwise, search solutioncomponents for this bot
+    // Search solutioncomponents for this bot
     // Try multiple component types as the exact type for bots varies
     const componentTypes = [10109, 10034, 300]; // Different possible bot component types
 
