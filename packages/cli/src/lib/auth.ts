@@ -21,8 +21,22 @@ import {
   LogLevel,
 } from "@azure/msal-node";
 import * as keytar from "keytar";
+import { exec } from "node:child_process";
 
 const KEYTAR_SERVICE = "agentsync-cli";
+
+/**
+ * Open a URL in the default browser
+ */
+function openBrowser(url: string): void {
+  const command =
+    process.platform === "darwin"
+      ? `open "${url}"`
+      : process.platform === "win32"
+        ? `start "${url}"`
+        : `xdg-open "${url}"`;
+  exec(command);
+}
 
 export interface InteractiveLoginResult {
   accessToken: string;
@@ -39,6 +53,7 @@ export async function interactiveLogin(options?: {
   clientId?: string;
   tenantId?: string;
   scopes?: string[];
+  openBrowser?: boolean;
 }): Promise<InteractiveLoginResult> {
   // Use Microsoft CLI client ID if not provided (allows public client auth)
   const clientId = options?.clientId || "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
@@ -63,15 +78,23 @@ export async function interactiveLogin(options?: {
 
   const pca = new PublicClientApplication(msalConfig);
 
+  const shouldOpenBrowser = options?.openBrowser ?? false;
+
   const deviceCodeRequest: DeviceCodeRequest = {
     deviceCodeCallback: (response: {
       message: string;
       userCode: string;
       verificationUri: string;
     }) => {
-      // Format the device code message nicely
-      console.log(`  1. Open: ${response.verificationUri}`);
-      console.log(`  2. Enter code: ${response.userCode}`);
+      // Auto-open browser if requested
+      if (shouldOpenBrowser) {
+        openBrowser(response.verificationUri);
+        console.log(`  ✓ Browser opened`);
+        console.log(`  Enter code: \x1b[1m${response.userCode}\x1b[0m`);
+      } else {
+        console.log(`  1. Open: ${response.verificationUri}`);
+        console.log(`  2. Enter code: \x1b[1m${response.userCode}\x1b[0m`);
+      }
       console.log();
       console.log("  Waiting for you to sign in...");
     },

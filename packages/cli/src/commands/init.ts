@@ -17,11 +17,95 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { exec } from "node:child_process";
+import * as readline from "node:readline";
 
 const DEFAULT_CONFIG_PATH = "./config/tenants.yaml";
+
+/**
+ * Open a URL in the default browser
+ */
+function openUrl(url: string): void {
+  const command =
+    process.platform === "darwin"
+      ? `open "${url}"`
+      : process.platform === "win32"
+        ? `start "${url}"`
+        : `xdg-open "${url}"`;
+  exec(command);
+}
+
+/**
+ * Read a line with masked input (shows * for each character)
+ */
+function readMaskedInput(prompt: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    // Disable output
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    let input = "";
+    let masking = false;
+
+    process.stdout.write = (
+      chunk: string | Uint8Array,
+      encodingOrCallback?: BufferEncoding | ((err?: Error | undefined) => void),
+      callback?: (err?: Error | undefined) => void
+    ): boolean => {
+      if (masking && typeof chunk === "string") {
+        // Only mask the actual input characters, not the prompt
+        return true; // Suppress echo
+      }
+      if (typeof encodingOrCallback === "function") {
+        return originalWrite(chunk, encodingOrCallback);
+      }
+      return originalWrite(chunk, encodingOrCallback, callback);
+    };
+
+    // Write prompt
+    originalWrite(prompt);
+    masking = true;
+
+    // Handle keypress
+    process.stdin.setRawMode?.(true);
+    process.stdin.resume();
+    process.stdin.on("data", function handler(key: Buffer) {
+      const char = key.toString();
+
+      if (char === "\r" || char === "\n") {
+        // Enter pressed
+        process.stdin.setRawMode?.(false);
+        process.stdin.removeListener("data", handler);
+        process.stdout.write = originalWrite;
+        originalWrite("\n");
+        rl.close();
+        resolve(input);
+      } else if (char === "\x7f" || char === "\b") {
+        // Backspace
+        if (input.length > 0) {
+          input = input.slice(0, -1);
+          originalWrite("\b \b"); // Erase the * character
+        }
+      } else if (char === "\x03") {
+        // Ctrl+C
+        process.stdin.setRawMode?.(false);
+        process.stdout.write = originalWrite;
+        rl.close();
+        process.exit(1);
+      } else if (char >= " ") {
+        // Printable character
+        input += char;
+        originalWrite("*");
+      }
+    });
+  });
+}
 
 export const initCommand = new Command("init")
   .description("Initialize AgentSync with guided setup")
@@ -104,11 +188,13 @@ export const initCommand = new Command("init")
           const { interactiveLogin } = await import("../lib/auth.js");
           const { GraphClient } = await import("../lib/graph-client.js");
 
-          // Don't use spinner during device code - MSAL prints the code/URL directly
-          console.log(chalk.cyan("Opening Microsoft sign-in...\n"));
+          // Tell user what's happening before opening browser
+          console.log(chalk.cyan("Opening Microsoft sign-in..."));
+          console.log(chalk.gray("   We'll open: https://microsoft.com/devicelogin\n"));
 
           const loginResult = await interactiveLogin({
             scopes: ["https://graph.microsoft.com/.default"],
+            openBrowser: true, // Auto-open browser
           });
 
           const spinner = ora().start();
@@ -217,59 +303,149 @@ export const initCommand = new Command("init")
 
       // Manual entry if not set via auth flow
       if (!partnerTenantId) {
+        const tenantIdUrl =
+          "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Overview";
+
         console.log(chalk.cyan("\n1. Partner Tenant ID"));
-        console.log(
-          chalk.gray("   Your Microsoft Entra (Azure AD) tenant ID where the app is registered.")
+        console.log(chalk.gray("   Your Microsoft Entra (Azure AD) tenant ID."));
+
+        const tenantInput = await rl.question(
+          chalk.white("   Tenant ID ") + chalk.gray("(or 'o' to open Azure Portal): ")
         );
-        console.log(
-          chalk.gray("   Find it at: ") +
-            chalk.underline(
-              "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Overview"
-            )
-        );
-        console.log(chalk.gray("   Look for 'Tenant ID' in the overview section.\n"));
-        partnerTenantId = await rl.question(chalk.white("Tenant ID: "));
+
+        if (tenantInput.toLowerCase() === "o" || tenantInput.toLowerCase() === "open") {
+          openUrl(tenantIdUrl);
+          console.log(chalk.green("   ✓ Opened - look for 'Tenant ID'"));
+          partnerTenantId = await rl.question(chalk.white("   Tenant ID: "));
+        } else {
+          partnerTenantId = tenantInput;
+        }
       }
 
       if (!partnerClientId) {
+        const appRegUrl =
+          "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade";
+
         console.log(chalk.cyan("\n2. App Registration Client ID"));
-        console.log(chalk.gray("   The Application (client) ID of your registered Azure AD app."));
-        console.log(
-          chalk.gray("   Find it at: ") +
-            chalk.underline(
-              "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
-            )
+        console.log(chalk.gray("   The Application (client) ID of your Azure AD app."));
+
+        const clientInput = await rl.question(
+          chalk.white("   Client ID ") + chalk.gray("(or 'o' to open Azure Portal): ")
         );
-        console.log(chalk.gray("   Select your app and copy the 'Application (client) ID'.\n"));
-        partnerClientId = await rl.question(chalk.white("Client ID: "));
+
+        if (clientInput.toLowerCase() === "o" || clientInput.toLowerCase() === "open") {
+          openUrl(appRegUrl);
+          console.log(chalk.green("   ✓ Opened - select your app, copy 'Application (client) ID'"));
+          partnerClientId = await rl.question(chalk.white("   Client ID: "));
+        } else {
+          partnerClientId = clientInput;
+        }
       }
 
-      // Client Secret info (only if not already created)
+      // Client Secret (only if not already created via sign-in flow)
       if (!clientSecretCreated) {
-        console.log();
-        console.log(chalk.cyan("3. Client Secret"));
-        console.log(
-          chalk.gray("   Create a secret in your app registration under 'Certificates & secrets'.")
-        );
-        console.log(
-          chalk.gray("   Direct link: ") +
-            chalk.underline(
-              `https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/${partnerClientId}/isMSAApp~/false`
-            )
-        );
-        console.log();
-        console.log(chalk.yellow("⚠️  Store your secret securely using one of these methods:"));
-        console.log(chalk.white("  • OS Keychain (recommended): agentsync auth login"));
-        console.log(
-          chalk.white('  • Environment variable: export PARTNER_CLIENT_SECRET="your-secret"')
-        );
-      }
-      console.log();
+        const secretUrl = `https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/${partnerClientId}/isMSAApp~/false`;
 
-      // Ask about sample tenants
-      const wantSample = await rl.question(
-        chalk.cyan("Include sample tenant configuration? ") + chalk.gray("(y/n) ")
+        console.log(chalk.cyan("\n3. Client Secret"));
+        console.log(
+          chalk.gray("   The secret Value from your app registration (not the Secret ID).")
+        );
+        console.log(
+          chalk.gray("   Type 'o' to open Azure Portal, or paste your secret (input is masked):")
+        );
+
+        // Use masked input for the secret
+        let clientSecret = await readMaskedInput(chalk.white("   Secret Value: "));
+
+        if (clientSecret.toLowerCase() === "o" || clientSecret.toLowerCase() === "open") {
+          openUrl(secretUrl);
+          console.log(chalk.green("   ✓ Opened - click 'New client secret', copy the 'Value'"));
+          clientSecret = await readMaskedInput(chalk.white("   Secret Value: "));
+        }
+
+        if (clientSecret) {
+          // Try keychain first, fall back to .env file
+          try {
+            const { storeCredentials } = await import("../lib/auth.js");
+            await storeCredentials(partnerClientId, clientSecret, partnerTenantId);
+            console.log(chalk.green("   ✓ Secret stored securely in OS keychain"));
+            clientSecretCreated = true;
+          } catch {
+            // Keychain failed, save to .env file automatically
+            const envPath = resolve(process.cwd(), ".env");
+            const envContent = existsSync(envPath)
+              ? (await import("node:fs")).readFileSync(envPath, "utf-8")
+              : "";
+
+            // Check if PARTNER_CLIENT_SECRET already exists
+            if (envContent.includes("PARTNER_CLIENT_SECRET=")) {
+              console.log(chalk.green("   ✓ Secret already configured in .env"));
+            } else {
+              const newContent =
+                envContent.endsWith("\n") || envContent === ""
+                  ? envContent + `PARTNER_CLIENT_SECRET=${clientSecret}\n`
+                  : envContent + `\nPARTNER_CLIENT_SECRET=${clientSecret}\n`;
+              writeFileSync(envPath, newContent, { mode: 0o600 });
+              // Ensure restrictive permissions even if file existed
+              chmodSync(envPath, 0o600);
+              console.log(chalk.green("   ✓ Secret saved to .env (restricted permissions)"));
+
+              // Auto-add .env to .gitignore if not already there
+              const gitignorePath = resolve(process.cwd(), ".gitignore");
+              if (existsSync(gitignorePath)) {
+                const gitignoreContent = (await import("node:fs")).readFileSync(
+                  gitignorePath,
+                  "utf-8"
+                );
+                if (!gitignoreContent.includes(".env")) {
+                  writeFileSync(gitignorePath, gitignoreContent.trimEnd() + "\n.env\n");
+                  console.log(chalk.green("   ✓ Added .env to .gitignore"));
+                }
+              } else {
+                writeFileSync(gitignorePath, ".env\n");
+                console.log(chalk.green("   ✓ Created .gitignore with .env"));
+              }
+            }
+            clientSecretCreated = true;
+          }
+        } else {
+          console.log(chalk.gray('   You can add it later: export PARTNER_CLIENT_SECRET="..."'));
+        }
+      }
+      // Ask if they want to add a tenant now
+      console.log();
+      const tenants: Array<{
+        tenantId: string;
+        name: string;
+        environmentUrl: string;
+      }> = [];
+
+      const addTenant = await rl.question(
+        chalk.cyan("Add a target tenant now? ") + chalk.gray("(y/n) ")
       );
+
+      if (addTenant.toLowerCase() === "y" || addTenant.toLowerCase() === "yes") {
+        let addMore = true;
+        while (addMore) {
+          console.log(chalk.cyan(`\nTenant ${tenants.length + 1}:`));
+
+          const tenantName = await rl.question(chalk.white("   Name (e.g., Contoso): "));
+          const tenantId = await rl.question(chalk.white("   Tenant ID: "));
+          const envUrl = await rl.question(
+            chalk.white("   Environment URL (e.g., https://contoso.crm.dynamics.com): ")
+          );
+
+          if (tenantName && tenantId && envUrl) {
+            tenants.push({ tenantId, name: tenantName, environmentUrl: envUrl });
+            console.log(chalk.green(`   ✓ Added ${tenantName}`));
+          }
+
+          const another = await rl.question(
+            chalk.white("\nAdd another tenant? ") + chalk.gray("(y/n) ")
+          );
+          addMore = another.toLowerCase() === "y" || another.toLowerCase() === "yes";
+        }
+      }
 
       rl.close();
 
@@ -283,77 +459,62 @@ export const initCommand = new Command("init")
         mkdirSync(configDir, { recursive: true });
       }
 
-      const includeSample = wantSample.toLowerCase() === "y" || wantSample.toLowerCase() === "yes";
+      // Generate tenant entries
+      let tenantsYaml = "";
+      if (tenants.length > 0) {
+        for (const t of tenants) {
+          tenantsYaml += `
+  - tenantId: "${t.tenantId}"
+    name: "${t.name}"
+    environmentUrl: "${t.environmentUrl}"
+    enabled: true
+    tags:
+      - production`;
+        }
+      } else {
+        tenantsYaml = `
+  # Add your tenants here:
+  # - tenantId: "customer-tenant-guid"
+  #   name: "Customer Name"
+  #   environmentUrl: "https://customer-org.crm.dynamics.com"
+  #   enabled: true
+  #   tags:
+  #     - production`;
+      }
 
       const configContent = `# AgentSync Configuration File
 # Generated by: agentsync init
 
 # Partner/MSP Credentials (Azure AD App Registration)
-# Find these at: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade
 partner:
   tenantId: "${partnerTenantId}"
   clientId: "${partnerClientId}"
-  # Client secret should be stored securely:
-  #   Option 1 (recommended): agentsync auth login
-  #   Option 2: export PARTNER_CLIENT_SECRET="your-secret"
 
-# Settings
-settings:
-  approval:
-    required: false
-    minApprovals: 1
-    timeout: "24h"
-    approvers:
-      - admin@partner.com
+# Source environment (where you develop agents)
+# source:
+#   environmentUrl: "https://your-dev-org.crm.dynamics.com"
 
-# Your Tenants
-tenants:${
-        includeSample
-          ? `
-  # Sample tenant - replace with your actual tenants
-  - tenantId: "00000000-0000-0000-0000-000000000000"
-    name: "Sample Client"
-    environmentUrl: "https://sample.crm.dynamics.com"
-    enabled: true
-    tags:
-      - production
-      - enterprise`
-          : `
-  # Add your tenants here:
-  # - tenantId: "tenant-guid-here"
-  #   name: "Client Name"
-  #   environmentUrl: "https://client.crm.dynamics.com"
-  #   enabled: true
-  #   tags:
-  #     - production`
-      }
+# Target tenants (where agents will be deployed)
+tenants:${tenantsYaml}
 `;
 
       writeFileSync(configPath, configContent);
-      spinner.succeed(`Configuration created at ${configPath}`);
+      spinner.succeed(`Configuration saved`);
 
       console.log();
-      console.log(chalk.green("✓ Setup complete!"));
-      console.log();
-      console.log(chalk.cyan("Next steps:"));
+      console.log(chalk.green.bold("✓ Setup complete!\n"));
 
-      let stepNum = 1;
-      if (!clientSecretCreated) {
-        console.log(chalk.gray(`  ${stepNum}. Store your client secret securely:`));
-        console.log(chalk.white("     agentsync auth login"));
-        console.log();
-        stepNum++;
-      }
-
-      console.log(chalk.gray(`  ${stepNum}. Add your tenant destinations to:`));
-      console.log(chalk.white(`     ${configPath}`));
+      console.log(chalk.white("To deploy agents, you need to add target tenants to your config."));
+      console.log(chalk.white("Edit: ") + chalk.cyan(configPath));
       console.log();
-      stepNum++;
-
-      console.log(chalk.gray(`  ${stepNum}. Verify GDAP access:`));
-      console.log(chalk.white("     agentsync tenants inspect"));
+      console.log(chalk.gray("Example tenant entry:"));
+      console.log(chalk.gray("  tenants:"));
+      console.log(chalk.gray('    - tenantId: "customer-tenant-guid"'));
+      console.log(chalk.gray('      name: "Contoso"'));
+      console.log(chalk.gray('      environmentUrl: "https://contoso.crm.dynamics.com"'));
+      console.log(chalk.gray("      enabled: true"));
       console.log();
-      console.log(chalk.dim("Or explore in demo mode first: agentsync demo on"));
+      console.log(chalk.white("Then run: ") + chalk.cyan("agentsync tenants list"));
     } catch (error) {
       console.error(chalk.red("\n✖ Setup failed"));
       if (error instanceof Error) {
