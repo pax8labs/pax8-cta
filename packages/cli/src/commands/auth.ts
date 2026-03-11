@@ -115,7 +115,7 @@ authCommand
       console.log(chalk.green("\n✓ Credentials removed from keychain"));
       console.log();
       console.log(chalk.gray("You can still use environment variables for authentication:"));
-      console.log(chalk.white('  export AGENTSYNC_CLIENT_SECRET="your-secret"'));
+      console.log(chalk.white('  export PARTNER_CLIENT_SECRET="your-secret"'));
       console.log();
     } catch (error) {
       console.error(chalk.red("\n✖ Failed to remove credentials"));
@@ -134,14 +134,19 @@ authCommand
     console.log(chalk.cyan.bold("\n🔍 Authentication Status\n"));
 
     try {
-      const envVar = "AGENTSYNC_CLIENT_SECRET";
-      const hasEnvVar = !!process.env[envVar];
+      // Check both possible environment variable names
+      const envVars = ["PARTNER_CLIENT_SECRET", "AGENTSYNC_CLIENT_SECRET"];
+      const foundEnvVars = envVars.filter((v) => !!process.env[v]);
+      const hasEnvVar = foundEnvVars.length > 0;
+
       const keychainSecret = await getStoredSecret();
       const hasKeychain = !!keychainSecret;
 
       if (hasEnvVar) {
         console.log(chalk.green("✓ Environment Variable"));
-        console.log(chalk.gray(`  ${envVar} is set`));
+        for (const envVar of foundEnvVars) {
+          console.log(chalk.gray(`  ${envVar} is set`));
+        }
         console.log(chalk.gray("  Priority: PRIMARY (environment variables take precedence)"));
         console.log();
       }
@@ -166,11 +171,13 @@ authCommand
         console.log(chalk.white("  agentsync auth login"));
         console.log();
         console.log(chalk.cyan("Option 2: Environment Variable"));
-        console.log(chalk.white('  export AGENTSYNC_CLIENT_SECRET="your-secret"'));
+        console.log(chalk.white('  export PARTNER_CLIENT_SECRET="your-secret"'));
         console.log();
       } else {
         console.log(chalk.gray("Authentication method priority:"));
-        console.log(chalk.gray("  1. Environment variable (if set)"));
+        console.log(
+          chalk.gray("  1. Environment variable (PARTNER_CLIENT_SECRET or AGENTSYNC_CLIENT_SECRET)")
+        );
         console.log(chalk.gray("  2. OS keychain (fallback)"));
         console.log();
       }

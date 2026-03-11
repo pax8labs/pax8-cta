@@ -145,16 +145,45 @@ export const demoCommand = new Command("demo")
       saveCliConfig(config);
       console.log(chalk.yellow("✓ Demo mode disabled"));
     } else if (action === "status") {
-      if (currentMode) {
-        console.log(chalk.green("Demo mode: ENABLED"));
-        console.log(chalk.gray("  Commands will use mock data"));
-        console.log();
-        console.log(chalk.cyan("  Disable with:"), "agentsync demo off");
+      const envVar = process.env.DEMO_MODE;
+      const configMode = config.demoMode ?? false;
+      const effectiveMode = isDemoModeEnabled();
+
+      console.log(chalk.bold("Demo Mode Status"));
+      console.log();
+
+      // Show effective state
+      if (effectiveMode) {
+        console.log(chalk.green("  Status: ENABLED"));
       } else {
-        console.log(chalk.gray("Demo mode: DISABLED"));
-        console.log(chalk.gray("  Commands will use real credentials"));
-        console.log();
-        console.log(chalk.cyan("  Enable with:"), "agentsync demo on");
+        console.log(chalk.gray("  Status: DISABLED"));
+      }
+      console.log();
+
+      // Show where the setting comes from
+      console.log(chalk.bold("  Configuration:"));
+      if (envVar !== undefined) {
+        console.log(
+          `    DEMO_MODE env var: ${chalk.cyan(envVar || '""')} ${envVar ? "(takes precedence)" : "(empty = disabled)"}`
+        );
+      } else {
+        console.log(chalk.gray("    DEMO_MODE env var: not set"));
+      }
+      console.log(
+        `    Config file:       ${configMode ? chalk.green("enabled") : chalk.gray("disabled")}`
+      );
+      console.log(`    Path:              ${chalk.gray(CONFIG_FILE)}`);
+      console.log();
+
+      // Show how to change
+      if (effectiveMode) {
+        console.log(chalk.bold("  To disable:"));
+        console.log(chalk.gray("    agentsync demo off          # Update config file"));
+        console.log(chalk.gray("    DEMO_MODE=false agentsync   # Override for one command"));
+      } else {
+        console.log(chalk.bold("  To enable:"));
+        console.log(chalk.gray("    agentsync demo on           # Update config file"));
+        console.log(chalk.gray("    DEMO_MODE=true agentsync    # Override for one command"));
       }
     } else {
       console.error(chalk.red(`Unknown action: ${action}`));
@@ -165,12 +194,20 @@ export const demoCommand = new Command("demo")
 
 // Export helper to check if demo mode is enabled
 export function isDemoModeEnabled(): boolean {
-  // Check environment variable first (for backward compatibility)
-  if (process.env.DEMO_MODE === "true") {
-    return true;
+  // Environment variable takes precedence (allows override of config file)
+  const envVar = process.env.DEMO_MODE;
+  if (envVar !== undefined) {
+    // Explicit false/empty disables demo mode regardless of config
+    if (envVar === "false" || envVar === "0" || envVar === "") {
+      return false;
+    }
+    // Explicit true enables demo mode
+    if (envVar === "true" || envVar === "1") {
+      return true;
+    }
   }
 
-  // Check stored config
+  // Fall back to stored config
   const config = loadCliConfig();
   return config.demoMode ?? false;
 }
@@ -216,7 +253,11 @@ demoCommand
     console.clear();
     console.log();
     console.log(chalk.cyan.bold("  ╔═══════════════════════════════════════════════════════════╗"));
-    console.log(chalk.cyan.bold("  ║") + chalk.white.bold("           AgentSync CLI - Interactive Demo              ") + chalk.cyan.bold("║"));
+    console.log(
+      chalk.cyan.bold("  ║") +
+        chalk.white.bold("           AgentSync CLI - Interactive Demo              ") +
+        chalk.cyan.bold("║")
+    );
     console.log(chalk.cyan.bold("  ╚═══════════════════════════════════════════════════════════╝"));
     console.log();
     console.log(chalk.gray("  Press Ctrl+C at any time to exit"));
@@ -295,14 +336,14 @@ async function typeText(text: string, speedMultiplier: number): Promise<void> {
  * Sleep for specified milliseconds
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * Wait for user to press Enter
  */
 async function waitForEnter(): Promise<void> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const onData = () => {
       process.stdin.removeListener("data", onData);
       process.stdin.setRawMode?.(false);

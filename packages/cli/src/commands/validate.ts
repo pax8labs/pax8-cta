@@ -47,6 +47,89 @@ interface SecurityRole {
   name: string;
 }
 
+/**
+ * Parse common Azure/Dataverse errors into user-friendly messages with fixes
+ */
+function parseAuthError(errorMsg: string): { message: string; fix: string } {
+  // Invalid client secret
+  if (errorMsg.includes("AADSTS7000215") || errorMsg.includes("Invalid client secret")) {
+    return {
+      message: "Invalid client secret",
+      fix: "Ensure PARTNER_CLIENT_SECRET contains the secret value (not the secret ID). Generate a new secret in Azure Portal if needed.",
+    };
+  }
+
+  // Client secret expired
+  if (errorMsg.includes("AADSTS7000222") || errorMsg.includes("expired")) {
+    return {
+      message: "Client secret has expired",
+      fix: "Generate a new client secret in Azure Portal → App registrations → Your app → Certificates & secrets",
+    };
+  }
+
+  // App not found
+  if (errorMsg.includes("AADSTS700016") || errorMsg.includes("Application.*not found")) {
+    return {
+      message: "Application not found in Azure AD",
+      fix: "Verify the PARTNER_CLIENT_ID is correct. Check Azure Portal → App registrations.",
+    };
+  }
+
+  // Tenant not found
+  if (errorMsg.includes("AADSTS90002") || errorMsg.includes("tenant.*not found")) {
+    return {
+      message: "Tenant not found",
+      fix: "Verify the PARTNER_TENANT_ID is correct. Check Azure Portal → Azure Active Directory → Overview.",
+    };
+  }
+
+  // Not a member of organization (GDAP/app user issue)
+  if (
+    errorMsg.includes("not a member of the organization") ||
+    errorMsg.includes("is not a member")
+  ) {
+    return {
+      message: "App not registered in environment",
+      fix: "Create app user in Power Platform Admin Center, or run 'agentsync setup --all'",
+    };
+  }
+
+  // Permission denied
+  if (
+    errorMsg.includes("prvRead") ||
+    errorMsg.includes("prvWrite") ||
+    errorMsg.includes("privilege") ||
+    errorMsg.includes("403")
+  ) {
+    return {
+      message: "Insufficient permissions",
+      fix: "Assign System Administrator role to the app user in Power Platform Admin Center",
+    };
+  }
+
+  // Token acquisition failed (generic)
+  if (errorMsg.includes("Token acquisition failed")) {
+    // Extract the AADSTS code if present
+    const aadstsMatch = errorMsg.match(/AADSTS\d+/);
+    if (aadstsMatch) {
+      return {
+        message: `Authentication failed (${aadstsMatch[0]})`,
+        fix: "Check Azure AD app configuration. Verify client ID, tenant ID, and secret are correct.",
+      };
+    }
+    return {
+      message: "Authentication failed",
+      fix: "Check client credentials. Run 'agentsync auth status' to verify configuration.",
+    };
+  }
+
+  // Default: return first line of error
+  return {
+    message: errorMsg.split("\n")[0].slice(0, 100),
+    fix: "Check the error message above and verify your configuration",
+  };
+}
+
 export const validateCommand = new Command("validate")
   .description("Validate configuration and environment setup before deployment")
   .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
@@ -176,38 +259,16 @@ export const validateCommand = new Command("validate")
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        const parsed = parseAuthError(errorMsg);
 
-        // Check if it's an auth/connection error
-        if (
-          errorMsg.includes("not a member of the organization") ||
-          errorMsg.includes("bootstrap")
-        ) {
-          checks.push({
-            name: `${tenant.name}`,
-            status: "fail",
-            message: "App user not registered in environment (bootstrap required)",
-            fix: `Manually add app user in Power Platform Admin Center, then run 'agentsync setup --tenant "${tenant.name}"'`,
-          });
-          hasErrors = true;
-          tenantSpinner.fail(chalk.red(`${tenant.name}: Not registered (bootstrap required)`));
-        } else if (errorMsg.includes("ENOTFOUND") || errorMsg.includes("ETIMEDOUT")) {
-          checks.push({
-            name: `${tenant.name}`,
-            status: "fail",
-            message: "Environment unreachable - check network connection",
-            fix: "Verify the environment URL is correct and network connectivity",
-          });
-          hasErrors = true;
-          tenantSpinner.fail(chalk.red(`${tenant.name}: Unreachable`));
-        } else {
-          checks.push({
-            name: `${tenant.name}`,
-            status: "fail",
-            message: `Error: ${errorMsg.split("\n")[0]}`,
-          });
-          hasErrors = true;
-          tenantSpinner.fail(chalk.red(`${tenant.name}: Validation error`));
-        }
+        checks.push({
+          name: `${tenant.name}`,
+          status: "fail",
+          message: parsed.message,
+          fix: parsed.fix,
+        });
+        hasErrors = true;
+        tenantSpinner.fail(chalk.red(`${tenant.name}: ${parsed.message}`));
       }
     }
 
@@ -241,36 +302,16 @@ export const validateCommand = new Command("validate")
         sourceSpinner.succeed("Source environment reachable");
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        const parsed = parseAuthError(errorMsg);
 
-        if (errorMsg.includes("ENOTFOUND") || errorMsg.includes("ETIMEDOUT")) {
-          checks.push({
-            name: "Source environment",
-            status: "fail",
-            message: "Unreachable - check network connection",
-            fix: "Verify source environment URL is correct and network connectivity",
-          });
-          hasErrors = true;
-          sourceSpinner.fail("Source environment unreachable");
-        } else if (
-          errorMsg.includes("not a member of the organization") ||
-          errorMsg.includes("Authentication failed")
-        ) {
-          checks.push({
-            name: "Source environment",
-            status: "fail",
-            message: "Authentication failed - app user may not be configured",
-            fix: `Run 'agentsync setup' or manually configure app user in source environment`,
-          });
-          hasErrors = true;
-          sourceSpinner.fail("Source environment authentication failed");
-        } else {
-          checks.push({
-            name: "Source environment",
-            status: "warn",
-            message: `Warning: ${errorMsg.split("\n")[0]}`,
-          });
-          sourceSpinner.warn("Source environment validation warning");
-        }
+        checks.push({
+          name: "Source environment",
+          status: "fail",
+          message: parsed.message,
+          fix: parsed.fix,
+        });
+        hasErrors = true;
+        sourceSpinner.fail(`Source environment: ${parsed.message}`);
       }
     } else if (options.skipSource) {
       checks.push({
