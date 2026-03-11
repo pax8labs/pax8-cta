@@ -229,15 +229,33 @@ export class SolutionOperations {
 
       if (completed && job.data) {
         // The data field contains XML with import results
-        // A successful import has no error elements
-        if (job.data.includes('<result result="failure"') || job.data.includes("<errortext>")) {
+        // Check for failure indicators
+        if (
+          job.data.includes('succeeded="failure"') ||
+          job.data.includes('<result result="failure"') ||
+          job.data.includes("<errortext>")
+        ) {
           success = false;
-          // Extract error message if present
-          const errorMatch = job.data.match(/<errortext>([^<]+)<\/errortext>/);
-          if (errorMatch) {
-            error = errorMatch[1];
-          } else {
-            // Try to extract component name that failed
+
+          // Try multiple patterns to extract error message
+          // Pattern 1: status attribute in importexportxml element
+          const statusMatch = job.data.match(/status="([^"]+)"/);
+          if (statusMatch && statusMatch[1].includes("FAILURE")) {
+            // Extract the actual error message after "FAILURE:"
+            const failureMsg = statusMatch[1].replace(/^[^:]+:\s*FAILURE:\s*/, "");
+            error = failureMsg || statusMatch[1];
+          }
+
+          // Pattern 2: errortext element
+          if (!error) {
+            const errorMatch = job.data.match(/<errortext>([^<]+)<\/errortext>/);
+            if (errorMatch) {
+              error = errorMatch[1];
+            }
+          }
+
+          // Pattern 3: Fallback to component name
+          if (!error) {
             const componentMatch = job.data.match(/<name>([^<]+)<\/name>/);
             error = componentMatch
               ? `Import failed for component: ${componentMatch[1]}`
