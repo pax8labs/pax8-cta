@@ -389,7 +389,7 @@ export const initCommand = new Command("init")
           console.log(chalk.gray('   You can add it later: export PARTNER_CLIENT_SECRET="..."'));
         }
       }
-      // Ask if they want to add a tenant now
+      // Try to discover tenants via GDAP
       console.log();
       const tenants: Array<{
         tenantId: string;
@@ -397,30 +397,72 @@ export const initCommand = new Command("init")
         environmentUrl: string;
       }> = [];
 
-      const addTenant = await rl.question(
-        chalk.cyan("Add a target tenant now? ") + chalk.gray("(y/n) ")
-      );
+      // If we have credentials, try GDAP discovery
+      if (clientSecretCreated) {
+        const discoverTenants = await rl.question(
+          chalk.cyan("Discover your customer tenants via GDAP? ") + chalk.gray("(y/n) ")
+        );
 
-      if (addTenant.toLowerCase() === "y" || addTenant.toLowerCase() === "yes") {
-        let addMore = true;
-        while (addMore) {
-          console.log(chalk.cyan(`\nTenant ${tenants.length + 1}:`));
+        if (discoverTenants.toLowerCase() === "y" || discoverTenants.toLowerCase() === "yes") {
+          const discovered = await discoverGdapTenants(partnerTenantId, partnerClientId);
 
-          const tenantName = await rl.question(chalk.white("   Name (e.g., Contoso): "));
-          const tenantId = await rl.question(chalk.white("   Tenant ID: "));
-          const envUrl = await rl.question(
-            chalk.white("   Environment URL (e.g., https://contoso.crm.dynamics.com): ")
-          );
+          if (discovered.length > 0) {
+            console.log();
+            console.log(chalk.cyan(`Found ${discovered.length} GDAP customer(s):`));
+            console.log();
 
-          if (tenantName && tenantId && envUrl) {
-            tenants.push({ tenantId, name: tenantName, environmentUrl: envUrl });
-            console.log(chalk.green(`   ✓ Added ${tenantName}`));
+            // Let user select which tenants to add
+            for (const tenant of discovered) {
+              const add = await rl.question(
+                chalk.white(`   Add ${tenant.name}? `) + chalk.gray("(y/n) ")
+              );
+              if (add.toLowerCase() === "y" || add.toLowerCase() === "yes") {
+                // Ask for environment URL since GDAP doesn't provide it
+                const envUrl = await rl.question(
+                  chalk.white(`   Environment URL for ${tenant.name}: `) +
+                    chalk.gray("(e.g., https://contoso.crm.dynamics.com) ")
+                );
+                if (envUrl) {
+                  tenants.push({
+                    tenantId: tenant.tenantId,
+                    name: tenant.name,
+                    environmentUrl: envUrl,
+                  });
+                  console.log(chalk.green(`   ✓ Added ${tenant.name}`));
+                }
+              }
+            }
           }
+        }
+      }
 
-          const another = await rl.question(
-            chalk.white("\nAdd another tenant? ") + chalk.gray("(y/n) ")
-          );
-          addMore = another.toLowerCase() === "y" || another.toLowerCase() === "yes";
+      // If no tenants added yet, offer manual entry
+      if (tenants.length === 0) {
+        const addTenant = await rl.question(
+          chalk.cyan("Add a target tenant manually? ") + chalk.gray("(y/n) ")
+        );
+
+        if (addTenant.toLowerCase() === "y" || addTenant.toLowerCase() === "yes") {
+          let addMore = true;
+          while (addMore) {
+            console.log(chalk.cyan(`\nTenant ${tenants.length + 1}:`));
+
+            const tenantName = await rl.question(chalk.white("   Name (e.g., Contoso): "));
+            const tenantId = await rl.question(chalk.white("   Tenant ID: "));
+            const envUrl = await rl.question(
+              chalk.white("   Environment URL (e.g., https://contoso.crm.dynamics.com): ")
+            );
+
+            if (tenantName && tenantId && envUrl) {
+              tenants.push({ tenantId, name: tenantName, environmentUrl: envUrl });
+              console.log(chalk.green(`   ✓ Added ${tenantName}`));
+            }
+
+            const another = await rl.question(
+              chalk.white("\nAdd another tenant? ") + chalk.gray("(y/n) ")
+            );
+            addMore = another.toLowerCase() === "y" || another.toLowerCase() === "yes";
+          }
         }
       }
 
@@ -677,5 +719,57 @@ async function testCredentialsAndGdap(
 
     console.log();
     console.log(chalk.yellow("You can fix these issues and run 'agentsync validate' later."));
+  }
+}
+
+/**
+ * Discover customer tenants via GDAP relationships
+ */
+async function discoverGdapTenants(
+  partnerTenantId: string,
+  partnerClientId: string
+): Promise<Array<{ tenantId: string; name: string }>> {
+  const spinner = ora("Discovering GDAP customers...").start();
+
+  try {
+    const { getClientSecretWithFallback } = await import("../lib/credentials.js");
+    const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+
+    const { GdapClient } = await import("@agentsync/core");
+    const gdapClient = new GdapClient({
+      tenantId: partnerTenantId,
+      clientId: partnerClientId,
+      clientSecret,
+    });
+
+    const relationships = await gdapClient.listDelegatedAdminRelationships();
+
+    if (relationships.length === 0) {
+      spinner.warn("No active GDAP relationships found");
+      console.log(
+        chalk.gray("   You can add tenants manually or set up GDAP relationships later.")
+      );
+      return [];
+    }
+
+    spinner.succeed(`Found ${relationships.length} customer(s) via GDAP`);
+
+    return relationships.map((rel) => ({
+      tenantId: rel.customer.tenantId,
+      name: rel.customer.displayName,
+    }));
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    spinner.warn("Could not discover GDAP customers");
+
+    if (errMsg.includes("AADSTS") || errMsg.includes("Invalid client")) {
+      console.log(chalk.gray("   Credentials may be invalid. You can add tenants manually."));
+    } else if (errMsg.includes("403") || errMsg.includes("Authorization")) {
+      console.log(chalk.gray("   App may need permissions for GDAP discovery."));
+    } else {
+      console.log(chalk.gray(`   ${errMsg.slice(0, 60)}`));
+    }
+
+    return [];
   }
 }
