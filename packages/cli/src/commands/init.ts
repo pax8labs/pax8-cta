@@ -83,53 +83,185 @@ export const initCommand = new Command("init")
       output: process.stdout,
     });
 
+    let partnerTenantId = "";
+    let partnerClientId = "";
+    let clientSecretCreated = false;
+
     try {
-      console.log(chalk.white("Let's set up your Azure AD app registration credentials.\n"));
+      console.log(chalk.white("You can set up manually or sign in to auto-discover your apps.\n"));
 
-      // Partner Tenant ID with helpful context
-      console.log(chalk.cyan("1. Partner Tenant ID"));
-      console.log(
-        chalk.gray("   Your Microsoft Entra (Azure AD) tenant ID where the app is registered.")
+      // Ask about sign-in
+      const wantSignIn = await rl.question(
+        chalk.cyan("Sign in to Microsoft to list your app registrations? ") +
+          chalk.gray("(y/n) [recommended] ")
       );
-      console.log(
-        chalk.gray("   Find it at: ") +
-          chalk.underline(
-            "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Overview"
-          )
-      );
-      console.log(chalk.gray("   Look for 'Tenant ID' in the overview section.\n"));
-      const partnerTenantId = await rl.question(chalk.white("Tenant ID: "));
 
-      // Partner Client ID with helpful context
-      console.log(chalk.cyan("\n2. App Registration Client ID"));
-      console.log(chalk.gray("   The Application (client) ID of your registered Azure AD app."));
-      console.log(
-        chalk.gray("   Find it at: ") +
-          chalk.underline(
-            "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
-          )
-      );
-      console.log(chalk.gray("   Select your app and copy the 'Application (client) ID'.\n"));
-      const partnerClientId = await rl.question(chalk.white("Client ID: "));
+      if (wantSignIn.toLowerCase() === "y" || wantSignIn.toLowerCase() === "yes") {
+        // Device code flow to discover apps
+        console.log();
+        const spinner = ora("Starting authentication...").start();
 
-      // Client Secret info
-      console.log();
-      console.log(chalk.cyan("3. Client Secret"));
-      console.log(
-        chalk.gray("   Create a secret in your app registration under 'Certificates & secrets'.")
-      );
-      console.log(
-        chalk.gray("   Direct link: ") +
-          chalk.underline(
-            `https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/${partnerClientId}/isMSAApp~/false`
-          )
-      );
-      console.log();
-      console.log(chalk.yellow("⚠️  Store your secret securely using one of these methods:"));
-      console.log(chalk.white("  • OS Keychain (recommended): agentsync auth login"));
-      console.log(
-        chalk.white('  • Environment variable: export PARTNER_CLIENT_SECRET="your-secret"')
-      );
+        try {
+          const { interactiveLogin } = await import("../lib/auth.js");
+          const { GraphClient } = await import("../lib/graph-client.js");
+
+          spinner.text = "Waiting for authentication (check your browser)...";
+
+          const loginResult = await interactiveLogin({
+            scopes: ["https://graph.microsoft.com/.default"],
+          });
+
+          partnerTenantId = loginResult.tenantId;
+          spinner.succeed(`Authenticated to tenant ${partnerTenantId}`);
+
+          // List app registrations
+          spinner.start("Fetching your app registrations...");
+          const graphClient = new GraphClient({ accessToken: loginResult.accessToken });
+          const apps = await graphClient.listAppRegistrations();
+
+          if (apps.length === 0) {
+            spinner.warn("No app registrations found");
+            console.log(chalk.gray("\nYou'll need to create one first:"));
+            console.log(
+              chalk.underline(
+                "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade"
+              )
+            );
+            console.log();
+
+            // Fall back to manual entry
+            partnerClientId = await rl.question(chalk.white("Client ID (after creating app): "));
+          } else {
+            spinner.succeed(`Found ${apps.length} app registration(s)`);
+            console.log();
+
+            // Display apps for selection
+            console.log(chalk.cyan("Your App Registrations:\n"));
+            apps.forEach((app, index) => {
+              console.log(chalk.white(`  ${index + 1}. ${app.displayName}`));
+              console.log(chalk.gray(`     Client ID: ${app.appId}`));
+            });
+            console.log(chalk.white(`  ${apps.length + 1}. Enter manually`));
+            console.log();
+
+            const selection = await rl.question(chalk.white("Select an app (number): "));
+            const selectedIndex = parseInt(selection, 10) - 1;
+
+            if (selectedIndex >= 0 && selectedIndex < apps.length) {
+              const selectedApp = apps[selectedIndex];
+              partnerClientId = selectedApp.appId;
+              console.log(chalk.green(`\n✓ Selected: ${selectedApp.displayName}`));
+
+              // Offer to create a client secret
+              console.log();
+              const wantSecret = await rl.question(
+                chalk.cyan("Create a new client secret for this app? ") + chalk.gray("(y/n) ")
+              );
+
+              if (wantSecret.toLowerCase() === "y" || wantSecret.toLowerCase() === "yes") {
+                const secretSpinner = ora("Creating client secret...").start();
+                try {
+                  const secret = await graphClient.createClientSecret(
+                    selectedApp.id,
+                    "AgentSync CLI",
+                    24
+                  );
+
+                  secretSpinner.succeed("Client secret created");
+                  console.log();
+                  console.log(
+                    chalk.yellow("⚠️  IMPORTANT: Copy this secret now - it won't be shown again!")
+                  );
+                  console.log(chalk.white(`   Secret: ${chalk.bold(secret.secretText)}`));
+                  console.log(
+                    chalk.gray(`   Expires: ${new Date(secret.endDateTime).toLocaleDateString()}`)
+                  );
+                  console.log();
+
+                  // Offer to store in keychain
+                  const wantStore = await rl.question(
+                    chalk.cyan("Store this secret securely in OS keychain? ") + chalk.gray("(y/n) ")
+                  );
+
+                  if (wantStore.toLowerCase() === "y" || wantStore.toLowerCase() === "yes") {
+                    const { storeCredentials } = await import("../lib/auth.js");
+                    await storeCredentials(partnerClientId, secret.secretText, partnerTenantId);
+                    console.log(chalk.green("✓ Secret stored in keychain"));
+                    clientSecretCreated = true;
+                  }
+                } catch (error) {
+                  secretSpinner.fail("Failed to create secret");
+                  console.log(
+                    chalk.gray(`   ${error instanceof Error ? error.message : "Unknown error"}`)
+                  );
+                  console.log(chalk.gray("\n   You can create one manually in the Azure Portal."));
+                }
+              }
+            } else {
+              // Manual entry
+              partnerClientId = await rl.question(chalk.white("\nClient ID: "));
+            }
+          }
+        } catch (error) {
+          spinner.fail("Authentication failed");
+          console.log(chalk.gray(`   ${error instanceof Error ? error.message : "Unknown error"}`));
+          console.log(chalk.gray("\n   Falling back to manual setup...\n"));
+
+          // Fall back to manual entry
+          partnerTenantId = "";
+          partnerClientId = "";
+        }
+      }
+
+      // Manual entry if not set via auth flow
+      if (!partnerTenantId) {
+        console.log(chalk.cyan("\n1. Partner Tenant ID"));
+        console.log(
+          chalk.gray("   Your Microsoft Entra (Azure AD) tenant ID where the app is registered.")
+        );
+        console.log(
+          chalk.gray("   Find it at: ") +
+            chalk.underline(
+              "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Overview"
+            )
+        );
+        console.log(chalk.gray("   Look for 'Tenant ID' in the overview section.\n"));
+        partnerTenantId = await rl.question(chalk.white("Tenant ID: "));
+      }
+
+      if (!partnerClientId) {
+        console.log(chalk.cyan("\n2. App Registration Client ID"));
+        console.log(chalk.gray("   The Application (client) ID of your registered Azure AD app."));
+        console.log(
+          chalk.gray("   Find it at: ") +
+            chalk.underline(
+              "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
+            )
+        );
+        console.log(chalk.gray("   Select your app and copy the 'Application (client) ID'.\n"));
+        partnerClientId = await rl.question(chalk.white("Client ID: "));
+      }
+
+      // Client Secret info (only if not already created)
+      if (!clientSecretCreated) {
+        console.log();
+        console.log(chalk.cyan("3. Client Secret"));
+        console.log(
+          chalk.gray("   Create a secret in your app registration under 'Certificates & secrets'.")
+        );
+        console.log(
+          chalk.gray("   Direct link: ") +
+            chalk.underline(
+              `https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/${partnerClientId}/isMSAApp~/false`
+            )
+        );
+        console.log();
+        console.log(chalk.yellow("⚠️  Store your secret securely using one of these methods:"));
+        console.log(chalk.white("  • OS Keychain (recommended): agentsync auth login"));
+        console.log(
+          chalk.white('  • Environment variable: export PARTNER_CLIENT_SECRET="your-secret"')
+        );
+      }
       console.log();
 
       // Ask about sample tenants
@@ -202,13 +334,21 @@ tenants:${
       console.log(chalk.green("✓ Setup complete!"));
       console.log();
       console.log(chalk.cyan("Next steps:"));
-      console.log(chalk.gray("  1. Store your client secret securely:"));
-      console.log(chalk.white("     agentsync auth login"));
-      console.log();
-      console.log(chalk.gray("  2. Add your tenant destinations to:"));
+
+      let stepNum = 1;
+      if (!clientSecretCreated) {
+        console.log(chalk.gray(`  ${stepNum}. Store your client secret securely:`));
+        console.log(chalk.white("     agentsync auth login"));
+        console.log();
+        stepNum++;
+      }
+
+      console.log(chalk.gray(`  ${stepNum}. Add your tenant destinations to:`));
       console.log(chalk.white(`     ${configPath}`));
       console.log();
-      console.log(chalk.gray("  3. Verify GDAP access:"));
+      stepNum++;
+
+      console.log(chalk.gray(`  ${stepNum}. Verify GDAP access:`));
       console.log(chalk.white("     agentsync tenants inspect"));
       console.log();
       console.log(chalk.dim("Or explore in demo mode first: agentsync demo on"));

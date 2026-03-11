@@ -106,6 +106,28 @@ export class GraphClient {
   }
 
   /**
+   * List all app registrations the user owns or has access to
+   */
+  async listAppRegistrations(): Promise<AppRegistration[]> {
+    const response = await fetch(
+      `${this.baseUrl}/applications?$select=id,appId,displayName,signInAudience&$top=50&$orderby=displayName`,
+      {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to list apps: ${response.status} ${error}`);
+    }
+
+    const data = (await response.json()) as { value: AppRegistration[] };
+    return data.value;
+  }
+
+  /**
    * Add Dynamics CRM API permission to an app
    */
   async addDynamicsPermission(appObjectId: string): Promise<void> {
