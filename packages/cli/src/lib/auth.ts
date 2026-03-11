@@ -64,8 +64,16 @@ export async function interactiveLogin(options?: {
   const pca = new PublicClientApplication(msalConfig);
 
   const deviceCodeRequest: DeviceCodeRequest = {
-    deviceCodeCallback: (response: { message: string }) => {
-      console.log(response.message);
+    deviceCodeCallback: (response: {
+      message: string;
+      userCode: string;
+      verificationUri: string;
+    }) => {
+      // Format the device code message nicely
+      console.log(`  1. Open: ${response.verificationUri}`);
+      console.log(`  2. Enter code: ${response.userCode}`);
+      console.log();
+      console.log("  Waiting for you to sign in...");
     },
     scopes,
   };

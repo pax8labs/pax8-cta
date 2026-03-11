@@ -1,0 +1,18 @@
+# AgentSync New Test Configuration
+version: "2.0"
+
+partner:
+  tenantId: "5ef655fa-32f3-44b2-bdc9-86a50b667ea0"
+  clientId: "391d47c5-fb76-492a-a0c8-c9ce6a237eff"
+
+source:
+  tenantId: "5ef655fa-32f3-44b2-bdc9-86a50b667ea0"
+  environmentUrl: "https://org60b532ae.crm.dynamics.com"
+
+tenants:
+  - name: "AgentSync-Prod"
+    tenantId: "5ef655fa-32f3-44b2-bdc9-86a50b667ea0"
+    environmentUrl: "https://org54870a4d.crm.dynamics.com"
+    tags:
+      - prod
+    enabled: true

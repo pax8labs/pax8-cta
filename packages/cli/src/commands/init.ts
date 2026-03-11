@@ -88,28 +88,30 @@ export const initCommand = new Command("init")
     let clientSecretCreated = false;
 
     try {
-      console.log(chalk.white("You can set up manually or sign in to auto-discover your apps.\n"));
+      console.log(chalk.white("We'll need your Azure AD app registration details.\n"));
 
-      // Ask about sign-in
+      // Ask about sign-in (optional helper)
       const wantSignIn = await rl.question(
-        chalk.cyan("Sign in to Microsoft to list your app registrations? ") +
-          chalk.gray("(y/n) [recommended] ")
+        chalk.cyan("Sign in to auto-discover your apps? ") +
+          chalk.gray("(y/n) [or press Enter to skip] ")
       );
 
       if (wantSignIn.toLowerCase() === "y" || wantSignIn.toLowerCase() === "yes") {
         // Device code flow to discover apps
         console.log();
-        const spinner = ora("Starting authentication...").start();
 
         try {
           const { interactiveLogin } = await import("../lib/auth.js");
           const { GraphClient } = await import("../lib/graph-client.js");
 
-          spinner.text = "Waiting for authentication (check your browser)...";
+          // Don't use spinner during device code - MSAL prints the code/URL directly
+          console.log(chalk.cyan("Opening Microsoft sign-in...\n"));
 
           const loginResult = await interactiveLogin({
             scopes: ["https://graph.microsoft.com/.default"],
           });
+
+          const spinner = ora().start();
 
           partnerTenantId = loginResult.tenantId;
           spinner.succeed(`Authenticated to tenant ${partnerTenantId}`);
@@ -203,7 +205,7 @@ export const initCommand = new Command("init")
             }
           }
         } catch (error) {
-          spinner.fail("Authentication failed");
+          console.log(chalk.red("\n✖ Authentication failed"));
           console.log(chalk.gray(`   ${error instanceof Error ? error.message : "Unknown error"}`));
           console.log(chalk.gray("\n   Falling back to manual setup...\n"));
 
