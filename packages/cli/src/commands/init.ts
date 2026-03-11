@@ -16,11 +16,12 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import { existsSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { createInterface } from "node:readline/promises";
 import { exec } from "node:child_process";
+import { question } from "../lib/input.js";
+import { handleCommandError } from "../lib/errors.js";
 
 const DEFAULT_CONFIG_PATH = "./config/tenants.yaml";
 
@@ -37,57 +38,11 @@ function openUrl(url: string): void {
   exec(command);
 }
 
-/**
- * Read a line with masked input (shows * for each character)
- */
-function readMaskedInput(prompt: string): Promise<string> {
-  return new Promise((resolve) => {
-    const originalWrite = process.stdout.write.bind(process.stdout);
-    let input = "";
-
-    // Write prompt
-    originalWrite(prompt);
-
-    // Handle keypress in raw mode
-    process.stdin.setRawMode?.(true);
-    process.stdin.resume();
-    process.stdin.setEncoding("utf8");
-
-    const handler = (char: string): void => {
-      if (char === "\r" || char === "\n") {
-        // Enter pressed - cleanup and resolve
-        process.stdin.setRawMode?.(false);
-        process.stdin.removeListener("data", handler);
-        // Don't pause stdin - let readline continue to work
-        originalWrite("\n");
-        resolve(input);
-      } else if (char === "\x7f" || char === "\b") {
-        // Backspace
-        if (input.length > 0) {
-          input = input.slice(0, -1);
-          originalWrite("\b \b"); // Erase the * character
-        }
-      } else if (char === "\x03") {
-        // Ctrl+C
-        process.stdin.setRawMode?.(false);
-        process.stdin.removeListener("data", handler);
-        originalWrite("\n");
-        process.exit(1);
-      } else if (char >= " ") {
-        // Printable character
-        input += char;
-        originalWrite("*");
-      }
-    };
-
-    process.stdin.on("data", handler);
-  });
-}
-
 export const initCommand = new Command("init")
   .description("Initialize AgentSync with guided setup")
   .option("-c, --config <path>", "Path to create manifest file", DEFAULT_CONFIG_PATH)
   .option("--demo", "Set up in demo mode (skip credential prompts)")
+  .option("--no-gdap", "Skip automatic GDAP tenant discovery (for non-MSP setups)")
   .option("--interactive", "Run interactive setup wizard with Azure AD app creation")
   .action(async (options) => {
     // Handle interactive mode
@@ -103,11 +58,7 @@ export const initCommand = new Command("init")
           process.exit(1);
         }
       } catch (error) {
-        console.error(chalk.red("\n✖ Interactive setup failed"));
-        if (error instanceof Error) {
-          console.error(chalk.red(error.message));
-        }
-        process.exit(1);
+        handleCommandError(error, null, "Interactive setup failed");
       }
       return;
     }
@@ -116,17 +67,12 @@ export const initCommand = new Command("init")
 
     // Check if config already exists
     const configPath = resolve(process.cwd(), options.config);
-    if (existsSync(configPath)) {
-      const rl = createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
 
+    if (existsSync(configPath)) {
       console.log(chalk.yellow(`⚠️  Configuration already exists: ${configPath}\n`));
-      const overwrite = await rl.question(
+      const overwrite = await question(
         chalk.white("Overwrite existing configuration? ") + chalk.gray("(y/n) ")
       );
-      rl.close();
 
       if (overwrite.toLowerCase() !== "y" && overwrite.toLowerCase() !== "yes") {
         console.log(chalk.gray("\nSetup cancelled. Your existing configuration was preserved."));
@@ -141,7 +87,7 @@ export const initCommand = new Command("init")
       console.log(chalk.yellow("Setting up in DEMO MODE..."));
       console.log(chalk.gray("You can explore AgentSync features without credentials.\n"));
 
-      const spinner = ora("Enabling demo mode...").start();
+      const spinner = createSpinner("Enabling demo mode...").start();
 
       // Enable demo mode
       const { saveCliConfig } = await import("./demo.js");
@@ -160,21 +106,16 @@ export const initCommand = new Command("init")
       return;
     }
 
-    // Production setup
-    const rl = createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
     let partnerTenantId = "";
     let partnerClientId = "";
+    let partnerClientSecret = "";
     let clientSecretCreated = false;
 
     try {
       console.log(chalk.white("We'll need your Azure AD app registration details.\n"));
 
       // Ask about sign-in (optional helper)
-      const wantSignIn = await rl.question(
+      const wantSignIn = await question(
         chalk.cyan("Sign in to auto-discover your apps? ") +
           chalk.gray("(y/n) [or press Enter to skip] ")
       );
@@ -196,7 +137,7 @@ export const initCommand = new Command("init")
             openBrowser: true, // Auto-open browser
           });
 
-          const spinner = ora().start();
+          const spinner = createSpinner().start();
 
           partnerTenantId = loginResult.tenantId;
           spinner.succeed(`Authenticated to tenant ${partnerTenantId}`);
@@ -217,7 +158,7 @@ export const initCommand = new Command("init")
             console.log();
 
             // Fall back to manual entry
-            partnerClientId = await rl.question(chalk.white("Client ID (after creating app): "));
+            partnerClientId = await question(chalk.white("Client ID (after creating app): "));
           } else {
             spinner.succeed(`Found ${apps.length} app registration(s)`);
             console.log();
@@ -231,7 +172,7 @@ export const initCommand = new Command("init")
             console.log(chalk.white(`  ${apps.length + 1}. Enter manually`));
             console.log();
 
-            const selection = await rl.question(chalk.white("Select an app (number): "));
+            const selection = await question(chalk.white("Select an app (number): "));
             const selectedIndex = parseInt(selection, 10) - 1;
 
             if (selectedIndex >= 0 && selectedIndex < apps.length) {
@@ -241,12 +182,12 @@ export const initCommand = new Command("init")
 
               // Offer to create a client secret
               console.log();
-              const wantSecret = await rl.question(
+              const wantSecret = await question(
                 chalk.cyan("Create a new client secret for this app? ") + chalk.gray("(y/n) ")
               );
 
               if (wantSecret.toLowerCase() === "y" || wantSecret.toLowerCase() === "yes") {
-                const secretSpinner = ora("Creating client secret...").start();
+                const secretSpinner = createSpinner("Creating client secret...").start();
                 try {
                   const secret = await graphClient.createClientSecret(
                     selectedApp.id,
@@ -266,7 +207,7 @@ export const initCommand = new Command("init")
                   console.log();
 
                   // Offer to store in keychain
-                  const wantStore = await rl.question(
+                  const wantStore = await question(
                     chalk.cyan("Store this secret securely in OS keychain? ") + chalk.gray("(y/n) ")
                   );
 
@@ -286,7 +227,7 @@ export const initCommand = new Command("init")
               }
             } else {
               // Manual entry
-              partnerClientId = await rl.question(chalk.white("\nClient ID: "));
+              partnerClientId = await question(chalk.white("\nClient ID: "));
             }
           }
         } catch (error) {
@@ -308,14 +249,14 @@ export const initCommand = new Command("init")
         console.log(chalk.cyan("\n1. Partner Tenant ID"));
         console.log(chalk.gray("   Your Microsoft Entra (Azure AD) tenant ID."));
 
-        const tenantInput = await rl.question(
+        const tenantInput = await question(
           chalk.white("   Tenant ID ") + chalk.gray("(or 'o' to open Azure Portal): ")
         );
 
         if (tenantInput.toLowerCase() === "o" || tenantInput.toLowerCase() === "open") {
           openUrl(tenantIdUrl);
           console.log(chalk.green("   ✓ Opened - look for 'Tenant ID'"));
-          partnerTenantId = await rl.question(chalk.white("   Tenant ID: "));
+          partnerTenantId = await question(chalk.white("   Tenant ID: "));
         } else {
           partnerTenantId = tenantInput;
         }
@@ -328,14 +269,14 @@ export const initCommand = new Command("init")
         console.log(chalk.cyan("\n2. App Registration Client ID"));
         console.log(chalk.gray("   The Application (client) ID of your Azure AD app."));
 
-        const clientInput = await rl.question(
+        const clientInput = await question(
           chalk.white("   Client ID ") + chalk.gray("(or 'o' to open Azure Portal): ")
         );
 
         if (clientInput.toLowerCase() === "o" || clientInput.toLowerCase() === "open") {
           openUrl(appRegUrl);
           console.log(chalk.green("   ✓ Opened - select your app, copy 'Application (client) ID'"));
-          partnerClientId = await rl.question(chalk.white("   Client ID: "));
+          partnerClientId = await question(chalk.white("   Client ID: "));
         } else {
           partnerClientId = clientInput;
         }
@@ -349,17 +290,16 @@ export const initCommand = new Command("init")
         console.log(
           chalk.gray("   The secret Value from your app registration (not the Secret ID).")
         );
-        console.log(
-          chalk.gray("   Type 'o' to open Azure Portal, or paste your secret (input is masked):")
-        );
 
-        // Use masked input for the secret
-        let clientSecret = await readMaskedInput(chalk.white("   Secret Value: "));
+        // TODO: Add masked input for secret (see https://github.com/pax8-labs/agentsync/issues/XXX)
+        let clientSecret = await question(
+          chalk.white("   Secret Value ") + chalk.gray("(or 'o' to open Azure Portal): ")
+        );
 
         if (clientSecret.toLowerCase() === "o" || clientSecret.toLowerCase() === "open") {
           openUrl(secretUrl);
           console.log(chalk.green("   ✓ Opened - click 'New client secret', copy the 'Value'"));
-          clientSecret = await readMaskedInput(chalk.white("   Secret Value: "));
+          clientSecret = await question(chalk.white("   Secret Value: "));
         }
 
         if (clientSecret) {
@@ -368,6 +308,7 @@ export const initCommand = new Command("init")
             const { storeCredentials } = await import("../lib/auth.js");
             await storeCredentials(partnerClientId, clientSecret, partnerTenantId);
             console.log(chalk.green("   ✓ Secret stored securely in OS keychain"));
+            partnerClientSecret = clientSecret;
             clientSecretCreated = true;
           } catch {
             // Keychain failed, save to .env file automatically
@@ -379,6 +320,9 @@ export const initCommand = new Command("init")
             // Check if PARTNER_CLIENT_SECRET already exists
             if (envContent.includes("PARTNER_CLIENT_SECRET=")) {
               console.log(chalk.green("   ✓ Secret already configured in .env"));
+              // Load the existing secret from .env into memory
+              const match = envContent.match(/PARTNER_CLIENT_SECRET=(.+)/);
+              if (match) partnerClientSecret = match[1].trim();
             } else {
               const newContent =
                 envContent.endsWith("\n") || envContent === ""
@@ -388,6 +332,7 @@ export const initCommand = new Command("init")
               // Ensure restrictive permissions even if file existed
               chmodSync(envPath, 0o600);
               console.log(chalk.green("   ✓ Secret saved to .env (restricted permissions)"));
+              partnerClientSecret = clientSecret;
 
               // Auto-add .env to .gitignore if not already there
               const gitignorePath = resolve(process.cwd(), ".gitignore");
@@ -411,7 +356,72 @@ export const initCommand = new Command("init")
           console.log(chalk.gray('   You can add it later: export PARTNER_CLIENT_SECRET="..."'));
         }
       }
-      // Try to discover tenants via GDAP
+      // Source environment (where agents are developed)
+      let sourceEnvironmentUrl = "";
+      console.log(chalk.cyan("\n4. Source Environment"));
+      console.log(chalk.gray("   The Power Platform environment where you develop agents.\n"));
+
+      // Try discovering environments via Global Discovery Service
+      if (partnerClientSecret) {
+        try {
+          const { TokenManager } = await import("@agentsync/core");
+          const tokenManager = new TokenManager({
+            tenantId: partnerTenantId,
+            clientId: partnerClientId,
+            clientSecret: partnerClientSecret,
+          });
+          const dvToken = await tokenManager.getToken(["https://globaldisco.crm.dynamics.com/.default"]);
+          const resp = await fetch(
+            "https://globaldisco.crm.dynamics.com/api/discovery/v2.0/Instances",
+            { headers: { Authorization: `Bearer ${dvToken}` } }
+          );
+
+          if (resp.ok) {
+            const data = (await resp.json()) as { value: Array<{ FriendlyName: string; Url: string; State: number }> };
+            const instances = (data.value || []).filter((i) => i.State === 0);
+
+            if (instances.length > 0) {
+              console.log(chalk.green(`   Found ${instances.length} environment(s):\n`));
+              instances.forEach((env, i) => {
+                console.log(chalk.white(`   ${i + 1}. ${env.FriendlyName}`));
+                console.log(chalk.gray(`      ${env.Url}`));
+              });
+              console.log(chalk.white(`   ${instances.length + 1}. Enter manually`));
+              console.log(chalk.white(`   ${instances.length + 2}. Skip for now`));
+              console.log();
+
+              const selection = await question(
+                chalk.white("   Select source environment (number): ")
+              );
+              const idx = parseInt(selection, 10) - 1;
+
+              if (idx >= 0 && idx < instances.length) {
+                sourceEnvironmentUrl = instances[idx].Url;
+                console.log(
+                  chalk.green(`   ✓ Source: ${instances[idx].FriendlyName}`)
+                );
+              } else if (idx === instances.length) {
+                sourceEnvironmentUrl = await question(
+                  chalk.white("   Source environment URL: ")
+                );
+              }
+              // else: skip
+            }
+          }
+        } catch {
+          // Discovery failed — fall through to manual prompt
+        }
+      }
+
+      // Fall back to manual entry if discovery didn't produce a result
+      if (!sourceEnvironmentUrl) {
+        sourceEnvironmentUrl = await question(
+          chalk.white("   Source environment URL ") +
+            chalk.gray("(e.g. https://org123.crm.dynamics.com, or Enter to skip): ")
+        );
+      }
+
+      // Try to discover tenants via GDAP (automatic unless --no-gdap)
       console.log();
       const tenants: Array<{
         tenantId: string;
@@ -419,23 +429,19 @@ export const initCommand = new Command("init")
         environmentUrl: string;
       }> = [];
 
-      // If we have credentials, try GDAP discovery
-      if (clientSecretCreated) {
-        const discoverTenants = await rl.question(
-          chalk.cyan("Discover your customer tenants via GDAP? ") + chalk.gray("(y/n) ")
+      // If we have credentials, try GDAP discovery automatically
+      if (clientSecretCreated && options.gdap !== false) {
+        const discovered = await discoverGdapTenantsWithEnvironments(
+          partnerTenantId,
+          partnerClientId,
+          partnerClientSecret
         );
 
-        if (discoverTenants.toLowerCase() === "y" || discoverTenants.toLowerCase() === "yes") {
-          const discovered = await discoverGdapTenantsWithEnvironments(
-            partnerTenantId,
-            partnerClientId
-          );
+        if (discovered.length > 0) {
+          console.log();
 
-          if (discovered.length > 0) {
-            console.log();
-
-            // Let user select which tenants/environments to add
-            for (const tenant of discovered) {
+          // Let user select which tenants/environments to add
+          for (const tenant of discovered) {
               if (tenant.environments.length === 0) {
                 console.log(
                   chalk.gray(`   ${tenant.name}: No Dataverse environments found, skipping`)
@@ -443,7 +449,7 @@ export const initCommand = new Command("init")
                 continue;
               }
 
-              const add = await rl.question(
+              const add = await question(
                 chalk.white(`   Add ${tenant.name}? `) +
                   chalk.gray(`(${tenant.environments.length} environment(s)) `) +
                   chalk.gray("(y/n) ")
@@ -470,7 +476,7 @@ export const initCommand = new Command("init")
                     );
                   });
 
-                  const envChoice = await rl.question(
+                  const envChoice = await question(
                     chalk.white("   Add which? ") + chalk.gray("(number, 'all', or 'skip') ")
                   );
 
@@ -501,33 +507,42 @@ export const initCommand = new Command("init")
               }
             }
           }
-        }
+      }
+
+      // If --no-gdap was specified, mention it
+      if (options.gdap === false && clientSecretCreated) {
+        console.log(chalk.gray("GDAP discovery skipped (--no-gdap). You can add tenants manually.\n"));
       }
 
       // If no tenants added yet, offer manual entry
       if (tenants.length === 0) {
-        const addTenant = await rl.question(
-          chalk.cyan("Add a target tenant manually? ") + chalk.gray("(y/n) ")
+        console.log(chalk.cyan("\n5. Target Tenants"));
+        console.log(chalk.gray("   Customer tenants where agents will be deployed."));
+        console.log(chalk.gray("   These must be real Microsoft 365 tenants your app has access to"));
+        console.log(chalk.gray("   (via GDAP or direct app consent). You can add them later.\n"));
+
+        const addTenant = await question(
+          chalk.white("   Add a target tenant now? ") + chalk.gray("(y/n, most users skip this) ")
         );
 
         if (addTenant.toLowerCase() === "y" || addTenant.toLowerCase() === "yes") {
           let addMore = true;
           while (addMore) {
-            console.log(chalk.cyan(`\nTenant ${tenants.length + 1}:`));
+            console.log(chalk.cyan(`\n   Tenant ${tenants.length + 1}:`));
 
-            const tenantName = await rl.question(chalk.white("   Name (e.g., Contoso): "));
-            const tenantId = await rl.question(chalk.white("   Tenant ID: "));
-            const envUrl = await rl.question(
-              chalk.white("   Environment URL (e.g., https://contoso.crm.dynamics.com): ")
+            const tenantName = await question(chalk.white("     Name (e.g., Contoso): "));
+            const tenantId = await question(chalk.white("     Tenant ID (Azure AD GUID): "));
+            const envUrl = await question(
+              chalk.white("     Environment URL (e.g., https://contoso.crm.dynamics.com): ")
             );
 
             if (tenantName && tenantId && envUrl) {
               tenants.push({ tenantId, name: tenantName, environmentUrl: envUrl });
-              console.log(chalk.green(`   ✓ Added ${tenantName}`));
+              console.log(chalk.green(`     ✓ Added ${tenantName}`));
             }
 
-            const another = await rl.question(
-              chalk.white("\nAdd another tenant? ") + chalk.gray("(y/n) ")
+            const another = await question(
+              chalk.white("\n   Add another tenant? ") + chalk.gray("(y/n) ")
             );
             addMore = another.toLowerCase() === "y" || another.toLowerCase() === "yes";
           }
@@ -535,9 +550,8 @@ export const initCommand = new Command("init")
       }
 
       // Create config (keep rl open for test prompt later)
-      const spinner = ora("Creating configuration...").start();
+      console.log(chalk.cyan("\n  Creating configuration..."));
 
-      const configPath = resolve(process.cwd(), options.config);
       const configDir = dirname(configPath);
 
       if (!existsSync(configDir)) {
@@ -556,16 +570,16 @@ export const initCommand = new Command("init")
     tags:
       - production`;
         }
-      } else {
-        tenantsYaml = `
-  # Add your tenants here:
-  # - tenantId: "customer-tenant-guid"
-  #   name: "Customer Name"
-  #   environmentUrl: "https://customer-org.crm.dynamics.com"
-  #   enabled: true
-  #   tags:
-  #     - production`;
       }
+
+      const sourceYaml = sourceEnvironmentUrl
+        ? `source:
+  tenantId: "${partnerTenantId}"
+  environmentUrl: "${sourceEnvironmentUrl}"`
+        : `# Source environment (where you develop agents)
+# source:
+#   tenantId: "${partnerTenantId}"
+#   environmentUrl: "https://your-dev-org.crm.dynamics.com"`;
 
       const configContent = `# AgentSync Configuration File
 # Generated by: agentsync init
@@ -575,16 +589,20 @@ partner:
   tenantId: "${partnerTenantId}"
   clientId: "${partnerClientId}"
 
-# Source environment (where you develop agents)
-# source:
-#   environmentUrl: "https://your-dev-org.crm.dynamics.com"
+${sourceYaml}
 
 # Target tenants (where agents will be deployed)
-tenants:${tenantsYaml}
+# Add tenants here or use 'agentsync tenants discover' to find them
+tenants:${tenantsYaml || " []"}
+# Example:
+#   - tenantId: "customer-tenant-guid"
+#     name: "Contoso"
+#     environmentUrl: "https://contoso.crm.dynamics.com"
+#     enabled: true
 `;
 
       writeFileSync(configPath, configContent);
-      spinner.succeed(`Configuration saved to ${configPath}`);
+      console.log(chalk.green(`  ✓ Configuration saved to ${configPath}`));
 
       // Disable demo mode since user is setting up real credentials
       const { saveCliConfig } = await import("./demo.js");
@@ -592,14 +610,14 @@ tenants:${tenantsYaml}
 
       // Offer to test credentials and discover GDAP tenants
       console.log();
-      const testConnection = await rl.question(
+      const testConnection = await question(
         chalk.cyan("Test your credentials now? ") + chalk.gray("(y/n) ")
       );
 
-      rl.close();
+
 
       if (testConnection.toLowerCase() === "y" || testConnection.toLowerCase() === "yes") {
-        await testCredentialsAndGdap(partnerTenantId, partnerClientId, tenants, options.config);
+        await testCredentialsAndGdap(partnerTenantId, partnerClientId, partnerClientSecret, tenants);
       }
 
       console.log();
@@ -638,11 +656,7 @@ tenants:${tenantsYaml}
       }
       console.log(chalk.dim("Run 'agentsync --help' to see all available commands."));
     } catch (error) {
-      console.error(chalk.red("\n✖ Setup failed"));
-      if (error instanceof Error) {
-        console.error(chalk.red(error.message));
-      }
-      process.exit(1);
+      handleCommandError(error, null, "Setup failed");
     }
   });
 
@@ -652,18 +666,15 @@ tenants:${tenantsYaml}
 async function testCredentialsAndGdap(
   partnerTenantId: string,
   partnerClientId: string,
+  clientSecret: string,
   configuredTenants: Array<{ tenantId: string; name: string; environmentUrl: string }>,
-  _configPath: string
 ): Promise<void> {
   console.log();
 
   // Try to get a token to verify credentials work
-  const spinner = ora("Testing credentials...").start();
+  console.log(chalk.cyan("  Testing credentials..."));
 
   try {
-    const { getClientSecretWithFallback } = await import("../lib/credentials.js");
-    const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
-
     const { TokenManager } = await import("@agentsync/core");
     const tokenManager = new TokenManager({
       tenantId: partnerTenantId,
@@ -673,10 +684,10 @@ async function testCredentialsAndGdap(
 
     // Test getting a Graph token
     await tokenManager.getGraphToken();
-    spinner.succeed("Credentials valid - authentication successful");
+    console.log(chalk.green("  ✓ Credentials valid - authentication successful"));
 
     // Try to discover GDAP relationships
-    spinner.start("Checking GDAP relationships...");
+    console.log(chalk.cyan("  Checking GDAP relationships..."));
     try {
       const { GdapClient } = await import("@agentsync/core");
       const gdapClient = new GdapClient({
@@ -688,7 +699,7 @@ async function testCredentialsAndGdap(
       const relationships = await gdapClient.listDelegatedAdminRelationships();
 
       if (relationships.length === 0) {
-        spinner.warn("No active GDAP relationships found");
+        console.log(chalk.yellow("  ⚠ No active GDAP relationships found"));
         console.log(
           chalk.gray("   You may need to set up GDAP relationships with your customers.")
         );
@@ -696,7 +707,7 @@ async function testCredentialsAndGdap(
           chalk.gray("   See: https://learn.microsoft.com/en-us/partner-center/gdap-introduction")
         );
       } else {
-        spinner.succeed(`Found ${relationships.length} active GDAP relationship(s)`);
+        console.log(chalk.green(`  ✓ Found ${relationships.length} active GDAP relationship(s)`));
         console.log();
 
         // Show discovered tenants
@@ -722,7 +733,7 @@ async function testCredentialsAndGdap(
       }
     } catch (gdapError) {
       // GDAP discovery failed - might not have Graph permissions
-      spinner.warn("Could not check GDAP relationships");
+      console.log(chalk.yellow("  ⚠ Could not check GDAP relationships"));
       const errMsg = gdapError instanceof Error ? gdapError.message : String(gdapError);
       if (errMsg.includes("403") || errMsg.includes("Authorization")) {
         console.log(
@@ -740,7 +751,7 @@ async function testCredentialsAndGdap(
       console.log();
       console.log(chalk.cyan("Testing tenant connectivity..."));
       for (const tenant of configuredTenants) {
-        const tenantSpinner = ora(`   ${tenant.name}...`).start();
+        console.log(chalk.cyan(`   Testing ${tenant.name}...`));
         try {
           const tenantTokenManager = new TokenManager({
             tenantId: tenant.tenantId,
@@ -756,17 +767,17 @@ async function testCredentialsAndGdap(
 
           // Try to query to verify connectivity
           await client.get("/WhoAmI");
-          tenantSpinner.succeed(`   ${tenant.name}: Connected`);
+          console.log(chalk.green(`   ✓ ${tenant.name}: Connected`));
         } catch (tenantError) {
           const errMsg = tenantError instanceof Error ? tenantError.message : String(tenantError);
           if (errMsg.includes("not a member") || errMsg.includes("AADSTS50020")) {
-            tenantSpinner.fail(`   ${tenant.name}: App user not registered`);
+            console.log(chalk.red(`   ✖ ${tenant.name}: App user not registered`));
             console.log(chalk.gray(`      Run: agentsync setup --tenant "${tenant.name}"`));
           } else if (errMsg.includes("403") || errMsg.includes("privilege")) {
-            tenantSpinner.fail(`   ${tenant.name}: Missing permissions`);
+            console.log(chalk.red(`   ✖ ${tenant.name}: Missing permissions`));
             console.log(chalk.gray("      App user needs System Administrator role"));
           } else {
-            tenantSpinner.fail(`   ${tenant.name}: Connection failed`);
+            console.log(chalk.red(`   ✖ ${tenant.name}: Connection failed`));
             console.log(chalk.gray(`      ${errMsg.slice(0, 60)}`));
           }
         }
@@ -774,7 +785,7 @@ async function testCredentialsAndGdap(
     }
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    spinner.fail("Credential test failed");
+    console.log(chalk.red("  ✖ Credential test failed"));
 
     if (errMsg.includes("AADSTS7000215") || errMsg.includes("Invalid client secret")) {
       console.log(chalk.red("   Invalid client secret"));
@@ -811,14 +822,12 @@ interface DiscoveredTenant {
  */
 async function discoverGdapTenantsWithEnvironments(
   partnerTenantId: string,
-  partnerClientId: string
+  partnerClientId: string,
+  clientSecret: string
 ): Promise<DiscoveredTenant[]> {
-  const spinner = ora("Discovering GDAP customers...").start();
+  console.log(chalk.cyan("  Discovering GDAP customers..."));
 
   try {
-    const { getClientSecretWithFallback } = await import("../lib/credentials.js");
-    const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
-
     const { GdapClient, TokenManager, PowerPlatformAdminClient } = await import("@agentsync/core");
     const gdapClient = new GdapClient({
       tenantId: partnerTenantId,
@@ -829,22 +838,20 @@ async function discoverGdapTenantsWithEnvironments(
     const relationships = await gdapClient.listDelegatedAdminRelationships();
 
     if (relationships.length === 0) {
-      spinner.warn("No active GDAP relationships found");
+      console.log(chalk.yellow("  ⚠ No active GDAP relationships found"));
       console.log(
         chalk.gray("   You can add tenants manually or set up GDAP relationships later.")
       );
       return [];
     }
 
-    spinner.succeed(`Found ${relationships.length} GDAP customer(s)`);
+    console.log(chalk.green(`  ✓ Found ${relationships.length} GDAP customer(s)`));
 
     // Now discover environments for each tenant
     const results: DiscoveredTenant[] = [];
 
     for (const rel of relationships) {
-      const envSpinner = ora(
-        `   Discovering environments for ${rel.customer.displayName}...`
-      ).start();
+      console.log(chalk.cyan(`   Discovering environments for ${rel.customer.displayName}...`));
 
       try {
         // Create token manager for the customer tenant (using GDAP delegation)
@@ -878,15 +885,15 @@ async function discoverGdapTenantsWithEnvironments(
         });
 
         if (dataverseEnvs.length > 0) {
-          envSpinner.succeed(
-            `   ${rel.customer.displayName}: ${dataverseEnvs.length} environment(s)`
-          );
+          console.log(chalk.green(
+            `   ✓ ${rel.customer.displayName}: ${dataverseEnvs.length} environment(s)`
+          ));
         } else {
-          envSpinner.warn(`   ${rel.customer.displayName}: No Dataverse environments`);
+          console.log(chalk.yellow(`   ⚠ ${rel.customer.displayName}: No Dataverse environments`));
         }
       } catch (envError) {
         // Couldn't discover environments for this tenant
-        envSpinner.warn(`   ${rel.customer.displayName}: Could not discover environments`);
+        console.log(chalk.yellow(`   ⚠ ${rel.customer.displayName}: Could not discover environments`));
         results.push({
           tenantId: rel.customer.tenantId,
           name: rel.customer.displayName,
@@ -898,7 +905,7 @@ async function discoverGdapTenantsWithEnvironments(
     return results;
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    spinner.warn("Could not discover GDAP customers");
+    console.log(chalk.yellow("  ⚠ Could not discover GDAP customers"));
 
     if (errMsg.includes("AADSTS") || errMsg.includes("Invalid client")) {
       console.log(chalk.gray("   Credentials may be invalid. You can add tenants manually."));

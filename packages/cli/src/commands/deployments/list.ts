@@ -15,47 +15,79 @@
  */
 
 import { Command } from "commander";
-import chalk from "chalk";
-import ora from "ora";
-import { getDeployments, filterDeployments, outputJson, outputTable } from "./helpers.js";
+import { createSpinner } from "../../lib/spinner.js";
+import { isDemo } from "../../lib/command-wrapper.js";
+import {
+  getDeployments,
+  filterDeployments,
+  getDeploymentHistory,
+  filterHistory,
+  outputJson,
+  outputTable,
+  outputHistoryJson,
+  outputHistoryTable,
+} from "./helpers.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const listCommand = new Command("list")
   .alias("ls")
-  .description("List deployments with optional filtering")
-  .option("-s, --status <status>", "Filter by status (pending, in_progress, completed, failed)")
-  .option("-t, --tenant <id>", "Filter by tenant ID or name")
-  .option("-a, --agent <name>", "Filter by agent/solution name")
+  .description("List solution import history across your environments")
+  .option("-s, --status <status>", "Filter by status (completed, failed, in_progress)")
+  .option("-t, --tenant <name>", "Filter by tenant name")
+  .option("-a, --agent <name>", "Filter by solution name")
   .option("-l, --limit <n>", "Limit number of results", "20")
   .option("-o, --offset <n>", "Skip first N results", "0")
-  .option("--since <date>", "Show deployments since date (ISO format or relative like '7d', '24h')")
+  .option("--since <date>", "Show history since date (ISO format or relative like '7d', '24h')")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--json", "Output as JSON")
+  .addHelpText("after", `
+Examples:
+  agentsync deployments list                          Show recent import history
+  agentsync deployments list -t AgentSync-Test2       History for a specific tenant
+  agentsync deployments list -a TestDeploy            History for a specific solution
+  agentsync deployments list --since 7d               Imports in the last 7 days
+`)
   .action(async (options) => {
-    const spinner = ora("Loading deployments...").start();
+    const spinner = createSpinner("Loading deployment history...").start();
 
     try {
-      // Get deployments (demo or production)
-      let deployments = await getDeployments(options);
+      // Demo mode — use mock data
+      if (isDemo()) {
+        let deployments = await getDeployments(options);
+        deployments = filterDeployments(deployments, options);
 
-      // Apply filters
-      deployments = filterDeployments(deployments, options);
+        const limit = parseInt(options.limit, 10);
+        const offset = parseInt(options.offset, 10);
+        const total = deployments.length;
+        deployments = deployments.slice(offset, offset + limit);
 
-      // Apply pagination
+        spinner.stop();
+
+        if (options.json) {
+          outputJson(deployments, total, limit, offset);
+        } else {
+          outputTable(deployments, total, limit, offset);
+        }
+        return;
+      }
+
+      // Production mode — query Dataverse solution history
+      let entries = await getDeploymentHistory(options);
+      entries = filterHistory(entries, options);
+
       const limit = parseInt(options.limit, 10);
       const offset = parseInt(options.offset, 10);
-      const total = deployments.length;
-      deployments = deployments.slice(offset, offset + limit);
+      const total = entries.length;
+      entries = entries.slice(offset, offset + limit);
 
       spinner.stop();
 
-      // Output format
       if (options.json) {
-        outputJson(deployments, total, limit, offset);
+        outputHistoryJson(entries, total, limit, offset);
       } else {
-        outputTable(deployments, total, limit, offset);
+        outputHistoryTable(entries, total, limit, offset);
       }
     } catch (error) {
-      spinner.fail(chalk.red("Failed to load deployments"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to load deployment history");
     }
   });

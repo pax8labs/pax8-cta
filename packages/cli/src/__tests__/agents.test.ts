@@ -53,12 +53,12 @@ describe("Agents Command", () => {
   });
 
   describe("list command", () => {
-    it("should list all agents in demo mode", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+    it("should list all solutions in demo mode", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "list"]);
+      await program.parseAsync(["node", "test", "solutions", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -66,115 +66,102 @@ describe("Agents Command", () => {
       // Should show demo mode warning
       expect(containsText(output, "DEMO MODE")).toBe(true);
 
-      // Should show all demo agents
+      // Should show all demo solutions
       DEMO_SOLUTIONS.forEach((solution) => {
         expect(containsText(cleanOutput, solution.uniqueName)).toBe(true);
       });
 
       // Should show count
-      expect(containsText(cleanOutput, `${DEMO_SOLUTIONS.length} agents available`)).toBe(true);
+      expect(containsText(cleanOutput, `Total: ${DEMO_SOLUTIONS.length} solutions`)).toBe(true);
     });
 
     it('should support "ls" alias', async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "ls"]);
+      await program.parseAsync(["node", "test", "solutions", "ls"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should work the same as "list"
-      expect(containsText(cleanOutput, `${DEMO_SOLUTIONS.length} agents available`)).toBe(true);
+      expect(containsText(cleanOutput, `Total: ${DEMO_SOLUTIONS.length} solutions`)).toBe(true);
     });
 
-    it("should filter by tag", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+    it("should show solutions in table format", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      // Filter by "production" tag
-      await program.parseAsync(["node", "test", "agents", "list", "--tag", "production"]);
+      await program.parseAsync(["node", "test", "solutions", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      // Should show filtered count
-      const filtered = DEMO_SOLUTIONS.filter((s) =>
-        s.tags.some((t) => t.toLowerCase().includes("production"))
-      );
-      expect(containsText(cleanOutput, `${filtered.length} agents available`)).toBe(true);
+      // Should show solution names and versions
+      expect(containsText(cleanOutput, DEMO_SOLUTIONS[0].uniqueName)).toBe(true);
+      expect(containsText(cleanOutput, DEMO_SOLUTIONS[0].version)).toBe(true);
     });
 
-    it("should filter by category", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+    it("should show managed/unmanaged type", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      // Filter by "Customer Service" category
-      await program.parseAsync([
-        "node",
-        "test",
-        "agents",
-        "list",
-        "--category",
-        "Customer Service",
-      ]);
+      await program.parseAsync(["node", "test", "solutions", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      // Should show filtered count
-      const filtered = DEMO_SOLUTIONS.filter((s) =>
-        s.category.toLowerCase().includes("customer service")
-      );
-      expect(containsText(cleanOutput, `${filtered.length} agents available`)).toBe(true);
+      // Should show solution type
+      expect(
+        containsText(cleanOutput, "Managed") || containsText(cleanOutput, "Unmanaged")
+      ).toBe(true);
     });
 
     it("should output JSON when --json flag is used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "list", "--json"]);
+      await program.parseAsync(["node", "test", "solutions", "list", "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
-      // Extract JSON from output
-      const json = extractJson<unknown[]>(output);
+      // Extract JSON from output - solutions list returns {solutions: [...], total: N}
+      const json = extractJson<{ solutions: unknown[]; total: number }>(output);
       expect(json).not.toBeNull();
-      expect(Array.isArray(json)).toBe(true);
-      expect(json!.length).toBe(DEMO_SOLUTIONS.length);
+      expect(json!.solutions).toBeDefined();
+      expect(json!.total).toBe(DEMO_SOLUTIONS.length);
     });
 
     it("should display table with correct headers", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "list"]);
+      await program.parseAsync(["node", "test", "solutions", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
       // Should have table headers
-      expect(containsText(cleanOutput, "Agent")).toBe(true);
+      expect(containsText(cleanOutput, "Solution")).toBe(true);
       expect(containsText(cleanOutput, "Version")).toBe(true);
-      expect(containsText(cleanOutput, "Category")).toBe(true);
-      expect(containsText(cleanOutput, "Tags")).toBe(true);
-      expect(containsText(cleanOutput, "Last Published")).toBe(true);
+      expect(containsText(cleanOutput, "Type")).toBe(true);
+      expect(containsText(cleanOutput, "Unique Name")).toBe(true);
     });
   });
 
   describe("show command", () => {
     it("should show agent details by name", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
-      await program.parseAsync(["node", "test", "agents", "show", agent.uniqueName]);
+      await program.parseAsync(["node", "test", "solutions", "show", agent.uniqueName]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -188,12 +175,12 @@ describe("Agents Command", () => {
     });
 
     it("should show agent details by partial name", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       // Search for "Customer" which should match "CustomerServiceAgent"
-      await program.parseAsync(["node", "test", "agents", "show", "customer"]);
+      await program.parseAsync(["node", "test", "solutions", "show", "customer"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -208,12 +195,12 @@ describe("Agents Command", () => {
     });
 
     it("should show description", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
-      await program.parseAsync(["node", "test", "agents", "show", agent.uniqueName]);
+      await program.parseAsync(["node", "test", "solutions", "show", agent.uniqueName]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -223,12 +210,12 @@ describe("Agents Command", () => {
     });
 
     it("should show capabilities", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
-      await program.parseAsync(["node", "test", "agents", "show", agent.uniqueName]);
+      await program.parseAsync(["node", "test", "solutions", "show", agent.uniqueName]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -238,12 +225,12 @@ describe("Agents Command", () => {
     });
 
     it("should show dependencies", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
-      await program.parseAsync(["node", "test", "agents", "show", agent.uniqueName]);
+      await program.parseAsync(["node", "test", "solutions", "show", agent.uniqueName]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -253,12 +240,12 @@ describe("Agents Command", () => {
     });
 
     it("should show tenant status when --tenants flag is used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
-      await program.parseAsync(["node", "test", "agents", "show", agent.uniqueName, "--tenants"]);
+      await program.parseAsync(["node", "test", "solutions", "show", agent.uniqueName, "--tenants"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -271,12 +258,12 @@ describe("Agents Command", () => {
     });
 
     it("should output JSON when --json flag is used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
-      await program.parseAsync(["node", "test", "agents", "show", agent.uniqueName, "--json"]);
+      await program.parseAsync(["node", "test", "solutions", "show", agent.uniqueName, "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -288,15 +275,15 @@ describe("Agents Command", () => {
     });
 
     it("should include tenant status in JSON when --tenants flag is used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
       await program.parseAsync([
         "node",
         "test",
-        "agents",
+        "solutions",
         "show",
         agent.uniqueName,
         "--tenants",
@@ -313,12 +300,12 @@ describe("Agents Command", () => {
     });
 
     it("should handle agent not found", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       try {
-        await program.parseAsync(["node", "test", "agents", "show", "nonexistent-agent-xyz"]);
+        await program.parseAsync(["node", "test", "solutions", "show", "nonexistent-agent-xyz"]);
       } catch {
         // Expected to throw due to process.exit
       }
@@ -334,28 +321,28 @@ describe("Agents Command", () => {
   });
 
   describe("output formatting", () => {
-    it("should format time ago correctly", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+    it("should show solution count in output", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "list"]);
+      await program.parseAsync(["node", "test", "solutions", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      // Should show time ago (d ago, h ago, m ago, etc.)
-      expect(cleanOutput).toMatch(/\d+[dhms] ago|just now/);
+      // Should show total solutions count
+      expect(cleanOutput).toMatch(/Total: \d+ solutions/);
     });
   });
 
   describe("drift command", () => {
     it("should show fleet-wide version drift summary", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift"]);
+      await program.parseAsync(["node", "test", "solutions", "drift"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -368,11 +355,11 @@ describe("Agents Command", () => {
     });
 
     it("should output JSON when --json flag is used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift", "--json"]);
+      await program.parseAsync(["node", "test", "solutions", "drift", "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -384,11 +371,11 @@ describe("Agents Command", () => {
     });
 
     it("should filter by agent name", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift", "--agent", "customer"]);
+      await program.parseAsync(["node", "test", "solutions", "drift", "--agent", "customer"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -398,11 +385,11 @@ describe("Agents Command", () => {
     });
 
     it("should show outdated tenants when --outdated flag is used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift", "--outdated"]);
+      await program.parseAsync(["node", "test", "solutions", "drift", "--outdated"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -412,12 +399,12 @@ describe("Agents Command", () => {
     });
 
     it("should show tenant-specific status when --tenant is used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       // Use a partial tenant name to test the search
-      await program.parseAsync(["node", "test", "agents", "drift", "--tenant", "contoso"]);
+      await program.parseAsync(["node", "test", "solutions", "drift", "--tenant", "contoso"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -431,14 +418,14 @@ describe("Agents Command", () => {
     });
 
     it("should output JSON for tenant when --tenant and --json are used", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       await program.parseAsync([
         "node",
         "test",
-        "agents",
+        "solutions",
         "drift",
         "--tenant",
         "contoso",
@@ -457,15 +444,15 @@ describe("Agents Command", () => {
     });
 
     it("should handle tenant not found", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       try {
         await program.parseAsync([
           "node",
           "test",
-          "agents",
+          "solutions",
           "drift",
           "--tenant",
           "nonexistent-tenant",

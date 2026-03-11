@@ -17,34 +17,34 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import {
   loadConfig,
-  isDemoMode as isDemoModeCore,
   DEMO_TENANTS,
   DEMO_SOLUTIONS,
   generateMockHealthCheck,
   TenantConfig,
 } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { isDemo } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findTenant, getDeployedAgentsForTenant } from "./helpers.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const showCommand = new Command("show")
   .argument("<tenant>", "Tenant name, ID, or URL fragment")
   .description("View tenant details and deployed agents")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--agents", "Show deployed agents")
   .option("--health", "Include health check")
   .option("--json", "Output as JSON")
   .action(async (tenantQuery: string, options) => {
-    const spinner = ora("Loading tenant...").start();
+    const spinner = createSpinner("Loading tenant...").start();
 
     try {
       // Get tenant list
       let tenants: TenantConfig[];
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         tenants = DEMO_TENANTS;
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
@@ -157,8 +157,6 @@ export const showCommand = new Command("show")
         });
       }
     } catch (error) {
-      spinner.fail(chalk.red("Failed to load tenant"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to load tenant");
     }
   });

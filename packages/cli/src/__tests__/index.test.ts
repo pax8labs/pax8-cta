@@ -80,27 +80,20 @@ describe("CLI Entry Point", () => {
       const program = createProgram();
       const commandNames = program.commands.map((cmd) => cmd.name());
 
-      // Verify core commands are registered (some may be aliases)
+      // Verify core commands are registered
       expect(commandNames).toContain("init");
       expect(commandNames).toContain("demo");
       expect(commandNames).toContain("analyze");
       expect(commandNames).toContain("deployments");
-      expect(commandNames).toContain("agents");
-      expect(commandNames).toContain("resolve-url");
+      expect(commandNames).toContain("solutions");
       expect(commandNames).toContain("telemetry");
-
-      // Commands with aliases - check either name or alias
-      const hasExportOrPack = commandNames.includes("export") || commandNames.includes("pack");
-      const hasDeployOrShip = commandNames.includes("deploy") || commandNames.includes("ship");
-      const hasStatusOrTrack = commandNames.includes("status") || commandNames.includes("track");
-      const hasTenantsOrFleet = commandNames.includes("tenants") || commandNames.includes("fleet");
-      const hasImport = commandNames.includes("import") || commandNames.includes("deliver");
-
-      expect(hasExportOrPack).toBe(true);
-      expect(hasDeployOrShip).toBe(true);
-      expect(hasStatusOrTrack).toBe(true);
-      expect(hasTenantsOrFleet).toBe(true);
-      expect(hasImport).toBe(true);
+      expect(commandNames).toContain("export");
+      expect(commandNames).toContain("deploy");
+      expect(commandNames).toContain("tenants");
+      expect(commandNames).toContain("import");
+      expect(commandNames).toContain("auth");
+      expect(commandNames).toContain("validate");
+      expect(commandNames).toContain("setup");
     });
 
     it("should have correct number of commands", async () => {
@@ -108,8 +101,8 @@ describe("CLI Entry Point", () => {
 
       const program = createProgram();
 
-      // Should have 16 commands registered (including solutions, setup, auth, validate)
-      expect(program.commands.length).toBe(16);
+      // Should have 13 commands registered
+      expect(program.commands.length).toBe(13);
     });
 
     it("should have version set", async () => {

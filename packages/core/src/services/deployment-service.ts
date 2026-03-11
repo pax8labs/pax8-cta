@@ -75,9 +75,27 @@ export type RealDeploymentProgressCallback = (progress: RealDeploymentProgress) 
  */
 export class DeploymentService {
   private config: DeploymentServiceConfig;
+  private tokenManagers = new Map<string, TokenManager>();
 
   constructor(config: DeploymentServiceConfig) {
     this.config = config;
+  }
+
+  /**
+   * Get or create a cached TokenManager for a tenant.
+   * Avoids creating redundant TokenManager instances for the same tenant.
+   */
+  private getTokenManager(tenantId: string): TokenManager {
+    let manager = this.tokenManagers.get(tenantId);
+    if (!manager) {
+      manager = new TokenManager({
+        tenantId,
+        clientId: this.config.clientId,
+        clientSecret: this.config.clientSecret,
+      });
+      this.tokenManagers.set(tenantId, manager);
+    }
+    return manager;
   }
 
   /**
@@ -110,11 +128,7 @@ export class DeploymentService {
       // Step 1: Authenticate to customer tenant
       emitProgress("authenticating", 5);
 
-      const customerTokenManager = new TokenManager({
-        tenantId: target.tenantId,
-        clientId: this.config.clientId,
-        clientSecret: this.config.clientSecret,
-      });
+      const customerTokenManager = this.getTokenManager(target.tenantId);
 
       // Verify we can get a token
       await customerTokenManager.getDataverseToken(target.environmentUrl);
@@ -371,11 +385,7 @@ export class DeploymentService {
 
     try {
       // Check authentication
-      const customerTokenManager = new TokenManager({
-        tenantId: target.tenantId,
-        clientId: this.config.clientId,
-        clientSecret: this.config.clientSecret,
-      });
+      const customerTokenManager = this.getTokenManager(target.tenantId);
 
       try {
         await customerTokenManager.getDataverseToken(target.environmentUrl);

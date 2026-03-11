@@ -8,6 +8,8 @@ import {
   DeploymentSchema,
   DeploymentBatchSchema,
   DeploymentJobSchema,
+  DeploymentSnapshotSchema,
+  WebhookEventSchema,
   migrateDeploymentJob,
   DEPLOYMENT_STATUS_CATEGORIES,
   calculateDeploymentStatus,
@@ -815,5 +817,129 @@ describe('calculateDeploymentStatus', () => {
       makeResult('completed'),
     ];
     expect(calculateDeploymentStatus(scenario2)).toBe('completed');
+  });
+});
+
+// ============================================================================
+// Metadata Validation Tests
+// ============================================================================
+
+describe('Metadata field validation', () => {
+  describe('TenantConfigSchema metadata', () => {
+    const baseTenant = {
+      name: 'Test Tenant',
+      tenantId: '00000000-0000-0000-0000-000000000001',
+      environmentUrl: 'https://test.crm.dynamics.com',
+    };
+
+    it('should accept metadata with string values', () => {
+      const result = TenantConfigSchema.safeParse({
+        ...baseTenant,
+        metadata: { region: 'us-east', tier: 'enterprise' },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept metadata with number values', () => {
+      const result = TenantConfigSchema.safeParse({
+        ...baseTenant,
+        metadata: { priority: 1, maxUsers: 500 },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept metadata with boolean values', () => {
+      const result = TenantConfigSchema.safeParse({
+        ...baseTenant,
+        metadata: { isProduction: true, hasSLA: false },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept metadata with mixed primitive values', () => {
+      const result = TenantConfigSchema.safeParse({
+        ...baseTenant,
+        metadata: { region: 'us-east', priority: 1, isProduction: true },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject metadata with object values', () => {
+      const result = TenantConfigSchema.safeParse({
+        ...baseTenant,
+        metadata: { nested: { key: 'value' } },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject metadata with array values', () => {
+      const result = TenantConfigSchema.safeParse({
+        ...baseTenant,
+        metadata: { tags: ['a', 'b'] },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject metadata with null values', () => {
+      const result = TenantConfigSchema.safeParse({
+        ...baseTenant,
+        metadata: { key: null },
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('DeploymentSnapshotSchema metadata', () => {
+    const baseSnapshot = {
+      id: 'snap-1',
+      deploymentId: 'deploy-1',
+      tenantId: '00000000-0000-0000-0000-000000000001',
+      tenantName: 'Test Tenant',
+      solutionName: 'TestAgent',
+      previousVersion: '1.0.0',
+      createdAt: '2024-01-15T10:00:00.000Z',
+    };
+
+    it('should accept metadata with constrained types', () => {
+      const result = DeploymentSnapshotSchema.safeParse({
+        ...baseSnapshot,
+        metadata: { reason: 'rollback', version: 2, automatic: true },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject metadata with object values', () => {
+      const result = DeploymentSnapshotSchema.safeParse({
+        ...baseSnapshot,
+        metadata: { nested: { key: 'value' } },
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('WebhookEventSchema metadata', () => {
+    const baseEvent = {
+      event: 'deployment.completed',
+      timestamp: '2024-01-15T10:00:00.000Z',
+      deploymentId: 'deploy-1',
+      solutionName: 'TestAgent',
+      status: 'completed' as const,
+    };
+
+    it('should accept metadata with constrained types', () => {
+      const result = WebhookEventSchema.safeParse({
+        ...baseEvent,
+        metadata: { source: 'cli', attempt: 1, dryRun: false },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject metadata with object values', () => {
+      const result = WebhookEventSchema.safeParse({
+        ...baseEvent,
+        metadata: { payload: { data: 'test' } },
+      });
+      expect(result.success).toBe(false);
+    });
   });
 });

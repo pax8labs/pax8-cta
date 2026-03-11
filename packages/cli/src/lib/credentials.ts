@@ -60,24 +60,41 @@ export async function deleteSecret(): Promise<void> {
 }
 
 /**
- * Get client secret with fallback priority:
- * 1. Environment variable (AGENTSYNC_CLIENT_SECRET or custom name)
- * 2. OS keychain
- *
- * @param envVar - Environment variable name to check (default: AGENTSYNC_CLIENT_SECRET)
- * @returns The client secret
- * @throws Error if secret not found in either location
+ * Canonical environment variable names checked for the client secret,
+ * in priority order.  PARTNER_CLIENT_SECRET is the primary name used
+ * in .env files and documentation; AGENTSYNC_CLIENT_SECRET is kept as
+ * a supported alias for backwards compatibility.
  */
-export async function getClientSecretWithFallback(
-  envVar: string = "AGENTSYNC_CLIENT_SECRET"
-): Promise<string> {
-  // Check environment variable first
-  const envSecret = process.env[envVar];
-  if (envSecret) {
-    return envSecret;
+const CLIENT_SECRET_ENV_VARS = [
+  "PARTNER_CLIENT_SECRET",
+  "AGENTSYNC_CLIENT_SECRET",
+] as const;
+
+/**
+ * Resolve the client secret using a single, well-defined fallback chain.
+ *
+ * Priority:
+ *   1. Environment variables (PARTNER_CLIENT_SECRET, then AGENTSYNC_CLIENT_SECRET).
+ *      These are populated either by the shell environment or by the .env loader
+ *      in index.ts — so .env file values are included here automatically.
+ *   2. OS keychain (stored via `agentsync auth login`).
+ *
+ * Every CLI command that needs a client secret MUST call this function
+ * rather than reading process.env directly.
+ *
+ * @returns The client secret
+ * @throws Error if secret not found in any location
+ */
+export async function getClientSecretWithFallback(): Promise<string> {
+  // 1. Check environment variables (covers both shell env and .env file)
+  for (const envVar of CLIENT_SECRET_ENV_VARS) {
+    const value = process.env[envVar];
+    if (value) {
+      return value;
+    }
   }
 
-  // Fall back to keychain
+  // 2. Fall back to OS keychain
   const keychainSecret = await getStoredSecret();
   if (keychainSecret) {
     return keychainSecret;
@@ -85,7 +102,7 @@ export async function getClientSecretWithFallback(
 
   throw new Error(
     `Client secret not found. Either:\n` +
-      `  1. Set the ${envVar} environment variable, OR\n` +
+      `  1. Set the PARTNER_CLIENT_SECRET environment variable (or add it to .env), OR\n` +
       `  2. Store it securely using: agentsync auth login`
   );
 }

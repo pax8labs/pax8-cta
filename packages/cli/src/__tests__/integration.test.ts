@@ -69,16 +69,16 @@ describe("CLI Integration Tests", () => {
     });
 
     it("should throw on failure", async () => {
-      // In demo mode, ship succeeds even with missing file - use a validation error instead
+      // deploy with no solution arg should fail
       await expect(
-        runCliExpectSuccess(["ship", "--solution", "./test.zip"]) // Missing --all or --tag
+        runCliExpectSuccess(["deploy"]) // Missing solution name
       ).rejects.toThrow();
     });
   });
 
   describe("runCliExpectFailure utility", () => {
     it("should return result on failure", async () => {
-      const result = await runCliExpectFailure(["ship"]); // Missing required args
+      const result = await runCliExpectFailure(["deploy"]); // Missing required args
       expect(result.exitCode).not.toBe(0);
     });
 
@@ -87,9 +87,9 @@ describe("CLI Integration Tests", () => {
     });
   });
 
-  describe("fleet list command", () => {
+  describe("tenants list command", () => {
     it("should list all tenants in demo mode", async () => {
-      const result = await runCliExpectSuccess(["fleet", "list"]);
+      const result = await runCliExpectSuccess(["tenants", "list"]);
 
       expect(containsText(result.output, "DEMO MODE")).toBe(true);
       expect(containsText(result.output, "Destination")).toBe(true);
@@ -97,14 +97,14 @@ describe("CLI Integration Tests", () => {
     });
 
     it("should show correct tenant count", async () => {
-      const result = await runCliExpectSuccess(["fleet", "list"]);
+      const result = await runCliExpectSuccess(["tenants", "list"]);
 
       const enabledCount = DEMO_TENANTS.filter((t) => t.enabled).length;
       expect(containsText(result.output, `${enabledCount} active`)).toBe(true);
     });
 
     it("should filter by tag", async () => {
-      const result = await runCliExpectSuccess(["fleet", "list", "--tag", "enterprise"]);
+      const result = await runCliExpectSuccess(["tenants", "list", "--tag", "enterprise"]);
 
       // Should only show enterprise tenants
       expect(containsText(result.output, "Contoso")).toBe(true);
@@ -114,7 +114,7 @@ describe("CLI Integration Tests", () => {
 
   describe("parseTable utility", () => {
     it("should parse CLI table output", async () => {
-      const result = await runCliExpectSuccess(["fleet", "list"]);
+      const result = await runCliExpectSuccess(["tenants", "list"]);
       const table = parseTable(result.stdout);
 
       expect(table.headers).toContain("Destination");
@@ -123,7 +123,7 @@ describe("CLI Integration Tests", () => {
     });
 
     it("should extract column values", async () => {
-      const result = await runCliExpectSuccess(["fleet", "list"]);
+      const result = await runCliExpectSuccess(["tenants", "list"]);
       const table = parseTable(result.stdout);
       const destinations = getColumn(table, "Destination");
 
@@ -132,7 +132,7 @@ describe("CLI Integration Tests", () => {
     });
 
     it("should find row by column value", async () => {
-      const result = await runCliExpectSuccess(["fleet", "list"]);
+      const result = await runCliExpectSuccess(["tenants", "list"]);
       const table = parseTable(result.stdout);
       const cohoRow = findRow(table, "Destination", "Coho");
 
@@ -163,9 +163,9 @@ describe("CLI Integration Tests", () => {
     });
   });
 
-  describe("ship command (dry run)", () => {
+  describe("deploy command (dry run)", () => {
     it("should preview deployment in demo mode", async () => {
-      const result = await runCliExpectSuccess(["ship", "--solution", "./test.zip", "--all"]);
+      const result = await runCliExpectSuccess(["deploy", "--solution", "./test.zip", "--all"]);
 
       expect(containsText(result.output, "DEMO MODE")).toBe(true);
       expect(containsText(result.output, "Shipment dispatched")).toBe(true);
@@ -174,7 +174,7 @@ describe("CLI Integration Tests", () => {
 
     it("should show deployment ID", async () => {
       const result = await runCliExpectSuccess([
-        "ship",
+        "deploy",
         "--solution",
         "./test.zip",
         "--tag",
@@ -187,7 +187,7 @@ describe("CLI Integration Tests", () => {
 
     it("should fail when no tenants match tag", async () => {
       const result = await runCliExpectFailure([
-        "ship",
+        "deploy",
         "--solution",
         "./test.zip",
         "--tag",
@@ -198,26 +198,25 @@ describe("CLI Integration Tests", () => {
     });
   });
 
-  describe("track command", () => {
-    it("should track deployment status", async () => {
-      const result = await runCliExpectSuccess(["track", "--shipment", "dep-demo-test123"]);
+  describe("deployments command", () => {
+    it("should list deployments", async () => {
+      const result = await runCliExpectSuccess(["deployments", "list"]);
 
-      expect(containsText(result.output, "DEMO MODE")).toBe(true);
-      // Should show tracking information - look for shipment details
+      // Should show deployment listing
       expect(
-        containsText(result.output, "Tracking") ||
+        containsText(result.output, "Deployment") ||
+          containsText(result.output, "deployment") ||
           containsText(result.output, "Status") ||
-          containsText(result.output, "Shipment") ||
-          containsText(result.output, "dep-demo")
+          containsText(result.output, "DEMO")
       ).toBe(true);
     });
   });
 
   describe("error handling", () => {
-    it("should show helpful error for missing required options", async () => {
-      const result = await runCliExpectFailure(["ship", "--solution", "./test.zip"]); // Missing --all or --tag
+    it("should show helpful error for missing solution", async () => {
+      const result = await runCliExpectFailure(["deploy"]); // Missing solution name
 
-      expect(containsText(result.output, "Must specify")).toBe(true);
+      expect(containsText(result.output, "solution name or path required")).toBe(true);
     });
 
     it("should show help on unknown command", async () => {

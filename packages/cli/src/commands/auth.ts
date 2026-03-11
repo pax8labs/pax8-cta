@@ -18,8 +18,16 @@ import { Command } from "commander";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import { storeSecret, deleteSecret, getStoredSecret } from "../lib/credentials.js";
+import { handleCommandError } from "../lib/errors.js";
 
-export const authCommand = new Command("auth").description("Manage secure credential storage");
+export const authCommand = new Command("auth")
+  .description("Store or remove your client secret in the OS keychain")
+  .addHelpText("after", `
+Examples:
+  agentsync auth login                                Store client secret in OS keychain
+  agentsync auth logout                               Remove stored credentials
+  agentsync auth status                               Check authentication status
+`);
 
 // Login subcommand
 authCommand
@@ -71,11 +79,7 @@ authCommand
       console.log(chalk.white("  agentsync tenants list ") + chalk.dim("# Test authentication"));
       console.log();
     } catch (error) {
-      console.error(chalk.red("\n✖ Failed to store secret"));
-      if (error instanceof Error) {
-        console.error(chalk.red(error.message));
-      }
-      process.exit(1);
+      handleCommandError(error, null, "Failed to store secret");
     }
   });
 
@@ -118,11 +122,7 @@ authCommand
       console.log(chalk.white('  export PARTNER_CLIENT_SECRET="your-secret"'));
       console.log();
     } catch (error) {
-      console.error(chalk.red("\n✖ Failed to remove credentials"));
-      if (error instanceof Error) {
-        console.error(chalk.red(error.message));
-      }
-      process.exit(1);
+      handleCommandError(error, null, "Failed to remove credentials");
     }
   });
 
@@ -182,10 +182,6 @@ authCommand
         console.log();
       }
     } catch (error) {
-      console.error(chalk.red("\n✖ Failed to check authentication status"));
-      if (error instanceof Error) {
-        console.error(chalk.red(error.message));
-      }
-      process.exit(1);
+      handleCommandError(error, null, "Failed to check authentication status");
     }
   });

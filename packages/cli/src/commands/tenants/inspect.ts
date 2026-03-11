@@ -17,17 +17,23 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import { loadConfig, GdapClient } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const inspectCommand = new Command("inspect")
   .alias("validate")
-  .description("Inspect fleet and validate shipping routes (GDAP access)")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .description("Validate connectivity and permissions for each tenant")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tag <tags...>", "Filter by tags")
+  .addHelpText("after", `
+Examples:
+  agentsync tenants inspect                           Validate all enabled tenants
+  agentsync tenants inspect -t production             Validate only tenants tagged "production"
+`)
   .action(async (options) => {
-    const spinner = ora("Loading fleet manifest...").start();
+    const spinner = createSpinner("Loading fleet manifest...").start();
 
     try {
       const configPath = resolve(process.cwd(), options.config);
@@ -43,7 +49,7 @@ export const inspectCommand = new Command("inspect")
       spinner.succeed(`Loaded ${destinations.length} destinations to inspect`);
 
       // Get client secret
-      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      const clientSecret = await getClientSecretWithFallback();
 
       // Create GDAP client
       const gdapClient = new GdapClient({
@@ -130,8 +136,6 @@ export const inspectCommand = new Command("inspect")
         );
       }
     } catch (error) {
-      spinner.fail(chalk.red("Inspection failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Inspection failed");
     }
   });

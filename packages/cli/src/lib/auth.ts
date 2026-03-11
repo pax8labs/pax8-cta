@@ -22,6 +22,7 @@ import {
 } from "@azure/msal-node";
 import * as keytar from "keytar";
 import { exec } from "node:child_process";
+import { storeSecret } from "./credentials.js";
 
 const KEYTAR_SERVICE = "agentsync-cli";
 
@@ -124,7 +125,11 @@ export async function interactiveLogin(options?: {
 }
 
 /**
- * Store credentials securely in the OS keychain
+ * Store credentials securely in the OS keychain.
+ *
+ * Writes the client secret to the canonical keychain entry used by
+ * `getClientSecretWithFallback()` (via `storeSecret` from credentials.ts)
+ * as well as the per-clientId entry for tenant-specific lookup.
  */
 export async function storeCredentials(
   clientId: string,
@@ -132,7 +137,10 @@ export async function storeCredentials(
   tenantId?: string
 ): Promise<void> {
   try {
-    // Store client secret
+    // Store in the canonical location so getClientSecretWithFallback() can find it
+    await storeSecret(clientSecret);
+
+    // Also store per-clientId for tenant-specific retrieval
     await keytar.setPassword(KEYTAR_SERVICE, `clientSecret:${clientId}`, clientSecret);
 
     // Store tenant ID if provided

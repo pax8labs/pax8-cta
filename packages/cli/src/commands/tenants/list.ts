@@ -17,184 +17,145 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
-import { loadConfig, isDemoMode as isDemoModeCore, DEMO_TENANTS } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { loadConfig, DEMO_TENANTS } from "@agentsync/core";
+import { withDemoMode } from "../../lib/command-wrapper.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const listCommand = new Command("list")
   .alias("ls")
-  .description("List all destinations in your fleet")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .description("List all configured target tenants")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tag <tags...>", "Filter by tags")
   .option("-s, --search <query>", "Search by name, ID, or environment URL")
   .option("--status <status>", "Filter by status (enabled|disabled|all)", "all")
   .option("--json", "Output as JSON")
+  .addHelpText("after", `
+Examples:
+  agentsync tenants list                              List all configured tenants
+  agentsync tenants list -s enabled                   Show only enabled tenants
+  agentsync tenants list -t production --json         Filter by tag and output as JSON
+`)
   .action(async (options) => {
-    const spinner = ora("Loading fleet manifest...").start();
+    const spinner = createSpinner("Loading fleet manifest...").start();
 
     try {
-      // Check for demo mode (CLI config or environment variable)
-      if (isDemoModeEnabled() || isDemoModeCore()) {
-        spinner.succeed(`Loaded ${DEMO_TENANTS.length} destinations from demo fleet`);
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
-
-        let destinations = [...DEMO_TENANTS];
-
-        // Apply search filter
-        if (options.search) {
-          const q = options.search.toLowerCase();
-          destinations = destinations.filter(
-            (t) =>
-              t.name.toLowerCase().includes(q) ||
-              t.tenantId.toLowerCase().includes(q) ||
-              t.environmentUrl.toLowerCase().includes(q)
-          );
-        }
-
-        // Apply tag filter
-        if (options.tag && options.tag.length > 0) {
-          destinations = destinations.filter((t) =>
-            options.tag.every((tag: string) => t.tags?.includes(tag))
-          );
-        }
-
-        // Apply status filter
-        if (options.status === "enabled") {
-          destinations = destinations.filter((t) => t.enabled);
-        } else if (options.status === "disabled") {
-          destinations = destinations.filter((t) => !t.enabled);
-        }
-
-        // JSON output
-        if (options.json) {
-          console.log(
-            JSON.stringify(
-              {
-                tenants: destinations,
-                total: destinations.length,
-                active: destinations.filter((t) => t.enabled).length,
-              },
-              null,
-              2
-            )
-          );
-          return;
-        }
-
-        console.log();
-
-        const table = new Table({
-          head: ["Destination", "Tenant ID", "Port (Environment)", "Tags", "Active"],
-          style: { head: ["cyan"] },
-        });
-
-        destinations.forEach((tenant) => {
-          table.push([
-            tenant.name,
-            tenant.tenantId.slice(0, 8) + "...",
-            tenant.environmentUrl,
-            tenant.tags?.join(", ") || "-",
-            tenant.enabled ? chalk.green("Yes") : chalk.red("No"),
-          ]);
-        });
-
-        console.log(table.toString());
-        console.log();
-
-        // Show filter info if applicable
-        const filterInfo: string[] = [];
-        if (options.search) filterInfo.push(`matching "${options.search}"`);
-        if (options.tag?.length) filterInfo.push(`with tags: ${options.tag.join(" AND ")}`);
-        if (options.status !== "all") filterInfo.push(`status: ${options.status}`);
-
-        if (filterInfo.length > 0) {
-          console.log(chalk.gray(`${destinations.length} tenants ${filterInfo.join(", ")}`));
-        } else {
-          console.log(
-            chalk.gray(
-              `Fleet size: ${destinations.length} destinations (${DEMO_TENANTS.filter((t) => t.enabled).length} active)`
-            )
-          );
-        }
-        return;
-      }
-
-      // Real mode - load config
-      const configPath = resolve(process.cwd(), options.config);
-      const config = await loadConfig(configPath);
-      spinner.succeed(`Loaded ${config.tenants.length} destinations from manifest`);
-
-      let destinations = [...config.tenants];
-
-      // Apply search filter
-      if (options.search) {
-        const q = options.search.toLowerCase();
-        destinations = destinations.filter(
-          (t) =>
-            t.name.toLowerCase().includes(q) ||
-            t.tenantId.toLowerCase().includes(q) ||
-            t.environmentUrl.toLowerCase().includes(q)
-        );
-      }
-
-      // Apply tag filter
-      if (options.tag && options.tag.length > 0) {
-        destinations = destinations.filter((t) =>
-          options.tag.every((tag: string) => t.tags?.includes(tag))
-        );
-      }
-
-      // Apply status filter
-      if (options.status === "enabled") {
-        destinations = destinations.filter((t) => t.enabled);
-      } else if (options.status === "disabled") {
-        destinations = destinations.filter((t) => !t.enabled);
-      }
-
-      // JSON output
-      if (options.json) {
-        console.log(
-          JSON.stringify(
-            {
-              tenants: destinations,
-              total: destinations.length,
-              active: destinations.filter((t) => t.enabled).length,
-            },
-            null,
-            2
-          )
-        );
-        return;
-      }
-
-      console.log();
-
-      const table = new Table({
-        head: ["Destination", "Tenant ID", "Port (Environment)", "Tags", "Active"],
-        style: { head: ["cyan"] },
-      });
-
-      destinations.forEach((tenant) => {
-        table.push([
-          tenant.name,
-          tenant.tenantId.slice(0, 8) + "...",
-          tenant.environmentUrl,
-          tenant.tags?.join(", ") || "-",
-          tenant.enabled ? chalk.green("Yes") : chalk.red("No"),
-        ]);
-      });
-
-      console.log(table.toString());
-      console.log();
-      console.log(
-        chalk.gray(
-          `Fleet size: ${destinations.length} destinations (${config.tenants.filter((t) => t.enabled).length} active)`
-        )
+      await withDemoMode(
+        () => listDemo(spinner, options),
+        () => listReal(spinner, options),
       );
     } catch (error) {
-      spinner.fail(chalk.red("Failed to load fleet manifest"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to load fleet manifest");
     }
   });
+
+function applyFilters(
+  destinations: typeof DEMO_TENANTS,
+  options: { search?: string; tag?: string[]; status?: string },
+) {
+  let filtered = [...destinations];
+
+  if (options.search) {
+    const q = options.search.toLowerCase();
+    filtered = filtered.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.tenantId.toLowerCase().includes(q) ||
+        t.environmentUrl.toLowerCase().includes(q)
+    );
+  }
+
+  if (options.tag && options.tag.length > 0) {
+    filtered = filtered.filter((t) =>
+      options.tag!.every((tag: string) => t.tags?.includes(tag))
+    );
+  }
+
+  if (options.status === "enabled") {
+    filtered = filtered.filter((t) => t.enabled);
+  } else if (options.status === "disabled") {
+    filtered = filtered.filter((t) => !t.enabled);
+  }
+
+  return filtered;
+}
+
+function renderTable(
+  destinations: typeof DEMO_TENANTS,
+  options: { json?: boolean; search?: string; tag?: string[]; status?: string },
+  totalActive: number,
+) {
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        {
+          tenants: destinations,
+          total: destinations.length,
+          active: destinations.filter((t) => t.enabled).length,
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  console.log();
+
+  const table = new Table({
+    head: ["Destination", "Tenant ID", "Port (Environment)", "Tags", "Active"],
+    style: { head: ["cyan"] },
+  });
+
+  destinations.forEach((tenant) => {
+    table.push([
+      tenant.name,
+      tenant.tenantId.slice(0, 8) + "...",
+      tenant.environmentUrl,
+      tenant.tags?.join(", ") || "-",
+      tenant.enabled ? chalk.green("Yes") : chalk.red("No"),
+    ]);
+  });
+
+  console.log(table.toString());
+  console.log();
+
+  const filterInfo: string[] = [];
+  if (options.search) filterInfo.push(`matching "${options.search}"`);
+  if (options.tag?.length) filterInfo.push(`with tags: ${options.tag.join(" AND ")}`);
+  if (options.status !== "all") filterInfo.push(`status: ${options.status}`);
+
+  if (filterInfo.length > 0) {
+    console.log(chalk.gray(`${destinations.length} tenants ${filterInfo.join(", ")}`));
+  } else {
+    console.log(
+      chalk.gray(
+        `Fleet size: ${destinations.length} destinations (${totalActive} active)`
+      )
+    );
+  }
+}
+
+function listDemo(
+  spinner: ReturnType<typeof createSpinner>,
+  options: { search?: string; tag?: string[]; status?: string; json?: boolean },
+) {
+  spinner.succeed(`Loaded ${DEMO_TENANTS.length} destinations from demo fleet`);
+  console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+
+  const destinations = applyFilters(DEMO_TENANTS, options);
+  renderTable(destinations, options, DEMO_TENANTS.filter((t) => t.enabled).length);
+}
+
+async function listReal(
+  spinner: ReturnType<typeof createSpinner>,
+  options: { config: string; search?: string; tag?: string[]; status?: string; json?: boolean },
+) {
+  const configPath = resolve(process.cwd(), options.config);
+  const config = await loadConfig(configPath);
+  spinner.succeed(`Loaded ${config.tenants.length} destinations from manifest`);
+
+  const destinations = applyFilters(config.tenants, options);
+  renderTable(destinations, options, config.tenants.filter((t) => t.enabled).length);
+}

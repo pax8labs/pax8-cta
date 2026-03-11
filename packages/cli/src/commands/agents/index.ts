@@ -14,17 +14,7 @@
  * limitations under the License.
  */
 
-import { Command } from "commander";
-import { listCommand } from "./list.js";
-import { showCommand } from "./show.js";
-import { driftCommand } from "./drift.js";
+// `agents` subcommands are now registered under `solutions`.
+// This file re-exports helpers used by other parts of the codebase.
 
-export const agentsCommand = new Command("agents").description("Manage available agents/solutions");
-
-// Register subcommands
-agentsCommand.addCommand(listCommand);
-agentsCommand.addCommand(showCommand);
-agentsCommand.addCommand(driftCommand);
-
-// Re-export helpers for backwards compatibility
 export { findSolution, getTenantDeploymentStatus } from "./helpers.js";

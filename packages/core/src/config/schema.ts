@@ -183,7 +183,7 @@ export const TenantConfigSchema = z.object({
   autoSetup: z.boolean().default(true),
 
   // Metadata
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 // ============================================================================
@@ -596,7 +596,7 @@ export const DeploymentSnapshotSchema = z.object({
   previousSolutionPath: z.string().optional(),
   createdAt: z.string().datetime(),
   expiresAt: z.string().datetime().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 export type DeploymentSnapshot = z.infer<typeof DeploymentSnapshotSchema>;
@@ -615,7 +615,7 @@ export const WebhookEventSchema = z.object({
   status: DeploymentStatusSchema,
   error: z.string().optional(),
   waveNumber: z.number().int().positive().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 export type WebhookEvent = z.infer<typeof WebhookEventSchema>;

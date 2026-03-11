@@ -62,7 +62,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       // Execute "fleet list" command
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -87,7 +87,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       // Execute with tag filter - use "enterprise" which exists in demo data
-      await program.parseAsync(["node", "test", "fleet", "list", "--tag", "enterprise"]);
+      await program.parseAsync(["node", "test", "tenants", "list", "--tag", "enterprise"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -109,7 +109,7 @@ describe("Tenants Command (fleet)", () => {
       await program.parseAsync([
         "node",
         "test",
-        "fleet",
+        "tenants",
         "list",
         "--tag",
         "enterprise",
@@ -138,7 +138,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -147,17 +147,16 @@ describe("Tenants Command (fleet)", () => {
       expect(cleanOutput).toMatch(/Yes|No/);
     });
 
-    it('should support "tenants" alias', async () => {
+    it('should use "tenants" as command name', async () => {
       const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      // Execute using "tenants" alias
+      // Execute using "tenants" command
       await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
 
-      // Should work the same as "fleet"
       expect(containsText(output, "DEMO MODE")).toBe(true);
       expect(containsText(output, `Fleet size: ${DEMO_TENANTS.length} destinations`)).toBe(true);
     });
@@ -168,7 +167,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       // Execute using "ls" alias
-      await program.parseAsync(["node", "test", "fleet", "ls"]);
+      await program.parseAsync(["node", "test", "tenants", "ls"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -183,7 +182,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -201,7 +200,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -218,7 +217,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -238,7 +237,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -251,7 +250,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -267,7 +266,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list"]);
+      await program.parseAsync(["node", "test", "tenants", "list"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -284,7 +283,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(["node", "test", "fleet", "show", tenant.name]);
+      await program.parseAsync(["node", "test", "tenants", "show", tenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -301,7 +300,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       // Search for "Contoso" which should match "Contoso Corporation"
-      await program.parseAsync(["node", "test", "fleet", "show", "contoso"]);
+      await program.parseAsync(["node", "test", "tenants", "show", "contoso"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -319,7 +318,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(["node", "test", "fleet", "show", tenant.name]);
+      await program.parseAsync(["node", "test", "tenants", "show", tenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -335,7 +334,7 @@ describe("Tenants Command (fleet)", () => {
 
       const tenantWithTags = DEMO_TENANTS.find((t) => t.tags && t.tags.length > 0);
       if (tenantWithTags) {
-        await program.parseAsync(["node", "test", "fleet", "show", tenantWithTags.name]);
+        await program.parseAsync(["node", "test", "tenants", "show", tenantWithTags.name]);
 
         const output = consoleCapture.getAllOutput();
         const cleanOutput = stripAnsi(output);
@@ -351,7 +350,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(["node", "test", "fleet", "show", tenant.name, "--agents"]);
+      await program.parseAsync(["node", "test", "tenants", "show", tenant.name, "--agents"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -366,7 +365,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(["node", "test", "fleet", "show", tenant.name, "--health"]);
+      await program.parseAsync(["node", "test", "tenants", "show", tenant.name, "--health"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -381,7 +380,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(["node", "test", "fleet", "show", tenant.name, "--json"]);
+      await program.parseAsync(["node", "test", "tenants", "show", tenant.name, "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -399,7 +398,7 @@ describe("Tenants Command (fleet)", () => {
 
       // Use a non-existent tenant name
       try {
-        await program.parseAsync(["node", "test", "fleet", "show", "nonexistent-tenant-xyz"]);
+        await program.parseAsync(["node", "test", "tenants", "show", "nonexistent-tenant-xyz"]);
       } catch {
         // Expected to throw due to process.exit
       }
@@ -418,7 +417,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "health"]);
+      await program.parseAsync(["node", "test", "tenants", "health"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -434,7 +433,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(["node", "test", "fleet", "health", tenant.name]);
+      await program.parseAsync(["node", "test", "tenants", "health", tenant.name]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -449,7 +448,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "health", "--tag", "enterprise"]);
+      await program.parseAsync(["node", "test", "tenants", "health", "--tag", "enterprise"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -463,7 +462,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "health", "--json"]);
+      await program.parseAsync(["node", "test", "tenants", "health", "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -481,7 +480,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       const tenant = DEMO_TENANTS[0];
-      await program.parseAsync(["node", "test", "fleet", "health", tenant.name, "--json"]);
+      await program.parseAsync(["node", "test", "tenants", "health", tenant.name, "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -499,7 +498,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       try {
-        await program.parseAsync(["node", "test", "fleet", "health", "nonexistent-tenant"]);
+        await program.parseAsync(["node", "test", "tenants", "health", "nonexistent-tenant"]);
       } catch {
         // Expected to throw due to process.exit
       }
@@ -518,7 +517,7 @@ describe("Tenants Command (fleet)", () => {
       program.addCommand(tenantsCommand);
 
       // Search for "contoso"
-      await program.parseAsync(["node", "test", "fleet", "list", "--search", "contoso"]);
+      await program.parseAsync(["node", "test", "tenants", "list", "--search", "contoso"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -532,7 +531,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list", "--status", "enabled"]);
+      await program.parseAsync(["node", "test", "tenants", "list", "--status", "enabled"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -546,7 +545,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list", "--status", "disabled"]);
+      await program.parseAsync(["node", "test", "tenants", "list", "--status", "disabled"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -560,7 +559,7 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
-      await program.parseAsync(["node", "test", "fleet", "list", "--json"]);
+      await program.parseAsync(["node", "test", "tenants", "list", "--json"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -581,7 +580,7 @@ describe("Tenants Command (fleet)", () => {
       await program.parseAsync([
         "node",
         "test",
-        "fleet",
+        "tenants",
         "list",
         "--tag",
         "enterprise",

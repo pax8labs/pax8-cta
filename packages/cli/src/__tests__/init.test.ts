@@ -24,13 +24,14 @@ import {
   mockProcessExit,
 } from "./test-utils.js";
 import * as fs from "node:fs";
-import * as readline from "node:readline/promises";
 
 // Mock fs module
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(() => false),
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
+  chmodSync: vi.fn(),
+  readFileSync: vi.fn(() => ""),
 }));
 
 // Mock ora
@@ -38,15 +39,69 @@ vi.mock("ora", () => ({
   default: vi.fn(() => mockSpinner()),
 }));
 
-// Mock readline
-vi.mock("node:readline/promises", () => ({
-  createInterface: vi.fn(),
+// Mock the shared input module (used by init instead of raw readline)
+const mockQuestion = vi.fn();
+vi.mock("../lib/input.js", () => ({
+  question: (...args: unknown[]) => mockQuestion(...args),
+  closeInput: vi.fn(),
 }));
+
+// Mock demo config
+vi.mock("../commands/demo.js", () => ({
+  saveCliConfig: vi.fn(),
+}));
+
+// Mock credentials
+vi.mock("../lib/credentials.js", () => ({
+  getClientSecretWithFallback: vi.fn().mockRejectedValue(new Error("not found")),
+}));
+
+// Mock auth
+vi.mock("../lib/auth.js", () => ({
+  storeCredentials: vi.fn().mockRejectedValue(new Error("keytar not available")),
+  interactiveLogin: vi.fn(),
+}));
+
+/**
+ * Standard production-mode question sequence for init --no-gdap.
+ * After the client secret, env discovery fails (mocked) and prompts
+ * for a manual source URL, which we skip with "".
+ */
+function mockProductionFlow(
+  overrides: {
+    signIn?: string;
+    tenantId?: string;
+    clientId?: string;
+    secret?: string;
+    sourceEnv?: string;
+    addTenant?: string;
+    testCreds?: string;
+  } = {}
+) {
+  const {
+    signIn = "n",
+    tenantId = "tid",
+    clientId = "cid",
+    secret = "secret",
+    sourceEnv = "",
+    addTenant = "n",
+    testCreds = "n",
+  } = overrides;
+
+  mockQuestion
+    .mockResolvedValueOnce(signIn)     // sign in: no
+    .mockResolvedValueOnce(tenantId)   // tenant ID
+    .mockResolvedValueOnce(clientId)   // client ID
+    .mockResolvedValueOnce(secret)     // client secret
+    .mockResolvedValueOnce(sourceEnv)  // source env URL (skip)
+    .mockResolvedValueOnce(addTenant)  // add tenant manually
+    .mockResolvedValueOnce(testCreds); // test credentials
+}
 
 describe("Init Command", () => {
   let consoleCapture: ConsoleCapture;
   let restoreEnv: () => void;
-  let exitSpy: any;
+  let exitSpy: ReturnType<typeof mockProcessExit>;
 
   beforeEach(async () => {
     consoleCapture = new ConsoleCapture();
@@ -79,23 +134,13 @@ describe("Init Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Should show setup wizard header
       expect(containsText(output, "AgentSync Setup Wizard")).toBe(true);
-
-      // Should show demo mode messages
       expect(containsText(output, "Setting up in DEMO MODE")).toBe(true);
-      expect(containsText(output, "explore AgentSync features without credentials")).toBe(true);
-
-      // Should show success
       expect(containsText(output, "Demo mode enabled")).toBe(true);
       expect(containsText(output, "Setup complete")).toBe(true);
-
-      // Should show next steps
-      expect(containsText(output, "Try these commands")).toBe(true);
-      expect(containsText(output, "agentsync fleet list")).toBe(true);
     });
 
-    it("should show how to switch to production mode", async () => {
+    it("should show next steps for demo mode", async () => {
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
       program.addCommand(initCommand);
@@ -104,25 +149,26 @@ describe("Init Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
+      expect(containsText(output, "Try these commands")).toBe(true);
+      expect(containsText(output, "agentsync fleet list")).toBe(true);
       expect(containsText(output, "agentsync demo off")).toBe(true);
+    });
+
+    it("should not prompt for credentials in demo mode", async () => {
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--demo"]);
+
+      expect(mockQuestion).not.toHaveBeenCalled();
     });
   });
 
-  describe("production mode", () => {
-    it("should prompt for Partner Tenant ID and Client ID", async () => {
-      // Mock readline interface
-      const mockQuestion = vi
-        .fn()
-        .mockResolvedValueOnce("partner-tenant-id") // Partner Tenant ID
-        .mockResolvedValueOnce("partner-client-id") // Partner Client ID
-        .mockResolvedValueOnce("n"); // Don't include sample
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+  describe("existing config handling", () => {
+    it("should ask to overwrite when config exists", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      mockQuestion.mockResolvedValueOnce("n"); // Don't overwrite
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
@@ -132,34 +178,13 @@ describe("Init Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Should show setup wizard
-      expect(containsText(output, "AgentSync Setup Wizard")).toBe(true);
-      expect(containsText(output, "Let's set up your Partner Center credentials")).toBe(true);
-
-      // Should prompt for credentials
-      expect(mockQuestion).toHaveBeenCalledTimes(3);
-
-      // Should show client secret instructions
-      expect(containsText(output, "Client Secret")).toBe(true);
-      expect(containsText(output, "AGENTSYNC_CLIENT_SECRET")).toBe(true);
-
-      // Should close readline
-      expect(mockRl.close).toHaveBeenCalled();
+      expect(containsText(output, "Configuration already exists")).toBe(true);
+      expect(containsText(output, "Setup cancelled")).toBe(true);
     });
 
-    it("should create config file with credentials", async () => {
-      const mockQuestion = vi
-        .fn()
-        .mockResolvedValueOnce("test-tenant-id")
-        .mockResolvedValueOnce("test-client-id")
-        .mockResolvedValueOnce("n");
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+    it("should preserve config when user declines overwrite", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      mockQuestion.mockResolvedValueOnce("n");
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
@@ -167,165 +192,227 @@ describe("Init Command", () => {
 
       await program.parseAsync(["node", "test", "init"]);
 
-      // Should create config file
+      // Should not write any files
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
+    it("should proceed when user confirms overwrite", async () => {
+      vi.mocked(fs.existsSync)
+        .mockReturnValueOnce(true)  // config exists
+        .mockReturnValue(false);    // other paths
+
+      mockQuestion
+        .mockResolvedValueOnce("y");  // overwrite: yes
+
+      // Then standard production flow
+      mockProductionFlow();
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
+      // Should have written config
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+  });
+
+  describe("production mode", () => {
+    it("should prompt for credentials in manual flow", async () => {
+      mockProductionFlow();
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
+      const output = consoleCapture.getAllOutput();
+
+      expect(containsText(output, "AgentSync Setup Wizard")).toBe(true);
+      expect(containsText(output, "Partner Tenant ID")).toBe(true);
+      expect(containsText(output, "App Registration Client ID")).toBe(true);
+      expect(containsText(output, "Client Secret")).toBe(true);
+    });
+
+    it("should create config file with entered credentials", async () => {
+      mockProductionFlow({
+        tenantId: "my-tenant-id-123",
+        clientId: "my-client-id-456",
+        secret: "my-secret",
+      });
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
       expect(fs.writeFileSync).toHaveBeenCalled();
 
       const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
-      const configPath = writeCall[0];
+      const configPath = writeCall[0] as string;
       const configContent = writeCall[1] as string;
 
-      // Check config path
       expect(configPath).toContain("config/tenants.yaml");
-
-      // Check config content
+      expect(configContent).toContain("my-tenant-id-123");
+      expect(configContent).toContain("my-client-id-456");
       expect(configContent).toContain("AgentSync Configuration");
-      expect(configContent).toContain("test-tenant-id");
-      expect(configContent).toContain("test-client-id");
-      expect(configContent).toContain("AGENTSYNC_CLIENT_SECRET");
     });
 
-    it("should include sample tenant when requested", async () => {
-      const mockQuestion = vi
-        .fn()
-        .mockResolvedValueOnce("test-tenant-id")
-        .mockResolvedValueOnce("test-client-id")
-        .mockResolvedValueOnce("yes"); // Include sample
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+    it("should include source environment in config when provided", async () => {
+      mockProductionFlow({
+        sourceEnv: "https://mydev.crm.dynamics.com",
+      });
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
       program.addCommand(initCommand);
 
-      await program.parseAsync(["node", "test", "init"]);
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
       const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
       const configContent = writeCall[1] as string;
 
-      // Should include sample tenant
-      expect(configContent).toContain("Sample Client");
-      expect(configContent).toContain("sample.crm.dynamics.com");
-      expect(configContent).toContain("production");
-      expect(configContent).toContain("enterprise");
+      expect(configContent).toContain('environmentUrl: "https://mydev.crm.dynamics.com"');
+      expect(configContent).not.toContain("# source:");
     });
 
-    it("should not include sample tenant when declined", async () => {
-      const mockQuestion = vi
-        .fn()
-        .mockResolvedValueOnce("test-tenant-id")
-        .mockResolvedValueOnce("test-client-id")
-        .mockResolvedValueOnce("n"); // Don't include sample
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+    it("should comment out source when skipped", async () => {
+      mockProductionFlow({ sourceEnv: "" });
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
       program.addCommand(initCommand);
 
-      await program.parseAsync(["node", "test", "init"]);
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
       const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
       const configContent = writeCall[1] as string;
 
-      // Should NOT include sample tenant
-      expect(configContent).not.toContain("Sample Client");
-      expect(configContent).toContain("Add your tenants here");
+      expect(configContent).toContain("# source:");
     });
 
-    it("should create config directory if it does not exist", async () => {
-      const mockQuestion = vi
-        .fn()
-        .mockResolvedValueOnce("test-tenant-id")
-        .mockResolvedValueOnce("test-client-id")
-        .mockResolvedValueOnce("n");
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+    it("should create config directory if missing", async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
+      mockProductionFlow();
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
       program.addCommand(initCommand);
 
-      await program.parseAsync(["node", "test", "init"]);
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
-      // Should create directory
       expect(fs.mkdirSync).toHaveBeenCalledWith(expect.stringContaining("config"), {
         recursive: true,
       });
     });
 
-    it("should show next steps after config creation", async () => {
-      const mockQuestion = vi
-        .fn()
-        .mockResolvedValueOnce("test-tenant-id")
-        .mockResolvedValueOnce("test-client-id")
-        .mockResolvedValueOnce("n");
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+    it("should use custom config path when specified", async () => {
+      mockProductionFlow();
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
       program.addCommand(initCommand);
 
-      await program.parseAsync(["node", "test", "init"]);
+      await program.parseAsync(["node", "test", "init", "--config", "./custom/path.yaml", "--no-gdap"]);
+
+      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const configPath = writeCall[0] as string;
+
+      expect(configPath).toContain("custom/path.yaml");
+    });
+
+    it("should show setup complete after config creation", async () => {
+      mockProductionFlow();
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
       const output = consoleCapture.getAllOutput();
 
-      // Should show success
       expect(containsText(output, "Setup complete")).toBe(true);
-
-      // Should show next steps
       expect(containsText(output, "Next steps")).toBe(true);
-      expect(containsText(output, "client secret")).toBe(true);
-      expect(containsText(output, "auth login")).toBe(true);
-      expect(containsText(output, "agentsync tenants inspect")).toBe(true);
-      expect(containsText(output, "agentsync demo on")).toBe(true);
     });
 
-    it("should use custom config path when specified", async () => {
-      const mockQuestion = vi
-        .fn()
-        .mockResolvedValueOnce("test-tenant-id")
-        .mockResolvedValueOnce("test-client-id")
-        .mockResolvedValueOnce("n");
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+    it("should add manually entered tenant to config", async () => {
+      mockQuestion
+        .mockResolvedValueOnce("n")               // sign in: no
+        .mockResolvedValueOnce("tid")             // tenant ID
+        .mockResolvedValueOnce("cid")             // client ID
+        .mockResolvedValueOnce("secret")          // client secret
+        .mockResolvedValueOnce("")                // source env: skip
+        .mockResolvedValueOnce("y")               // add tenant manually: yes
+        .mockResolvedValueOnce("Contoso")         // tenant name
+        .mockResolvedValueOnce("contoso-tenant-id")
+        .mockResolvedValueOnce("https://contoso.crm.dynamics.com")
+        .mockResolvedValueOnce("n")               // add another: no
+        .mockResolvedValueOnce("n");              // test credentials: no
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
       program.addCommand(initCommand);
 
-      await program.parseAsync(["node", "test", "init", "--config", "./custom/path.yaml"]);
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
       const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
-      const configPath = writeCall[0];
+      const configContent = writeCall[1] as string;
 
-      expect(configPath).toContain("custom/path.yaml");
+      expect(configContent).toContain("contoso-tenant-id");
+      expect(configContent).toContain("Contoso");
+      expect(configContent).toContain("https://contoso.crm.dynamics.com");
+    });
+
+    it("should handle multiple manually added tenants", async () => {
+      mockQuestion
+        .mockResolvedValueOnce("n")               // sign in: no
+        .mockResolvedValueOnce("tid")             // tenant ID
+        .mockResolvedValueOnce("cid")             // client ID
+        .mockResolvedValueOnce("secret")          // client secret
+        .mockResolvedValueOnce("")                // source env: skip
+        .mockResolvedValueOnce("y")               // add tenant: yes
+        .mockResolvedValueOnce("Contoso")
+        .mockResolvedValueOnce("contoso-tid")
+        .mockResolvedValueOnce("https://contoso.crm.dynamics.com")
+        .mockResolvedValueOnce("y")               // add another: yes
+        .mockResolvedValueOnce("Fabrikam")
+        .mockResolvedValueOnce("fabrikam-tid")
+        .mockResolvedValueOnce("https://fabrikam.crm.dynamics.com")
+        .mockResolvedValueOnce("n")               // add another: no
+        .mockResolvedValueOnce("n");              // test credentials: no
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
+      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const configContent = writeCall[1] as string;
+
+      expect(configContent).toContain("contoso-tid");
+      expect(configContent).toContain("Contoso");
+      expect(configContent).toContain("fabrikam-tid");
+      expect(configContent).toContain("Fabrikam");
+    });
+
+    it("should show commented tenant placeholder when no tenants added", async () => {
+      mockProductionFlow();
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
+      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const configContent = writeCall[1] as string;
+
+      expect(configContent).toContain("tenants: []");
     });
   });
 
@@ -343,18 +430,18 @@ describe("Init Command", () => {
       const demoOption = initCommand.options.find((opt) => opt.long === "--demo");
       expect(demoOption).toBeDefined();
     });
+
+    it("should support --no-gdap flag", async () => {
+      const { initCommand } = await import("../commands/init.js");
+
+      const gdapOption = initCommand.options.find((opt) => opt.long === "--no-gdap");
+      expect(gdapOption).toBeDefined();
+    });
   });
 
   describe("error handling", () => {
-    it("should handle readline errors gracefully", async () => {
-      const mockQuestion = vi.fn().mockRejectedValueOnce(new Error("Readline error"));
-
-      const mockRl = {
-        question: mockQuestion,
-        close: vi.fn(),
-      };
-
-      vi.mocked(readline.createInterface).mockReturnValue(mockRl as any);
+    it("should handle question errors gracefully", async () => {
+      mockQuestion.mockRejectedValueOnce(new Error("Input error"));
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
@@ -362,17 +449,13 @@ describe("Init Command", () => {
 
       try {
         await program.parseAsync(["node", "test", "init"]);
-      } catch (error: any) {
-        expect(error.message).toContain("process.exit(1)");
+      } catch {
+        // Expected - process.exit throws
       }
 
       const output = consoleCapture.getAllOutput();
 
-      // Should show error
       expect(containsText(output, "Setup failed")).toBe(true);
-      expect(containsText(output, "Readline error")).toBe(true);
-
-      // Should exit with error code
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });

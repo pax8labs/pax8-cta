@@ -17,32 +17,32 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import {
-  isDemoMode as isDemoModeCore,
   DEMO_SOLUTIONS,
   loadConfig,
   TokenManager,
   DataverseClient,
   AgentResolver,
 } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { isDemo } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const listCommand = new Command("list")
   .alias("ls")
-  .description("List all available agents/solutions")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .description("List agents and solutions in your source environment")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tag <tag>", "Filter by tag")
   .option("--category <category>", "Filter by category")
   .option("--json", "Output as JSON")
   .action(async (options) => {
-    const spinner = ora("Loading agents...").start();
+    const spinner = createSpinner("Loading agents...").start();
 
     try {
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
@@ -101,7 +101,7 @@ export const listCommand = new Command("list")
       }
 
       spinner.text = "Authenticating...";
-      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      const clientSecret = await getClientSecretWithFallback();
       const tokenManager = new TokenManager({
         tenantId: config.partner.tenantId,
         clientId: config.partner.clientId,
@@ -154,8 +154,6 @@ export const listCommand = new Command("list")
       console.log();
       console.log(chalk.gray(`Total: ${botsWithSolutions.length} agent(s) in source environment`));
     } catch (error) {
-      spinner.fail(chalk.red("Failed to load agents"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to load agents");
     }
   });

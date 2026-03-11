@@ -22,7 +22,7 @@ import { healthCommand } from "./health.js";
 import { enableCommand, disableCommand, tagCommand } from "./manage.js";
 
 export const tenantsCommand = new Command("tenants").description(
-  "Manage tenants (list, inspect, health)"
+  "Manage target tenants where agents are deployed"
 );
 
 // Register subcommands

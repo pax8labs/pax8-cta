@@ -22,17 +22,44 @@ process.env.AGENTSYNC_CLI_MODE = "true";
 // Suppress worker logs in CLI mode
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "error";
 
+// Load .env file from CWD (if it exists) so commands can find PARTNER_CLIENT_SECRET etc.
+// Skip keys the CLI manages independently (demo mode via ~/.agentsync/cli-config.json,
+// log level set above, and web-app-only keys).
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+const ENV_SKIP_KEYS = new Set([
+  "DEMO_MODE",
+  "NEXT_PUBLIC_DEMO_MODE",
+  "LOG_LEVEL",
+  "NODE_ENV",
+  "NEXTAUTH_URL",
+  "NEXTAUTH_SECRET",
+]);
+const envPath = resolve(process.cwd(), ".env");
+if (existsSync(envPath)) {
+  const envContent = readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    if (ENV_SKIP_KEYS.has(key)) continue;
+    const value = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
 import { Command } from "commander";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
 import { analyzeCommand } from "./commands/analyze.js";
 import { deployCommand } from "./commands/deploy.js";
-import { statusCommand } from "./commands/status.js";
 import { tenantsCommand } from "./commands/tenants/index.js";
-import { agentsCommand } from "./commands/agents/index.js";
 import { deploymentsCommand } from "./commands/deployments/index.js";
 import { solutionsCommand } from "./commands/solutions/index.js";
-import { resolveUrlCommand } from "./commands/resolve-url.js";
 import { initCommand } from "./commands/init.js";
 import { demoCommand } from "./commands/demo.js";
 import { telemetryCommand } from "./commands/telemetry.js";
@@ -60,24 +87,28 @@ export function createProgram(): Command {
 
   program
     .name("agentsync")
-    .description("AgentSync - Sync your agents to all your tenants")
+    .description("AgentSync - Deploy and manage Power Platform agents across tenants")
     .version(VERSION);
 
+  // Getting started
   program.addCommand(initCommand);
-  program.addCommand(demoCommand);
   program.addCommand(authCommand);
+  program.addCommand(validateCommand);
+
+  // Day-to-day workflow
+  program.addCommand(solutionsCommand);
   program.addCommand(exportCommand);
   program.addCommand(importCommand);
-  program.addCommand(analyzeCommand);
   program.addCommand(deployCommand);
   program.addCommand(deploymentsCommand);
-  program.addCommand(statusCommand);
+
+  // Environment management
   program.addCommand(tenantsCommand);
-  program.addCommand(agentsCommand);
-  program.addCommand(solutionsCommand);
-  program.addCommand(resolveUrlCommand);
   program.addCommand(setupCommand);
-  program.addCommand(validateCommand);
+  program.addCommand(analyzeCommand);
+
+  // Utilities
+  program.addCommand(demoCommand);
   program.addCommand(telemetryCommand);
 
   return program;

@@ -17,10 +17,11 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
+import { UsageError, CliError, handleCommandError } from "../lib/errors.js";
 
 interface SetupStatus {
   tenantName: string;
@@ -50,21 +51,25 @@ interface BusinessUnit {
 }
 
 export const setupCommand = new Command("setup")
-  .description("Setup application users in Power Platform environments")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .description("Register your app as an application user in tenant environments")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--check", "Check setup status without making changes")
   .option("--all", "Setup all environments")
   .option("-t, --tenant <name>", "Setup specific environment by name")
+  .addHelpText("after", `
+Examples:
+  agentsync setup --check                             Check setup status without making changes
+  agentsync setup --all                               Register app user in all environments
+  agentsync setup -t AgentSync-Test2                  Setup a specific tenant environment
+`)
   .action(async (options) => {
-    const spinner = ora("Loading configuration...").start();
+    const spinner = createSpinner("Loading configuration...").start();
 
     try {
       // Validate options
       if (!options.check && !options.all && !options.tenant) {
-        spinner.fail(
-          chalk.red("Must specify --check, --all, or --tenant <name> to select environments")
-        );
-        process.exit(1);
+        spinner.stop();
+        throw new UsageError("Must specify --check, --all, or --tenant <name>. Run 'agentsync setup --help' for usage.");
       }
 
       // Load config
@@ -81,8 +86,8 @@ export const setupCommand = new Command("setup")
           (t) => t.name.toLowerCase() === options.tenant.toLowerCase()
         );
         if (!tenant) {
-          console.error(chalk.red(`Tenant '${options.tenant}' not found in configuration`));
-          process.exit(1);
+          spinner.stop();
+          throw new CliError(`Tenant '${options.tenant}' not found in configuration. Run 'agentsync tenants list' to see available tenants.`);
         }
         targets = [tenant];
       } else {
@@ -96,7 +101,7 @@ export const setupCommand = new Command("setup")
       }
 
       // Verify client secret is available
-      await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      await getClientSecretWithFallback();
 
       console.log();
       console.log(chalk.bold(`Checking ${targets.length} environment(s)...`));
@@ -150,7 +155,7 @@ export const setupCommand = new Command("setup")
         const tenant = targets.find((t) => t.name === status.tenantName);
         if (!tenant) continue;
 
-        const setupSpinner = ora(`Setting up ${status.tenantName}...`).start();
+        const setupSpinner = createSpinner(`Setting up ${status.tenantName}...`).start();
 
         try {
           await setupTenant(config, tenant, status);
@@ -172,9 +177,7 @@ export const setupCommand = new Command("setup")
         console.log(`  ${chalk.red(`✗ ${errorCount} failed`)}`);
       }
     } catch (error) {
-      spinner.fail(chalk.red("Setup failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Setup failed");
     }
   });
 
@@ -185,7 +188,7 @@ async function checkSetupStatus(
   config: { partner: { tenantId: string; clientId: string } },
   tenant: TenantConfig
 ): Promise<SetupStatus> {
-  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+  const clientSecret = await getClientSecretWithFallback();
   const tokenManager = new TokenManager({
     tenantId: tenant.tenantId,
     clientId: config.partner.clientId,
@@ -280,7 +283,7 @@ async function setupTenant(
   tenant: TenantConfig,
   status: SetupStatus
 ): Promise<void> {
-  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+  const clientSecret = await getClientSecretWithFallback();
   const tokenManager = new TokenManager({
     tenantId: tenant.tenantId,
     clientId: config.partner.clientId,

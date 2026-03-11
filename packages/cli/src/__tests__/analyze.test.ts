@@ -49,29 +49,24 @@ describe('Analyze Command', () => {
   });
 
   describe('required options', () => {
-    it('should have --solution as required option', async () => {
+    it('should have --solution as optional flag (positional arg preferred)', async () => {
       const { analyzeCommand } = await import('../commands/analyze.js');
 
       const solutionOption = analyzeCommand.options.find(opt => opt.long === '--solution');
       expect(solutionOption).toBeDefined();
-      expect(solutionOption?.required).toBe(true);
     });
 
-    it('should error when neither --all nor --tag is specified', async () => {
+    it('should auto-default to --all when neither --all nor --tag is specified', async () => {
       const { analyzeCommand } = await import('../commands/analyze.js');
       const program = new Command();
       program.addCommand(analyzeCommand);
 
-      try {
-        await program.parseAsync(['node', 'test', 'analyze', '--solution', './test.zip']);
-      } catch (error: any) {
-        expect(error.message).toContain('process.exit(1)');
-      }
+      await program.parseAsync(['node', 'test', 'analyze', '--solution', './test.zip']);
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, 'Must specify --all or --tag')).toBe(true);
-      expect(exitSpy).toHaveBeenCalledWith(1);
+      // Should auto-default to --all and succeed (in demo mode)
+      expect(containsText(output, 'DEMO MODE')).toBe(true);
     });
   });
 

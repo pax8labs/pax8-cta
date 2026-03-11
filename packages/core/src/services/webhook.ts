@@ -353,7 +353,7 @@ export class WebhookService {
       tenantName,
       status: success ? "rolled_back" : "failed",
       error,
-      metadata: { restoredVersion },
+      metadata: restoredVersion ? { restoredVersion } : undefined,
     });
   }
 }

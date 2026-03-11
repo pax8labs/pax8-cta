@@ -18,14 +18,15 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { DeploymentQueueManager } from "@agentsync/worker";
-import { isDemoModeEnabled } from "./demo.js";
+import { isDemo } from "../lib/command-wrapper.js";
 import { DEMO_TENANTS } from "@agentsync/core";
 import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib/formatters.js";
 import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
+import { handleCommandError } from "../lib/errors.js";
 
 // Mock deployment data for demo mode
 const DEMO_DEPLOYMENTS = [
@@ -135,7 +136,7 @@ export const statusCommand = new Command("status")
   .option("-w, --watch", "Watch for status changes")
   .option("--interval <ms>", "Watch interval in milliseconds", "5000")
   .option("--setup", "Show comprehensive setup status")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .action(async (options) => {
     // Handle --setup flag
     if (options.setup) {
@@ -144,7 +145,7 @@ export const statusCommand = new Command("status")
     }
     // Handle --list flag
     if (options.list) {
-      if (isDemoModeEnabled()) {
+      if (isDemo()) {
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
         console.log(chalk.bold("Recent Shipments:"));
         console.log();
@@ -178,25 +179,21 @@ export const statusCommand = new Command("status")
         console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
         return;
       } else {
-        console.error(
-          chalk.red("--list flag requires Redis connection (not yet implemented in non-demo mode)")
-        );
-        console.log(chalk.gray("Try demo mode: agentsync demo on"));
-        process.exit(1);
+        console.error(chalk.red("--list flag requires Redis connection (not yet implemented in non-demo mode)."));
+        console.error(chalk.gray("Try demo mode: agentsync demo on"));
+        process.exit(2);
       }
     }
 
     const trackingId = options.shipment || options.deployment;
 
     if (!trackingId) {
-      console.error(
-        chalk.red("Must specify --shipment or --deployment tracking number, or use --list")
-      );
-      process.exit(1);
+      console.error(chalk.red("Error: must specify --shipment or --deployment tracking number, or use --list."));
+      process.exit(2);
     }
 
     // Handle demo mode
-    if (isDemoModeEnabled()) {
+    if (isDemo()) {
       console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
 
       const shipment = getDemoDeploymentDetails(trackingId);
@@ -249,7 +246,7 @@ export const statusCommand = new Command("status")
       return;
     }
 
-    const spinner = ora("Connecting to shipping dock...").start();
+    const spinner = createSpinner("Connecting to shipping dock...").start();
 
     try {
       const queueManager = new DeploymentQueueManager(options.redis);
@@ -345,9 +342,7 @@ export const statusCommand = new Command("status")
 
       await queueManager.close();
     } catch (error) {
-      spinner.fail(chalk.red("Failed to track shipment"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to track shipment");
     }
   });
 
@@ -361,7 +356,7 @@ const getTimeAgo = formatTimeAgo;
  * Handle --setup flag to show comprehensive setup status
  */
 async function handleSetupStatus(options: { config: string }): Promise<void> {
-  const spinner = ora("Loading configuration...").start();
+  const spinner = createSpinner("Loading configuration...").start();
 
   try {
     // Check config file existence
@@ -391,7 +386,7 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
     // Check client secret
     let hasClientSecret = false;
     try {
-      await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      await getClientSecretWithFallback();
       hasClientSecret = true;
       console.log(`  Client secret:   ${chalk.green("✓")} Found (environment or keychain)`);
     } catch (error) {
@@ -478,9 +473,7 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
       }
     }
   } catch (error) {
-    spinner.fail(chalk.red("Failed to check setup status"));
-    console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-    process.exit(1);
+    handleCommandError(error, spinner, "Failed to check setup status");
   }
 }
 
@@ -492,7 +485,7 @@ async function checkSetupStatus(
   config: { partner: { tenantId: string; clientId: string } },
   tenant: TenantConfig
 ): Promise<SetupStatus> {
-  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+  const clientSecret = await getClientSecretWithFallback();
   const tokenManager = new TokenManager({
     tenantId: tenant.tenantId,
     clientId: config.partner.clientId,

@@ -16,10 +16,11 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
-import { isDemoMode as isDemoModeCore, DEMO_TENANTS } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { createSpinner } from "../../lib/spinner.js";
+import { DEMO_TENANTS } from "@agentsync/core";
+import { isDemo } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 // ============================================================================
 // tenants enable
@@ -28,13 +29,13 @@ import { findTenant } from "./helpers.js";
 export const enableCommand = new Command("enable")
   .argument("<tenant>", "Tenant name, ID, or URL fragment")
   .description("Enable a tenant for deployments")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--json", "Output as JSON")
   .action(async (tenantQuery: string, options) => {
-    const spinner = ora("Enabling tenant...").start();
+    const spinner = createSpinner("Enabling tenant...").start();
 
     try {
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
@@ -76,9 +77,7 @@ export const enableCommand = new Command("enable")
       spinner.fail(chalk.yellow("Production mode not yet implemented"));
       console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command."));
     } catch (error) {
-      spinner.fail(chalk.red("Failed to enable tenant"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to enable tenant");
     }
   });
 
@@ -89,14 +88,14 @@ export const enableCommand = new Command("enable")
 export const disableCommand = new Command("disable")
   .argument("<tenant>", "Tenant name, ID, or URL fragment")
   .description("Disable a tenant from deployments")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-r, --reason <text>", "Reason for disabling")
   .option("--json", "Output as JSON")
   .action(async (tenantQuery: string, options) => {
-    const spinner = ora("Disabling tenant...").start();
+    const spinner = createSpinner("Disabling tenant...").start();
 
     try {
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
@@ -143,9 +142,7 @@ export const disableCommand = new Command("disable")
       spinner.fail(chalk.yellow("Production mode not yet implemented"));
       console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command."));
     } catch (error) {
-      spinner.fail(chalk.red("Failed to disable tenant"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to disable tenant");
     }
   });
 
@@ -156,16 +153,16 @@ export const disableCommand = new Command("disable")
 export const tagCommand = new Command("tag")
   .argument("<tenant>", "Tenant name, ID, or URL fragment")
   .description("Manage tenant tags")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--add <tags...>", "Add tags")
   .option("--remove <tags...>", "Remove tags")
   .option("--set <tags>", "Replace all tags (comma-separated)")
   .option("--json", "Output as JSON")
   .action(async (tenantQuery: string, options) => {
-    const spinner = ora("Updating tags...").start();
+    const spinner = createSpinner("Updating tags...").start();
 
     try {
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
@@ -241,8 +238,6 @@ export const tagCommand = new Command("tag")
       spinner.fail(chalk.yellow("Production mode not yet implemented"));
       console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command."));
     } catch (error) {
-      spinner.fail(chalk.red("Failed to update tags"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to update tags");
     }
   });

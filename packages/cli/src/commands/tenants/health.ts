@@ -17,32 +17,38 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import {
   loadConfig,
-  isDemoMode as isDemoModeCore,
   DEMO_TENANTS,
   generateMockHealthCheck,
   TenantConfig,
 } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { isDemo } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const healthCommand = new Command("health")
   .argument("[tenant]", "Optional tenant name, ID, or URL fragment")
   .description("View tenant health status")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tag <tags...>", "Filter by tags")
   .option("--watch", "Continuously monitor (refresh every 30s)")
   .option("--json", "Output as JSON")
+  .addHelpText("after", `
+Examples:
+  agentsync tenants health                            Show fleet-wide health summary
+  agentsync tenants health AgentSync-Test2            Check health for a specific tenant
+  agentsync tenants health --json                     Output health data as JSON
+`)
   .action(async (tenantQuery: string | undefined, options) => {
-    const spinner = ora("Checking health...").start();
+    const spinner = createSpinner("Checking health...").start();
 
     try {
       // Get tenant list
       let tenants: TenantConfig[];
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         tenants = DEMO_TENANTS;
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
@@ -166,8 +172,6 @@ export const healthCommand = new Command("health")
         console.log(chalk.gray("Refreshing every 30 seconds... Press Ctrl+C to stop"));
       }
     } catch (error) {
-      spinner.fail(chalk.red("Health check failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Health check failed");
     }
   });

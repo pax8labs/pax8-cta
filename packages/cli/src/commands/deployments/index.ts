@@ -31,9 +31,14 @@ import {
  *
  * Follows the resource-action pattern: `agentsync deployments <action>`
  */
-export const deploymentsCommand = new Command("deployments").description(
-  "Manage deployments (list, approve, cancel, rollback)"
-);
+export const deploymentsCommand = new Command("deployments")
+  .description("View, approve, cancel, or rollback deployments")
+  .addHelpText("after", `
+Examples:
+  agentsync deployments list                          List recent deployments
+  agentsync deployments show dep_abc123               View deployment details
+  agentsync deployments list -s failed --since 7d     Show failed deployments from last 7 days
+`);
 
 // Register subcommands
 deploymentsCommand.addCommand(listCommand);

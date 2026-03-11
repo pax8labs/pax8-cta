@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import {
   loadConfig,
   TenantConfig,
@@ -27,6 +27,7 @@ import {
   ConfigError,
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
+import { CliError } from "../lib/errors.js";
 
 interface ValidationCheck {
   name: string;
@@ -131,16 +132,22 @@ function parseAuthError(errorMsg: string): { message: string; fix: string } {
 }
 
 export const validateCommand = new Command("validate")
-  .description("Validate configuration and environment setup before deployment")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
-  .option("-t, --tenant <name>", "Validate specific tenant by name")
-  .option("--skip-source", "Skip source environment validation")
+  .description("Check that your config, credentials, and environments are working")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
+  .option("-t, --tenant <name>", "Validate a specific tenant only")
+  .option("--skip-source", "Skip source environment check")
+  .addHelpText("after", `
+Examples:
+  agentsync validate                              Check everything
+  agentsync validate -t AgentSync-Test2           Check a specific tenant
+  agentsync validate --skip-source                Check only tenants, not source
+`)
   .action(async (options) => {
     const checks: ValidationCheck[] = [];
     let hasErrors = false;
 
     // Check 1: Config file exists and is valid YAML
-    const spinner = ora("Validating configuration file...").start();
+    const spinner = createSpinner("Validating configuration file...").start();
     const configPath = resolve(process.cwd(), options.config);
 
     if (!existsSync(configPath)) {
@@ -168,11 +175,7 @@ export const validateCommand = new Command("validate")
           (t) => t.name.toLowerCase() === options.tenant.toLowerCase()
         );
         if (!tenant) {
-          spinner.fail(`Tenant '${options.tenant}' not found or not enabled`);
-          console.error(
-            chalk.red(`\nTenant '${options.tenant}' not found in configuration or not enabled`)
-          );
-          process.exit(1);
+          throw new CliError(`Tenant '${options.tenant}' not found in configuration or not enabled. Run 'agentsync tenants list' to see available tenants.`);
         }
         enabledTenants = [tenant];
       }
@@ -200,7 +203,7 @@ export const validateCommand = new Command("validate")
     // Check 2: Client secret is available
     spinner.text = "Checking client secret...";
     try {
-      await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      await getClientSecretWithFallback();
       checks.push({
         name: "Client secret",
         status: "pass",
@@ -226,7 +229,7 @@ export const validateCommand = new Command("validate")
     console.log();
 
     for (const tenant of enabledTenants) {
-      const tenantSpinner = ora(`Checking ${tenant.name}...`).start();
+      const tenantSpinner = createSpinner(`Checking ${tenant.name}...`).start();
 
       try {
         const result = await validateTenant(config, tenant);
@@ -275,10 +278,10 @@ export const validateCommand = new Command("validate")
     // Check 4: Source environment (if configured and not skipped)
     if (!options.skipSource && config.source) {
       console.log();
-      const sourceSpinner = ora("Checking source environment...").start();
+      const sourceSpinner = createSpinner("Checking source environment...").start();
 
       try {
-        const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+        const clientSecret = await getClientSecretWithFallback();
         const tokenManager = new TokenManager({
           tenantId: config.source.tenantId,
           clientId: config.partner.clientId,
@@ -337,7 +340,7 @@ async function validateTenant(
   config: { partner: { tenantId: string; clientId: string } },
   tenant: TenantConfig
 ): Promise<{ appUserExists: boolean; hasSystemAdminRole: boolean; userId?: string }> {
-  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+  const clientSecret = await getClientSecretWithFallback();
   const tokenManager = new TokenManager({
     tenantId: tenant.tenantId,
     clientId: config.partner.clientId,

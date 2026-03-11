@@ -16,10 +16,11 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import { generateMockDeploymentHistory } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { isDemo } from "../../lib/command-wrapper.js";
 import { outputDeploymentDetails } from "./helpers.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const watchCommand = new Command("watch")
   .argument("<id>", "Deployment ID")
@@ -27,7 +28,7 @@ export const watchCommand = new Command("watch")
   .option("--interval <ms>", "Refresh interval in milliseconds", "3000")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
-    if (isDemoModeEnabled()) {
+    if (isDemo()) {
       console.log(chalk.yellow("\n⚠️  DEMO MODE - Watch simulates progress\n"));
 
       const history = generateMockDeploymentHistory(50);
@@ -44,7 +45,7 @@ export const watchCommand = new Command("watch")
       return;
     }
 
-    const spinner = ora("Connecting to deployment service...").start();
+    const spinner = createSpinner("Connecting to deployment service...").start();
 
     try {
       const { DeploymentQueueManager } = await import("@agentsync/worker");
@@ -84,8 +85,6 @@ export const watchCommand = new Command("watch")
 
       await queueManager.close();
     } catch (error) {
-      spinner.fail(chalk.red("Failed to watch deployment"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to watch deployment");
     }
   });

@@ -55,28 +55,23 @@ describe("Deploy Command (ship)", () => {
   });
 
   describe("required options", () => {
-    it("should have --solution as required option", async () => {
+    it("should have --solution as optional flag (positional arg preferred)", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
 
       const solutionOption = deployCommand.options.find((opt) => opt.long === "--solution");
       expect(solutionOption).toBeDefined();
-      expect(solutionOption?.required).toBe(true);
     });
 
-    it("should error when neither --all nor --tag is specified", async () => {
+    it("should auto-default to --all when neither --all nor --tag is specified", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
       const program = new Command();
       program.addCommand(deployCommand);
 
-      try {
-        await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip"]);
-      } catch (error: any) {
-        expect(error.message).toContain("process.exit(1)");
-      }
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip"]);
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, "Must specify --all or --tag")).toBe(true);
-      expect(exitSpy).toHaveBeenCalledWith(1);
+      // Should auto-default to --all and succeed (in demo mode)
+      expect(containsText(output, "DEMO MODE")).toBe(true);
     });
   });
 
@@ -86,7 +81,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip", "--all"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -99,7 +94,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip", "--all"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -117,7 +112,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip", "--all"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -132,7 +127,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip", "--all"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -147,7 +142,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip", "--all"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -159,7 +154,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip", "--all"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -176,7 +171,7 @@ describe("Deploy Command (ship)", () => {
       await program.parseAsync([
         "node",
         "test",
-        "ship",
+        "deploy",
         "--solution",
         "./test.zip",
         "--tag",
@@ -202,7 +197,7 @@ describe("Deploy Command (ship)", () => {
       await program.parseAsync([
         "node",
         "test",
-        "ship",
+        "deploy",
         "--solution",
         "./test.zip",
         "--tag",
@@ -225,7 +220,7 @@ describe("Deploy Command (ship)", () => {
         await program.parseAsync([
           "node",
           "test",
-          "ship",
+          "deploy",
           "--solution",
           "./test.zip",
           "--tag",
@@ -243,10 +238,10 @@ describe("Deploy Command (ship)", () => {
   });
 
   describe("option aliases", () => {
-    it('should accept "ship" as alias for "deploy"', async () => {
+    it('should have "deploy" as command name', async () => {
       const { deployCommand } = await import("../commands/deploy.js");
 
-      expect(deployCommand.aliases()).toContain("ship");
+      expect(deployCommand.name()).toBe("deploy");
     });
 
     it("should accept --agentPackage as alias for --solution", async () => {
@@ -312,7 +307,7 @@ describe("Deploy Command (ship)", () => {
     it("should have appropriate description", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
 
-      expect(deployCommand.description()).toContain("agent packages");
+      expect(deployCommand.description()).toContain("solution");
       expect(deployCommand.description()).toContain("tenants");
     });
   });
@@ -326,7 +321,7 @@ describe("Deploy Command (ship)", () => {
       await program.parseAsync([
         "node",
         "test",
-        "ship",
+        "deploy",
         "--solution",
         "CustomerServiceAgent",
         "--all",
@@ -344,7 +339,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "./test.zip", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "./test.zip", "--all"]);
 
       const output = consoleCapture.getAllOutput();
 
@@ -361,7 +356,7 @@ describe("Deploy Command (ship)", () => {
       await program.parseAsync([
         "node",
         "test",
-        "ship",
+        "deploy",
         "--solution",
         "TestAgent",
         "--unmanaged",
@@ -379,7 +374,7 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "ship", "--solution", "TestAgent", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "TestAgent", "--all"]);
 
       const output = consoleCapture.getAllOutput();
 

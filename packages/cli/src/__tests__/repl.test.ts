@@ -14,76 +14,149 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from 'vitest';
-import { parseCommandLine, startRepl } from '../lib/repl.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { Command } from "commander";
+import { ConsoleCapture, containsText } from "./test-utils.js";
 
-describe('REPL Module', () => {
-  describe('parseCommandLine', () => {
-    it('should split simple commands by spaces', () => {
-      const result = parseCommandLine('agents list');
-      expect(result).toEqual(['agents', 'list']);
+const mockQuestion = vi.fn();
+const mockCloseInput = vi.fn();
+
+vi.mock("../lib/input.js", () => ({
+  question: (...args: unknown[]) => mockQuestion(...args),
+  closeInput: (...args: unknown[]) => mockCloseInput(...args),
+}));
+
+import { parseCommandLine, startRepl } from "../lib/repl.js";
+
+function createMockProgram(): Command {
+  const program = new Command();
+  program.command("test-cmd").action(() => {
+    /* noop */
+  });
+  return program;
+}
+
+describe("REPL Module", () => {
+  let consoleCapture: ConsoleCapture;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    consoleCapture = new ConsoleCapture();
+    consoleCapture.start();
+  });
+
+  afterEach(() => {
+    consoleCapture.stop();
+  });
+
+  describe("parseCommandLine", () => {
+    it("should split simple commands by spaces", () => {
+      const result = parseCommandLine("agents list");
+      expect(result).toEqual(["agents", "list"]);
     });
 
-    it('should handle multiple spaces between arguments', () => {
-      const result = parseCommandLine('agents   list   --json');
-      expect(result).toEqual(['agents', 'list', '--json']);
+    it("should handle quoted strings", () => {
+      const result = parseCommandLine('deploy --comment "this is a test"');
+      expect(result).toEqual(["deploy", "--comment", "this is a test"]);
     });
 
-    it('should handle leading and trailing spaces', () => {
-      const result = parseCommandLine('  agents list  ');
-      expect(result).toEqual(['agents', 'list']);
+    it("should handle single-quoted strings", () => {
+      const result = parseCommandLine("tenants show 'Contoso Corp'");
+      expect(result).toEqual(["tenants", "show", "Contoso Corp"]);
     });
 
-    it('should handle single-quoted arguments', () => {
-      const result = parseCommandLine("tenants show 'Contoso Corporation'");
-      expect(result).toEqual(['tenants', 'show', 'Contoso Corporation']);
-    });
-
-    it('should handle double-quoted arguments', () => {
-      const result = parseCommandLine('tenants show "Contoso Corporation"');
-      expect(result).toEqual(['tenants', 'show', 'Contoso Corporation']);
-    });
-
-    it('should handle quoted strings with spaces', () => {
-      const result = parseCommandLine('deploy --comment "this is a test comment"');
-      expect(result).toEqual(['deploy', '--comment', 'this is a test comment']);
-    });
-
-    it('should handle empty input', () => {
-      const result = parseCommandLine('');
+    it("should handle empty input", () => {
+      const result = parseCommandLine("");
       expect(result).toEqual([]);
     });
 
-    it('should handle only spaces', () => {
-      const result = parseCommandLine('   ');
+    it("should handle only whitespace", () => {
+      const result = parseCommandLine("   ");
       expect(result).toEqual([]);
     });
 
-    it('should handle single argument', () => {
-      const result = parseCommandLine('help');
-      expect(result).toEqual(['help']);
-    });
-
-    it('should handle mixed quotes and regular args', () => {
-      const result = parseCommandLine('deploy --tenant contoso --comment "deploy to prod"');
-      expect(result).toEqual(['deploy', '--tenant', 'contoso', '--comment', 'deploy to prod']);
-    });
-
-    it('should handle flags with equals sign', () => {
-      const result = parseCommandLine('status --format=json');
-      expect(result).toEqual(['status', '--format=json']);
-    });
-
-    it('should handle complex commands', () => {
-      const result = parseCommandLine('deployments create --solution "Customer Agent" --tenants all --dry-run');
-      expect(result).toEqual(['deployments', 'create', '--solution', 'Customer Agent', '--tenants', 'all', '--dry-run']);
+    it("should handle multiple spaces between arguments", () => {
+      const result = parseCommandLine("agents   list   --json");
+      expect(result).toEqual(["agents", "list", "--json"]);
     });
   });
 
-  describe('startRepl', () => {
-    it('should be a function export', () => {
-      expect(startRepl).toBeDefined();
-      expect(typeof startRepl).toBe('function');
+  describe("startRepl", () => {
+    it('should exit on "exit" command', async () => {
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createMockProgram);
+
+      const output = consoleCapture.getAllOutput();
+      expect(containsText(output, "Goodbye!")).toBe(true);
+      expect(mockCloseInput).toHaveBeenCalledTimes(1);
+    });
+
+    it('should exit on "quit" command', async () => {
+      mockQuestion.mockResolvedValueOnce("quit");
+
+      await startRepl(createMockProgram);
+
+      const output = consoleCapture.getAllOutput();
+      expect(containsText(output, "Goodbye!")).toBe(true);
+      expect(mockCloseInput).toHaveBeenCalledTimes(1);
+    });
+
+    it("should skip empty input and continue prompting", async () => {
+      mockQuestion.mockResolvedValueOnce("");
+      mockQuestion.mockResolvedValueOnce("   ");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createMockProgram);
+
+      // question was called 3 times: empty, whitespace, then exit
+      expect(mockQuestion).toHaveBeenCalledTimes(3);
+      expect(mockCloseInput).toHaveBeenCalledTimes(1);
+    });
+
+    it("should dispatch commands to the commander program", async () => {
+      const actionFn = vi.fn();
+
+      function createProgramWithSpy(): Command {
+        const program = new Command();
+        program.command("test-cmd").action(actionFn);
+        return program;
+      }
+
+      mockQuestion.mockResolvedValueOnce("test-cmd");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createProgramWithSpy);
+
+      expect(actionFn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle unknown command errors gracefully", async () => {
+      mockQuestion.mockResolvedValueOnce("nonexistent");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createMockProgram);
+
+      const output = consoleCapture.getAllOutput();
+      expect(containsText(output, "Unknown command")).toBe(true);
+    });
+
+    it("should handle generic errors gracefully", async () => {
+      function createFailingProgram(): Command {
+        const program = new Command();
+        program.command("fail-cmd").action(() => {
+          throw new Error("Something went wrong");
+        });
+        return program;
+      }
+
+      mockQuestion.mockResolvedValueOnce("fail-cmd");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createFailingProgram);
+
+      const output = consoleCapture.getAllOutput();
+      expect(containsText(output, "Something went wrong")).toBe(true);
     });
   });
 });

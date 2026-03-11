@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import {
   loadConfig,
   findTenant,
@@ -26,18 +26,26 @@ import {
   SolutionOperations,
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
+import { CliError, handleCommandError } from "../lib/errors.js";
 
 export const importCommand = new Command("import")
-  .description("Import a solution to a single tenant")
-  .requiredOption("-s, --solution <path>", "Path to agent package (solution zip)")
+  .description("Import a solution zip file into a single tenant environment")
+  .argument("[solution]", "Path to solution zip file")
+  .option("-s, --solution <path>", "Path to solution zip (alternative to argument)")
   .option("--agentPackage <path>", "Alias for --solution")
-  .requiredOption("-t, --tenant <id>", "Destination tenant ID")
+  .requiredOption("-t, --tenant <name>", "Target tenant name or ID")
   .option("--destination <id>", "Alias for --tenant")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--no-overwrite", "Do not overwrite existing customizations")
-  .option("--no-publish", "Do not activate workflows after delivery")
-  .action(async (options) => {
-    const spinner = ora("Loading shipping manifest...").start();
+  .option("--no-publish", "Do not activate workflows after import")
+  .addHelpText("after", `
+Examples:
+  agentsync import ./TestDeploy.zip -t AgentSync-Test2      Import to a specific tenant
+  agentsync import ./TestDeploy.zip -t AgentSync-Test2 --no-publish
+`)
+  .action(async (solutionArg: string | undefined, options) => {
+    if (solutionArg && !options.solution) options.solution = solutionArg;
+    const spinner = createSpinner("Loading configuration...").start();
 
     try {
       // Load config
@@ -48,13 +56,13 @@ export const importCommand = new Command("import")
       const destinationId = options.destination || options.tenant;
       const destination = findTenant(config, destinationId);
       if (!destination) {
-        throw new Error(`Destination '${destinationId}' not found in manifest`);
+        throw new CliError(`Destination '${destinationId}' not found in manifest. Run 'agentsync tenants list' to see available tenants.`);
       }
       spinner.succeed(`Manifest loaded - Destination: ${destination.name}`);
 
       // Get client secret
       spinner.start("Establishing shipping route...");
-      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      const clientSecret = await getClientSecretWithFallback();
 
       // Create token manager for the customer tenant
       const tokenManager = new TokenManager({
@@ -98,12 +106,9 @@ export const importCommand = new Command("import")
       } else {
         const errorMsg =
           result.error || "Unknown error - check solution compatibility and permissions";
-        spinner.fail(chalk.red(`Delivery failed: ${errorMsg}`));
-        process.exit(1);
+        throw new CliError(`Delivery failed: ${errorMsg}`);
       }
     } catch (error) {
-      spinner.fail(chalk.red("Delivery failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Delivery failed");
     }
   });

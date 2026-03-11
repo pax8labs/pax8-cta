@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
   loadConfig,
@@ -27,7 +27,9 @@ import {
   type RiskAnalysis,
   type DeploymentContext,
 } from "@agentsync/core";
-import { isDemoModeEnabled, getDemoTenants } from "./demo.js";
+import { getDemoTenants } from "./demo.js";
+import { isDemo } from "../lib/command-wrapper.js";
+import { handleCommandError } from "../lib/errors.js";
 
 // Risk issue severity colors
 const SEVERITY_COLORS = {
@@ -45,25 +47,43 @@ const SEVERITY_ICONS = {
 };
 
 export const analyzeCommand = new Command("analyze")
-  .description("Analyze deployment risk before shipping")
-  .requiredOption("-s, --solution <path>", "Path to agent package (solution zip)")
+  .description("Analyze deployment risk for a solution across your tenants")
+  .argument("[solution]", "Solution name (e.g., TestDeploy) or path to solution zip file")
+  .option("-s, --solution <path>", "Solution name or path to zip (alternative to argument)")
   .option("--agentPackage <path>", "Alias for --solution")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
-  .option("-t, --tag <tags...>", "Analyze only destinations with these tags")
-  .option("--all", "Analyze all destinations in the fleet")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
+  .option("-t, --tag <tags...>", "Analyze only tenants with these tags")
+  .option("--all", "Analyze all tenants (default when no --tag specified)")
   .option("--json", "Output results as JSON")
-  .action(async (options) => {
-    const spinner = ora("Loading shipping manifest...").start();
+  .addHelpText("after", `
+Examples:
+  agentsync analyze TestDeploy                    Analyze risk across all tenants
+  agentsync analyze TestDeploy --tag production   Analyze production tenants only
+  agentsync analyze ./TestDeploy.zip              Analyze a pre-exported zip
+`)
+  .action(async (solutionArg: string | undefined, options) => {
+    const spinner = createSpinner("Loading configuration...").start();
+
+    // Allow solution as positional arg or --solution flag
+    if (solutionArg && !options.solution) {
+      options.solution = solutionArg;
+    }
+
+    if (!options.solution) {
+      spinner.fail(chalk.red("Solution name or path required."));
+      console.error(chalk.gray("  Example: agentsync analyze TestDeploy"));
+      process.exit(2);
+    }
+
+    // Default to --all if no tag filter specified
+    if (!options.all && (!options.tag || options.tag.length === 0)) {
+      options.all = true;
+    }
 
     try {
-      // Validate options
-      if (!options.all && (!options.tag || options.tag.length === 0)) {
-        spinner.fail(chalk.red("Must specify --all or --tag to select destinations"));
-        process.exit(1);
-      }
 
       // Check for demo mode
-      if (isDemoModeEnabled()) {
+      if (isDemo()) {
         spinner.succeed("Demo fleet manifest loaded");
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
 
@@ -179,9 +199,7 @@ export const analyzeCommand = new Command("analyze")
 
       displayAnalysis(analysis, destinations.length, options.json);
     } catch (error) {
-      spinner.fail(chalk.red("Risk analysis failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Risk analysis failed");
     }
   });
 

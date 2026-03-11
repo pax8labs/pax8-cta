@@ -19,26 +19,40 @@ import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { copyFileSync, mkdirSync, existsSync } from "node:fs";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import { loadConfig, TokenManager, DataverseClient, SolutionOperations } from "@agentsync/core";
-import { isDemoModeEnabled } from "./demo.js";
+import { isDemo } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
+import { handleCommandError } from "../lib/errors.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const exportCommand = new Command("export")
-  .description("Export a solution from source environment")
-  .requiredOption("-s, --solution <name>", "Solution unique name to pack")
-  .option("-o, --output <path>", "Output directory for the agent package", "./agent packages")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
-  .option("--unmanaged", "Pack as unmanaged solution (default: managed)")
-  .action(async (options) => {
-    const spinner = ora("Loading manifest...").start();
+  .description("Export a solution from your source environment as a zip file")
+  .argument("[solution]", "Solution name (e.g., TestDeploy)")
+  .option("-s, --solution <name>", "Solution name (alternative to argument)")
+  .option("-o, --output <path>", "Output directory for the zip file", "./agent packages")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
+  .option("--unmanaged", "Export as unmanaged (default: managed)")
+  .addHelpText("after", `
+Examples:
+  agentsync export TestDeploy                     Export as managed solution
+  agentsync export TestDeploy --unmanaged         Export as unmanaged
+  agentsync export TestDeploy -o ./my-exports     Export to custom directory
+`)
+  .action(async (solutionArg: string | undefined, options) => {
+    if (solutionArg && !options.solution) options.solution = solutionArg;
+    if (!options.solution) {
+      console.error(chalk.red("Error: solution name required."));
+      console.error(chalk.gray("  Example: agentsync export TestDeploy"));
+      process.exit(2);
+    }
+    const spinner = createSpinner("Loading manifest...").start();
 
     try {
       // Check for demo mode
-      if (isDemoModeEnabled()) {
+      if (isDemo()) {
         spinner.succeed("Demo mode - using sample agent package");
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
@@ -89,7 +103,7 @@ export const exportCommand = new Command("export")
 
       // Get client secret
       spinner.start("Authenticating with directory...");
-      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      const clientSecret = await getClientSecretWithFallback();
 
       const tokenManager = new TokenManager({
         tenantId: config.partner.tenantId,
@@ -140,8 +154,6 @@ export const exportCommand = new Command("export")
         chalk.gray(`Use 'agentsync ship --agent package ${outputPath}' to ship to your fleet`)
       );
     } catch (error) {
-      spinner.fail(chalk.red("Packing failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Packing failed");
     }
   });

@@ -16,27 +16,33 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import {
-  isDemoMode as isDemoModeCore,
   DEMO_TENANTS,
   getDemoVersionDriftSummary,
   getDemoTenantVersionStatus,
 } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { isDemo } from "../../lib/command-wrapper.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const driftCommand = new Command("drift")
-  .description("Check for version drift across tenants")
+  .description("Compare solution versions across tenants to find outdated deployments")
   .option("-a, --agent <name>", "Check specific agent only")
   .option("-t, --tenant <name>", "Check specific tenant only")
   .option("--outdated", "Show only outdated tenants")
   .option("--json", "Output as JSON")
+  .addHelpText("after", `
+Examples:
+  agentsync solutions drift                           Show fleet-wide version drift summary
+  agentsync solutions drift -t AgentSync-Test2        Check drift for a specific tenant
+  agentsync solutions drift --outdated                Show only outdated tenants
+`)
   .action(async (options) => {
-    const spinner = ora("Checking version drift...").start();
+    const spinner = createSpinner("Checking version drift...").start();
 
     try {
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
@@ -201,8 +207,6 @@ export const driftCommand = new Command("drift")
       spinner.fail(chalk.yellow("Production mode not yet implemented"));
       console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to see sample data."));
     } catch (error) {
-      spinner.fail(chalk.red("Failed to check version drift"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to check version drift");
     }
   });

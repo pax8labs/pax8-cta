@@ -16,23 +16,30 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
-import { isDemoMode as isDemoModeCore, DEMO_SOLUTIONS } from "@agentsync/core";
-import { isDemoModeEnabled } from "../demo.js";
+import { DEMO_SOLUTIONS } from "@agentsync/core";
+import { isDemo } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findSolution, getTenantDeploymentStatus } from "./helpers.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 export const showCommand = new Command("show")
-  .argument("<name>", "Agent name or unique name")
-  .description("View agent details and tenant inventory")
+  .argument("<name>", "Solution name or unique name")
+  .description("View solution details and where it's deployed")
   .option("--tenants", "Show tenant deployment status")
   .option("--json", "Output as JSON")
+  .addHelpText("after", `
+Examples:
+  agentsync solutions show TestDeploy                 View solution details
+  agentsync solutions show TestDeploy --tenants       Show tenant deployment status
+  agentsync solutions show TestDeploy --json          Output as JSON
+`)
   .action(async (name: string, options) => {
-    const spinner = ora("Loading agent...").start();
+    const spinner = createSpinner("Loading agent...").start();
 
     try {
-      if (isDemoModeEnabled() || isDemoModeCore()) {
+      if (isDemo()) {
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
@@ -139,8 +146,6 @@ export const showCommand = new Command("show")
       spinner.fail(chalk.yellow("Production mode not yet implemented"));
       console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to see sample data."));
     } catch (error) {
-      spinner.fail(chalk.red("Failed to load agent"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to load agent");
     }
   });

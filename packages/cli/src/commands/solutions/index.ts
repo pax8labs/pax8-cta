@@ -16,10 +16,16 @@
 
 import { Command } from "commander";
 import { listCommand } from "./list.js";
+import { removeCommand } from "./remove.js";
+import { showCommand } from "../agents/show.js";
+import { driftCommand } from "../agents/drift.js";
 
 export const solutionsCommand = new Command("solutions").description(
-  "Manage solutions in environments"
+  "List, inspect, and compare solutions across environments"
 );
 
 // Register subcommands
 solutionsCommand.addCommand(listCommand);
+solutionsCommand.addCommand(showCommand);
+solutionsCommand.addCommand(driftCommand);
+solutionsCommand.addCommand(removeCommand);

@@ -68,12 +68,11 @@ describe("Import Command (deliver)", () => {
   });
 
   describe("required options", () => {
-    it("should have --solution as required option", async () => {
+    it("should have --solution as optional flag (positional arg preferred)", async () => {
       const { importCommand } = await import("../commands/import.js");
 
       const solutionOption = importCommand.options.find((opt) => opt.long === "--solution");
       expect(solutionOption).toBeDefined();
-      expect(solutionOption?.required).toBe(true);
     });
 
     it("should have --tenant as required option", async () => {
@@ -86,14 +85,10 @@ describe("Import Command (deliver)", () => {
   });
 
   describe("option aliases", () => {
-    it('should accept "deliver" as alias for "import"', async () => {
+    it('should have "import" as command name', async () => {
       const { importCommand } = await import("../commands/import.js");
-      const program = new Command();
-      program.exitOverride();
-      program.addCommand(importCommand);
 
-      // Verify the alias exists
-      expect(importCommand.aliases()).toContain("deliver");
+      expect(importCommand.name()).toBe("import");
     });
 
     it("should accept --agentPackage as alias for --solution", async () => {
@@ -139,7 +134,7 @@ describe("Import Command (deliver)", () => {
         await program.parseAsync([
           "node",
           "test",
-          "deliver",
+          "import",
           "--solution",
           "./test.zip",
           "--tenant",
@@ -201,7 +196,7 @@ describe("Import Command (deliver)", () => {
     it("should have appropriate description", async () => {
       const { importCommand } = await import("../commands/import.js");
 
-      expect(importCommand.description()).toContain("agent package");
+      expect(importCommand.description()).toContain("solution");
       expect(importCommand.description()).toContain("tenant");
     });
   });
@@ -265,7 +260,7 @@ describe("Import Command (deliver)", () => {
       await program.parseAsync([
         "node",
         "test",
-        "deliver",
+        "import",
         "--solution",
         "./test.zip",
         "--tenant",
@@ -327,7 +322,7 @@ describe("Import Command (deliver)", () => {
         await program.parseAsync([
           "node",
           "test",
-          "deliver",
+          "import",
           "--solution",
           "./test.zip",
           "--tenant",

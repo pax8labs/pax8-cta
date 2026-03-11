@@ -82,14 +82,16 @@ describe("Deploy Command (Real Mode - Config File)", () => {
   });
 
   describe("required options validation", () => {
-    it("should error when neither --all nor --tag is specified", async () => {
-      const result = await runCli(["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH], {
+    it("should auto-default to --all when neither --all nor --tag is specified", async () => {
+      const result = await runCli(["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH, "--dry-run"], {
         env: { DEMO_MODE: "", HOME: TEST_DIR },
         cwd: TEST_DIR,
       });
 
-      expect(result.exitCode).toBe(1);
-      expect(containsText(result.output, "Must specify --all or --tag")).toBe(true);
+      // Should auto-default to --all and show all enabled tenants
+      const cleanOutput = stripAnsi(result.output);
+      expect(containsText(cleanOutput, "Dry run")).toBe(true);
+      expect(containsText(cleanOutput, "(2)")).toBe(true);
     });
   });
 
@@ -183,10 +185,10 @@ describe("Deploy Command (Real Mode - Config File)", () => {
     });
   });
 
-  describe("option aliases", () => {
-    it('should accept "ship" as alias for "deploy"', async () => {
+  describe("positional argument", () => {
+    it("should accept solution as positional argument", async () => {
       const result = await runCli(
-        ["ship", "--solution", "./test.zip", "--config", CONFIG_PATH, "--all", "--dry-run"],
+        ["deploy", "./test.zip", "--config", CONFIG_PATH, "--all", "--dry-run"],
         {
           env: { DEMO_MODE: "", HOME: TEST_DIR },
           cwd: TEST_DIR,
@@ -194,7 +196,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       );
 
       const cleanOutput = stripAnsi(result.output);
-      // Should work the same as deploy
+      // Should work with positional arg
       expect(containsText(cleanOutput, "Dry run")).toBe(true);
     });
   });

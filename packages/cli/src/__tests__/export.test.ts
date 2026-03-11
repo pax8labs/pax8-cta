@@ -54,12 +54,11 @@ describe('Export Command (pack)', () => {
   });
 
   describe('required options', () => {
-    it('should have --solution as required option', async () => {
+    it('should have --solution as optional flag (positional arg preferred)', async () => {
       const { exportCommand } = await import('../commands/export.js');
 
       const solutionOption = exportCommand.options.find(opt => opt.long === '--solution');
       expect(solutionOption).toBeDefined();
-      expect(solutionOption?.required).toBe(true);
     });
   });
 
@@ -69,7 +68,7 @@ describe('Export Command (pack)', () => {
       const program = new Command();
       program.addCommand(exportCommand);
 
-      await program.parseAsync(['node', 'test', 'pack', '--solution', 'TestAgent']);
+      await program.parseAsync(['node', 'test', 'export', '--solution', 'TestAgent']);
 
       const output = consoleCapture.getAllOutput();
 
@@ -82,7 +81,7 @@ describe('Export Command (pack)', () => {
       const program = new Command();
       program.addCommand(exportCommand);
 
-      await program.parseAsync(['node', 'test', 'pack', '--solution', 'TestAgent']);
+      await program.parseAsync(['node', 'test', 'export', '--solution', 'TestAgent']);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -99,7 +98,7 @@ describe('Export Command (pack)', () => {
       const program = new Command();
       program.addCommand(exportCommand);
 
-      await program.parseAsync(['node', 'test', 'pack', '--solution', 'TestAgent']);
+      await program.parseAsync(['node', 'test', 'export', '--solution', 'TestAgent']);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -112,7 +111,7 @@ describe('Export Command (pack)', () => {
       const program = new Command();
       program.addCommand(exportCommand);
 
-      await program.parseAsync(['node', 'test', 'pack', '--solution', 'TestAgent', '--unmanaged']);
+      await program.parseAsync(['node', 'test', 'export', '--solution', 'TestAgent', '--unmanaged']);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -125,7 +124,7 @@ describe('Export Command (pack)', () => {
       const program = new Command();
       program.addCommand(exportCommand);
 
-      await program.parseAsync(['node', 'test', 'pack', '--solution', 'TestAgent']);
+      await program.parseAsync(['node', 'test', 'export', '--solution', 'TestAgent']);
 
       const output = consoleCapture.getAllOutput();
 
@@ -137,18 +136,18 @@ describe('Export Command (pack)', () => {
       const program = new Command();
       program.addCommand(exportCommand);
 
-      await program.parseAsync(['node', 'test', 'pack', '--solution', 'TestAgent']);
+      await program.parseAsync(['node', 'test', 'export', '--solution', 'TestAgent']);
 
       // Should call mkdirSync to create directory
       expect(fs.mkdirSync).toHaveBeenCalled();
     });
   });
 
-  describe('option aliases', () => {
-    it('should accept "pack" as alias for "export"', async () => {
+  describe('command name', () => {
+    it('should have "export" as command name', async () => {
       const { exportCommand } = await import('../commands/export.js');
 
-      expect(exportCommand.aliases()).toContain('pack');
+      expect(exportCommand.name()).toBe('export');
     });
   });
 
@@ -173,7 +172,7 @@ describe('Export Command (pack)', () => {
       program.addCommand(exportCommand);
 
       await program.parseAsync([
-        'node', 'test', 'pack',
+        'node', 'test', 'export',
         '--solution', 'TestAgent',
         '--output', './custom-output'
       ]);
@@ -188,7 +187,7 @@ describe('Export Command (pack)', () => {
     it('should have appropriate description', async () => {
       const { exportCommand } = await import('../commands/export.js');
 
-      expect(exportCommand.description()).toContain('deployable package');
+      expect(exportCommand.description()).toContain('Export');
       expect(exportCommand.description()).toContain('solution');
     });
   });

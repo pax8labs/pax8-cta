@@ -15,9 +15,9 @@
  */
 
 import { Command } from "commander";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
   loadConfig,
@@ -27,20 +27,21 @@ import {
   AgentResolver,
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
+import { handleCommandError } from "../lib/errors.js";
 
 export const resolveUrlCommand = new Command("resolve-url")
-  .description("Resolve an M365 agent URL and export the containing solution")
+  .description("Find which solution contains a given M365 agent URL")
   .requiredOption(
     "-u, --url <url>",
     "M365 agent URL (e.g., https://m365.cloud.microsoft/chat/?titleId=...)"
   )
   .option("-o, --output <path>", "Output directory for the solution", "./agent packages")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--unmanaged", "Export as unmanaged solution (default: managed)")
   .option("--list-bots", "List all bots in the environment instead of resolving")
   .option("--dry-run", "Parse URL and show info without exporting")
   .action(async (options) => {
-    const spinner = ora("Loading configuration...").start();
+    const spinner = createSpinner("Loading configuration...").start();
 
     try {
       // Load config
@@ -50,7 +51,7 @@ export const resolveUrlCommand = new Command("resolve-url")
 
       // Authenticate
       spinner.start("Authenticating...");
-      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      const clientSecret = await getClientSecretWithFallback();
 
       const tokenManager = new TokenManager({
         tenantId: config.partner.tenantId,
@@ -128,7 +129,7 @@ export const resolveUrlCommand = new Command("resolve-url")
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       const suffix = managed ? "managed" : "unmanaged";
       const outputDir = resolve(options.output);
-      const outputPath = `${outputDir}/${resolved.solution.uniquename}_${timestamp}_${suffix}.zip`;
+      const outputPath = join(outputDir, `${resolved.solution.uniquename}_${timestamp}_${suffix}.zip`);
 
       spinner.start(`Exporting solution '${resolved.solution.uniquename}'...`);
       const metadata = await solutionOps.exportSolution(resolved.solution.uniquename, {
@@ -150,8 +151,6 @@ export const resolveUrlCommand = new Command("resolve-url")
         chalk.gray(`Use 'agentsync ship --agent package ${outputPath}' to deploy to your fleet`)
       );
     } catch (error) {
-      spinner.fail(chalk.red("Failed"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "URL resolution failed");
     }
   });

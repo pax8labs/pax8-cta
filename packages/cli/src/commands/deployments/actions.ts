@@ -16,8 +16,9 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import ora from "ora";
-import { isDemoModeEnabled } from "../demo.js";
+import { createSpinner } from "../../lib/spinner.js";
+import { isDemo } from "../../lib/command-wrapper.js";
+import { handleCommandError } from "../../lib/errors.js";
 
 // ============================================================================
 // deployments approve
@@ -28,7 +29,7 @@ export const approveCommand = new Command("approve")
   .description("Approve a pending deployment that requires approval")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
-    if (isDemoModeEnabled()) {
+    if (isDemo()) {
       console.log(chalk.yellow("\n⚠️  DEMO MODE - Approval workflow not yet implemented\n"));
       console.log(chalk.yellow(`⚠ Deployment ${chalk.cyan(id)} approval is simulated (no-op)`));
       console.log(
@@ -38,7 +39,7 @@ export const approveCommand = new Command("approve")
       process.exit(2);
     }
 
-    const spinner = ora("Approving deployment...").start();
+    const spinner = createSpinner("Approving deployment...").start();
 
     try {
       // In production, call the API or queue manager
@@ -73,9 +74,7 @@ export const approveCommand = new Command("approve")
       await queueManager.close();
       process.exit(2); // Exit with code 2 to indicate "not implemented"
     } catch (error) {
-      spinner.fail(chalk.red("Failed to approve deployment"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to approve deployment");
     }
   });
 
@@ -89,7 +88,7 @@ export const rejectCommand = new Command("reject")
   .option("-r, --reason <text>", "Reason for rejection")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
-    if (isDemoModeEnabled()) {
+    if (isDemo()) {
       console.log(chalk.yellow("\n⚠️  DEMO MODE - Rejection workflow not yet implemented\n"));
       console.log(chalk.yellow(`⚠ Deployment ${chalk.cyan(id)} rejection is simulated (no-op)`));
       if (options.reason) {
@@ -100,7 +99,7 @@ export const rejectCommand = new Command("reject")
       process.exit(2);
     }
 
-    const spinner = ora("Rejecting deployment...").start();
+    const spinner = createSpinner("Rejecting deployment...").start();
 
     try {
       const { DeploymentQueueManager } = await import("@agentsync/worker");
@@ -131,9 +130,7 @@ export const rejectCommand = new Command("reject")
 
       await queueManager.close();
     } catch (error) {
-      spinner.fail(chalk.red("Failed to reject deployment"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to reject deployment");
     }
   });
 
@@ -146,13 +143,13 @@ export const cancelCommand = new Command("cancel")
   .description("Cancel an in-progress deployment")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
-    if (isDemoModeEnabled()) {
+    if (isDemo()) {
       console.log(chalk.yellow("\n⚠️  DEMO MODE\n"));
       console.log(chalk.gray(`⊘ Deployment ${chalk.cyan(id)} cancelled`));
       return;
     }
 
-    const spinner = ora("Cancelling deployment...").start();
+    const spinner = createSpinner("Cancelling deployment...").start();
 
     try {
       const { DeploymentQueueManager } = await import("@agentsync/worker");
@@ -173,9 +170,7 @@ export const cancelCommand = new Command("cancel")
 
       await queueManager.close();
     } catch (error) {
-      spinner.fail(chalk.red("Failed to cancel deployment"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to cancel deployment");
     }
   });
 
@@ -189,7 +184,7 @@ export const retryCommand = new Command("retry")
   .option("-t, --tenant <tenantId>", "Retry only a specific tenant")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
-    if (isDemoModeEnabled()) {
+    if (isDemo()) {
       console.log(chalk.yellow("\n⚠️  DEMO MODE\n"));
       if (options.tenant) {
         console.log(
@@ -202,7 +197,7 @@ export const retryCommand = new Command("retry")
       return;
     }
 
-    const spinner = ora("Retrying failed jobs...").start();
+    const spinner = createSpinner("Retrying failed jobs...").start();
 
     try {
       const { DeploymentQueueManager } = await import("@agentsync/worker");
@@ -235,9 +230,7 @@ export const retryCommand = new Command("retry")
 
       await queueManager.close();
     } catch (error) {
-      spinner.fail(chalk.red("Failed to retry deployment"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to retry deployment");
     }
   });
 
@@ -250,7 +243,7 @@ export const rollbackCommand = new Command("rollback")
   .description("Rollback a completed deployment to the previous version")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
-    if (isDemoModeEnabled()) {
+    if (isDemo()) {
       console.log(chalk.yellow("\n⚠️  DEMO MODE - Rollback not yet implemented\n"));
 
       console.log(chalk.yellow(`⚠ Deployment ${chalk.cyan(id)} rollback is simulated (no-op)`));
@@ -262,7 +255,7 @@ export const rollbackCommand = new Command("rollback")
       process.exit(2);
     }
 
-    const spinner = ora("Initiating rollback...").start();
+    const spinner = createSpinner("Initiating rollback...").start();
 
     try {
       const { DeploymentQueueManager } = await import("@agentsync/worker");
@@ -297,8 +290,6 @@ export const rollbackCommand = new Command("rollback")
       await queueManager.close();
       process.exit(2); // Exit with code 2 to indicate "not implemented"
     } catch (error) {
-      spinner.fail(chalk.red("Failed to initiate rollback"));
-      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
-      process.exit(1);
+      handleCommandError(error, spinner, "Failed to initiate rollback");
     }
   });

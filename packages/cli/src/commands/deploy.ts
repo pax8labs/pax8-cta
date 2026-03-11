@@ -20,7 +20,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
   loadConfig,
@@ -31,9 +31,10 @@ import {
   SolutionOperations,
 } from "@agentsync/core";
 import { DeploymentQueueManager } from "@agentsync/worker";
-import { isDemoModeEnabled, getDemoTenants } from "./demo.js";
+import { getDemoTenants } from "./demo.js";
+import { isDemo } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
-import { formatError, printError } from "../lib/error-handler.js";
+import { handleCommandError } from "../lib/errors.js";
 
 interface SystemUser {
   systemuserid: string;
@@ -58,25 +59,40 @@ interface PrepareEnvironmentResult {
 }
 
 export const deployCommand = new Command("deploy")
-  .description("Deploy a solution to multiple tenants")
-  .requiredOption(
-    "-s, --solution <name|path>",
-    "Solution name or path to agent package (solution zip)"
-  )
+  .description("Export a solution from source and import it to target tenants")
+  .argument("[solution]", "Solution name (e.g., TestDeploy) or path to zip file")
+  .option("-s, --solution <name|path>", "Solution name or path to zip (alternative to argument)")
   .option("--agentPackage <path>", "Alias for --solution")
-  .option("-c, --config <path>", "Path to manifest file", "./config/tenants.yaml")
-  .option("-t, --tag <tags...>", "Ship only to destinations with these tags")
-  .option("--all", "Ship to all destinations in the fleet")
-  .option("--dry-run", "Preview shipment without shipping")
-  .option("--managed", "Export as managed solution (default, used with solution name)")
-  .option("--unmanaged", "Export as unmanaged solution (used with solution name)")
-  .option("--keep-package", "Keep exported package after deployment (used with solution name)")
-  .option("--package-dir <path>", "Directory for exported package (default: temp directory)")
-  .option("--no-auto-setup", "Disable automatic application user setup")
-  .option("--direct", "Deploy directly without requiring a worker (sequential)")
-  .option("--redis <url>", "Redis URL for shipping dock", "redis://localhost:6379")
-  .action(async (options) => {
-    const spinner = ora("Loading shipping manifest...").start();
+  .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
+  .option("-t, --tag <tags...>", "Deploy only to tenants with these tags")
+  .option("--all", "Deploy to all configured tenants (default)")
+  .option("--dry-run", "Preview what would happen without deploying")
+  .option("--managed", "Export as managed solution (default)")
+  .option("--unmanaged", "Export as unmanaged solution")
+  .option("--keep-package", "Keep exported zip after deployment")
+  .option("--package-dir <path>", "Directory for exported zip (default: temp)")
+  .option("--no-auto-setup", "Skip automatic application user setup")
+  .option("--direct", "Deploy sequentially without a background worker")
+  .option("--redis <url>", "Redis URL for background worker", "redis://localhost:6379")
+  .addHelpText("after", `
+Examples:
+  agentsync deploy TestDeploy --all --direct      Deploy to all tenants
+  agentsync deploy TestDeploy --tag production     Deploy to production tenants only
+  agentsync deploy TestDeploy --all --dry-run      Preview without deploying
+  agentsync deploy ./TestDeploy.zip --all          Deploy a pre-exported zip file
+`)
+  .action(async (solutionArg: string | undefined, options) => {
+    if (solutionArg && !options.solution) options.solution = solutionArg;
+    if (!options.solution) {
+      console.error(chalk.red("Error: solution name or path required."));
+      console.error(chalk.gray("  Example: agentsync deploy TestDeploy --all --direct"));
+      process.exit(2);
+    }
+    // Default to --all if no tag filter
+    if (!options.all && (!options.tag || options.tag.length === 0)) {
+      options.all = true;
+    }
+    const spinner = createSpinner("Loading configuration...").start();
 
     // Declare these outside try block so they're accessible in catch
     let agentPackagePath: string;
@@ -95,7 +111,7 @@ export const deployCommand = new Command("deploy")
       const isFilePath = solutionArg.endsWith(".zip");
 
       // Check for demo mode
-      if (isDemoModeEnabled()) {
+      if (isDemo()) {
         spinner.succeed("Demo fleet manifest loaded");
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
 
@@ -190,7 +206,7 @@ export const deployCommand = new Command("deploy")
         }
 
         // Get client secret once for reuse
-        const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+        const clientSecret = await getClientSecretWithFallback();
 
         // Auto-detect solution mode if not explicitly specified
         let managed = !options.unmanaged;
@@ -291,13 +307,7 @@ export const deployCommand = new Command("deploy")
 
           console.log();
         } catch (error) {
-          spinner.fail(chalk.red("Export failed"));
-
-          // Format and print structured error with recovery guidance
-          const agentSyncError = formatError(error);
-          printError(agentSyncError);
-
-          process.exit(1);
+          handleCommandError(error, spinner, "Export failed");
         }
       } else {
         agentPackagePath = resolve(solutionArg);
@@ -336,7 +346,7 @@ export const deployCommand = new Command("deploy")
       }
 
       // Verify client secret is available
-      await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      await getClientSecretWithFallback();
 
       // Auto-setup app users if needed (unless --no-auto-setup)
       if (options.autoSetup !== false) {
@@ -345,7 +355,7 @@ export const deployCommand = new Command("deploy")
         let warningCount = 0;
 
         for (const tenant of destinations) {
-          const prepareSpinner = ora(`Checking ${tenant.name}...`).start();
+          const prepareSpinner = createSpinner(`Checking ${tenant.name}...`).start();
           const prepared = await prepareEnvironment(config, tenant);
 
           if (prepared.success) {
@@ -376,12 +386,12 @@ export const deployCommand = new Command("deploy")
         // Direct deployment - import to each tenant sequentially
         console.log(chalk.bold("Deploying directly to destinations...\n"));
 
-        const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+        const clientSecret = await getClientSecretWithFallback();
         let successCount = 0;
         let failCount = 0;
 
         for (const tenant of destinations) {
-          const tenantSpinner = ora(`Deploying to ${tenant.name}...`).start();
+          const tenantSpinner = createSpinner(`Deploying to ${tenant.name}...`).start();
 
           try {
             const tokenManager = new TokenManager({
@@ -483,12 +493,6 @@ export const deployCommand = new Command("deploy")
         }
       }
     } catch (error) {
-      spinner.fail(chalk.red("Shipment failed"));
-
-      // Format and print structured error with recovery guidance
-      const agentSyncError = formatError(error);
-      printError(agentSyncError);
-
       // Clean up temp package on error
       if (tempPackagePath && existsSync(tempPackagePath)) {
         try {
@@ -498,7 +502,7 @@ export const deployCommand = new Command("deploy")
         }
       }
 
-      process.exit(1);
+      handleCommandError(error, spinner, "Shipment failed");
     }
   });
 
@@ -511,7 +515,7 @@ async function prepareEnvironment(
   tenant: TenantConfig
 ): Promise<PrepareEnvironmentResult> {
   try {
-    const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+    const clientSecret = await getClientSecretWithFallback();
     const tokenManager = new TokenManager({
       tenantId: tenant.tenantId,
       clientId: config.partner.clientId,
