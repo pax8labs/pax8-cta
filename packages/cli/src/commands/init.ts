@@ -114,6 +114,28 @@ export const initCommand = new Command("init")
 
     console.log(chalk.cyan.bold("\n🚀 AgentSync Setup Wizard\n"));
 
+    // Check if config already exists
+    const configPath = resolve(process.cwd(), options.config);
+    if (existsSync(configPath)) {
+      const rl = createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      console.log(chalk.yellow(`⚠️  Configuration already exists: ${configPath}\n`));
+      const overwrite = await rl.question(
+        chalk.white("Overwrite existing configuration? ") + chalk.gray("(y/n) ")
+      );
+      rl.close();
+
+      if (overwrite.toLowerCase() !== "y" && overwrite.toLowerCase() !== "yes") {
+        console.log(chalk.gray("\nSetup cancelled. Your existing configuration was preserved."));
+        console.log(chalk.gray("To modify settings, edit: " + configPath));
+        return;
+      }
+      console.log();
+    }
+
     if (options.demo) {
       // Demo mode setup
       console.log(chalk.yellow("Setting up in DEMO MODE..."));
