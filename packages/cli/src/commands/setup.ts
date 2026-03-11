@@ -19,9 +19,13 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import Table from "cli-table3";
-import { loadConfig, getClientSecret, TenantConfig } from "@agentsync/core";
-import { TokenManager } from "@agentsync/core";
-import { PowerPlatformAdminClient } from "@agentsync/core";
+import {
+  loadConfig,
+  getClientSecret,
+  TenantConfig,
+  TokenManager,
+  DataverseClient,
+} from "@agentsync/core";
 
 interface SetupStatus {
   tenantName: string;
@@ -30,6 +34,24 @@ interface SetupStatus {
   roleAssigned: boolean;
   status: "ready" | "needs_setup" | "partial" | "error";
   error?: string;
+  userId?: string;
+}
+
+interface SystemUser {
+  systemuserid: string;
+  fullname?: string;
+  applicationid?: string;
+  isdisabled?: boolean;
+}
+
+interface SecurityRole {
+  roleid: string;
+  name: string;
+}
+
+interface BusinessUnit {
+  businessunitid: string;
+  name: string;
 }
 
 export const setupCommand = new Command("setup")
@@ -97,7 +119,9 @@ export const setupCommand = new Command("setup")
 
       // If in check mode, we're done
       if (options.check) {
-        const needsSetup = statuses.filter((s) => s.status === "needs_setup").length;
+        const needsSetup = statuses.filter(
+          (s) => s.status === "needs_setup" || s.status === "partial"
+        ).length;
         if (needsSetup > 0) {
           console.log();
           console.log(
@@ -134,7 +158,7 @@ export const setupCommand = new Command("setup")
         const setupSpinner = ora(`Setting up ${status.tenantName}...`).start();
 
         try {
-          await setupTenant(config, tenant);
+          await setupTenant(config, tenant, status);
           setupSpinner.succeed(chalk.green(`Setup completed: ${status.tenantName}`));
           successCount++;
         } catch (error) {
@@ -160,75 +184,33 @@ export const setupCommand = new Command("setup")
   });
 
 /**
- * Discover environment ID from environment URL using Power Platform Admin API
- */
-async function discoverEnvironmentId(
-  tokenManager: TokenManager,
-  environmentUrl: string
-): Promise<string | null> {
-  try {
-    const adminClient = new PowerPlatformAdminClient({ tokenManager });
-    const environments = await adminClient.listEnvironmentSummaries();
-
-    // Normalize URL for comparison
-    const normalizedUrl = environmentUrl.toLowerCase().replace(/\/$/, "");
-
-    for (const env of environments) {
-      const envUrl = env.instanceUrl.toLowerCase().replace(/\/$/, "");
-      if (envUrl === normalizedUrl) {
-        return env.id;
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Check setup status for a tenant
+ * Check setup status for a tenant using Dataverse Web API
  */
 async function checkSetupStatus(
   config: { partner: { tenantId: string; clientId: string } },
-  tenant: TenantConfig & { environmentId?: string }
+  tenant: TenantConfig
 ): Promise<SetupStatus> {
+  const clientSecret = getClientSecret();
+  const tokenManager = new TokenManager({
+    tenantId: tenant.tenantId,
+    clientId: config.partner.clientId,
+    clientSecret: clientSecret,
+  });
+
+  const client = new DataverseClient({
+    environmentUrl: tenant.environmentUrl,
+    tokenManager,
+  });
+
   try {
-    const clientSecret = getClientSecret();
-    const tokenManager = new TokenManager({
-      tenantId: tenant.tenantId,
-      clientId: config.partner.clientId,
-      clientSecret: clientSecret,
+    // Check if app user exists
+    const appId = config.partner.clientId;
+    const result = await client.get<{ value: SystemUser[] }>("/systemusers", {
+      $filter: `applicationid eq '${appId}'`,
+      $select: "systemuserid,fullname,applicationid,isdisabled",
     });
 
-    // Get environmentId - either from config or discover it
-    let environmentId = tenant.environmentId;
-    if (!environmentId) {
-      environmentId =
-        (await discoverEnvironmentId(tokenManager, tenant.environmentUrl)) ?? undefined;
-      if (!environmentId) {
-        return {
-          tenantName: tenant.name,
-          environmentUrl: tenant.environmentUrl,
-          appRegistered: false,
-          roleAssigned: false,
-          status: "error",
-          error:
-            "Could not discover environment ID. Ensure the app has Power Platform Admin API access.",
-        };
-      }
-      // Cache it for later use
-      (tenant as TenantConfig & { environmentId: string }).environmentId = environmentId;
-    }
-
-    const adminClient = new PowerPlatformAdminClient({ tokenManager });
-
-    // Check if app user exists
-    const appUser = await adminClient.checkApplicationUserExists(
-      environmentId,
-      config.partner.clientId
-    );
-
-    if (!appUser) {
+    if (result.value.length === 0) {
       return {
         tenantName: tenant.name,
         environmentUrl: tenant.environmentUrl,
@@ -238,33 +220,70 @@ async function checkSetupStatus(
       };
     }
 
-    // App user exists - check if System Admin role is assigned
-    // We'll consider it "ready" if the user exists (role check is complex)
+    const user = result.value[0];
+
+    // Check if System Administrator role is assigned
+    const rolesResult = await client.get<{ value: SecurityRole[] }>(
+      `/systemusers(${user.systemuserid})/systemuserroles_association`,
+      {
+        $select: "roleid,name",
+      }
+    );
+
+    const hasAdminRole = rolesResult.value.some((r) => r.name === "System Administrator");
+
+    if (!hasAdminRole) {
+      return {
+        tenantName: tenant.name,
+        environmentUrl: tenant.environmentUrl,
+        appRegistered: true,
+        roleAssigned: false,
+        status: "partial",
+        userId: user.systemuserid,
+      };
+    }
+
     return {
       tenantName: tenant.name,
       environmentUrl: tenant.environmentUrl,
       appRegistered: true,
       roleAssigned: true,
       status: "ready",
+      userId: user.systemuserid,
     };
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Check if it's an auth error (app not registered)
+    if (errorMsg.includes("not a member of the organization")) {
+      return {
+        tenantName: tenant.name,
+        environmentUrl: tenant.environmentUrl,
+        appRegistered: false,
+        roleAssigned: false,
+        status: "needs_setup",
+        error: "App not registered in this environment (bootstrap required)",
+      };
+    }
+
     return {
       tenantName: tenant.name,
       environmentUrl: tenant.environmentUrl,
       appRegistered: false,
       roleAssigned: false,
       status: "error",
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMsg,
     };
   }
 }
 
 /**
- * Setup application user for a tenant
+ * Setup application user for a tenant using Dataverse Web API
  */
 async function setupTenant(
   config: { partner: { tenantId: string; clientId: string } },
-  tenant: TenantConfig & { environmentId?: string }
+  tenant: TenantConfig,
+  status: SetupStatus
 ): Promise<void> {
   const clientSecret = getClientSecret();
   const tokenManager = new TokenManager({
@@ -273,27 +292,69 @@ async function setupTenant(
     clientSecret: clientSecret,
   });
 
-  // Get environmentId - either from config or discover it
-  let environmentId = tenant.environmentId;
-  if (!environmentId) {
-    environmentId = (await discoverEnvironmentId(tokenManager, tenant.environmentUrl)) ?? undefined;
-    if (!environmentId) {
-      throw new Error(
-        "Could not discover environment ID. Ensure the app has Power Platform Admin API access."
-      );
+  const client = new DataverseClient({
+    environmentUrl: tenant.environmentUrl,
+    tokenManager,
+  });
+
+  const appId = config.partner.clientId;
+  let userId = status.userId;
+
+  // Create app user if needed
+  if (!status.appRegistered) {
+    // Get root business unit
+    const buResult = await client.get<{ value: BusinessUnit[] }>("/businessunits", {
+      $filter: "parentbusinessunitid eq null",
+      $select: "businessunitid,name",
+    });
+
+    if (buResult.value.length === 0) {
+      throw new Error("Could not find root business unit");
     }
+
+    const buId = buResult.value[0].businessunitid;
+
+    // Create app user
+    await client.post("/systemusers", {
+      applicationid: appId,
+      "businessunitid@odata.bind": `/businessunits(${buId})`,
+    });
+
+    // Get the newly created user's ID
+    const userResult = await client.get<{ value: SystemUser[] }>("/systemusers", {
+      $filter: `applicationid eq '${appId}'`,
+      $select: "systemuserid",
+    });
+
+    if (userResult.value.length === 0) {
+      throw new Error("Failed to create app user");
+    }
+
+    userId = userResult.value[0].systemuserid;
+    console.log(chalk.gray(`  Created app user: ${userId}`));
   }
 
-  const adminClient = new PowerPlatformAdminClient({ tokenManager });
+  // Assign System Administrator role if needed
+  if (!status.roleAssigned && userId) {
+    // Get System Administrator role
+    const roleResult = await client.get<{ value: SecurityRole[] }>("/roles", {
+      $filter: "name eq 'System Administrator'",
+      $select: "roleid,name",
+    });
 
-  const result = await adminClient.setupApplicationUser(
-    environmentId,
-    tenant.environmentUrl,
-    config.partner.clientId
-  );
+    if (roleResult.value.length === 0) {
+      throw new Error("Could not find System Administrator role");
+    }
 
-  if (!result.created) {
-    console.log(chalk.yellow(`  Application user already exists`));
+    const roleId = roleResult.value[0].roleid;
+
+    // Assign role to user
+    const apiUrl = tenant.environmentUrl.replace(/\/$/, "") + "/api/data/v9.2";
+    await client.post(`/systemusers(${userId})/systemuserroles_association/$ref`, {
+      "@odata.id": `${apiUrl}/roles(${roleId})`,
+    });
+
+    console.log(chalk.gray(`  Assigned System Administrator role`));
   }
 }
 
@@ -308,12 +369,11 @@ function displaySetupStatus(statuses: SetupStatus[]): void {
 
   for (const status of statuses) {
     const appRegistered = status.appRegistered ? chalk.green("✓") : chalk.red("✗");
-    const roleAssigned =
-      status.roleAssigned && status.appRegistered
-        ? chalk.green("System Admin")
-        : status.error
-          ? chalk.gray("-")
-          : chalk.gray("-");
+    const roleAssigned = status.roleAssigned
+      ? chalk.green("System Admin")
+      : status.appRegistered
+        ? chalk.yellow("None")
+        : chalk.gray("-");
 
     let statusText: string;
     if (status.status === "ready") {
@@ -321,7 +381,7 @@ function displaySetupStatus(statuses: SetupStatus[]): void {
     } else if (status.status === "needs_setup") {
       statusText = chalk.yellow("Needs setup");
     } else if (status.status === "partial") {
-      statusText = chalk.yellow("Partial");
+      statusText = chalk.yellow("Needs role");
     } else {
       statusText = chalk.red("Error");
     }
@@ -337,9 +397,24 @@ function displaySetupStatus(statuses: SetupStatus[]): void {
   const errors = statuses.filter((s) => s.error);
   if (errors.length > 0) {
     console.log();
-    console.log(chalk.bold("Errors:"));
+    console.log(chalk.bold("Notes:"));
     for (const status of errors) {
-      console.log(chalk.red(`  ${status.tenantName}: ${status.error}`));
+      console.log(chalk.yellow(`  ${status.tenantName}: ${status.error}`));
     }
+  }
+
+  // Show bootstrap message if needed
+  const needsBootstrap = statuses.filter(
+    (s) => s.status === "needs_setup" && s.error?.includes("bootstrap")
+  );
+  if (needsBootstrap.length > 0) {
+    console.log();
+    console.log(chalk.bold("Bootstrap Required:"));
+    console.log(
+      chalk.gray("  Some environments require manual app user setup first (one-time bootstrap).")
+    );
+    console.log(chalk.gray("  Go to: https://admin.powerplatform.microsoft.com"));
+    console.log(chalk.gray("  → Environment → Settings → Users + permissions → Application users"));
+    console.log(chalk.gray(`  → Add app: ${statuses[0]?.environmentUrl ? "your app ID" : ""}`));
   }
 }
