@@ -30,7 +30,7 @@ export const approveCommand = new Command("approve")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
     if (isDemo()) {
-      console.log(chalk.yellow("\n⚠️  DEMO MODE - Approval workflow not yet implemented\n"));
+      console.error(chalk.yellow("\n⚠️  DEMO MODE - Approval workflow not yet implemented\n"));
       console.log(chalk.yellow(`⚠ Deployment ${chalk.cyan(id)} approval is simulated (no-op)`));
       console.log(
         chalk.gray("\nIn production, this will approve a deployment awaiting manual review.")
@@ -89,7 +89,7 @@ export const rejectCommand = new Command("reject")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
     if (isDemo()) {
-      console.log(chalk.yellow("\n⚠️  DEMO MODE - Rejection workflow not yet implemented\n"));
+      console.error(chalk.yellow("\n⚠️  DEMO MODE - Rejection workflow not yet implemented\n"));
       console.log(chalk.yellow(`⚠ Deployment ${chalk.cyan(id)} rejection is simulated (no-op)`));
       if (options.reason) {
         console.log(chalk.gray(`  Reason: ${options.reason}`));
@@ -144,7 +144,7 @@ export const cancelCommand = new Command("cancel")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
     if (isDemo()) {
-      console.log(chalk.yellow("\n⚠️  DEMO MODE\n"));
+      console.error(chalk.yellow("\n⚠️  DEMO MODE\n"));
       console.log(chalk.gray(`⊘ Deployment ${chalk.cyan(id)} cancelled`));
       return;
     }
@@ -185,7 +185,7 @@ export const retryCommand = new Command("retry")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
     if (isDemo()) {
-      console.log(chalk.yellow("\n⚠️  DEMO MODE\n"));
+      console.error(chalk.yellow("\n⚠️  DEMO MODE\n"));
       if (options.tenant) {
         console.log(
           chalk.cyan(`↻ Retrying tenant ${options.tenant} in deployment ${chalk.cyan(id)}`)
@@ -244,7 +244,7 @@ export const rollbackCommand = new Command("rollback")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
     if (isDemo()) {
-      console.log(chalk.yellow("\n⚠️  DEMO MODE - Rollback not yet implemented\n"));
+      console.error(chalk.yellow("\n⚠️  DEMO MODE - Rollback not yet implemented\n"));
 
       console.log(chalk.yellow(`⚠ Deployment ${chalk.cyan(id)} rollback is simulated (no-op)`));
       console.log(chalk.gray("\nIn production, this will restore the previous solution version."));

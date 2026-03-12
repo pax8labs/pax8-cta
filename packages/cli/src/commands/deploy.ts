@@ -121,7 +121,7 @@ Examples:
       // Check for demo mode
       if (isDemo()) {
         spinner.succeed("Demo fleet manifest loaded");
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
 
         // In demo mode, show export simulation if solution name provided
         if (!isFilePath) {

@@ -44,7 +44,7 @@ export const listCommand = new Command("list")
     try {
       if (isDemo()) {
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
         let solutions = [...DEMO_SOLUTIONS];
 

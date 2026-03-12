@@ -32,19 +32,22 @@ export const driftCommand = new Command("drift")
   .option("-t, --tenant <name>", "Check specific tenant only")
   .option("--outdated", "Show only outdated tenants")
   .option("--json", "Output as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync solutions drift                           Show fleet-wide version drift summary
   agentsync solutions drift -t AgentSync-Test2        Check drift for a specific tenant
   agentsync solutions drift --outdated                Show only outdated tenants
-`)
+`
+  )
   .action(async (options) => {
     const spinner = createSpinner("Checking version drift...").start();
 
     try {
       if (isDemo()) {
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
         // Single tenant mode
         if (options.tenant) {

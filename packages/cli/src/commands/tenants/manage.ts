@@ -37,7 +37,7 @@ export const enableCommand = new Command("enable")
     try {
       if (isDemo()) {
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
         const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
@@ -97,7 +97,7 @@ export const disableCommand = new Command("disable")
     try {
       if (isDemo()) {
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
         const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
@@ -164,7 +164,7 @@ export const tagCommand = new Command("tag")
     try {
       if (isDemo()) {
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
         const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 

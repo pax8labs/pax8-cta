@@ -63,18 +63,14 @@ const OPERATION_NAMES: Record<number, string> = {
   3: "Publish",
 };
 
-function mapHistoryRecord(
-  record: SolutionHistoryRecord,
-  environmentName: string
-): HistoryEntry {
+function mapHistoryRecord(record: SolutionHistoryRecord, environmentName: string): HistoryEntry {
   return {
     id: record.msdyn_solutionhistoryid,
     solutionName: record.msdyn_name,
     solutionVersion: record.msdyn_solutionversion || "-",
     operation: OPERATION_NAMES[record.msdyn_operation] || `Op:${record.msdyn_operation}`,
-    status: record.msdyn_status === 1
-      ? (record.msdyn_result ? "completed" : "failed")
-      : "in_progress",
+    status:
+      record.msdyn_status === 1 ? (record.msdyn_result ? "completed" : "failed") : "in_progress",
     success: record.msdyn_result,
     startTime: record.msdyn_starttime,
     endTime: record.msdyn_endtime,
@@ -100,9 +96,7 @@ export interface GetHistoryOptions {
   json?: boolean;
 }
 
-export async function getDeploymentHistory(
-  options: GetHistoryOptions
-): Promise<HistoryEntry[]> {
+export async function getDeploymentHistory(options: GetHistoryOptions): Promise<HistoryEntry[]> {
   const configPath = resolve(process.cwd(), options.config || "./config/tenants.yaml");
   const config = await loadConfig(configPath);
   const clientSecret = await getClientSecretWithFallback();
@@ -181,9 +175,7 @@ export async function getDeploymentHistory(
   }
 
   // Sort by start time descending
-  allEntries.sort(
-    (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-  );
+  allEntries.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
   return allEntries;
 }
@@ -202,7 +194,7 @@ export async function getDeploymentHistoryById(
 
 export async function getDeployments(_options: GetHistoryOptions): Promise<DeploymentJob[]> {
   if (isDemo()) {
-    console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
     return generateMockDeploymentHistory(50);
   }
 
@@ -308,7 +300,7 @@ export function outputHistoryJson(
   console.log(
     JSON.stringify(
       {
-        history: entries,
+        deployments: entries,
         pagination: { total, limit, offset, hasMore: offset + entries.length < total },
       },
       null,
@@ -342,10 +334,7 @@ export function outputHistoryTable(
           ? chalk.red("Failed")
           : chalk.yellow("In Progress");
 
-    const duration =
-      e.durationSeconds != null
-        ? formatDuration(e.durationSeconds * 1000)
-        : "-";
+    const duration = e.durationSeconds != null ? formatDuration(e.durationSeconds * 1000) : "-";
 
     table.push([
       truncate(e.solutionName, 25),
@@ -375,9 +364,7 @@ export function outputHistoryDetails(entry: HistoryEntry): void {
   console.log(`  Solution:      ${entry.solutionName}`);
   console.log(`  Version:       ${entry.solutionVersion}`);
   console.log(`  Operation:     ${entry.operation}`);
-  console.log(
-    `  Status:        ${entry.success ? chalk.green("Success") : chalk.red("Failed")}`
-  );
+  console.log(`  Status:        ${entry.success ? chalk.green("Success") : chalk.red("Failed")}`);
   console.log(`  Environment:   ${entry.environment}`);
   console.log(`  Managed:       ${entry.isManaged ? "Yes" : "No"}`);
   if (entry.publisher) {
@@ -501,7 +488,12 @@ export function outputDeploymentDetails(deployment: DeploymentJob): void {
 
     deployment.tenantResults
       .sort((a, b) => {
-        const order: Record<string, number> = { in_progress: 0, pending: 1, completed: 2, failed: 3 };
+        const order: Record<string, number> = {
+          in_progress: 0,
+          pending: 1,
+          completed: 2,
+          failed: 3,
+        };
         return (order[a.status] ?? 5) - (order[b.status] ?? 5);
       })
       .forEach((result) => {

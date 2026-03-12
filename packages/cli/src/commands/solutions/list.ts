@@ -36,31 +36,31 @@ export const listCommand = new Command("list")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tenant <name>", "Tenant name or ID to query (defaults to source environment)")
   .option("--json", "Output as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync solutions list                             List solutions in source environment
   agentsync solutions list -t AgentSync-Test2          List solutions in a target tenant
   agentsync solutions list --json                      Output as JSON
-`)
+`
+  )
   .action(async (options) => {
     const spinner = createSpinner("Loading configuration...").start();
 
     try {
       await withDemoMode(
         () => listSolutionsDemo(spinner, options),
-        () => listSolutionsReal(spinner, options),
+        () => listSolutionsReal(spinner, options)
       );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to list solutions");
     }
   });
 
-function listSolutionsDemo(
-  spinner: ReturnType<typeof createSpinner>,
-  options: { json?: boolean },
-) {
+function listSolutionsDemo(spinner: ReturnType<typeof createSpinner>, options: { json?: boolean }) {
   spinner.succeed(`Found ${DEMO_SOLUTIONS.length} solutions in demo environment`);
-  console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
   const solutions = DEMO_SOLUTIONS;
 
@@ -106,7 +106,7 @@ function listSolutionsDemo(
 
 async function listSolutionsReal(
   spinner: ReturnType<typeof createSpinner>,
-  options: { config: string; tenant?: string; json?: boolean },
+  options: { config: string; tenant?: string; json?: boolean }
 ) {
   const configPath = resolve(process.cwd(), options.config);
   const config = await loadConfig(configPath);
@@ -194,7 +194,5 @@ async function listSolutionsReal(
 
   console.log(table.toString());
   console.log();
-  console.log(
-    chalk.gray(`Total: ${solutions.length} solutions in ${environmentName} environment`)
-  );
+  console.log(chalk.gray(`Total: ${solutions.length} solutions in ${environmentName} environment`));
 }

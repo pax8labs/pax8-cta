@@ -31,19 +31,22 @@ export const listCommand = new Command("list")
   .option("-s, --search <query>", "Search by name, ID, or environment URL")
   .option("--status <status>", "Filter by status (enabled|disabled|all)", "all")
   .option("--json", "Output as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync tenants list                              List all configured tenants
   agentsync tenants list -s enabled                   Show only enabled tenants
   agentsync tenants list -t production --json         Filter by tag and output as JSON
-`)
+`
+  )
   .action(async (options) => {
     const spinner = createSpinner("Loading fleet manifest...").start();
 
     try {
       await withDemoMode(
         () => listDemo(spinner, options),
-        () => listReal(spinner, options),
+        () => listReal(spinner, options)
       );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to load fleet manifest");
@@ -52,7 +55,7 @@ Examples:
 
 function applyFilters(
   destinations: typeof DEMO_TENANTS,
-  options: { search?: string; tag?: string[]; status?: string },
+  options: { search?: string; tag?: string[]; status?: string }
 ) {
   let filtered = [...destinations];
 
@@ -67,9 +70,7 @@ function applyFilters(
   }
 
   if (options.tag && options.tag.length > 0) {
-    filtered = filtered.filter((t) =>
-      options.tag!.every((tag: string) => t.tags?.includes(tag))
-    );
+    filtered = filtered.filter((t) => options.tag!.every((tag: string) => t.tags?.includes(tag)));
   }
 
   if (options.status === "enabled") {
@@ -84,7 +85,7 @@ function applyFilters(
 function renderTable(
   destinations: typeof DEMO_TENANTS,
   options: { json?: boolean; search?: string; tag?: string[]; status?: string },
-  totalActive: number,
+  totalActive: number
 ) {
   if (options.json) {
     console.log(
@@ -130,19 +131,17 @@ function renderTable(
     console.log(chalk.gray(`${destinations.length} tenants ${filterInfo.join(", ")}`));
   } else {
     console.log(
-      chalk.gray(
-        `Fleet size: ${destinations.length} destinations (${totalActive} active)`
-      )
+      chalk.gray(`Fleet size: ${destinations.length} destinations (${totalActive} active)`)
     );
   }
 }
 
 function listDemo(
   spinner: ReturnType<typeof createSpinner>,
-  options: { search?: string; tag?: string[]; status?: string; json?: boolean },
+  options: { search?: string; tag?: string[]; status?: string; json?: boolean }
 ) {
   spinner.succeed(`Loaded ${DEMO_TENANTS.length} destinations from demo fleet`);
-  console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
   const destinations = applyFilters(DEMO_TENANTS, options);
   renderTable(destinations, options, DEMO_TENANTS.filter((t) => t.enabled).length);
@@ -150,7 +149,7 @@ function listDemo(
 
 async function listReal(
   spinner: ReturnType<typeof createSpinner>,
-  options: { config: string; search?: string; tag?: string[]; status?: string; json?: boolean },
+  options: { config: string; search?: string; tag?: string[]; status?: string; json?: boolean }
 ) {
   const configPath = resolve(process.cwd(), options.config);
   const config = await loadConfig(configPath);

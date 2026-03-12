@@ -194,17 +194,20 @@ export const demoCommand = new Command("demo")
 
 // Export helper to check if demo mode is enabled
 export function isDemoModeEnabled(): boolean {
-  // Environment variable takes precedence (allows override of config file)
+  // Environment variable DEMO_MODE=true takes highest precedence
   const envVar = process.env.DEMO_MODE;
-  if (envVar !== undefined) {
-    // Explicit false/empty disables demo mode regardless of config
-    if (envVar === "false" || envVar === "0" || envVar === "") {
-      return false;
-    }
-    // Explicit true enables demo mode
-    if (envVar === "true" || envVar === "1") {
-      return true;
-    }
+  if (envVar === "true" || envVar === "1") {
+    return true;
+  }
+  // Explicit DEMO_MODE=false/0/"" disables regardless of config
+  if (envVar === "false" || envVar === "0" || envVar === "") {
+    return false;
+  }
+
+  // If real credentials are available, auto-disable demo mode
+  // regardless of stored config (prevents stale demoMode: true trap)
+  if (process.env.PARTNER_CLIENT_SECRET || process.env.AGENTSYNC_CLIENT_SECRET) {
+    return false;
   }
 
   // Fall back to stored config

@@ -47,7 +47,7 @@ export const showCommand = new Command("show")
       if (isDemo()) {
         tenants = DEMO_TENANTS;
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
       } else {
         const configPath = resolve(process.cwd(), options.config);
         const config = await loadConfig(configPath);

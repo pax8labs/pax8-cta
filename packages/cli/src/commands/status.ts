@@ -146,7 +146,7 @@ export const statusCommand = new Command("status")
     // Handle --list flag
     if (options.list) {
       if (isDemo()) {
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
         console.log(chalk.bold("Recent Shipments:"));
         console.log();
 
@@ -179,7 +179,9 @@ export const statusCommand = new Command("status")
         console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
         return;
       } else {
-        console.error(chalk.red("--list flag requires Redis connection (not yet implemented in non-demo mode)."));
+        console.error(
+          chalk.red("--list flag requires Redis connection (not yet implemented in non-demo mode).")
+        );
         console.error(chalk.gray("Try demo mode: agentsync demo on"));
         process.exit(2);
       }
@@ -188,13 +190,15 @@ export const statusCommand = new Command("status")
     const trackingId = options.shipment || options.deployment;
 
     if (!trackingId) {
-      console.error(chalk.red("Error: must specify --shipment or --deployment tracking number, or use --list."));
+      console.error(
+        chalk.red("Error: must specify --shipment or --deployment tracking number, or use --list.")
+      );
       process.exit(2);
     }
 
     // Handle demo mode
     if (isDemo()) {
-      console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
+      console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
 
       const shipment = getDemoDeploymentDetails(trackingId);
 

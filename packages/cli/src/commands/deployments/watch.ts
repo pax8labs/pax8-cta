@@ -29,7 +29,7 @@ export const watchCommand = new Command("watch")
   .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
   .action(async (id: string, options) => {
     if (isDemo()) {
-      console.log(chalk.yellow("\n⚠️  DEMO MODE - Watch simulates progress\n"));
+      console.error(chalk.yellow("\n⚠️  DEMO MODE - Watch simulates progress\n"));
 
       const history = generateMockDeploymentHistory(50);
       const deployment = history.find((d) => d.id === id);

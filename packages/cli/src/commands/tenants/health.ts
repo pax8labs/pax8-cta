@@ -19,12 +19,7 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
-import {
-  loadConfig,
-  DEMO_TENANTS,
-  generateMockHealthCheck,
-  TenantConfig,
-} from "@agentsync/core";
+import { loadConfig, DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@agentsync/core";
 import { isDemo } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
@@ -36,12 +31,15 @@ export const healthCommand = new Command("health")
   .option("-t, --tag <tags...>", "Filter by tags")
   .option("--watch", "Continuously monitor (refresh every 30s)")
   .option("--json", "Output as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync tenants health                            Show fleet-wide health summary
   agentsync tenants health AgentSync-Test2            Check health for a specific tenant
   agentsync tenants health --json                     Output health data as JSON
-`)
+`
+  )
   .action(async (tenantQuery: string | undefined, options) => {
     const spinner = createSpinner("Checking health...").start();
 
@@ -51,7 +49,7 @@ Examples:
       if (isDemo()) {
         tenants = DEMO_TENANTS;
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
       } else {
         const configPath = resolve(process.cwd(), options.config);
         const config = await loadConfig(configPath);

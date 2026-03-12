@@ -29,19 +29,22 @@ export const showCommand = new Command("show")
   .description("View solution details and where it's deployed")
   .option("--tenants", "Show tenant deployment status")
   .option("--json", "Output as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync solutions show TestDeploy                 View solution details
   agentsync solutions show TestDeploy --tenants       Show tenant deployment status
   agentsync solutions show TestDeploy --json          Output as JSON
-`)
+`
+  )
   .action(async (name: string, options) => {
     const spinner = createSpinner("Loading agent...").start();
 
     try {
       if (isDemo()) {
         spinner.stop();
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
         const solution = findSolution(DEMO_SOLUTIONS, name);
 

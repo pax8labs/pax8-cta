@@ -87,7 +87,7 @@ Examples:
       // Check for demo mode
       if (isDemo()) {
         spinner.succeed("Demo fleet manifest loaded");
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
 
         const destinations = getDemoTenants(options);
 

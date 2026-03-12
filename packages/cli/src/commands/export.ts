@@ -57,7 +57,7 @@ Examples:
       // Check for demo mode
       if (isDemo()) {
         spinner.succeed("Demo mode - using sample agent package");
-        console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
         // Create output directory
         const outputDir = resolve(options.output);
