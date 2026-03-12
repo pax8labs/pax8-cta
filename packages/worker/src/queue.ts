@@ -270,9 +270,7 @@ export class DeploymentQueueManager {
       "delayed",
     ]);
 
-    const deploymentJobs = jobs.filter(
-      (job) => job.data.deploymentId === deploymentId
-    );
+    const deploymentJobs = jobs.filter((job) => job.data.deploymentId === deploymentId);
 
     if (deploymentJobs.length === 0) {
       return null;
@@ -298,16 +296,9 @@ export class DeploymentQueueManager {
           tenantId: job.data.tenant.tenantId,
           tenantName: job.data.tenant.name,
           status,
-          startedAt: job.processedOn
-            ? new Date(job.processedOn).toISOString()
-            : undefined,
-          completedAt: job.finishedOn
-            ? new Date(job.finishedOn).toISOString()
-            : undefined,
-          error:
-            state === "failed"
-              ? job.failedReason
-              : job.returnvalue?.error,
+          startedAt: job.processedOn ? new Date(job.processedOn).toISOString() : undefined,
+          completedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : undefined,
+          error: state === "failed" ? job.failedReason : job.returnvalue?.error,
           solutionImportJobId: job.returnvalue?.importJobId,
           attemptNumber: job.attemptsMade + 1,
           durationMs: job.returnvalue?.durationMs,
@@ -317,12 +308,8 @@ export class DeploymentQueueManager {
       })
     );
 
-    const completedCount = tenantResults.filter(
-      (r) => r.status === "completed"
-    ).length;
-    const failedCount = tenantResults.filter(
-      (r) => r.status === "failed"
-    ).length;
+    const completedCount = tenantResults.filter((r) => r.status === "completed").length;
+    const failedCount = tenantResults.filter((r) => r.status === "failed").length;
 
     let overallStatus: DeploymentStatus = "pending";
     if (completedCount + failedCount === tenantResults.length) {
@@ -354,14 +341,9 @@ export class DeploymentQueueManager {
    * Cancel a deployment (remove pending jobs)
    */
   async cancelDeployment(deploymentId: string): Promise<number> {
-    const jobs = await this.tenantDeploymentQueue.getJobs([
-      "waiting",
-      "delayed",
-    ]);
+    const jobs = await this.tenantDeploymentQueue.getJobs(["waiting", "delayed"]);
 
-    const deploymentJobs = jobs.filter(
-      (job) => job.data.deploymentId === deploymentId
-    );
+    const deploymentJobs = jobs.filter((job) => job.data.deploymentId === deploymentId);
 
     let cancelledCount = 0;
     for (const job of deploymentJobs) {
@@ -378,9 +360,7 @@ export class DeploymentQueueManager {
   async retryFailedJobs(deploymentId: string): Promise<number> {
     const jobs = await this.tenantDeploymentQueue.getJobs(["failed"]);
 
-    const failedJobs = jobs.filter(
-      (job) => job.data.deploymentId === deploymentId
-    );
+    const failedJobs = jobs.filter((job) => job.data.deploymentId === deploymentId);
 
     let retriedCount = 0;
     for (const job of failedJobs) {
@@ -473,17 +453,13 @@ export class DeploymentQueueManager {
     await this.removeScheduledDeployment(scheduleId);
 
     // Add the repeatable job with BullMQ's built-in cron support
-    await this.scheduledDeploymentQueue.add(
-      "scheduled-deployment",
-      jobData,
-      {
-        repeat: {
-          pattern: schedule.cron,
-          tz: schedule.timezone || "UTC",
-        },
-        jobId: scheduleId,
-      }
-    );
+    await this.scheduledDeploymentQueue.add("scheduled-deployment", jobData, {
+      repeat: {
+        pattern: schedule.cron,
+        tz: schedule.timezone || "UTC",
+      },
+      jobId: scheduleId,
+    });
 
     logger.info("Registered scheduled deployment", {
       scheduleName,
@@ -515,7 +491,7 @@ export class DeploymentQueueManager {
           solutionPath,
           solutionName,
           config,
-          { tenantIds: config.tenants.filter(t => t.enabled !== false).map(t => t.tenantId) }
+          { tenantIds: config.tenants.filter((t) => t.enabled !== false).map((t) => t.tenantId) }
         );
         registered++;
       } catch (error) {
@@ -538,7 +514,9 @@ export class DeploymentQueueManager {
           );
           registered++;
         } catch (error) {
-          errors.push(`Tenant ${tenant.name}: ${error instanceof Error ? error.message : String(error)}`);
+          errors.push(
+            `Tenant ${tenant.name}: ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
     }
@@ -551,7 +529,7 @@ export class DeploymentQueueManager {
    */
   async removeScheduledDeployment(scheduleId: string): Promise<boolean> {
     const repeatableJobs = await this.scheduledDeploymentQueue.getRepeatableJobs();
-    const job = repeatableJobs.find(j => j.id === scheduleId || j.key.includes(scheduleId));
+    const job = repeatableJobs.find((j) => j.id === scheduleId || j.key.includes(scheduleId));
 
     if (job) {
       await this.scheduledDeploymentQueue.removeRepeatableByKey(job.key);
@@ -579,16 +557,18 @@ export class DeploymentQueueManager {
   /**
    * List all registered scheduled deployments
    */
-  async listScheduledDeployments(): Promise<Array<{
-    id: string;
-    name: string;
-    cron: string;
-    timezone: string;
-    nextRun: Date | null;
-  }>> {
+  async listScheduledDeployments(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      cron: string;
+      timezone: string;
+      nextRun: Date | null;
+    }>
+  > {
     const repeatableJobs = await this.scheduledDeploymentQueue.getRepeatableJobs();
 
-    return repeatableJobs.map(job => ({
+    return repeatableJobs.map((job) => ({
       id: job.id || job.key,
       name: job.name,
       cron: job.pattern || "",
@@ -618,7 +598,7 @@ export class DeploymentQueueManager {
     const activeWorkers = workers.length;
 
     // Get job counts
-    const counts = await this.tenantDeploymentQueue.getJobCounts('active', 'waiting');
+    const counts = await this.tenantDeploymentQueue.getJobCounts("active", "waiting");
 
     return {
       activeWorkers,

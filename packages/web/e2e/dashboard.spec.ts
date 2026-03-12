@@ -1,25 +1,25 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test.describe('Dashboard', () => {
-  test.describe('Stats API', () => {
-    test('GET /api/stats returns dashboard statistics', async ({ request }) => {
-      const response = await request.get('/api/stats');
+test.describe("Dashboard", () => {
+  test.describe("Stats API", () => {
+    test("GET /api/stats returns dashboard statistics", async ({ request }) => {
+      const response = await request.get("/api/stats");
 
       expect(response.status()).toBe(200);
 
       const body = await response.json();
       expect(body.demoMode).toBe(true);
-      expect(typeof body.totalTenants).toBe('number');
-      expect(typeof body.enabledTenants).toBe('number');
-      expect(typeof body.activeDeployments).toBe('number');
-      expect(typeof body.completedToday).toBe('number');
-      expect(typeof body.failedToday).toBe('number');
+      expect(typeof body.totalTenants).toBe("number");
+      expect(typeof body.enabledTenants).toBe("number");
+      expect(typeof body.activeDeployments).toBe("number");
+      expect(typeof body.completedToday).toBe("number");
+      expect(typeof body.failedToday).toBe("number");
     });
 
-    test('stats values are consistent with tenant data', async ({ request }) => {
+    test("stats values are consistent with tenant data", async ({ request }) => {
       const [statsResponse, tenantsResponse] = await Promise.all([
-        request.get('/api/stats'),
-        request.get('/api/tenants'),
+        request.get("/api/stats"),
+        request.get("/api/tenants"),
       ]);
 
       const stats = await statsResponse.json();
@@ -34,12 +34,12 @@ test.describe('Dashboard', () => {
     });
   });
 
-  test.describe('Dashboard Navigation', () => {
-    test('stats cards are clickable and navigate correctly', async ({ page }) => {
+  test.describe("Dashboard Navigation", () => {
+    test("stats cards are clickable and navigate correctly", async ({ page }) => {
       // This test requires authentication, so we'll test the API-level navigation targets
       // In demo mode, the stats cards should link to the correct pages
 
-      const response = await page.request.get('/api/stats');
+      const response = await page.request.get("/api/stats");
       const stats = await response.json();
 
       // Verify the expected data structure for clickable stats
@@ -50,9 +50,9 @@ test.describe('Dashboard', () => {
     });
   });
 
-  test.describe('Demo Solutions API', () => {
-    test('GET /api/demo-solutions returns list of demo solutions', async ({ request }) => {
-      const response = await request.get('/api/demo-solutions');
+  test.describe("Demo Solutions API", () => {
+    test("GET /api/demo-solutions returns list of demo solutions", async ({ request }) => {
+      const response = await request.get("/api/demo-solutions");
 
       expect(response.status()).toBe(200);
 
@@ -71,30 +71,30 @@ test.describe('Dashboard', () => {
       expect(solution.downloadUrl).toBeDefined();
     });
 
-    test('GET /api/demo-solutions/:name returns solution zip', async ({ request }) => {
-      const response = await request.get('/api/demo-solutions/CustomerServiceAgent');
+    test("GET /api/demo-solutions/:name returns solution zip", async ({ request }) => {
+      const response = await request.get("/api/demo-solutions/CustomerServiceAgent");
 
       expect(response.status()).toBe(200);
 
       // Should return a zip file
-      const contentType = response.headers()['content-type'];
-      expect(contentType).toBe('application/zip');
+      const contentType = response.headers()["content-type"];
+      expect(contentType).toBe("application/zip");
 
-      const contentDisposition = response.headers()['content-disposition'];
-      expect(contentDisposition).toContain('attachment');
-      expect(contentDisposition).toContain('.zip');
+      const contentDisposition = response.headers()["content-disposition"];
+      expect(contentDisposition).toContain("attachment");
+      expect(contentDisposition).toContain(".zip");
     });
 
-    test('GET /api/demo-solutions/:name returns 404 for unknown solution', async ({ request }) => {
-      const response = await request.get('/api/demo-solutions/NonExistentSolution');
+    test("GET /api/demo-solutions/:name returns 404 for unknown solution", async ({ request }) => {
+      const response = await request.get("/api/demo-solutions/NonExistentSolution");
 
       expect(response.status()).toBe(404);
     });
   });
 
-  test.describe('Solutions API', () => {
-    test('GET /api/solutions returns available solutions', async ({ request }) => {
-      const response = await request.get('/api/solutions');
+  test.describe("Solutions API", () => {
+    test("GET /api/solutions returns available solutions", async ({ request }) => {
+      const response = await request.get("/api/solutions");
 
       expect(response.status()).toBe(200);
 

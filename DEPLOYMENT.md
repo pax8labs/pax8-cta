@@ -4,14 +4,14 @@ This guide covers all deployment options for AgentSync, from simple single-machi
 
 ## Quick Start (Choose Your Path)
 
-| Scenario | Recommended Approach | Complexity |
-|----------|---------------------|------------|
-| Local development | `pnpm dev` | Simple |
-| Single server, few tenants | PM2 or systemd | Simple |
-| Vercel/Netlify (serverless) | Direct deploy | Simple |
-| Azure with auto-scaling | App Service + Container Apps | Medium |
-| Kubernetes | Helm chart | Advanced |
-| Docker Compose | `docker-compose up` | Simple |
+| Scenario                    | Recommended Approach         | Complexity |
+| --------------------------- | ---------------------------- | ---------- |
+| Local development           | `pnpm dev`                   | Simple     |
+| Single server, few tenants  | PM2 or systemd               | Simple     |
+| Vercel/Netlify (serverless) | Direct deploy                | Simple     |
+| Azure with auto-scaling     | App Service + Container Apps | Medium     |
+| Kubernetes                  | Helm chart                   | Advanced   |
+| Docker Compose              | `docker-compose up`          | Simple     |
 
 ---
 
@@ -26,6 +26,7 @@ The simplest way to get started. Requires Node.js 20+ and Redis.
 ```
 
 This script will:
+
 - Check Node.js and pnpm
 - Install Redis (optional, prompts for permission)
 - Install dependencies
@@ -161,6 +162,7 @@ vercel
 ```
 
 **Note**: Serverless deployments use the in-process `/api/deployments/process` endpoint instead of Redis queues. This is suitable for:
+
 - Small numbers of tenants (< 20)
 - Infrequent deployments
 - Development/staging environments
@@ -202,6 +204,7 @@ Production deployment using Azure services with auto-scaling.
 ```
 
 This creates:
+
 - **Azure Cache for Redis** - Job queue
 - **App Service** - Web dashboard
 - **Container Apps** - Auto-scaling workers
@@ -227,12 +230,12 @@ This creates:
 
 ### Cost Estimate (Basic Tier)
 
-| Service | SKU | ~Monthly Cost |
-|---------|-----|---------------|
-| App Service | B1 | $13 |
-| Container Apps | 0.5 vCPU | $10 |
-| Redis Cache | C0 | $16 |
-| **Total** | | **~$40/month** |
+| Service        | SKU      | ~Monthly Cost  |
+| -------------- | -------- | -------------- |
+| App Service    | B1       | $13            |
+| Container Apps | 0.5 vCPU | $10            |
+| Redis Cache    | C0       | $16            |
+| **Total**      |          | **~$40/month** |
 
 ---
 
@@ -304,6 +307,7 @@ Perfect for Vercel/Netlify deployments:
 ### In-Memory Mode (Development Only)
 
 For local development without Redis, the web app can process deployments directly via `/api/deployments/process`. This doesn't require any queue setup but lacks:
+
 - Job persistence
 - Concurrent processing
 - Multi-instance support
@@ -312,21 +316,21 @@ For local development without Redis, the web app can process deployments directl
 
 ## Environment Variables Reference
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PARTNER_CLIENT_SECRET` | Yes | Azure AD app secret for GDAP |
-| `REDIS_URL` | No* | Redis connection URL |
-| `CONFIG_PATH` | No | Path to tenants.yaml (default: ./config/tenants.yaml) |
-| `NEXTAUTH_URL` | Yes (web) | Public URL of web dashboard |
-| `NEXTAUTH_SECRET` | Yes (web) | Session encryption key |
-| `AZURE_AD_CLIENT_ID` | Yes (web) | Azure AD app for user auth |
-| `AZURE_AD_CLIENT_SECRET` | Yes (web) | Azure AD app secret |
-| `AZURE_AD_TENANT_ID` | Yes (web) | Your Azure AD tenant |
-| `WORKER_CONCURRENCY` | No | Parallel deployments (default: 5) |
-| `SNAPSHOT_DIR` | No | Rollback snapshots location |
-| `LOG_LEVEL` | No | debug, info, warn, error |
+| Variable                 | Required  | Description                                           |
+| ------------------------ | --------- | ----------------------------------------------------- |
+| `PARTNER_CLIENT_SECRET`  | Yes       | Azure AD app secret for GDAP                          |
+| `REDIS_URL`              | No\*      | Redis connection URL                                  |
+| `CONFIG_PATH`            | No        | Path to tenants.yaml (default: ./config/tenants.yaml) |
+| `NEXTAUTH_URL`           | Yes (web) | Public URL of web dashboard                           |
+| `NEXTAUTH_SECRET`        | Yes (web) | Session encryption key                                |
+| `AZURE_AD_CLIENT_ID`     | Yes (web) | Azure AD app for user auth                            |
+| `AZURE_AD_CLIENT_SECRET` | Yes (web) | Azure AD app secret                                   |
+| `AZURE_AD_TENANT_ID`     | Yes (web) | Your Azure AD tenant                                  |
+| `WORKER_CONCURRENCY`     | No        | Parallel deployments (default: 5)                     |
+| `SNAPSHOT_DIR`           | No        | Rollback snapshots location                           |
+| `LOG_LEVEL`              | No        | debug, info, warn, error                              |
 
-*Redis not required for serverless/in-process mode
+\*Redis not required for serverless/in-process mode
 
 ---
 

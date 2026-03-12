@@ -5,6 +5,7 @@ AgentSync supports notifications via Slack, Microsoft Teams, and Email for deplo
 ## Notification Events
 
 Notifications are sent for:
+
 - **Deployment Started** - When a deployment begins
 - **Deployment Completed** - When all tenants complete successfully
 - **Deployment Failed** - When one or more tenants fail
@@ -13,12 +14,14 @@ Notifications are sent for:
 ## Slack Setup
 
 ### Step 1: Create a Slack App
+
 1. Go to https://api.slack.com/apps
 2. Click "Create New App" → "From scratch"
 3. Name it "AgentSync Notifications" and select your workspace
 4. Click "Create App"
 
 ### Step 2: Enable Incoming Webhooks
+
 1. In your app settings, go to "Incoming Webhooks" in the left sidebar
 2. Toggle "Activate Incoming Webhooks" to **On**
 3. Click "Add New Webhook to Workspace"
@@ -26,10 +29,12 @@ Notifications are sent for:
 5. Click "Allow"
 
 ### Step 3: Copy Webhook URL
+
 1. Your webhook URL will look like: `https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX`
 2. Copy this URL
 
 ### Step 4: Configure in AgentSync
+
 1. Go to http://localhost:3000/settings
 2. Navigate to the "Notifications" tab
 3. Paste your webhook URL in the "Slack Webhook URL" field
@@ -40,6 +45,7 @@ Notifications are sent for:
 ## Microsoft Teams Setup
 
 ### Option 1: Power Automate Workflow (Recommended)
+
 Microsoft deprecated Incoming Webhooks in December 2025. Use Power Automate instead:
 
 1. Open Microsoft Teams
@@ -51,6 +57,7 @@ Microsoft deprecated Incoming Webhooks in December 2025. Use Power Automate inst
 7. Click "Add workflow"
 
 ### Option 2: Incoming Webhook (Legacy - may not be available)
+
 If your organization still has this enabled:
 
 1. Open Microsoft Teams
@@ -64,6 +71,7 @@ If your organization still has this enabled:
 9. Click "Done"
 
 ### Configure in AgentSync
+
 1. Go to http://localhost:3000/settings
 2. Navigate to the "Notifications" tab
 3. Paste your webhook URL in the "Teams Webhook URL" field
@@ -89,14 +97,18 @@ After configuring webhooks:
 ## Notification Format
 
 ### Slack
+
 Messages appear as formatted blocks with:
+
 - Colored border (green=success, red=error, yellow=warning, blue=info)
 - Event title and description
 - Deployment details (ID, solution name, tenant count)
 - Timestamp
 
 ### Teams
+
 Messages appear as Adaptive Cards with:
+
 - Colored header matching event severity
 - Event details
 - Action buttons (when applicable)
@@ -105,11 +117,13 @@ Messages appear as Adaptive Cards with:
 ## Troubleshooting
 
 ### Slack
+
 - **"Invalid webhook URL"**: Ensure URL starts with `https://hooks.slack.com/services/`
 - **"Channel not found"**: The webhook may have been revoked. Create a new one
 - **"No response"**: Check your Slack app is installed in the workspace
 
 ### Teams
+
 - **"Connector not found"**: Your org may have disabled incoming webhooks
   - Solution: Use Power Automate Workflows instead
   - Ask IT admin to enable Connectors if needed
@@ -117,6 +131,7 @@ Messages appear as Adaptive Cards with:
 - **"403 Forbidden"**: Workflow may be disabled. Check Teams admin center
 
 ### General
+
 - Use the **Test** buttons in Settings to diagnose issues
 - Check browser console for detailed error messages
 - Verify webhook URLs have no extra spaces or characters
@@ -153,6 +168,7 @@ Settings configured via the UI take precedence over environment variables.
 ## Support
 
 For issues or questions:
+
 - Check the troubleshooting section above
 - Review deployment logs for detailed error messages
 - Create a GitHub issue with error details

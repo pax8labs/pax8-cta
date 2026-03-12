@@ -65,10 +65,7 @@ export async function deleteSecret(): Promise<void> {
  * in .env files and documentation; AGENTSYNC_CLIENT_SECRET is kept as
  * a supported alias for backwards compatibility.
  */
-const CLIENT_SECRET_ENV_VARS = [
-  "PARTNER_CLIENT_SECRET",
-  "AGENTSYNC_CLIENT_SECRET",
-] as const;
+const CLIENT_SECRET_ENV_VARS = ["PARTNER_CLIENT_SECRET", "AGENTSYNC_CLIENT_SECRET"] as const;
 
 /**
  * Resolve the client secret using a single, well-defined fallback chain.

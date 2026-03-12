@@ -5,8 +5,8 @@
  * to reduce duplication across test files.
  */
 
-import { vi } from 'vitest';
-import type { Config, TenantConfig } from '../config/schema.js';
+import { vi } from "vitest";
+import type { Config, TenantConfig } from "../config/schema.js";
 
 // ============================================================================
 // Mock Factories
@@ -17,9 +17,9 @@ import type { Config, TenantConfig } from '../config/schema.js';
  */
 export function createMockTokenManager() {
   return {
-    getDataverseToken: vi.fn().mockResolvedValue('mock-dataverse-token'),
-    getToken: vi.fn().mockResolvedValue('mock-token'),
-    getGraphToken: vi.fn().mockResolvedValue('mock-graph-token'),
+    getDataverseToken: vi.fn().mockResolvedValue("mock-dataverse-token"),
+    getToken: vi.fn().mockResolvedValue("mock-token"),
+    getGraphToken: vi.fn().mockResolvedValue("mock-graph-token"),
     clearCache: vi.fn(),
   };
 }
@@ -46,9 +46,9 @@ export function createMockSolutionOps() {
   return {
     listSolutions: vi.fn().mockResolvedValue([]),
     getSolution: vi.fn().mockResolvedValue(null),
-    exportSolution: vi.fn().mockResolvedValue('/path/to/solution.zip'),
-    importSolutionAsync: vi.fn().mockResolvedValue('import-job-123'),
-    waitForImport: vi.fn().mockResolvedValue({ success: true, importJobId: 'import-job-123' }),
+    exportSolution: vi.fn().mockResolvedValue("/path/to/solution.zip"),
+    importSolutionAsync: vi.fn().mockResolvedValue("import-job-123"),
+    waitForImport: vi.fn().mockResolvedValue({ success: true, importJobId: "import-job-123" }),
   };
 }
 
@@ -57,7 +57,7 @@ export function createMockSolutionOps() {
  */
 export function createMockRollbackService() {
   return {
-    createSnapshot: vi.fn().mockResolvedValue({ id: 'snapshot-123' }),
+    createSnapshot: vi.fn().mockResolvedValue({ id: "snapshot-123" }),
     getLatestSnapshot: vi.fn().mockResolvedValue(null),
     listSnapshots: vi.fn().mockResolvedValue([]),
     rollback: vi.fn().mockResolvedValue({ success: true }),
@@ -72,7 +72,7 @@ export function createMockHealthCheckService() {
   return {
     checkTenantHealth: vi.fn().mockResolvedValue({
       healthy: true,
-      checks: [{ name: 'api', passed: true }],
+      checks: [{ name: "api", passed: true }],
     }),
     checkAllTenants: vi.fn().mockResolvedValue([]),
   };
@@ -158,9 +158,9 @@ export function createMockFetchError(message: string, status = 500) {
  */
 export function createTestTenant(overrides: Partial<TenantConfig> = {}): TenantConfig {
   return {
-    tenantId: '00000000-0000-0000-0000-000000000001',
-    name: 'Test Tenant',
-    environmentUrl: 'https://test.crm.dynamics.com',
+    tenantId: "00000000-0000-0000-0000-000000000001",
+    name: "Test Tenant",
+    environmentUrl: "https://test.crm.dynamics.com",
     enabled: true,
     tags: [],
     ...overrides,
@@ -172,14 +172,14 @@ export function createTestTenant(overrides: Partial<TenantConfig> = {}): TenantC
  */
 export function createTestConfig(overrides: Partial<Config> = {}): Config {
   return {
-    version: '2.0',
+    version: "2.0",
     partner: {
-      tenantId: '00000000-0000-0000-0000-000000000000',
-      clientId: '11111111-1111-1111-1111-111111111111',
+      tenantId: "00000000-0000-0000-0000-000000000000",
+      clientId: "11111111-1111-1111-1111-111111111111",
     },
     source: {
-      tenantId: '22222222-2222-2222-2222-222222222222',
-      environmentUrl: 'https://source.crm.dynamics.com',
+      tenantId: "22222222-2222-2222-2222-222222222222",
+      environmentUrl: "https://source.crm.dynamics.com",
     },
     tenants: [createTestTenant()],
     ...overrides,
@@ -189,24 +189,26 @@ export function createTestConfig(overrides: Partial<Config> = {}): Config {
 /**
  * Creates a test solution record
  */
-export function createTestSolution(overrides: Partial<{
-  solutionid: string;
-  uniquename: string;
-  friendlyname: string;
-  version: string;
-  ismanaged: boolean;
-}> = {}) {
+export function createTestSolution(
+  overrides: Partial<{
+    solutionid: string;
+    uniquename: string;
+    friendlyname: string;
+    version: string;
+    ismanaged: boolean;
+  }> = {}
+) {
   return {
-    solutionid: 'solution-123',
-    uniquename: 'TestSolution',
-    friendlyname: 'Test Solution',
-    version: '1.0.0.0',
+    solutionid: "solution-123",
+    uniquename: "TestSolution",
+    friendlyname: "Test Solution",
+    version: "1.0.0.0",
     ismanaged: false,
     isvisible: true,
     publisherid: {
-      publisherid: 'publisher-123',
-      uniquename: 'testpublisher',
-      friendlyname: 'Test Publisher',
+      publisherid: "publisher-123",
+      uniquename: "testpublisher",
+      friendlyname: "Test Publisher",
     },
     ...overrides,
   };
@@ -215,19 +217,21 @@ export function createTestSolution(overrides: Partial<{
 /**
  * Creates a test deployment job data
  */
-export function createTestDeploymentJob(overrides: Partial<{
-  deploymentId: string;
-  solutionPath: string;
-  solutionName: string;
-  tenant: TenantConfig;
-}> = {}) {
+export function createTestDeploymentJob(
+  overrides: Partial<{
+    deploymentId: string;
+    solutionPath: string;
+    solutionName: string;
+    tenant: TenantConfig;
+  }> = {}
+) {
   return {
-    deploymentId: 'deploy-123',
-    solutionPath: '/path/to/solution.zip',
-    solutionName: 'TestSolution',
+    deploymentId: "deploy-123",
+    solutionPath: "/path/to/solution.zip",
+    solutionName: "TestSolution",
     tenant: createTestTenant(),
-    partnerTenantId: '00000000-0000-0000-0000-000000000000',
-    partnerClientId: '11111111-1111-1111-1111-111111111111',
+    partnerTenantId: "00000000-0000-0000-0000-000000000000",
+    partnerClientId: "11111111-1111-1111-1111-111111111111",
     ...overrides,
   };
 }
@@ -235,17 +239,19 @@ export function createTestDeploymentJob(overrides: Partial<{
 /**
  * Creates complete rollback settings for tests
  */
-export function createTestRollbackSettings(overrides: Partial<{
-  enabled: boolean;
-  keepVersions: number;
-  autoRollbackOnFailure: boolean;
-  rollbackTimeout: string;
-}> = {}) {
+export function createTestRollbackSettings(
+  overrides: Partial<{
+    enabled: boolean;
+    keepVersions: number;
+    autoRollbackOnFailure: boolean;
+    rollbackTimeout: string;
+  }> = {}
+) {
   return {
     enabled: true,
     keepVersions: 3,
     autoRollbackOnFailure: false,
-    rollbackTimeout: '10m',
+    rollbackTimeout: "10m",
     ...overrides,
   };
 }
@@ -253,17 +259,19 @@ export function createTestRollbackSettings(overrides: Partial<{
 /**
  * Creates complete health check settings for tests
  */
-export function createTestHealthCheckSettings(overrides: Partial<{
-  enabled: boolean;
-  expectedStatus: number;
-  timeout: string;
-  retries: number;
-  endpoint?: string;
-}> = {}) {
+export function createTestHealthCheckSettings(
+  overrides: Partial<{
+    enabled: boolean;
+    expectedStatus: number;
+    timeout: string;
+    retries: number;
+    endpoint?: string;
+  }> = {}
+) {
   return {
     enabled: true,
     expectedStatus: 200,
-    timeout: '30s',
+    timeout: "30s",
     retries: 3,
     ...overrides,
   };
@@ -303,10 +311,10 @@ export async function expectToReject(
 ): Promise<void> {
   try {
     await promise;
-    throw new Error('Expected promise to reject but it resolved');
+    throw new Error("Expected promise to reject but it resolved");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (typeof errorMessageOrPattern === 'string') {
+    if (typeof errorMessageOrPattern === "string") {
       if (!message.includes(errorMessageOrPattern)) {
         throw new Error(
           `Expected error message to include "${errorMessageOrPattern}" but got: "${message}"`
@@ -338,15 +346,18 @@ export function mockGlobalFetch(mockFn: ReturnType<typeof vi.fn> = vi.fn()) {
 /**
  * Create a mock BullMQ job for testing worker processors
  */
-export function createMockBullMQJob(data: unknown, overrides: Partial<{
-  id: string;
-  name: string;
-  attemptsMade: number;
-  timestamp: number;
-}> = {}) {
+export function createMockBullMQJob(
+  data: unknown,
+  overrides: Partial<{
+    id: string;
+    name: string;
+    attemptsMade: number;
+    timestamp: number;
+  }> = {}
+) {
   return {
-    id: 'job-123',
-    name: 'test-job',
+    id: "job-123",
+    name: "test-job",
     data,
     attemptsMade: 0,
     timestamp: Date.now(),

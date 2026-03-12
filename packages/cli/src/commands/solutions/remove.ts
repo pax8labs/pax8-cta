@@ -18,12 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import {
-  loadConfig,
-  TokenManager,
-  DataverseClient,
-  SolutionOperations,
-} from "@agentsync/core";
+import { loadConfig, TokenManager, DataverseClient, SolutionOperations } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { question } from "../../lib/input.js";
 import { handleCommandError } from "../../lib/errors.js";
@@ -35,11 +30,14 @@ export const removeCommand = new Command("remove")
   .requiredOption("-t, --tenant <name>", "Target tenant name or ID")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-y, --yes", "Skip confirmation prompt")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync solutions remove TestDeploy -t AgentSync-Test2       Uninstall with confirmation
   agentsync solutions remove TestDeploy -t AgentSync-Test2 -y    Uninstall without confirmation
-`)
+`
+  )
   .action(async (solutionName: string, options) => {
     const spinner = createSpinner("Loading configuration...").start();
 
@@ -68,9 +66,7 @@ Examples:
             `  This will uninstall '${solutionName}' and remove all its components from ${tenant.name}.`
           )
         );
-        const confirm = await question(
-          chalk.red("  Are you sure? ") + chalk.gray("(yes/no) ")
-        );
+        const confirm = await question(chalk.red("  Are you sure? ") + chalk.gray("(yes/no) "));
         if (confirm.toLowerCase() !== "yes" && confirm.toLowerCase() !== "y") {
           console.log(chalk.gray("  Cancelled."));
           return;
@@ -94,9 +90,7 @@ Examples:
 
       spinner.start(`Uninstalling '${solutionName}' from ${tenant.name}...`);
       await solutionOps.deleteSolution(solutionName);
-      spinner.succeed(
-        chalk.green(`Uninstalled '${solutionName}' from ${tenant.name}`)
-      );
+      spinner.succeed(chalk.green(`Uninstalled '${solutionName}' from ${tenant.name}`));
     } catch (error) {
       handleCommandError(error, spinner, "Failed to remove solution");
     }

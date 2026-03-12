@@ -9,6 +9,7 @@ Thank you for contributing to AgentSync! This guide will help you get started.
 Browse [open issues](https://github.com/pax8labs/agentsync/issues) and pick one to work on. Issues #11-20 are the production readiness checklist.
 
 **Priority:**
+
 - 🔴 CRITICAL (issues #11-15): Security and auth - require 2 approvals
 - 🟡 HIGH (issues #16-19): Operations and quality - require 1 approval
 - 🟢 MEDIUM (issue #20): Testing - require 1 approval
@@ -27,6 +28,7 @@ git checkout -b docs/update-deployment-guide
 ```
 
 **Branch naming:**
+
 - `feature/` - New features
 - `fix/` - Bug fixes
 - `docs/` - Documentation only
@@ -45,6 +47,7 @@ pnpm web  # Start dev server at localhost:3000
 ```
 
 **Development tips:**
+
 - Run tests before committing: `pnpm test`
 - Check TypeScript: `cd packages/web && pnpm tsc --noEmit`
 - Build to verify: `pnpm build`
@@ -67,6 +70,7 @@ Closes #11"
 ```
 
 **Commit message format:**
+
 ```
 Brief summary (50 chars or less)
 
@@ -96,6 +100,7 @@ Or use the GitHub UI to create the PR.
 ### 6. PR Review Process
 
 **Before requesting review:**
+
 - [ ] All tests pass
 - [ ] Build succeeds
 - [ ] PR template filled out completely
@@ -103,57 +108,64 @@ Or use the GitHub UI to create the PR.
 - [ ] Documentation updated
 
 **During review:**
+
 - Respond to feedback promptly
 - Make requested changes in new commits (don't force push)
 - Mark conversations as resolved when addressed
 - Request re-review when ready
 
 **After approval:**
+
 - Squash and merge via GitHub UI
 - Delete your branch after merge
 
 ## Code Standards
 
 ### TypeScript
+
 - Use TypeScript strict mode
 - Avoid `any` - use proper types
 - Export interfaces for shared types
 
 ### React Components
+
 - Use functional components with hooks
 - Keep components small and focused
 - Extract reusable logic into custom hooks
 
 ### API Routes
+
 ```typescript
 // Always validate session
-const session = await getServerSession(authOptions)
+const session = await getServerSession(authOptions);
 if (!session) {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
 // Validate inputs with Zod
-const result = schema.safeParse(body)
+const result = schema.safeParse(body);
 if (!result.success) {
-  return NextResponse.json({ error: 'Validation failed' }, { status: 400 })
+  return NextResponse.json({ error: "Validation failed" }, { status: 400 });
 }
 
 // Use try/catch for error handling
 try {
   // Operation
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true });
 } catch (error) {
-  logger.error({ error }, 'Operation failed')
-  return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+  logger.error({ error }, "Operation failed");
+  return NextResponse.json({ error: "Internal error" }, { status: 500 });
 }
 ```
 
 ### Database
+
 - Use parameterized queries (never string concatenation)
 - Add migrations for schema changes
 - Test with SQLite in-memory for unit tests
 
 ### Security
+
 - Never commit secrets or credentials
 - Validate all user inputs
 - Use prepared statements for SQL
@@ -163,6 +175,7 @@ try {
 ## Testing
 
 ### Run Tests
+
 ```bash
 # All tests
 pnpm test
@@ -178,12 +191,14 @@ pnpm test --coverage
 ```
 
 ### Writing Tests
+
 - Write tests for new features
 - Update tests for bug fixes
 - Aim for 80%+ coverage
 - Test error cases, not just happy path
 
 ### Test Organization
+
 ```
 src/
   __tests__/
@@ -235,6 +250,7 @@ src/
 Before marking an issue as complete, verify:
 
 For **Security Issues (#11-15):**
+
 - [ ] Security implications considered
 - [ ] No new vulnerabilities introduced
 - [ ] Input validation comprehensive
@@ -243,6 +259,7 @@ For **Security Issues (#11-15):**
 - [ ] 2 approvals received
 
 For **All Issues:**
+
 - [ ] Tests added/updated
 - [ ] Documentation updated
 - [ ] No console.log left in code

@@ -58,10 +58,7 @@ export function formatDuration(ms: number): string {
 /**
  * Calculate and format duration between two date strings
  */
-export function calculateDuration(
-  startedAt?: string,
-  completedAt?: string
-): string {
+export function calculateDuration(startedAt?: string, completedAt?: string): string {
   if (!startedAt) return "-";
 
   const start = new Date(startedAt).getTime();
@@ -96,10 +93,7 @@ export type DeploymentStatus =
  * @param status - The deployment status
  * @param style - 'default' for standard labels, 'shipping' for shipping metaphor
  */
-export function formatStatus(
-  status: string,
-  style: "default" | "shipping" = "default"
-): string {
+export function formatStatus(status: string, style: "default" | "shipping" = "default"): string {
   if (style === "shipping") {
     switch (status) {
       case "completed":

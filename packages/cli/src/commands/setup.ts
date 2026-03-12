@@ -56,12 +56,15 @@ export const setupCommand = new Command("setup")
   .option("--check", "Check setup status without making changes")
   .option("--all", "Setup all environments")
   .option("-t, --tenant <name>", "Setup specific environment by name")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync setup --check                             Check setup status without making changes
   agentsync setup --all                               Register app user in all environments
   agentsync setup -t AgentSync-Test2                  Setup a specific tenant environment
-`)
+`
+  )
   .action(async (options) => {
     const spinner = createSpinner("Loading configuration...").start();
 
@@ -69,7 +72,9 @@ Examples:
       // Validate options
       if (!options.check && !options.all && !options.tenant) {
         spinner.stop();
-        throw new UsageError("Must specify --check, --all, or --tenant <name>. Run 'agentsync setup --help' for usage.");
+        throw new UsageError(
+          "Must specify --check, --all, or --tenant <name>. Run 'agentsync setup --help' for usage."
+        );
       }
 
       // Load config
@@ -87,7 +92,9 @@ Examples:
         );
         if (!tenant) {
           spinner.stop();
-          throw new CliError(`Tenant '${options.tenant}' not found in configuration. Run 'agentsync tenants list' to see available tenants.`);
+          throw new CliError(
+            `Tenant '${options.tenant}' not found in configuration. Run 'agentsync tenants list' to see available tenants.`
+          );
         }
         targets = [tenant];
       } else {

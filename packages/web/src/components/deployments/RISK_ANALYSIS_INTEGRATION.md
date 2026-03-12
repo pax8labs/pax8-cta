@@ -3,16 +3,19 @@
 ## Quick Integration (3 steps)
 
 ### 1. Import the Modal Component
+
 ```tsx
-import { RiskAssessmentModal } from '@/components/deployments/RiskAssessmentModal'
+import { RiskAssessmentModal } from "@/components/deployments/RiskAssessmentModal";
 ```
 
 ### 2. Add State for Modal Control
+
 ```tsx
-const [showRiskAnalysis, setShowRiskAnalysis] = useState(false)
+const [showRiskAnalysis, setShowRiskAnalysis] = useState(false);
 ```
 
 ### 3. Add Modal to Your Component
+
 ```tsx
 <RiskAssessmentModal
   isOpen={showRiskAnalysis}
@@ -26,6 +29,7 @@ const [showRiskAnalysis, setShowRiskAnalysis] = useState(false)
 ```
 
 ### 4. Show Modal Before Deployment
+
 ```tsx
 const handleDeployClick = () => {
   // Instead of deploying directly, show risk analysis first
@@ -44,33 +48,33 @@ const handleActualDeployment = async () => {
 ## Complete Example
 
 ```tsx
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { RiskAssessmentModal } from '@/components/deployments/RiskAssessmentModal'
+import { useState } from "react";
+import { RiskAssessmentModal } from "@/components/deployments/RiskAssessmentModal";
 
 export function DeploymentForm() {
-  const [selectedTenants, setSelectedTenants] = useState<string[]>([])
-  const [showRiskAnalysis, setShowRiskAnalysis] = useState(false)
+  const [selectedTenants, setSelectedTenants] = useState<string[]>([]);
+  const [showRiskAnalysis, setShowRiskAnalysis] = useState(false);
 
   const handleAnalyzeClick = () => {
-    setShowRiskAnalysis(true)
-  }
+    setShowRiskAnalysis(true);
+  };
 
   const handleProceedWithDeployment = async () => {
     // User reviewed risk and clicked "Proceed"
     // Now actually create the deployment
 
-    const response = await fetch('/api/deployments', {
-      method: 'POST',
+    const response = await fetch("/api/deployments", {
+      method: "POST",
       body: JSON.stringify({
         tenantIds: selectedTenants,
         // ... other deployment params
       }),
-    })
+    });
 
     // Handle response...
-  }
+  };
 
   return (
     <>
@@ -96,7 +100,7 @@ export function DeploymentForm() {
         isProduction={true}
       />
     </>
-  )
+  );
 }
 ```
 
@@ -107,17 +111,17 @@ export function DeploymentForm() {
 If you need more control, use the `useRiskAnalysis` hook directly:
 
 ```tsx
-import { useRiskAnalysis } from '@/hooks/useRiskAnalysis'
+import { useRiskAnalysis } from "@/hooks/useRiskAnalysis";
 
 function MyComponent() {
-  const { analysis, loading, error, analyze } = useRiskAnalysis()
+  const { analysis, loading, error, analyze } = useRiskAnalysis();
 
   const handleAnalyze = async () => {
     await analyze({
-      tenantIds: ['tenant-1', 'tenant-2'],
+      tenantIds: ["tenant-1", "tenant-2"],
       isProduction: true,
-    })
-  }
+    });
+  };
 
   return (
     <div>
@@ -131,7 +135,7 @@ function MyComponent() {
         </div>
       )}
     </div>
-  )
+  );
 }
 ```
 
@@ -142,11 +146,13 @@ function MyComponent() {
 Risk analysis should be integrated in these places:
 
 ### ✅ Recommended
+
 - **Deployment Creation** (`/deployments/new`) - Before submitting form
 - **Scheduled Deployments** (`/deployments/schedules`) - When scheduling
 - **Wave Orchestration** - Before starting each wave
 
 ### ⚠️ Optional
+
 - **Retry Failed Deployments** - Before retrying
 - **Dashboard Quick Deploy** - If you add one-click deploy buttons
 
@@ -156,15 +162,15 @@ Risk analysis should be integrated in these places:
 
 ### RiskAssessmentModal
 
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `isOpen` | boolean | Yes | Controls modal visibility |
-| `onClose` | () => void | Yes | Called when user closes modal |
-| `onProceed` | () => void | Yes | Called when user clicks "Proceed" |
-| `tenantIds` | string[] | Yes | Array of tenant IDs to analyze |
-| `solutionFile` | string | No | Solution filename (for context) |
-| `solutionSize` | number | No | Solution size in bytes |
-| `isProduction` | boolean | No | Whether this is production deployment (default: false) |
+| Prop           | Type       | Required | Description                                            |
+| -------------- | ---------- | -------- | ------------------------------------------------------ |
+| `isOpen`       | boolean    | Yes      | Controls modal visibility                              |
+| `onClose`      | () => void | Yes      | Called when user closes modal                          |
+| `onProceed`    | () => void | Yes      | Called when user clicks "Proceed"                      |
+| `tenantIds`    | string[]   | Yes      | Array of tenant IDs to analyze                         |
+| `solutionFile` | string     | No       | Solution filename (for context)                        |
+| `solutionSize` | number     | No       | Solution size in bytes                                 |
+| `isProduction` | boolean    | No       | Whether this is production deployment (default: false) |
 
 ---
 

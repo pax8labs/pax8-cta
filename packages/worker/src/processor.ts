@@ -58,9 +58,7 @@ function initializeServices(config: Config): void {
     currentConfig = config;
 
     // Initialize rollback service
-    rollbackService = new RollbackService(
-      process.env.SNAPSHOT_DIR || './snapshots'
-    );
+    rollbackService = new RollbackService(process.env.SNAPSHOT_DIR || "./snapshots");
 
     // Initialize health check service
     healthCheckService = new HealthCheckService();
@@ -70,7 +68,7 @@ function initializeServices(config: Config): void {
       webhookService = new WebhookService(config.webhooks);
     }
 
-    logger.info('Worker services initialized', {
+    logger.info("Worker services initialized", {
       hasRollback: !!rollbackService,
       hasHealthCheck: !!healthCheckService,
       hasWebhooks: !!webhookService,
@@ -196,7 +194,7 @@ async function processTenantDeployment(
   if (webhookService) {
     await webhookService.notifyTenantStarted(
       deploymentId,
-      job.data.solutionName || 'Unknown',
+      job.data.solutionName || "Unknown",
       tenant.tenantId,
       tenant.name,
       job.attemptsMade + 1
@@ -204,21 +202,21 @@ async function processTenantDeployment(
   }
 
   // Update database status to in_progress
-  updateDeploymentStatus(deploymentId, 'in_progress');
+  updateDeploymentStatus(deploymentId, "in_progress");
 
   try {
     // Check if job was cancelled before we started
     const state = await job.getState();
-    if (state === 'failed') {
+    if (state === "failed") {
       const failReason = job.failedReason;
-      if (failReason && failReason.includes('DEPLOYMENT_CANCELLED')) {
+      if (failReason && failReason.includes("DEPLOYMENT_CANCELLED")) {
         logger.info(`Job was cancelled before processing`, { deploymentId });
-        updateDeploymentStatus(deploymentId, 'cancelled');
+        updateDeploymentStatus(deploymentId, "cancelled");
         return {
           tenantId: tenant.tenantId,
           tenantName: tenant.name,
           success: false,
-          error: 'Deployment cancelled by user',
+          error: "Deployment cancelled by user",
           durationMs: Date.now() - startTime,
         };
       }
@@ -246,7 +244,7 @@ async function processTenantDeployment(
     if (healthCheckService && config) {
       const effectiveHealthCheck = {
         enabled: tenant.healthCheck?.enabled ?? config.settings?.healthCheck?.enabled ?? true,
-        timeout: tenant.healthCheck?.timeout ?? config.settings?.healthCheck?.timeout ?? '30s',
+        timeout: tenant.healthCheck?.timeout ?? config.settings?.healthCheck?.timeout ?? "30s",
         retries: tenant.healthCheck?.retries ?? config.settings?.healthCheck?.retries ?? 2,
       };
 
@@ -255,13 +253,16 @@ async function processTenantDeployment(
 
         const healthResult = await timedOperation(
           logger,
-          'Pre-deployment health check',
+          "Pre-deployment health check",
           () => healthCheckService!.checkTenantHealth(tenant, dataverseClient),
           { tenant: tenant.name }
         );
 
         if (!healthResult.healthy) {
-          const errorMsg = `Pre-deployment health check failed: ${healthResult.checks.filter((c: { passed: boolean; name: string }) => !c.passed).map((c: { name: string }) => c.name).join(', ')}`;
+          const errorMsg = `Pre-deployment health check failed: ${healthResult.checks
+            .filter((c: { passed: boolean; name: string }) => !c.passed)
+            .map((c: { name: string }) => c.name)
+            .join(", ")}`;
           logger.warn(errorMsg, { tenant: tenant.name, checks: healthResult.checks });
 
           return {
@@ -279,16 +280,16 @@ async function processTenantDeployment(
 
     // Check for cancellation before rollback snapshot
     const stateAfterHealthCheck = await job.getState();
-    if (stateAfterHealthCheck === 'failed') {
+    if (stateAfterHealthCheck === "failed") {
       const failReason = job.failedReason;
-      if (failReason && failReason.includes('DEPLOYMENT_CANCELLED')) {
+      if (failReason && failReason.includes("DEPLOYMENT_CANCELLED")) {
         logger.info(`Job was cancelled during health check`, { deploymentId });
-        updateDeploymentStatus(deploymentId, 'cancelled');
+        updateDeploymentStatus(deploymentId, "cancelled");
         return {
           tenantId: tenant.tenantId,
           tenantName: tenant.name,
           success: false,
-          error: 'Deployment cancelled by user',
+          error: "Deployment cancelled by user",
           durationMs: Date.now() - startTime,
         };
       }
@@ -304,21 +305,22 @@ async function processTenantDeployment(
 
           await timedOperation(
             logger,
-            'Create rollback snapshot',
-            () => rollbackService!.createSnapshot(
-              deploymentId,
-              tenant.tenantId,
-              tenant.name,
-              job.data.solutionName || 'Unknown',
-              dataverseClient,
-              rollbackSettings
-            ),
+            "Create rollback snapshot",
+            () =>
+              rollbackService!.createSnapshot(
+                deploymentId,
+                tenant.tenantId,
+                tenant.name,
+                job.data.solutionName || "Unknown",
+                dataverseClient,
+                rollbackSettings
+              ),
             { tenant: tenant.name }
           );
         } catch (snapshotError) {
           logger.warn(`Failed to create rollback snapshot`, {
             tenant: tenant.name,
-            error: (snapshotError as Error).message
+            error: (snapshotError as Error).message,
           });
           // Continue with deployment even if snapshot fails
         }
@@ -329,16 +331,16 @@ async function processTenantDeployment(
 
     // Check for cancellation before solution import
     const stateBeforeImport = await job.getState();
-    if (stateBeforeImport === 'failed') {
+    if (stateBeforeImport === "failed") {
       const failReason = job.failedReason;
-      if (failReason && failReason.includes('DEPLOYMENT_CANCELLED')) {
+      if (failReason && failReason.includes("DEPLOYMENT_CANCELLED")) {
         logger.info(`Job was cancelled before solution import`, { deploymentId });
-        updateDeploymentStatus(deploymentId, 'cancelled');
+        updateDeploymentStatus(deploymentId, "cancelled");
         return {
           tenantId: tenant.tenantId,
           tenantName: tenant.name,
           success: false,
-          error: 'Deployment cancelled by user',
+          error: "Deployment cancelled by user",
           durationMs: Date.now() - startTime,
         };
       }
@@ -349,11 +351,12 @@ async function processTenantDeployment(
 
     const importJobId = await timedOperation(
       logger,
-      'Start solution import',
-      () => solutionOps.importSolutionAsync(solutionPath, {
-        overwriteUnmanagedCustomizations: true,
-        publishWorkflows: true,
-      }),
+      "Start solution import",
+      () =>
+        solutionOps.importSolutionAsync(solutionPath, {
+          overwriteUnmanagedCustomizations: true,
+          publishWorkflows: true,
+        }),
       { tenant: tenant.name }
     );
 
@@ -370,7 +373,7 @@ async function processTenantDeployment(
     });
 
     if (!result.success) {
-      const errorMsg = result.error || 'Solution import failed';
+      const errorMsg = result.error || "Solution import failed";
       logger.error(`Import failed`, new Error(errorMsg), { tenant: tenant.name });
 
       // Auto-rollback if configured
@@ -383,7 +386,7 @@ async function processTenantDeployment(
           try {
             const latestSnapshot = await rollbackService.getLatestSnapshot(
               tenant.tenantId,
-              job.data.solutionName || 'Unknown'
+              job.data.solutionName || "Unknown"
             );
 
             if (latestSnapshot) {
@@ -396,7 +399,7 @@ async function processTenantDeployment(
               if (webhookService) {
                 await webhookService.notifyRollbackCompleted(
                   deploymentId,
-                  job.data.solutionName || 'Unknown',
+                  job.data.solutionName || "Unknown",
                   tenant.tenantId,
                   tenant.name,
                   rollbackResult.success,
@@ -416,7 +419,7 @@ async function processTenantDeployment(
       if (webhookService) {
         await webhookService.notifyTenantFailed(
           deploymentId,
-          job.data.solutionName || 'Unknown',
+          job.data.solutionName || "Unknown",
           tenant.tenantId,
           tenant.name,
           errorMsg
@@ -447,7 +450,7 @@ async function processTenantDeployment(
 
         await timedOperation(
           logger,
-          'Configure connection references',
+          "Configure connection references",
           () => connectionOps.applyConnectionMappings(connectionMappings),
           { tenant: tenant.name }
         );
@@ -468,7 +471,7 @@ async function processTenantDeployment(
 
         await timedOperation(
           logger,
-          'Set environment variables',
+          "Set environment variables",
           () => connectionOps.applyEnvironmentVariables(envVars),
           { tenant: tenant.name }
         );
@@ -509,9 +512,9 @@ async function processTenantDeployment(
     });
 
     // Log to audit
-    await auditLog.log('solution.imported', {
-      userId: 'worker',
-      resourceType: 'tenant',
+    await auditLog.log("solution.imported", {
+      userId: "worker",
+      resourceType: "tenant",
       resourceId: tenant.tenantId,
       resourceName: tenant.name,
       success: true,
@@ -527,14 +530,14 @@ async function processTenantDeployment(
     if (webhookService) {
       await webhookService.notifyTenantCompleted(
         deploymentId,
-        job.data.solutionName || 'Unknown',
+        job.data.solutionName || "Unknown",
         tenant.tenantId,
         tenant.name
       );
     }
 
     // Update database status to completed
-    updateDeploymentStatus(deploymentId, 'completed');
+    updateDeploymentStatus(deploymentId, "completed");
 
     return {
       tenantId: tenant.tenantId,
@@ -548,7 +551,7 @@ async function processTenantDeployment(
     const durationMs = Date.now() - startTime;
 
     // Check if this is a cancellation
-    const isCancelled = errorMessage.includes('DEPLOYMENT_CANCELLED');
+    const isCancelled = errorMessage.includes("DEPLOYMENT_CANCELLED");
 
     if (isCancelled) {
       logger.info(`Deployment cancelled`, {
@@ -557,13 +560,13 @@ async function processTenantDeployment(
       });
 
       // Update database status to cancelled
-      updateDeploymentStatus(deploymentId, 'cancelled');
+      updateDeploymentStatus(deploymentId, "cancelled");
 
       return {
         tenantId: tenant.tenantId,
         tenantName: tenant.name,
         success: false,
-        error: 'Deployment cancelled by user',
+        error: "Deployment cancelled by user",
         durationMs,
       };
     }
@@ -574,9 +577,9 @@ async function processTenantDeployment(
     });
 
     // Log to audit
-    await auditLog.log('solution.imported', {
-      userId: 'worker',
-      resourceType: 'tenant',
+    await auditLog.log("solution.imported", {
+      userId: "worker",
+      resourceType: "tenant",
       resourceId: tenant.tenantId,
       resourceName: tenant.name,
       success: false,
@@ -592,7 +595,7 @@ async function processTenantDeployment(
     if (webhookService) {
       await webhookService.notifyTenantFailed(
         deploymentId,
-        job.data.solutionName || 'Unknown',
+        job.data.solutionName || "Unknown",
         tenant.tenantId,
         tenant.name,
         errorMessage
@@ -600,7 +603,7 @@ async function processTenantDeployment(
     }
 
     // Update database status to failed
-    updateDeploymentStatus(deploymentId, 'failed', errorMessage);
+    updateDeploymentStatus(deploymentId, "failed", errorMessage);
 
     return {
       tenantId: tenant.tenantId,
@@ -619,10 +622,7 @@ async function processTenantDeployment(
 export function createScheduledDeploymentWorker(
   options: ProcessorOptions & { queueManager?: DeploymentQueueManager } = {}
 ): Worker<ScheduledDeploymentJobData, ScheduledDeploymentJobResult> {
-  const {
-    redisUrl = DEFAULT_REDIS_URL,
-    queueManager,
-  } = options;
+  const { redisUrl = DEFAULT_REDIS_URL, queueManager } = options;
 
   const connectionOptions = parseRedisUrl(redisUrl);
   const schedulerService = new SchedulerService();
@@ -633,7 +633,8 @@ export function createScheduledDeploymentWorker(
   const worker = new Worker<ScheduledDeploymentJobData, ScheduledDeploymentJobResult>(
     SCHEDULED_DEPLOYMENT_QUEUE_NAME,
     async (job: Job<ScheduledDeploymentJobData>) => {
-      const { scheduleId, scheduleName, solutionPath, solutionName, tenantIds, tags, config } = job.data;
+      const { scheduleId, scheduleName, solutionPath, solutionName, tenantIds, tags, config } =
+        job.data;
       const triggeredAt = new Date().toISOString();
 
       logger.info(`Scheduled deployment triggered`, {
@@ -666,15 +667,15 @@ export function createScheduledDeploymentWorker(
       }
 
       // Determine which tenants to deploy to
-      let tenantsToDeployTo = config.tenants.filter(t => t.enabled !== false);
+      let tenantsToDeployTo = config.tenants.filter((t) => t.enabled !== false);
 
       if (tenantIds && tenantIds.length > 0) {
         // Deploy to specific tenants
-        tenantsToDeployTo = tenantsToDeployTo.filter(t => tenantIds.includes(t.tenantId));
+        tenantsToDeployTo = tenantsToDeployTo.filter((t) => tenantIds.includes(t.tenantId));
       } else if (tags && tags.length > 0) {
         // Deploy to tenants matching tags
-        tenantsToDeployTo = tenantsToDeployTo.filter(t =>
-          t.tags?.some(tag => tags.includes(tag))
+        tenantsToDeployTo = tenantsToDeployTo.filter((t) =>
+          t.tags?.some((tag) => tags.includes(tag))
         );
       }
 
@@ -718,9 +719,9 @@ export function createScheduledDeploymentWorker(
       );
 
       // Log to audit
-      await auditLog.log('scheduled.deployment.triggered', {
-        userId: 'scheduler',
-        resourceType: 'schedule',
+      await auditLog.log("scheduled.deployment.triggered", {
+        userId: "scheduler",
+        resourceType: "schedule",
         resourceId: scheduleId,
         resourceName: scheduleName,
         success: true,
@@ -729,7 +730,7 @@ export function createScheduledDeploymentWorker(
           solutionPath,
           solutionName,
           tenantCount: tenantsToDeployTo.length,
-          tenantIds: tenantsToDeployTo.map(t => t.tenantId),
+          tenantIds: tenantsToDeployTo.map((t) => t.tenantId),
         },
       });
 
@@ -772,7 +773,7 @@ export function createScheduledDeploymentWorker(
  * Cleanup function to be called on shutdown
  */
 export async function cleanupWorker(): Promise<void> {
-  logger.info('Cleaning up worker resources');
+  logger.info("Cleaning up worker resources");
   rollbackService = null;
   healthCheckService = null;
   webhookService = null;

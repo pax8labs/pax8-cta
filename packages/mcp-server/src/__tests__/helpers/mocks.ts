@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 /**
  * Mock API responses for testing
@@ -6,34 +6,34 @@ import { vi } from 'vitest';
 export const mockDeploymentsResponse = {
   deployments: [
     {
-      id: 'batch-test-123',
-      solutionName: 'TestAgent_v1',
-      status: 'completed',
-      createdAt: '2024-01-30T12:00:00.000Z',
-      completedAt: '2024-01-30T12:05:00.000Z',
+      id: "batch-test-123",
+      solutionName: "TestAgent_v1",
+      status: "completed",
+      createdAt: "2024-01-30T12:00:00.000Z",
+      completedAt: "2024-01-30T12:05:00.000Z",
     },
     {
-      id: 'batch-test-456',
-      solutionName: 'TestAgent_v2',
-      status: 'failed',
-      createdAt: '2024-01-30T11:00:00.000Z',
-      completedAt: '2024-01-30T11:03:00.000Z',
+      id: "batch-test-456",
+      solutionName: "TestAgent_v2",
+      status: "failed",
+      createdAt: "2024-01-30T11:00:00.000Z",
+      completedAt: "2024-01-30T11:03:00.000Z",
     },
   ],
   total: 2,
 };
 
 export const mockDeploymentStatusResponse = {
-  id: 'batch-test-123',
-  solutionName: 'TestAgent_v1',
-  status: 'completed',
-  createdAt: '2024-01-30T12:00:00.000Z',
-  completedAt: '2024-01-30T12:05:00.000Z',
+  id: "batch-test-123",
+  solutionName: "TestAgent_v1",
+  status: "completed",
+  createdAt: "2024-01-30T12:00:00.000Z",
+  completedAt: "2024-01-30T12:05:00.000Z",
   tenantResults: [
     {
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      tenantName: 'Test Tenant 1',
-      status: 'completed',
+      tenantId: "11111111-1111-1111-1111-111111111111",
+      tenantName: "Test Tenant 1",
+      status: "completed",
     },
   ],
 };
@@ -41,10 +41,10 @@ export const mockDeploymentStatusResponse = {
 export const mockAgentsResponse = {
   agents: [
     {
-      uniqueName: 'TestAgent_v1',
-      friendlyName: 'Test Agent Version 1',
-      version: '1.0.0',
-      deployedTo: ['Tenant 1'],
+      uniqueName: "TestAgent_v1",
+      friendlyName: "Test Agent Version 1",
+      version: "1.0.0",
+      deployedTo: ["Tenant 1"],
     },
   ],
 };
@@ -52,10 +52,10 @@ export const mockAgentsResponse = {
 export const mockTenantsResponse = {
   tenants: [
     {
-      tenantId: '11111111-1111-1111-1111-111111111111',
-      name: 'Test Tenant 1',
-      environmentUrl: 'https://test1.crm.dynamics.com',
-      deployedAgents: ['TestAgent_v1'],
+      tenantId: "11111111-1111-1111-1111-111111111111",
+      name: "Test Tenant 1",
+      environmentUrl: "https://test1.crm.dynamics.com",
+      deployedAgents: ["TestAgent_v1"],
     },
   ],
 };
@@ -69,8 +69,8 @@ export const mockStatsResponse = {
 };
 
 export const mockCreateDeploymentResponse = {
-  deploymentId: 'batch-new-789',
-  status: 'pending',
+  deploymentId: "batch-new-789",
+  status: "pending",
   demoMode: true,
 };
 
@@ -99,7 +99,7 @@ export function createMockFetch(responses: Map<string, unknown>) {
         return Promise.resolve(createMockResponse(response));
       }
     }
-    return Promise.resolve(createMockResponse({ error: 'Not found' }, 404, false));
+    return Promise.resolve(createMockResponse({ error: "Not found" }, 404, false));
   });
 }
 

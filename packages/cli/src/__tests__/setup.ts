@@ -24,7 +24,7 @@
  * sets DEMO_MODE=true by default in the subprocess environment.
  */
 
-import { afterAll, beforeEach, vi } from 'vitest';
+import { afterAll, beforeEach, vi } from "vitest";
 
 // Clean up after all tests
 afterAll(() => {

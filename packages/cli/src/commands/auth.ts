@@ -22,12 +22,15 @@ import { handleCommandError } from "../lib/errors.js";
 
 export const authCommand = new Command("auth")
   .description("Store or remove your client secret in the OS keychain")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync auth login                                Store client secret in OS keychain
   agentsync auth logout                               Remove stored credentials
   agentsync auth status                               Check authentication status
-`);
+`
+  );
 
 // Login subcommand
 authCommand

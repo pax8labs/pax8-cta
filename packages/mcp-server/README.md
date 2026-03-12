@@ -17,6 +17,7 @@ Model Context Protocol (MCP) server for AgentSync deployment management. Enables
 ### For Claude Desktop
 
 1. Install the MCP server globally:
+
 ```bash
 npm install -g @agentsync/mcp-server
 ```
@@ -44,11 +45,13 @@ npm install -g @agentsync/mcp-server
 ### For Cline (VS Code)
 
 1. Install the MCP server:
+
 ```bash
 npm install -g @agentsync/mcp-server
 ```
 
 2. In VS Code, open Cline settings and add:
+
 ```json
 {
   "mcpServers": {
@@ -84,32 +87,32 @@ The server supports comprehensive configuration via environment variables:
 
 ### API Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable       | Description            | Default                 |
+| -------------- | ---------------------- | ----------------------- |
 | `API_BASE_URL` | AgentSync API endpoint | `http://localhost:3000` |
 
 ### Request Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `REQUEST_TIMEOUT_MS` | Request timeout in milliseconds | `30000` (30s) |
-| `MAX_RETRIES` | Maximum retry attempts for failed requests | `3` |
-| `RETRY_DELAY_MS` | Initial retry delay in milliseconds | `1000` (1s) |
-| `RETRY_BACKOFF_MULTIPLIER` | Exponential backoff multiplier | `2` |
+| Variable                   | Description                                | Default       |
+| -------------------------- | ------------------------------------------ | ------------- |
+| `REQUEST_TIMEOUT_MS`       | Request timeout in milliseconds            | `30000` (30s) |
+| `MAX_RETRIES`              | Maximum retry attempts for failed requests | `3`           |
+| `RETRY_DELAY_MS`           | Initial retry delay in milliseconds        | `1000` (1s)   |
+| `RETRY_BACKOFF_MULTIPLIER` | Exponential backoff multiplier             | `2`           |
 
 ### Circuit Breaker Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CIRCUIT_BREAKER_THRESHOLD` | Failures before circuit opens | `5` |
-| `CIRCUIT_BREAKER_RESET_MS` | Circuit reset time in milliseconds | `60000` (60s) |
+| Variable                    | Description                        | Default       |
+| --------------------------- | ---------------------------------- | ------------- |
+| `CIRCUIT_BREAKER_THRESHOLD` | Failures before circuit opens      | `5`           |
+| `CIRCUIT_BREAKER_RESET_MS`  | Circuit reset time in milliseconds | `60000` (60s) |
 
 ### Logging Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `LOG_LEVEL` | Logging level (`error`, `warn`, `info`, `debug`) | `info` |
-| `LOG_FORMAT` | Log format (`json`, `pretty`) | `json` |
+| Variable     | Description                                      | Default |
+| ------------ | ------------------------------------------------ | ------- |
+| `LOG_LEVEL`  | Logging level (`error`, `warn`, `info`, `debug`) | `info`  |
+| `LOG_FORMAT` | Log format (`json`, `pretty`)                    | `json`  |
 
 ### Example Configuration
 
@@ -121,6 +124,7 @@ export LOG_LEVEL="debug"
 ```
 
 Or in your MCP config:
+
 ```json
 {
   "env": {
@@ -190,13 +194,16 @@ Once configured, you can ask your AI assistant natural language questions:
 The MCP server exposes these tools to AI assistants:
 
 ### `analyze_deployment_risk`
+
 Analyze deployment risk before executing a deployment.
 
 **Parameters:**
+
 - `agentId` (required): Agent unique name (e.g., `ProductQADemo_v3`)
 - `tenantIds` (required): Array of tenant IDs to analyze
 
 **Returns:**
+
 - Risk score (low/medium/high/critical)
 - Success probability percentage
 - Estimated deployment duration
@@ -205,51 +212,65 @@ Analyze deployment risk before executing a deployment.
 - Actionable recommendations
 
 **Use cases:**
+
 - Check for GDAP permission issues before deploying
 - Identify tenants with recurring deployment failures
 - Validate sufficient deployment history for confidence
 - Get estimated duration and success probability
 
 ### `list_deployments`
+
 List recent deployments with optional status filtering.
 
 **Parameters:**
+
 - `status` (optional): Filter by status (`pending`, `in_progress`, `completed`, `failed`, `cancelled`)
 - `limit` (optional): Max deployments to return (default: 10, max: 100)
 
 ### `get_deployment_status`
+
 Get detailed status of a specific deployment.
 
 **Parameters:**
+
 - `deploymentId` (required): The deployment ID
 
 ### `list_agents`
+
 List all available Copilot agents with deployment information.
 
 ### `list_tenants`
+
 List all customer tenants with metadata and deployed agents.
 
 ### `create_deployment`
+
 Create a new deployment to deploy an agent to tenants.
 
 **Parameters:**
+
 - `agentId` (required): Agent unique name (e.g., `ProductQADemo_v3`)
 - `tenantIds` (required): Array of tenant IDs
 
 ### `monitor_deployment`
+
 Monitor a deployment in real-time until completion.
 
 **Parameters:**
+
 - `deploymentId` (required): The deployment ID to monitor
 - `maxWaitSeconds` (optional): Max seconds to wait (default: 60)
 
 ### `get_deployment_stats`
+
 Get overall deployment statistics and success rates.
 
 ### `retry_deployment`
+
 Retry a failed deployment.
 
 **Parameters:**
+
 - `deploymentId` (required): The deployment ID to retry
 
 ## Architecture
@@ -281,16 +302,19 @@ Retry a failed deployment.
 ## Development
 
 ### Build
+
 ```bash
 npm run build
 ```
 
 ### Watch mode
+
 ```bash
 npm run dev
 ```
 
 ### Test locally
+
 ```bash
 # Terminal 1: Start AgentSync web app
 cd packages/web
@@ -309,16 +333,16 @@ The MCP server uses structured error responses with specific error codes:
 
 ### Error Code Reference
 
-| Code | HTTP Status | Description | Resolution |
-|------|-------------|-------------|------------|
-| `API_ERROR` | 4xx/5xx | API request failed | Check API endpoint and credentials |
-| `NETWORK_ERROR` | - | Connection/network failure | Verify network connectivity and API URL |
-| `TIMEOUT_ERROR` | - | Request exceeded timeout limit | Increase `REQUEST_TIMEOUT_MS` or check API performance |
-| `VALIDATION_ERROR` | 400 | Invalid input parameters | Check parameter formats and requirements |
-| `NOT_FOUND` | 404 | Resource not found | Verify resource ID exists |
-| `AUTH_ERROR` | 401 | Authentication failed | Check API credentials |
-| `CIRCUIT_BREAKER_OPEN` | 503 | Too many recent failures | Wait for circuit breaker reset or check API health |
-| `RATE_LIMIT_EXCEEDED` | 429 | Rate limit hit | Wait for retry-after period |
+| Code                   | HTTP Status | Description                    | Resolution                                             |
+| ---------------------- | ----------- | ------------------------------ | ------------------------------------------------------ |
+| `API_ERROR`            | 4xx/5xx     | API request failed             | Check API endpoint and credentials                     |
+| `NETWORK_ERROR`        | -           | Connection/network failure     | Verify network connectivity and API URL                |
+| `TIMEOUT_ERROR`        | -           | Request exceeded timeout limit | Increase `REQUEST_TIMEOUT_MS` or check API performance |
+| `VALIDATION_ERROR`     | 400         | Invalid input parameters       | Check parameter formats and requirements               |
+| `NOT_FOUND`            | 404         | Resource not found             | Verify resource ID exists                              |
+| `AUTH_ERROR`           | 401         | Authentication failed          | Check API credentials                                  |
+| `CIRCUIT_BREAKER_OPEN` | 503         | Too many recent failures       | Wait for circuit breaker reset or check API health     |
+| `RATE_LIMIT_EXCEEDED`  | 429         | Rate limit hit                 | Wait for retry-after period                            |
 
 ### Error Response Format
 
@@ -360,11 +384,14 @@ The circuit breaker protects against cascading failures:
 **Error**: `NETWORK_ERROR` or `ECONNREFUSED`
 
 **Solution**:
+
 1. Make sure the AgentSync API is running:
+
 ```bash
 cd packages/web
 npm run dev
 ```
+
 2. Verify the API URL is correct in your MCP config
 3. Check firewall settings
 
@@ -373,6 +400,7 @@ npm run dev
 **Error**: Tool invocation fails in AI assistant
 
 **Solution**:
+
 1. Restart your AI assistant after installing the MCP server
 2. Verify MCP config file syntax
 3. Check MCP server logs for startup errors
@@ -382,6 +410,7 @@ npm run dev
 **Error**: `CIRCUIT_BREAKER_OPEN`
 
 **Solution**:
+
 1. Wait 60 seconds for automatic reset
 2. Check AgentSync API health
 3. Review logs for underlying error patterns
@@ -392,6 +421,7 @@ npm run dev
 **Error**: `AUTH_ERROR` (401)
 
 **Solution**:
+
 1. Ensure AgentSync is running in demo mode (set `DEMO_MODE=true` in `.env`)
 2. For production, verify Azure AD configuration
 
@@ -400,6 +430,7 @@ npm run dev
 **Error**: `TIMEOUT_ERROR`
 
 **Solution**:
+
 1. Increase `REQUEST_TIMEOUT_MS` (default: 30000ms)
 2. Check API performance and database queries
 3. Review deployment complexity (multiple tenants)
@@ -409,6 +440,7 @@ npm run dev
 **Error**: `VALIDATION_ERROR` with details
 
 **Solution**:
+
 1. Check error details for specific validation failure
 2. Verify parameter formats:
    - Deployment IDs: alphanumeric, hyphens, underscores

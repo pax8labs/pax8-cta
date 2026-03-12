@@ -16,11 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import {
-  isTelemetryEnabled,
-  enableTelemetry,
-  disableTelemetry,
-} from "../lib/telemetry.js";
+import { isTelemetryEnabled, enableTelemetry, disableTelemetry } from "../lib/telemetry.js";
 
 export const telemetryCommand = new Command("telemetry")
   .description("Manage anonymous usage telemetry")
@@ -44,7 +40,9 @@ telemetryCommand
     console.log(chalk.green("✓ Telemetry enabled"));
     console.log();
     console.log(chalk.gray("Thank you for helping improve AgentSync CLI!"));
-    console.log(chalk.gray("We collect only anonymous usage data - never any personal or tenant information."));
+    console.log(
+      chalk.gray("We collect only anonymous usage data - never any personal or tenant information.")
+    );
   });
 
 telemetryCommand
@@ -84,7 +82,9 @@ function showStatus(): void {
   console.log(chalk.gray("  • Configuration values"));
   console.log(chalk.gray("  • Any personally identifiable information"));
   console.log();
-  console.log(chalk.gray("Learn more: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry"));
+  console.log(
+    chalk.gray("Learn more: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry")
+  );
   console.log();
 
   if (enabled) {

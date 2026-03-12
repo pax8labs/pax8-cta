@@ -40,13 +40,16 @@ export const listCommand = new Command("list")
   .option("--since <date>", "Show history since date (ISO format or relative like '7d', '24h')")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--json", "Output as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync deployments list                          Show recent import history
   agentsync deployments list -t AgentSync-Test2       History for a specific tenant
   agentsync deployments list -a TestDeploy            History for a specific solution
   agentsync deployments list --since 7d               Imports in the last 7 days
-`)
+`
+  )
   .action(async (options) => {
     const spinner = createSpinner("Loading deployment history...").start();
 

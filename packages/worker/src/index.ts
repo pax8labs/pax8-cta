@@ -13,7 +13,11 @@ const logger = workerLogger;
 
 // DISABLED: Auto-start removed to fix CLI binary including worker startup
 // When run directly AND workers are explicitly enabled, start the workers
-if (false && import.meta.url === `file://${process.argv[1]}` && process.env.START_WORKERS === "true") {
+if (
+  false &&
+  import.meta.url === `file://${process.argv[1]}` &&
+  process.env.START_WORKERS === "true"
+) {
   const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
   const concurrency = parseInt(process.env.WORKER_CONCURRENCY || "5", 10);
   const enableScheduler = process.env.ENABLE_SCHEDULER !== "false"; // Enabled by default

@@ -1,7 +1,7 @@
 /**
  * Test helpers for Next.js API routes
  */
-import { NextRequest } from 'next/server';
+import { NextRequest } from "next/server";
 
 /**
  * Create a mock NextRequest for testing API routes
@@ -15,12 +15,12 @@ export function createMockRequest(
     formData?: FormData;
   } = {}
 ): NextRequest {
-  const { method = 'GET', body, headers = {}, formData } = options;
+  const { method = "GET", body, headers = {}, formData } = options;
 
   const requestInit: RequestInit = {
     method,
     headers: {
-      'Content-Type': body ? 'application/json' : 'text/plain',
+      "Content-Type": body ? "application/json" : "text/plain",
       ...headers,
     },
   };
@@ -32,10 +32,10 @@ export function createMockRequest(
   if (formData) {
     requestInit.body = formData;
     // Remove Content-Type header so fetch sets the correct boundary
-    delete (requestInit.headers as Record<string, string>)['Content-Type'];
+    delete (requestInit.headers as Record<string, string>)["Content-Type"];
   }
 
-  return new NextRequest(new URL(url, 'http://localhost:3000'), requestInit);
+  return new NextRequest(new URL(url, "http://localhost:3000"), requestInit);
 }
 
 /**
@@ -44,14 +44,14 @@ export function createMockRequest(
 export function createMockFormDataRequest(
   url: string,
   data: Record<string, string | Blob>,
-  method = 'POST'
+  method = "POST"
 ): NextRequest {
   const formData = new FormData();
   Object.entries(data).forEach(([key, value]) => {
     formData.append(key, value);
   });
 
-  return new NextRequest(new URL(url, 'http://localhost:3000'), {
+  return new NextRequest(new URL(url, "http://localhost:3000"), {
     method,
     body: formData,
   });

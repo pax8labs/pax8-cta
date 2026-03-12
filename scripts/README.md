@@ -9,16 +9,19 @@ This directory contains automation scripts for sandbox environment management an
 Automates the creation of Power Platform environments for sandbox testing.
 
 **Prerequisites:**
+
 - Power Platform CLI (`pac`) installed
 - Authenticated to sandbox tenant
 - M365 Developer subscription with available environment quota
 
 **Usage:**
+
 ```bash
 ./scripts/setup-sandbox-environments.sh
 ```
 
 **What it does:**
+
 1. Creates source environment: "AgentSync Dev Source"
 2. Creates 3 target test environments:
    - Contoso Sandbox
@@ -28,6 +31,7 @@ Automates the creation of Power Platform environments for sandbox testing.
 4. Provides next steps for configuration
 
 **Configuration:**
+
 ```bash
 # Set region (default: unitedstates)
 REGION=unitedstates ./scripts/setup-sandbox-environments.sh
@@ -43,11 +47,13 @@ CURRENCY=USD ./scripts/setup-sandbox-environments.sh
 Daily maintenance script to clean up old sandbox data and reduce storage usage.
 
 **Usage:**
+
 ```bash
 ./scripts/cleanup-sandbox.sh
 ```
 
 **What it does:**
+
 1. Clears completed/failed jobs from Redis queue
 2. Deletes old deployment records (>7 days)
 3. Removes old audit logs (>30 days)
@@ -55,6 +61,7 @@ Daily maintenance script to clean up old sandbox data and reduce storage usage.
 5. Cleans up old rollback snapshots (>30 days)
 
 **Schedule via cron:**
+
 ```bash
 # Add to crontab (runs daily at 2 AM)
 crontab -e
@@ -64,6 +71,7 @@ crontab -e
 ```
 
 **Configuration:**
+
 ```bash
 # Override database path
 DATABASE_PATH=/custom/path/db.sqlite ./scripts/cleanup-sandbox.sh
@@ -82,11 +90,13 @@ SNAPSHOT_DIR=/custom/snapshots ./scripts/cleanup-sandbox.sh
 Quick start script for demo mode (for recording demos, presentations).
 
 **Usage:**
+
 ```bash
 ./scripts/start-demo.sh
 ```
 
 **What it does:**
+
 1. Checks dependencies (Node.js, pnpm)
 2. Installs dependencies if needed
 3. Builds packages if needed
@@ -100,11 +110,13 @@ Quick start script for demo mode (for recording demos, presentations).
 ## Other Useful Commands
 
 ### List Power Platform Environments
+
 ```bash
 pac admin list
 ```
 
 ### Check Redis Queue Status
+
 ```bash
 redis-cli LLEN bull:tenant-deployments:active
 redis-cli LLEN bull:tenant-deployments:waiting
@@ -112,6 +124,7 @@ redis-cli LLEN bull:tenant-deployments:failed
 ```
 
 ### Manual Database Cleanup
+
 ```bash
 sqlite3 ./data/agentsync-sandbox.db "SELECT COUNT(*) FROM deployments;"
 sqlite3 ./data/agentsync-sandbox.db "DELETE FROM deployments WHERE created_at < datetime('now', '-7 days');"
@@ -119,6 +132,7 @@ sqlite3 ./data/agentsync-sandbox.db "VACUUM;"
 ```
 
 ### View Sandbox Logs
+
 ```bash
 # View cleanup logs
 tail -f /var/log/agentsync-cleanup.log
@@ -132,11 +146,13 @@ pnpm worker 2>&1 | tee worker.log
 ## Troubleshooting
 
 ### Script Permission Denied
+
 ```bash
 chmod +x ./scripts/*.sh
 ```
 
 ### Power Platform CLI Not Found
+
 ```bash
 # Install pac CLI
 # See: https://learn.microsoft.com/power-platform/developer/cli/introduction
@@ -148,6 +164,7 @@ brew install microsoft/powerplatform/pac
 ```
 
 ### Redis Connection Failed
+
 ```bash
 # Start Redis with Docker
 docker run -d --name agentsync-redis -p 6379:6379 redis:7-alpine
@@ -158,6 +175,7 @@ redis-cli ping
 ```
 
 ### Database Locked Error
+
 ```bash
 # Make sure no other process is accessing the database
 lsof ./data/agentsync-sandbox.db

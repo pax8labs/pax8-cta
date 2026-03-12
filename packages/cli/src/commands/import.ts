@@ -38,11 +38,14 @@ export const importCommand = new Command("import")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--no-overwrite", "Do not overwrite existing customizations")
   .option("--no-publish", "Do not activate workflows after import")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync import ./TestDeploy.zip -t AgentSync-Test2      Import to a specific tenant
   agentsync import ./TestDeploy.zip -t AgentSync-Test2 --no-publish
-`)
+`
+  )
   .action(async (solutionArg: string | undefined, options) => {
     if (solutionArg && !options.solution) options.solution = solutionArg;
     const spinner = createSpinner("Loading configuration...").start();
@@ -56,7 +59,9 @@ Examples:
       const destinationId = options.destination || options.tenant;
       const destination = findTenant(config, destinationId);
       if (!destination) {
-        throw new CliError(`Destination '${destinationId}' not found in manifest. Run 'agentsync tenants list' to see available tenants.`);
+        throw new CliError(
+          `Destination '${destinationId}' not found in manifest. Run 'agentsync tenants list' to see available tenants.`
+        );
       }
       spinner.succeed(`Manifest loaded - Destination: ${destination.name}`);
 

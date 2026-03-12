@@ -157,9 +157,7 @@ export class SolutionOperations {
   /**
    * Query solution history (imports, uninstalls, exports) from Dataverse
    */
-  async getSolutionHistory(
-    options: SolutionHistoryOptions = {}
-  ): Promise<SolutionHistoryRecord[]> {
+  async getSolutionHistory(options: SolutionHistoryOptions = {}): Promise<SolutionHistoryRecord[]> {
     const { solutionName, operation = "all", limit = 50 } = options;
 
     const filters: string[] = [];

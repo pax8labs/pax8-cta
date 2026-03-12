@@ -1,6 +1,6 @@
 # AgentSync
 
-Take your CoPilot agents and ship them to your clients' tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges). AgentSync works in a web-app, command-line tool (CLI), or as a Claude  Skill. 
+Take your CoPilot agents and ship them to your clients' tenants! Multi-tenant Copilot Studio deployment automation for MSPs. Deploy agents from a source environment to hundreds of customer destinations using GDAP (Granular Delegated Admin Privileges). AgentSync works in a web-app, command-line tool (CLI), or as a Claude Skill.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fpax8labs%2Fagentsync&env=PARTNER_TENANT_ID,PARTNER_CLIENT_ID,PARTNER_CLIENT_SECRET,SOURCE_TENANT_ID,SOURCE_ENVIRONMENT_URL&envDescription=Azure%20AD%20and%20source%20environment%20configuration&project-name=agentsync&repository-name=agentsync)
 
@@ -14,7 +14,7 @@ Take your CoPilot agents and ship them to your clients' tenants! Multi-tenant Co
    - Go to Customers → [Customer] → Admin relationships
    - Request **Power Platform Administrator** role
    - Customer approves the relationship
-   - *This is the only external step - everything else is done in AgentSync*
+   - _This is the only external step - everything else is done in AgentSync_
 
 2. **Create Azure AD app registration** in your partner tenant
    - [Azure Portal](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → App registrations → New registration
@@ -61,6 +61,7 @@ Deploy the **Control Tower web dashboard** to **Vercel** - a free cloud hosting 
 4. Click Deploy → Your Control Tower dashboard is live in ~2 minutes
 
 To add customer tenants, either:
+
 - Set `TENANTS_JSON` env var with a JSON array of tenants, OR
 - Edit `config/tenants.yaml` in your forked repo (see [Configuration](#configuration))
 
@@ -89,11 +90,11 @@ pnpm web                      # Opens Control Tower dashboard at localhost:3000
 
 ## 📋 What You'll Need
 
-| Requirement | Who Sets This Up | You Probably Have It If... |
-|-------------|------------------|---------------------------|
-| GDAP relationships | You (MSP admin) | You manage customers in Partner Center |
-| Azure AD App Registration | You or your IT team | You've done SSO or API integrations |
-| Power Platform Admin role | Customer approval | Customers approved your GDAP request |
+| Requirement               | Who Sets This Up    | You Probably Have It If...             |
+| ------------------------- | ------------------- | -------------------------------------- |
+| GDAP relationships        | You (MSP admin)     | You manage customers in Partner Center |
+| Azure AD App Registration | You or your IT team | You've done SSO or API integrations    |
+| Power Platform Admin role | Customer approval   | Customers approved your GDAP request   |
 
 **Don't have GDAP yet?** See [Prerequisites](#prerequisites) below for step-by-step setup.
 
@@ -102,6 +103,7 @@ pnpm web                      # Opens Control Tower dashboard at localhost:3000
 ## Features
 
 ### Core Capabilities
+
 - **Multi-tenant deployment** - Deploy agents to 200+ tenants in parallel with rate limiting
 - **GDAP authentication** - Secure cross-tenant access using Microsoft's delegated admin model
 - **Three deployment interfaces** - Web UI, CLI, and Claude Code skill (with feature parity)
@@ -110,6 +112,7 @@ pnpm web                      # Opens Control Tower dashboard at localhost:3000
 - **Comprehensive testing** - 140+ CLI tests, 7 E2E tests, 67% code coverage
 
 ### Advanced Features (v2.0)
+
 - **SQLite Persistence** - Durable storage for deployments, approvals, and audit logs that survives restarts
 - **Approval Workflows** - Multi-approver voting system with expiration and audit trail
 - **Health Checks** - Validate tenant environments with persistent historical results
@@ -125,6 +128,7 @@ pnpm web                      # Opens Control Tower dashboard at localhost:3000
 ## Architecture
 
 **Vercel / Serverless (simple):**
+
 ```
 ┌─────────────────┐                          ┌─────────────────┐
 │  Control Tower  │─────────────────────────▶│   Customer A    │
@@ -135,6 +139,7 @@ pnpm web                      # Opens Control Tower dashboard at localhost:3000
 ```
 
 **Docker / Self-hosted (scales to 200+ tenants):**
+
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   CLI / Control │────▶│   Dock Queue    │────▶│    Dockworker   │
@@ -200,9 +205,10 @@ pnpm web                      # Opens Control Tower dashboard at localhost:3000
 
 ### 3. Application User (Per Customer) - Optional
 
-*Only needed if you encounter permission issues. Most MSPs with GDAP + Power Platform Admin role don't need this.*
+_Only needed if you encounter permission issues. Most MSPs with GDAP + Power Platform Admin role don't need this._
 
 If required, in each customer's environment:
+
 1. Power Platform Admin Center → Environments → [Environment] → Settings
 2. Users + permissions → Application users → New app user
 3. Add your partner app registration
@@ -212,11 +218,11 @@ If required, in each customer's environment:
 
 Choose the option that matches your comfort level:
 
-| Option | Best For | Technical Skill |
-|--------|----------|-----------------|
-| [Vercel (Cloud)](#option-1-vercel-cloud---easiest) | IT admins, quick setup | ⭐ Beginner |
+| Option                                             | Best For                      | Technical Skill   |
+| -------------------------------------------------- | ----------------------------- | ----------------- |
+| [Vercel (Cloud)](#option-1-vercel-cloud---easiest) | IT admins, quick setup        | ⭐ Beginner       |
 | [Docker](#option-2-docker---recommended-for-scale) | Self-hosted, bulk deployments | ⭐⭐ Intermediate |
-| [Local Development](#option-3-local-development) | Developers, customization | ⭐⭐⭐ Advanced |
+| [Local Development](#option-3-local-development)   | Developers, customization     | ⭐⭐⭐ Advanced   |
 
 ### Option 1: Vercel (Cloud) - Easiest
 
@@ -379,12 +385,12 @@ Schedule deployments during maintenance windows:
 ```yaml
 settings:
   schedule:
-    cron: "0 2 * * 6"  # Saturday at 2 AM
+    cron: "0 2 * * 6" # Saturday at 2 AM
     timezone: "America/New_York"
     maintenanceWindow:
       start: "02:00"
       end: "06:00"
-      daysOfWeek: [0, 6]  # Weekend only
+      daysOfWeek: [0, 6] # Weekend only
 ```
 
 ### Approval Workflow
@@ -404,6 +410,7 @@ settings:
 ```
 
 **Features:**
+
 - Multiple approvers can vote (approve/reject) on each deployment
 - Deployments proceed once minimum approvals are reached
 - Any rejection immediately blocks the deployment
@@ -413,15 +420,15 @@ settings:
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PARTNER_CLIENT_SECRET` | Azure AD app client secret | Required |
-| `DATABASE_PATH` | SQLite database file location | `./data/agentsync.db` |
-| `REDIS_URL` | Redis connection URL (optional for demo mode) | `redis://localhost:6379` |
-| `CONFIG_PATH` | Path to tenants.yaml | `./config/tenants.yaml` |
-| `WORKER_CONCURRENCY` | Parallel deployments | `5` |
-| `SNAPSHOTS_DIR` | Directory for rollback snapshots | `./snapshots` |
-| `DEMO_MODE` | Enable demo mode (uses in-memory stores) | `false` |
+| Variable                | Description                                   | Default                  |
+| ----------------------- | --------------------------------------------- | ------------------------ |
+| `PARTNER_CLIENT_SECRET` | Azure AD app client secret                    | Required                 |
+| `DATABASE_PATH`         | SQLite database file location                 | `./data/agentsync.db`    |
+| `REDIS_URL`             | Redis connection URL (optional for demo mode) | `redis://localhost:6379` |
+| `CONFIG_PATH`           | Path to tenants.yaml                          | `./config/tenants.yaml`  |
+| `WORKER_CONCURRENCY`    | Parallel deployments                          | `5`                      |
+| `SNAPSHOTS_DIR`         | Directory for rollback snapshots              | `./snapshots`            |
+| `DEMO_MODE`             | Enable demo mode (uses in-memory stores)      | `false`                  |
 
 ## CLI Usage
 
@@ -496,6 +503,7 @@ Access at `http://localhost:3000`
 ### Data Persistence
 
 AgentSync uses SQLite for durable storage:
+
 - **Deployment History** - Complete history of all deployments with batch tracking
 - **Approval Records** - Full audit trail of approvals with voter information
 - **Health Check Results** - Historical health check data for trend analysis
@@ -511,12 +519,14 @@ AgentSync includes a native Claude Code skill for AI-powered deployment manageme
 ### What You Can Do
 
 Ask Claude naturally about your deployments:
+
 - "Show me all failed deployments"
 - "Deploy ProductQA agent to Contoso"
 - "What tenants have the support agent deployed?"
 - "Check the health of all production tenants"
 
 Or use slash commands:
+
 - `/deployments` - View deployment status and identify issues
 - `/deploy` - Create new deployment with guided workflow
 - `/fix-failures` - AI-powered troubleshooting and remediation
@@ -539,12 +549,14 @@ pnpm web  # Runs at http://localhost:3000
 ### How It Works
 
 Claude Code reads the skill definition in `.claude/skills/agentsync.md` which provides:
+
 - API endpoint documentation and authentication
 - Common workflows and examples
 - Error analysis patterns
 - Response formatting guidelines
 
 When you ask deployment-related questions, Claude automatically:
+
 1. Recognizes the context (deployments, agents, tenants)
 2. References the skill for guidance
 3. Calls the AgentSync API (localhost:3000)
@@ -568,6 +580,7 @@ For production use, sign in to AgentSync in your browser first - Claude will use
 ### Example Workflows
 
 **Check deployment status:**
+
 ```
 You: "Show me failed deployments from today"
 Claude: [Queries API, analyzes results]
@@ -583,6 +596,7 @@ Claude: [Queries API, analyzes results]
 ```
 
 **Deploy an agent:**
+
 ```
 You: "Deploy the new customer service agent to all enterprise tenants"
 Claude: [Finds agent, identifies tenants with 'enterprise' tag]
@@ -803,24 +817,24 @@ agentsync/
 
 ### REST Endpoints (Control Tower)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/stats` | GET | Dashboard statistics |
-| `/api/tenants` | GET | List all configured tenants |
-| `/api/solutions` | GET | List available solutions |
-| `/api/solutions/export` | POST | Export a solution package |
-| `/api/solutions/diff` | POST | Preview deployment diff for a tenant |
-| `/api/deployments` | GET | List shipments |
-| `/api/deployments/[id]` | GET | Shipment details |
-| `/api/deployments/create` | POST | Create new shipment |
-| `/api/deployments/[id]/retry` | POST | Retry failed destination deliveries |
-| `/api/deployments/[id]/cancel` | POST | Cancel pending deliveries |
-| `/api/deployments/[id]/approve` | GET | Get approval status |
-| `/api/deployments/[id]/approve` | POST | Approve or reject a deployment |
-| `/api/deployments/[id]/rollback` | POST | Rollback a deployment |
-| `/api/tenants/[id]/health` | GET | Get last health check result |
-| `/api/tenants/[id]/health` | POST | Run health check for tenant |
-| `/api/schedules` | GET | Get scheduled deployment info |
+| Endpoint                         | Method | Description                          |
+| -------------------------------- | ------ | ------------------------------------ |
+| `/api/stats`                     | GET    | Dashboard statistics                 |
+| `/api/tenants`                   | GET    | List all configured tenants          |
+| `/api/solutions`                 | GET    | List available solutions             |
+| `/api/solutions/export`          | POST   | Export a solution package            |
+| `/api/solutions/diff`            | POST   | Preview deployment diff for a tenant |
+| `/api/deployments`               | GET    | List shipments                       |
+| `/api/deployments/[id]`          | GET    | Shipment details                     |
+| `/api/deployments/create`        | POST   | Create new shipment                  |
+| `/api/deployments/[id]/retry`    | POST   | Retry failed destination deliveries  |
+| `/api/deployments/[id]/cancel`   | POST   | Cancel pending deliveries            |
+| `/api/deployments/[id]/approve`  | GET    | Get approval status                  |
+| `/api/deployments/[id]/approve`  | POST   | Approve or reject a deployment       |
+| `/api/deployments/[id]/rollback` | POST   | Rollback a deployment                |
+| `/api/tenants/[id]/health`       | GET    | Get last health check result         |
+| `/api/tenants/[id]/health`       | POST   | Run health check for tenant          |
+| `/api/schedules`                 | GET    | Get scheduled deployment info        |
 
 ## Microsoft APIs Used
 
@@ -829,6 +843,7 @@ AgentSync integrates with multiple Microsoft APIs to enable secure multi-tenant 
 ### Core APIs
 
 #### 1. **Dataverse Web API**
+
 - **Purpose**: Solution import/export, agent management
 - **Endpoints Used**:
   - `GET /api/data/v9.2/solutions` - List solutions
@@ -842,6 +857,7 @@ AgentSync integrates with multiple Microsoft APIs to enable secure multi-tenant 
 - **Documentation**: [Dataverse Web API Reference](https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/overview)
 
 #### 2. **Microsoft Entra ID (Azure AD)**
+
 - **Purpose**: Authentication, token management
 - **Endpoints Used**:
   - `POST /oauth2/v2.0/token` - Acquire access tokens
@@ -854,6 +870,7 @@ AgentSync integrates with multiple Microsoft APIs to enable secure multi-tenant 
 - **Documentation**: [Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/)
 
 #### 3. **Microsoft Graph API** (Optional)
+
 - **Purpose**: GDAP relationship discovery
 - **Endpoints Used**:
   - `GET /v1.0/tenantRelationships/delegatedAdminRelationships` - List GDAP relationships
@@ -862,6 +879,7 @@ AgentSync integrates with multiple Microsoft APIs to enable secure multi-tenant 
 - **Documentation**: [Graph API Reference](https://learn.microsoft.com/en-us/graph/api/overview)
 
 #### 4. **Power Platform API**
+
 - **Purpose**: Environment health checks, tenant validation
 - **Endpoints Used**:
   - `GET /providers/Microsoft.BusinessAppPlatform/scopes/admin/environments` - List environments
@@ -896,13 +914,14 @@ To access customer tenants via these APIs, you need:
 
 ### API Rate Limits & Handling
 
-| API | Limit | AgentSync Handling |
-|-----|-------|-------------------|
+| API               | Limit                        | AgentSync Handling                   |
+| ----------------- | ---------------------------- | ------------------------------------ |
 | Dataverse Web API | 6,000 requests/5min per user | Exponential backoff, request queuing |
-| Graph API | 12,000 requests/10sec | Batching, rate limit detection |
-| Entra ID Token | 2,000 requests/min | Token caching (1hr TTL) |
+| Graph API         | 12,000 requests/10sec        | Batching, rate limit detection       |
+| Entra ID Token    | 2,000 requests/min           | Token caching (1hr TTL)              |
 
 AgentSync automatically handles rate limits with:
+
 - **Exponential backoff** on 429 responses
 - **Token caching** to minimize auth requests
 - **Parallel processing** with configurable concurrency (`WORKER_CONCURRENCY`)
@@ -919,16 +938,19 @@ AgentSync automatically handles rate limits with:
 ### Troubleshooting API Issues
 
 **401 Unauthorized:**
+
 - Verify GDAP relationship is active in Partner Center
 - Check Power Platform Administrator role is included
 - Ensure app registration has admin consent
 
 **403 Forbidden:**
+
 - Confirm customer approved GDAP relationship
 - Verify environment URL is correct
 - Check for application user in target environment (rare)
 
 **429 Rate Limited:**
+
 - AgentSync automatically retries with backoff
 - Reduce `WORKER_CONCURRENCY` if deploying to many tenants
 - Check for other apps using same credentials

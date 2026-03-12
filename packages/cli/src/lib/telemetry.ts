@@ -101,8 +101,10 @@ function getMachineId(): string {
  */
 export function isTelemetryEnabled(): boolean {
   // Environment variable override (highest priority)
-  if (process.env.AGENTSYNC_TELEMETRY_DISABLED === "1" ||
-      process.env.AGENTSYNC_TELEMETRY_DISABLED === "true") {
+  if (
+    process.env.AGENTSYNC_TELEMETRY_DISABLED === "1" ||
+    process.env.AGENTSYNC_TELEMETRY_DISABLED === "true"
+  ) {
     return false;
   }
 
@@ -184,11 +186,7 @@ export async function shutdownTelemetry(): Promise<void> {
 // Event Tracking
 // ============================================================================
 
-export type TelemetryEvent =
-  | "cli_command"
-  | "cli_error"
-  | "cli_not_found"
-  | "cli_first_run";
+export type TelemetryEvent = "cli_command" | "cli_error" | "cli_not_found" | "cli_first_run";
 
 export interface CommandContext {
   command: string;
@@ -228,7 +226,10 @@ export function trackCommand(ctx: CommandContext): void {
 /**
  * Track a "not found" error (like a 404)
  */
-export function trackNotFound(resource: "tenant" | "deployment" | "agent" | "command", query: string): void {
+export function trackNotFound(
+  resource: "tenant" | "deployment" | "agent" | "command",
+  query: string
+): void {
   const posthog = getClient();
   if (!posthog) return;
 

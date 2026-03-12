@@ -168,12 +168,14 @@ agentsync init --config ./custom/config.yaml
 ```
 
 The setup wizard will prompt for:
+
 - Partner Tenant ID (from Partner Center)
 - App Registration Client ID (Azure AD)
 - Environment variable instructions for client secret
 - Optional sample tenant configuration
 
 **Options**:
+
 - `-c, --config <path>` - Path to create config file (default: `./config/tenants.yaml`)
 - `--demo` - Set up in demo mode (skip credential prompts)
 
@@ -198,6 +200,7 @@ agentsync demo status
 Demo mode persists across sessions and allows you to explore all CLI features with mock data.
 
 **Why use demo mode?**
+
 - Test workflows without setting up credentials
 - Demo the tool to prospects or team members
 - Learn commands before production use
@@ -222,18 +225,21 @@ agentsync analyze --all --solution ./agent.zip --config ./my-config.yaml
 ```
 
 The risk analyzer checks for:
+
 - **GDAP Permissions**: Missing Power Platform Admin role
 - **Connection Issues**: Expired connection references
 - **Tenant Health**: Recurring deployment failures (2+ times in 24h)
 - **Historical Success**: Low success rates (requires 20+ deployments for statistical confidence)
 
 **Risk Levels**:
+
 - 🟢 **Low**: All checks passed, ready to deploy
 - 🟡 **Medium**: Some warnings, proceed with caution
 - 🟠 **High**: Multiple issues detected, review carefully
 - 🔴 **Critical**: Blockers present, cannot deploy until fixed
 
 **Output includes**:
+
 - Risk score and confidence level
 - Success probability percentage
 - Estimated deployment duration
@@ -241,12 +247,14 @@ The risk analyzer checks for:
 - Actionable recommendations
 
 **Why use analyze?**
+
 - Catch permission issues before deployment
 - Avoid repeating known failures
 - Estimate deployment time for planning
 - Get confidence in deployment success
 
 **Options**:
+
 - `-s, --solution <path>` - Path to agent solution ZIP file (required)
 - `--all` - Analyze all enabled tenants
 - `-t, --tag <tags...>` - Analyze only tenants with these tags
@@ -274,6 +282,7 @@ agentsync deploy --all --solution ./agent.zip --config ./my-config.yaml
 **Aliases**: `deploy`
 
 **Options**:
+
 - `-s, --solution <path>` - Path to agent solution ZIP file (required)
 - `--all` - Deploy to all enabled tenants
 - `-t, --tag <tags...>` - Deploy only to tenants with these tags
@@ -299,6 +308,7 @@ agentsync status --deployment dep-abc123 --watch --interval 10000
 **Aliases**: `status`
 
 **Options**:
+
 - `-d, --deployment <id>` - Deployment ID to check
 - `-s, --shipment <id>` - Alias for --deployment
 - `-w, --watch` - Watch for status changes (auto-refresh)
@@ -326,6 +336,7 @@ agentsync tenants inspect --tag production
 **Aliases**: `tenants`
 
 **Commands**:
+
 - `list` - List all tenants
 - `inspect` - Validate tenant access and GDAP permissions
 
@@ -349,6 +360,7 @@ agentsync export --solution MyAgent --output ./myagent.zip --managed
 **Aliases**: `export`
 
 **Options**:
+
 - `-s, --solution <name>` - Solution unique name (required)
 - `-o, --output <path>` - Output file path (required)
 - `-v, --version <version>` - Specific version to export
@@ -375,6 +387,7 @@ agentsync import --tenant <tenant-id> --solution ./agent.zip --no-publish
 **Aliases**: `import`
 
 **Options**:
+
 - `-t, --tenant <id>` - Target tenant ID (required)
 - `-s, --solution <path>` - Path to solution ZIP (required)
 - `--no-overwrite` - Don't overwrite existing customizations
@@ -391,6 +404,7 @@ agentsync resolve-url --url "https://..." --output ./agent.zip
 ```
 
 **Options**:
+
 - `-u, --url <url>` - M365 agent URL (required)
 - `-o, --output <path>` - Output file path (required)
 - `-c, --config <path>` - Path to config file
@@ -481,6 +495,7 @@ AgentSync uses Azure AD with GDAP (Granular Delegated Admin Privileges) for secu
    - Assign appropriate roles (e.g., Dynamics 365 Administrator)
 
 5. **Set Environment Variable**
+
    ```bash
    export AGENTSYNC_CLIENT_SECRET="your-client-secret"
    ```
@@ -616,6 +631,7 @@ AgentSync CLI collects anonymous usage analytics to help improve the tool. No pe
 **What's NOT collected:** tenant IDs, file paths, environment URLs, error details, IP addresses.
 
 **Opt out:**
+
 ```bash
 agentsync telemetry off
 # or
@@ -623,6 +639,7 @@ export AGENTSYNC_TELEMETRY_DISABLED=1
 ```
 
 **Check status:**
+
 ```bash
 agentsync telemetry status
 ```

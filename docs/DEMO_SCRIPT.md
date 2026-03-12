@@ -53,9 +53,11 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Show agentsync dashboard]**
 
 **Script:**
+
 > "Hi, I'm [name] and this is AgentSync - an automated deployment platform for Copilot Studio agents across multiple customer tenants. Think of it as 'Terraform for Power Platform' designed specifically for MSPs managing dozens or hundreds of customer environments."
 
 **What to show:**
+
 - Dashboard overview with deployment statistics
 - Point out: "10 active tenants, 15 deployed agents"
 
@@ -66,7 +68,9 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Stay on dashboard, then switch to tenants page]**
 
 **Script:**
+
 > "If you're an MSP deploying Copilot Studio solutions, you know the pain. You build an agent in your development environment, then you have to manually deploy it to Contoso, then Fabrikam, then Northwind... one by one. Each deployment means:
+>
 > - Manually importing the solution
 > - Configuring connection references
 > - Setting environment variables
@@ -76,6 +80,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 > For 50 customers, that's hours or days of manual work. And if something breaks? You're doing it all over again."
 
 **What to show:**
+
 - Navigate to Tenants page (http://localhost:3000/tenants)
 - Scroll through the list of 10 demo tenants
 - Point out different tenant types (Enterprise, SMB)
@@ -87,9 +92,11 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Tenants page]**
 
 **Script:**
+
 > "AgentSync gives you a single dashboard to manage your entire customer fleet. Here's our tenant list - notice we have tags like 'enterprise', 'priority', 'wave1'. These let us target deployments intelligently."
 
 **Actions:**
+
 1. **Show tenant filtering:**
    - Click filter dropdown
    - Show tag filters (enterprise, smb, etc.)
@@ -105,6 +112,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    - Show tag management
 
 **Key points to emphasize:**
+
 - "Real-time visibility into what's deployed where"
 - "Quick enable/disable for maintenance windows"
 - "Tag-based organization for smart deployments"
@@ -116,14 +124,17 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Deployments page]**
 
 **Script:**
+
 > "Now let's deploy an agent. I'll show you how to deploy to multiple customers simultaneously with wave-based rollout."
 
 **Actions:**
+
 1. **Navigate to deployments:**
    - Click "Deployments" in sidebar
    - Click "New Deployment" button
 
 2. **Show upload form:**
+
    ```
    Say: "First, I upload my solution ZIP file - this is exported from my dev environment"
    - (Mime action: clicking "Browse" button)
@@ -131,6 +142,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 3. **Show tenant selection:**
+
    ```
    Say: "Now I select which customers get this deployment. I can choose individual tenants or use tags."
    - Show tenant dropdown with checkboxes
@@ -138,6 +150,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 4. **Show wave configuration:**
+
    ```
    Say: "Here's where it gets powerful - wave-based deployments. Wave 1 goes to priority customers first. We wait, monitor, and only proceed to Wave 2 if Wave 1 succeeds."
    - Point to "Use Waves" toggle
@@ -159,14 +172,17 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Deployment detail page]**
 
 **Script:**
+
 > "Once deployed, we get real-time progress tracking."
 
 **Actions:**
+
 1. **Show deployment list:**
    - Should see the newly created deployment (or an existing demo deployment)
    - Click on a deployment to show details
 
 2. **Show progress view:**
+
    ```
    Say: "This is a live view of the deployment. Each tenant shows progress through 8 steps:"
    - Point to progress bars for each tenant
@@ -174,6 +190,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 3. **Show completed/failed states:**
+
    ```
    - Show some tenants completed (green checkmarks)
    - Show one failed tenant (red X)
@@ -187,6 +204,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    - Point out: Success rate, duration, tenant count
 
 **Key points:**
+
 - "Real-time Server-Sent Events for live updates"
 - "Detailed error reporting"
 - "Full audit trail of every deployment"
@@ -198,14 +216,17 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Stay on dashboard, show chat interface]**
 
 **Script:**
+
 > "AgentSync includes an AI assistant powered by Claude. You can ask natural language questions about your deployments."
 
 **Actions:**
+
 1. **Open chat panel:**
    - Click chat icon in bottom right
    - Or show chat page if available
 
 2. **Example queries:**
+
    ```
    Type: "What deployments failed in the last 7 days?"
 
@@ -226,6 +247,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 **Key points:**
+
 - "Natural language interface to your deployment data"
 - "Powered by Claude for intelligent responses"
 - "Helps debug issues faster"
@@ -237,19 +259,23 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Switch to terminal]**
 
 **Script:**
+
 > "For automation and CI/CD, AgentSync includes a powerful command-line interface. Let me show you some examples."
 
 **Actions:**
 
 1. **List tenants:**
+
    ```bash
    ./agentsync fleet list
    ```
 
    **Say:**
+
    > "Here's my entire customer fleet - same data as the web dashboard but scriptable."
 
    **Expected output:**
+
    ```
    📊 Customer Fleet Status
 
@@ -264,14 +290,17 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 2. **Check deployment status:**
+
    ```bash
    ./agentsync deployments list --status failed
    ```
 
    **Say:**
+
    > "I can filter deployments by status - let's see what failed recently."
 
    **Expected output:**
+
    ```
    ❌ Failed Deployments
 
@@ -284,6 +313,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 3. **Deploy via CLI:**
+
    ```bash
    ./agentsync deploy \
      --solution ./solutions/CustomerServiceAgent.zip \
@@ -292,9 +322,11 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
    **Say:**
+
    > "And here's deploying via CLI - perfect for CI/CD pipelines. The --wait flag shows progress in real-time."
 
    **Expected output:**
+
    ```
    🚀 Starting deployment: CustomerServiceAgent
    📦 Solution size: 847 KB
@@ -310,14 +342,17 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 4. **Show fleet inspect:**
+
    ```bash
    ./agentsync fleet inspect contoso
    ```
 
    **Say:**
+
    > "And we can deep-dive into any tenant to see exactly what's deployed."
 
    **Expected output:**
+
    ```
    🔍 Tenant Details: Contoso Corporation
 
@@ -342,6 +377,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 **Key points:**
+
 - "Fully automatable via CLI"
 - "Integrates with GitHub Actions, Azure DevOps, etc."
 - "Same functionality as web dashboard"
@@ -353,17 +389,20 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Claude desktop or terminal with MCP]**
 
 **Script:**
+
 > "AgentSync also integrates with Claude through the Model Context Protocol. This means you can ask Claude about your deployments directly."
 
 **Actions:**
 
 1. **Show MCP server running:**
+
    ```bash
    # In terminal, show MCP server is available
    cat ~/.claude/config.json
    ```
 
    **Expected output:**
+
    ```json
    {
      "mcpServers": {
@@ -377,11 +416,13 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 2. **Show Claude interaction (if you have Claude Desktop):**
 
    **In Claude app, type:**
+
    ```
    "Can you check the status of my AgentSync deployments?"
    ```
 
    **Claude response (simulated):**
+
    ```
    I'll check your AgentSync deployment status using the MCP tools.
 
@@ -398,11 +439,13 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 3. **Follow-up query:**
+
    ```
    "Yes, what went wrong with Fabrikam?"
    ```
 
    **Claude response:**
+
    ```
    [Uses agentsync_get_deployment_details tool]
 
@@ -419,6 +462,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
    ```
 
 **Key points:**
+
 - "AI-powered deployment management"
 - "Natural language queries to your deployment data"
 - "Helpful troubleshooting suggestions"
@@ -430,7 +474,9 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Back to dashboard or a diagram if you have one]**
 
 **Script:**
+
 > "Under the hood, AgentSync is built for scale. We use:
+>
 > - **BullMQ with Redis** for reliable job queuing
 > - **Server-Sent Events** for real-time updates
 > - **Wave-based deployments** to prevent blast radius
@@ -440,6 +486,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 > We've tested this with deployments to 50+ tenants simultaneously. The architecture is designed for MSPs managing hundreds of customers."
 
 **What to show:**
+
 - Navigate through dashboard showing stats
 - Point to deployment history
 - Show audit log if available
@@ -451,7 +498,9 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Show configuration files or settings]**
 
 **Script:**
+
 > "AgentSync supports:
+>
 > - **GDAP authentication** for secure partner access (requires CSP license in production)
 > - **Multi-tenant isolation** with role-based access control
 > - **Connection reference mapping** - automatically maps dev connections to production
@@ -462,6 +511,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 > Everything is configured through YAML files and environment variables - GitOps ready."
 
 **What to show:**
+
 - Show tenants.yaml file briefly
 - Show .env configuration
 - Show settings page if available
@@ -473,11 +523,13 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **[Screen: Back to dashboard]**
 
 **Script:**
+
 > "So that's AgentSync - we've gone from manual, error-prone deployments taking hours, to automated, wave-based rollouts across dozens of tenants in minutes. With real-time monitoring, AI-powered insights, and full audit trails.
 >
 > For MSPs managing Copilot Studio at scale, this is the deployment automation you've been waiting for."
 
 **Optional call-to-action:**
+
 > "If you'd like to test this with your environments or discuss how AgentSync can work for your MSP practice, let's talk. You can find us at [GitHub link] or reach out at [email]."
 
 ---
@@ -498,6 +550,7 @@ rm -f .demo-deployments-v2.json .demo-batches.json
 **Title:** "AgentSync: Automated Copilot Studio Deployment for Multi-Tenant Environments"
 
 **Description:**
+
 ```
 AgentSync is an automated deployment platform for Microsoft Copilot Studio agents across multiple Power Platform tenants. Built for MSPs managing dozens or hundreds of customer environments.
 
@@ -525,6 +578,7 @@ Contact: [your-email]
 ```
 
 **Timestamps to add:**
+
 ```
 0:00 - Introduction
 0:30 - The Problem

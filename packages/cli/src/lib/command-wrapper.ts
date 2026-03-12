@@ -41,7 +41,7 @@ export function isDemo(): boolean {
  */
 export async function withDemoMode<T>(
   demoHandler: () => T | Promise<T>,
-  realHandler: () => T | Promise<T>,
+  realHandler: () => T | Promise<T>
 ): Promise<T> {
   if (isDemo()) {
     return demoHandler();

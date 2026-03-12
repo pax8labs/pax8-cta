@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test.describe('Deployments', () => {
-  test.describe('API Endpoints', () => {
-    test('GET /api/deployments returns list', async ({ request }) => {
-      const response = await request.get('/api/deployments?limit=10');
+test.describe("Deployments", () => {
+  test.describe("API Endpoints", () => {
+    test("GET /api/deployments returns list", async ({ request }) => {
+      const response = await request.get("/api/deployments?limit=10");
 
       expect(response.status()).toBe(200);
 
@@ -12,8 +12,8 @@ test.describe('Deployments', () => {
       expect(Array.isArray(body.deployments)).toBe(true);
     });
 
-    test('GET /api/deployments respects limit parameter', async ({ request }) => {
-      const response = await request.get('/api/deployments?limit=5');
+    test("GET /api/deployments respects limit parameter", async ({ request }) => {
+      const response = await request.get("/api/deployments?limit=5");
 
       expect(response.status()).toBe(200);
 
@@ -21,8 +21,8 @@ test.describe('Deployments', () => {
       expect(body.deployments.length).toBeLessThanOrEqual(5);
     });
 
-    test('GET /api/deployments returns proper deployment structure', async ({ request }) => {
-      const response = await request.get('/api/deployments?limit=10');
+    test("GET /api/deployments returns proper deployment structure", async ({ request }) => {
+      const response = await request.get("/api/deployments?limit=10");
 
       expect(response.status()).toBe(200);
 
@@ -41,9 +41,9 @@ test.describe('Deployments', () => {
       }
     });
 
-    test('GET /api/deployments/:id returns deployment details', async ({ request }) => {
+    test("GET /api/deployments/:id returns deployment details", async ({ request }) => {
       // Use a demo deployment ID
-      const response = await request.get('/api/deployments/test-deployment-id');
+      const response = await request.get("/api/deployments/test-deployment-id");
 
       // Should return 200 in demo mode or 404 if not found
       expect([200, 404]).toContain(response.status());
@@ -56,19 +56,19 @@ test.describe('Deployments', () => {
     });
   });
 
-  test.describe('Deployment Creation', () => {
-    test('POST /api/deployments/create creates a new deployment', async ({ request }) => {
+  test.describe("Deployment Creation", () => {
+    test("POST /api/deployments/create creates a new deployment", async ({ request }) => {
       // Get demo tenants
-      const tenantsResponse = await request.get('/api/tenants');
+      const tenantsResponse = await request.get("/api/tenants");
       const tenants = await tenantsResponse.json();
       const enabledTenants = tenants.tenants
         .filter((t: { enabled: boolean }) => t.enabled)
         .slice(0, 2);
 
-      const response = await request.post('/api/deployments/create', {
+      const response = await request.post("/api/deployments/create", {
         data: {
-          solutionName: 'CustomerServiceAgent',
-          solutionVersion: '1.0.0.5',
+          solutionName: "CustomerServiceAgent",
+          solutionVersion: "1.0.0.5",
           targetTenants: enabledTenants,
         },
       });
@@ -80,11 +80,11 @@ test.describe('Deployments', () => {
       expect(body.deploymentId).toBeDefined();
     });
 
-    test('POST /api/deployments/create validates required fields', async ({ request }) => {
+    test("POST /api/deployments/create validates required fields", async ({ request }) => {
       // Missing solution name
-      const response = await request.post('/api/deployments/create', {
+      const response = await request.post("/api/deployments/create", {
         data: {
-          solutionVersion: '1.0.0',
+          solutionVersion: "1.0.0",
           targetTenants: [],
         },
       });
@@ -93,22 +93,22 @@ test.describe('Deployments', () => {
     });
   });
 
-  test.describe('Deployment Filtering', () => {
-    test('deployments have valid status values', async ({ request }) => {
-      const response = await request.get('/api/deployments?limit=50');
+  test.describe("Deployment Filtering", () => {
+    test("deployments have valid status values", async ({ request }) => {
+      const response = await request.get("/api/deployments?limit=50");
 
       expect(response.status()).toBe(200);
 
       const body = await response.json();
-      const validStatuses = ['pending', 'in_progress', 'completed', 'failed', 'cancelled'];
+      const validStatuses = ["pending", "in_progress", "completed", "failed", "cancelled"];
 
       for (const deployment of body.deployments) {
         expect(validStatuses).toContain(deployment.status);
       }
     });
 
-    test('deployments have valid date formats', async ({ request }) => {
-      const response = await request.get('/api/deployments?limit=10');
+    test("deployments have valid date formats", async ({ request }) => {
+      const response = await request.get("/api/deployments?limit=10");
 
       expect(response.status()).toBe(200);
 
@@ -117,17 +117,17 @@ test.describe('Deployments', () => {
       for (const deployment of body.deployments) {
         // createdAt should be a valid ISO date
         const createdDate = new Date(deployment.createdAt);
-        expect(createdDate.toString()).not.toBe('Invalid Date');
+        expect(createdDate.toString()).not.toBe("Invalid Date");
 
         if (deployment.updatedAt) {
           const updatedDate = new Date(deployment.updatedAt);
-          expect(updatedDate.toString()).not.toBe('Invalid Date');
+          expect(updatedDate.toString()).not.toBe("Invalid Date");
         }
       }
     });
 
-    test('deployments include tenant results', async ({ request }) => {
-      const response = await request.get('/api/deployments?limit=10');
+    test("deployments include tenant results", async ({ request }) => {
+      const response = await request.get("/api/deployments?limit=10");
 
       expect(response.status()).toBe(200);
 
@@ -146,9 +146,9 @@ test.describe('Deployments', () => {
     });
   });
 
-  test.describe('Deployment Actions', () => {
-    test('POST /api/deployments/:id/cancel cancels pending jobs', async ({ request }) => {
-      const response = await request.post('/api/deployments/test-id/cancel');
+  test.describe("Deployment Actions", () => {
+    test("POST /api/deployments/:id/cancel cancels pending jobs", async ({ request }) => {
+      const response = await request.post("/api/deployments/test-id/cancel");
 
       // Should work or return error if no jobs to cancel
       expect([200, 400, 500]).toContain(response.status());
@@ -161,8 +161,8 @@ test.describe('Deployments', () => {
       }
     });
 
-    test('POST /api/deployments/:id/retry retries failed jobs', async ({ request }) => {
-      const response = await request.post('/api/deployments/test-id/retry');
+    test("POST /api/deployments/:id/retry retries failed jobs", async ({ request }) => {
+      const response = await request.post("/api/deployments/test-id/retry");
 
       // Should work or return error if no failed jobs
       expect([200, 400, 404, 500]).toContain(response.status());
@@ -176,41 +176,41 @@ test.describe('Deployments', () => {
     });
   });
 
-  test.describe('Approval Workflow', () => {
-    test('GET /api/deployments/:id/approve returns approval status', async ({ request }) => {
-      const response = await request.get('/api/deployments/test-id/approve');
+  test.describe("Approval Workflow", () => {
+    test("GET /api/deployments/:id/approve returns approval status", async ({ request }) => {
+      const response = await request.get("/api/deployments/test-id/approve");
 
       expect(response.status()).toBe(200);
 
       const body = await response.json();
-      expect(typeof body.requiresApproval).toBe('boolean');
+      expect(typeof body.requiresApproval).toBe("boolean");
     });
 
-    test('POST /api/deployments/:id/approve validates input', async ({ request }) => {
+    test("POST /api/deployments/:id/approve validates input", async ({ request }) => {
       // Missing action
-      const response1 = await request.post('/api/deployments/test-id/approve', {
-        data: { approver: 'test@example.com' },
+      const response1 = await request.post("/api/deployments/test-id/approve", {
+        data: { approver: "test@example.com" },
       });
       expect(response1.status()).toBe(400);
 
       // Missing approver
-      const response2 = await request.post('/api/deployments/test-id/approve', {
-        data: { action: 'approve' },
+      const response2 = await request.post("/api/deployments/test-id/approve", {
+        data: { action: "approve" },
       });
       expect(response2.status()).toBe(400);
 
       // Invalid action
-      const response3 = await request.post('/api/deployments/test-id/approve', {
-        data: { action: 'invalid', approver: 'test@example.com' },
+      const response3 = await request.post("/api/deployments/test-id/approve", {
+        data: { action: "invalid", approver: "test@example.com" },
       });
       expect(response3.status()).toBe(400);
     });
 
-    test('POST /api/deployments/:id/approve accepts valid approval', async ({ request }) => {
-      const response = await request.post('/api/deployments/approval-test/approve', {
+    test("POST /api/deployments/:id/approve accepts valid approval", async ({ request }) => {
+      const response = await request.post("/api/deployments/approval-test/approve", {
         data: {
-          action: 'approve',
-          approver: 'admin@example.com',
+          action: "approve",
+          approver: "admin@example.com",
         },
       });
 
@@ -224,12 +224,12 @@ test.describe('Deployments', () => {
       }
     });
 
-    test('POST /api/deployments/:id/approve accepts rejection with reason', async ({ request }) => {
-      const response = await request.post('/api/deployments/rejection-test/approve', {
+    test("POST /api/deployments/:id/approve accepts rejection with reason", async ({ request }) => {
+      const response = await request.post("/api/deployments/rejection-test/approve", {
         data: {
-          action: 'reject',
-          approver: 'admin@example.com',
-          reason: 'Not ready for production',
+          action: "reject",
+          approver: "admin@example.com",
+          reason: "Not ready for production",
         },
       });
 
@@ -238,10 +238,10 @@ test.describe('Deployments', () => {
     });
   });
 
-  test.describe('Deployment Progress SSE', () => {
-    test('progress endpoint only shows tenants selected for deployment', async ({ request }) => {
+  test.describe("Deployment Progress SSE", () => {
+    test("progress endpoint only shows tenants selected for deployment", async ({ request }) => {
       // First, get the list of available tenants
-      const tenantsResponse = await request.get('/api/tenants');
+      const tenantsResponse = await request.get("/api/tenants");
       const tenantsData = await tenantsResponse.json();
       const enabledTenants = tenantsData.tenants.filter((t: { enabled: boolean }) => t.enabled);
 
@@ -251,15 +251,15 @@ test.describe('Deployments', () => {
       // Create a deployment with only one tenant
       const formData = new FormData();
       const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP magic bytes
-      const blob = new Blob([mockZipContent], { type: 'application/zip' });
-      formData.append('solution', blob, 'TestAgent_1_0_0.zip');
-      formData.append('tenantIds', JSON.stringify([selectedTenant.tenantId]));
+      const blob = new Blob([mockZipContent], { type: "application/zip" });
+      formData.append("solution", blob, "TestAgent_1_0_0.zip");
+      formData.append("tenantIds", JSON.stringify([selectedTenant.tenantId]));
 
-      const createResponse = await request.post('/api/deployments/create', {
+      const createResponse = await request.post("/api/deployments/create", {
         multipart: {
           solution: {
-            name: 'TestAgent_1_0_0.zip',
-            mimeType: 'application/zip',
+            name: "TestAgent_1_0_0.zip",
+            mimeType: "application/zip",
             buffer: Buffer.from(mockZipContent),
           },
           tenantIds: JSON.stringify([selectedTenant.tenantId]),
@@ -281,24 +281,24 @@ test.describe('Deployments', () => {
       expect(deploymentData.tenantResults[0].tenantId).toBe(selectedTenant.tenantId);
     });
 
-    test('progress endpoint returns error for non-existent deployment', async ({ request }) => {
-      const response = await request.get('/api/deployments/non-existent-deployment-id/progress', {
+    test("progress endpoint returns error for non-existent deployment", async ({ request }) => {
+      const response = await request.get("/api/deployments/non-existent-deployment-id/progress", {
         timeout: 5000,
       });
 
       expect(response.status()).toBe(200); // SSE returns 200 with error in stream
-      const contentType = response.headers()['content-type'];
-      expect(contentType).toContain('text/event-stream');
+      const contentType = response.headers()["content-type"];
+      expect(contentType).toContain("text/event-stream");
 
       // The stream should contain an error event
       const text = await response.text();
-      expect(text).toContain('error');
-      expect(text).toContain('not found');
+      expect(text).toContain("error");
+      expect(text).toContain("not found");
     });
 
-    test('deployment creation with multiple tenants stores all selected', async ({ request }) => {
+    test("deployment creation with multiple tenants stores all selected", async ({ request }) => {
       // Get tenants
-      const tenantsResponse = await request.get('/api/tenants');
+      const tenantsResponse = await request.get("/api/tenants");
       const tenantsData = await tenantsResponse.json();
       const enabledTenants = tenantsData.tenants.filter((t: { enabled: boolean }) => t.enabled);
 
@@ -309,11 +309,11 @@ test.describe('Deployments', () => {
       // Create deployment
       const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
 
-      const createResponse = await request.post('/api/deployments/create', {
+      const createResponse = await request.post("/api/deployments/create", {
         multipart: {
           solution: {
-            name: 'MultiTenantAgent_1_0_0.zip',
-            mimeType: 'application/zip',
+            name: "MultiTenantAgent_1_0_0.zip",
+            mimeType: "application/zip",
             buffer: Buffer.from(mockZipContent),
           },
           tenantIds: JSON.stringify(selectedIds),
@@ -334,9 +334,9 @@ test.describe('Deployments', () => {
       expect(resultIds).toContain(selectedIds[1]);
     });
 
-    test('deployment does not include unselected tenants', async ({ request }) => {
+    test("deployment does not include unselected tenants", async ({ request }) => {
       // Get tenants
-      const tenantsResponse = await request.get('/api/tenants');
+      const tenantsResponse = await request.get("/api/tenants");
       const tenantsData = await tenantsResponse.json();
       const enabledTenants = tenantsData.tenants.filter((t: { enabled: boolean }) => t.enabled);
 
@@ -352,11 +352,11 @@ test.describe('Deployments', () => {
 
       const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
 
-      const createResponse = await request.post('/api/deployments/create', {
+      const createResponse = await request.post("/api/deployments/create", {
         multipart: {
           solution: {
-            name: 'SingleTenantAgent_1_0_0.zip',
-            mimeType: 'application/zip',
+            name: "SingleTenantAgent_1_0_0.zip",
+            mimeType: "application/zip",
             buffer: Buffer.from(mockZipContent),
           },
           tenantIds: JSON.stringify([selectedTenant.tenantId]),

@@ -32,11 +32,14 @@ export const showCommand = new Command("show")
   .description("Show details of a specific deployment")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--json", "Output as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync deployments show abc-123                  Show details for a deployment
   agentsync deployments show abc-123 --json           Output as JSON
-`)
+`
+  )
   .action(async (id, options) => {
     const spinner = createSpinner("Loading deployment...").start();
 

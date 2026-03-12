@@ -45,7 +45,10 @@ if (existsSync(envPath)) {
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
     if (ENV_SKIP_KEYS.has(key)) continue;
-    const value = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+    const value = trimmed
+      .slice(eqIdx + 1)
+      .trim()
+      .replace(/^["']|["']$/g, "");
     if (!process.env[key]) {
       process.env[key] = value;
     }

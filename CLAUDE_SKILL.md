@@ -9,24 +9,28 @@ The AgentSync Claude Code skill enables natural language interaction with AgentS
 ## 🎯 What Can You Do?
 
 ### Deployment Management
+
 - **Monitor Status**: "What deployments are running?" / "Show me failed deployments"
 - **Track Progress**: "Check status of deployment dep-abc123"
 - **Analyze Failures**: "Why did the deployment to Contoso fail?"
 - **View History**: "Show me all deployments from today"
 
 ### Tenant Fleet Management
+
 - **List Tenants**: "Show me my tenants" / "How many customers do I have?"
 - **Filter Tenants**: "Show enterprise tenants" / "Which tenants are in the midwest?"
 - **Check Health**: "Are all my tenants healthy?"
 - **Validate Access**: "Can I access my tenants?"
 
 ### Agent Deployment Operations
+
 - **Deploy Agents**: "Deploy CustomerSupportAgent to all enterprise tenants"
 - **Preview Deployments**: "Show me what would happen if I deployed to production"
 - **Pack Solutions**: "Pack the HRAgent solution"
 - **Test Deployments**: "Deploy to Contoso as a test"
 
 ### Troubleshooting & Analysis
+
 - **Diagnose Issues**: "What's wrong with the deployment to Fabrikam?"
 - **Permission Checks**: "Why can't I deploy to Woodgrove Bank?"
 - **Configuration Review**: "Is demo mode enabled?"
@@ -34,9 +38,11 @@ The AgentSync Claude Code skill enables natural language interaction with AgentS
 ## 📁 Skill Components
 
 ### Main Skill Definition
+
 **File**: `.claude/skills/agentsync.md` (224 lines)
 
 Provides Claude with:
+
 - Complete CLI command reference
 - Common workflow patterns
 - Troubleshooting guidance
@@ -44,9 +50,11 @@ Provides Claude with:
 - Demo mode instructions
 
 ### Slash Commands (Optional)
+
 **Location**: `.claude/commands/`
 
 Quick shortcuts for power users:
+
 - `deployments.md` - Show deployment overview
 - `deploy.md` - Guided deployment workflow
 - `fix-failures.md` - Analyze and fix failures
@@ -55,6 +63,7 @@ Quick shortcuts for power users:
 ## 🚀 Installation
 
 ### For Repository Users
+
 If you have access to the AgentSync repository, the skill is already available:
 
 ```bash
@@ -68,11 +77,13 @@ cd /path/to/agentsync
 ### For External Users
 
 **Option 1: Manual Installation**
+
 1. Download `.claude/skills/agentsync.md` from the repository
 2. Copy to `~/.claude/skills/agentsync.md`
 3. (Optional) Copy `.claude/commands/*` to `~/.claude/commands/`
 
 **Option 2: Clone Repository**
+
 ```bash
 git clone https://github.com/pax8labs/agentsync.git
 cd agentsync
@@ -83,6 +94,7 @@ cd agentsync
 ### 1. Set Up AgentSync CLI
 
 **Quick Start with Demo Mode:**
+
 ```bash
 # Navigate to agentsync directory
 cd /path/to/agentsync
@@ -105,6 +117,7 @@ agentsync fleet list
 ### 2. Verify Skill Installation
 
 Ask Claude:
+
 ```
 You: Is the AgentSync skill installed?
 
@@ -127,6 +140,7 @@ Claude: [Executes `agentsync fleet list`]
 ## 💡 Usage Examples
 
 ### Example 1: Quick Status Check
+
 ```
 You: What's the status of my deployments?
 
@@ -156,6 +170,7 @@ Claude: Let me check your deployments.
 ```
 
 ### Example 2: Targeted Deployment
+
 ```
 You: Deploy the support agent to all enterprise customers
 
@@ -182,6 +197,7 @@ Claude: I'll deploy CustomerSupportAgent to your enterprise tenants.
 ```
 
 ### Example 3: Troubleshooting
+
 ```
 You: Why is Woodgrove Bank failing?
 
@@ -206,6 +222,7 @@ Claude: Let me check the deployment details for Woodgrove Bank.
 ```
 
 ### Example 4: Using Slash Commands
+
 ```
 You: /deployments
 
@@ -238,6 +255,7 @@ Claude: [Executes the deployments slash command workflow]
 ### Demo Mode vs Production
 
 **Demo Mode** (Development/Testing):
+
 ```bash
 # Enable demo mode
 agentsync demo on
@@ -248,6 +266,7 @@ agentsync demo on
 ```
 
 **Production Mode**:
+
 ```bash
 # Configure real credentials
 agentsync init
@@ -261,6 +280,7 @@ export AZURE_AD_TENANT_ID="your-tenant-id"
 ### Interactive Shell Mode
 
 For multiple commands, use interactive mode:
+
 ```bash
 # Enter interactive shell
 agentsync
@@ -275,6 +295,7 @@ AgentSync> quit
 ### API Integration (Alternative)
 
 The skill can also use the AgentSync web API:
+
 ```bash
 # Start the web dashboard
 DEMO_MODE=true pnpm web
@@ -296,17 +317,18 @@ DEMO_MODE=true pnpm web
 
 ### Command Translation Examples
 
-| Your Question | Claude Executes | Result |
-|--------------|-----------------|--------|
-| "Show me my tenants" | `agentsync fleet list` | Table of all tenants |
-| "What's deploying?" | `agentsync track --list` | Recent deployments |
-| "Check dep-abc123" | `agentsync track --shipment dep-abc123` | Detailed status |
-| "Deploy to prod" | `agentsync ship --tag production --solution X` | Initiates deployment |
-| "Is demo on?" | `agentsync demo status` | Demo mode status |
+| Your Question        | Claude Executes                                | Result               |
+| -------------------- | ---------------------------------------------- | -------------------- |
+| "Show me my tenants" | `agentsync fleet list`                         | Table of all tenants |
+| "What's deploying?"  | `agentsync track --list`                       | Recent deployments   |
+| "Check dep-abc123"   | `agentsync track --shipment dep-abc123`        | Detailed status      |
+| "Deploy to prod"     | `agentsync ship --tag production --solution X` | Initiates deployment |
+| "Is demo on?"        | `agentsync demo status`                        | Demo mode status     |
 
 ### Prefer CLI Over API
 
 The skill prioritizes CLI commands because they:
+
 - Don't require authentication setup
 - Provide formatted output
 - Work in demo mode out of the box
@@ -317,6 +339,7 @@ The skill prioritizes CLI commands because they:
 ### Common Issues
 
 **"Command not found: agentsync"**
+
 ```bash
 # Check if binary exists
 ls -l packages/cli/agentsync
@@ -328,17 +351,20 @@ alias agentsync="/full/path/to/agentsync/packages/cli/agentsync"
 ```
 
 **"Demo mode not enabled"**
+
 ```bash
 agentsync demo on
 agentsync demo status  # Verify
 ```
 
 **"Claude doesn't recognize deployment questions"**
+
 - Verify skill file location: `.claude/skills/agentsync.md`
 - Check file permissions: `chmod 644 .claude/skills/agentsync.md`
 - Restart Claude Code if needed
 
 **"Permission denied errors"**
+
 ```bash
 # Make CLI executable
 chmod +x packages/cli/agentsync
@@ -357,6 +383,7 @@ bun build --compile ./src/index.ts --outfile agentsync
 ## 🔐 Security Considerations
 
 ### Demo Mode Warning
+
 ```bash
 ⚠️  Demo mode bypasses all authentication!
     NEVER use demo mode in production
@@ -364,6 +391,7 @@ bun build --compile ./src/index.ts --outfile agentsync
 ```
 
 ### Production Best Practices
+
 - Use Azure AD authentication in production
 - Implement tenant-scoped access control
 - Review audit logs regularly
@@ -372,12 +400,15 @@ bun build --compile ./src/index.ts --outfile agentsync
 ## 📦 Distribution
 
 ### Current Status
+
 The skill is available:
+
 - ✅ In repository (`.claude/skills/agentsync.md`)
 - ✅ Via GitHub Gist (see issue #61)
 - ✅ Documented (this file + `.claude/README.md`)
 
 ### Future Plans
+
 - [ ] Standalone public repository (`agentsync-claude-skill`)
 - [ ] NPM package (`@pax8labs/agentsync-claude-skill`)
 - [ ] Auto-sync from private repo
@@ -389,11 +420,13 @@ The skill is available:
 Improvements welcome!
 
 **For Repository Access:**
+
 1. Edit `.claude/skills/agentsync.md`
 2. Test with Claude
 3. Submit PR
 
 **For External Users:**
+
 - Report issues: [GitHub Issues](https://github.com/pax8labs/agentsync/issues)
 - Suggest improvements: [Issue #61](https://github.com/pax8labs/agentsync/issues/61)
 

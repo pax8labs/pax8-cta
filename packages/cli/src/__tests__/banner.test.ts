@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ConsoleCapture, stripAnsi, containsText } from './test-utils.js';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { ConsoleCapture, stripAnsi, containsText } from "./test-utils.js";
 
-describe('Banner Module', () => {
+describe("Banner Module", () => {
   let consoleCapture: ConsoleCapture;
 
   beforeEach(() => {
@@ -29,9 +29,9 @@ describe('Banner Module', () => {
     consoleCapture.stop();
   });
 
-  describe('showBanner', () => {
-    it('should display the full ASCII art banner', async () => {
-      const { showBanner } = await import('../lib/banner.js');
+  describe("showBanner", () => {
+    it("should display the full ASCII art banner", async () => {
+      const { showBanner } = await import("../lib/banner.js");
 
       showBanner();
 
@@ -40,46 +40,46 @@ describe('Banner Module', () => {
 
       // Should contain banner box and content
       expect(cleanOutput.length).toBeGreaterThan(100); // Banner is large
-      expect(cleanOutput).toContain('╔'); // Has top border
-      expect(cleanOutput).toContain('╚'); // Has bottom border
+      expect(cleanOutput).toContain("╔"); // Has top border
+      expect(cleanOutput).toContain("╚"); // Has bottom border
     });
 
-    it('should display tagline', async () => {
-      const { showBanner } = await import('../lib/banner.js');
+    it("should display tagline", async () => {
+      const { showBanner } = await import("../lib/banner.js");
 
       showBanner();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Sync your Copilot Studio agents')).toBe(true);
-      expect(containsText(cleanOutput, 'Multi-tenant deployment automation')).toBe(true);
+      expect(containsText(cleanOutput, "Sync your Copilot Studio agents")).toBe(true);
+      expect(containsText(cleanOutput, "Multi-tenant deployment automation")).toBe(true);
     });
 
-    it('should display version number', async () => {
-      const { showBanner } = await import('../lib/banner.js');
+    it("should display version number", async () => {
+      const { showBanner } = await import("../lib/banner.js");
 
-      showBanner('1.2.3');
+      showBanner("1.2.3");
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Version 1.2.3')).toBe(true);
+      expect(containsText(cleanOutput, "Version 1.2.3")).toBe(true);
     });
 
-    it('should use default version when not provided', async () => {
-      const { showBanner } = await import('../lib/banner.js');
+    it("should use default version when not provided", async () => {
+      const { showBanner } = await import("../lib/banner.js");
 
       showBanner();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Version 0.1.0')).toBe(true);
+      expect(containsText(cleanOutput, "Version 0.1.0")).toBe(true);
     });
 
-    it('should display border characters', async () => {
-      const { showBanner } = await import('../lib/banner.js');
+    it("should display border characters", async () => {
+      const { showBanner } = await import("../lib/banner.js");
 
       showBanner();
 
@@ -87,91 +87,91 @@ describe('Banner Module', () => {
       const cleanOutput = stripAnsi(output);
 
       // Should have box drawing characters
-      expect(cleanOutput).toContain('╔');
-      expect(cleanOutput).toContain('═');
-      expect(cleanOutput).toContain('╗');
-      expect(cleanOutput).toContain('║');
-      expect(cleanOutput).toContain('╚');
-      expect(cleanOutput).toContain('╝');
+      expect(cleanOutput).toContain("╔");
+      expect(cleanOutput).toContain("═");
+      expect(cleanOutput).toContain("╗");
+      expect(cleanOutput).toContain("║");
+      expect(cleanOutput).toContain("╚");
+      expect(cleanOutput).toContain("╝");
     });
   });
 
-  describe('showWelcome', () => {
-    it('should display quick start section', async () => {
-      const { showWelcome } = await import('../lib/banner.js');
+  describe("showWelcome", () => {
+    it("should display quick start section", async () => {
+      const { showWelcome } = await import("../lib/banner.js");
 
       showWelcome();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Quick Start')).toBe(true);
+      expect(containsText(cleanOutput, "Quick Start")).toBe(true);
     });
 
-    it('should display deployment command examples', async () => {
-      const { showWelcome } = await import('../lib/banner.js');
+    it("should display deployment command examples", async () => {
+      const { showWelcome } = await import("../lib/banner.js");
 
       showWelcome();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Deploy to all tenants')).toBe(true);
-      expect(containsText(cleanOutput, 'deploy --all')).toBe(true);
+      expect(containsText(cleanOutput, "Deploy to all tenants")).toBe(true);
+      expect(containsText(cleanOutput, "deploy --all")).toBe(true);
     });
 
-    it('should display status command', async () => {
-      const { showWelcome } = await import('../lib/banner.js');
+    it("should display status command", async () => {
+      const { showWelcome } = await import("../lib/banner.js");
 
       showWelcome();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'deployment status')).toBe(true);
-      expect(containsText(cleanOutput, 'status --deployment')).toBe(true);
+      expect(containsText(cleanOutput, "deployment status")).toBe(true);
+      expect(containsText(cleanOutput, "status --deployment")).toBe(true);
     });
 
-    it('should display tenants command', async () => {
-      const { showWelcome } = await import('../lib/banner.js');
+    it("should display tenants command", async () => {
+      const { showWelcome } = await import("../lib/banner.js");
 
       showWelcome();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'List your tenants')).toBe(true);
-      expect(containsText(cleanOutput, 'tenants list')).toBe(true);
+      expect(containsText(cleanOutput, "List your tenants")).toBe(true);
+      expect(containsText(cleanOutput, "tenants list")).toBe(true);
     });
 
-    it('should display help hint', async () => {
-      const { showWelcome } = await import('../lib/banner.js');
+    it("should display help hint", async () => {
+      const { showWelcome } = await import("../lib/banner.js");
 
       showWelcome();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'Need help')).toBe(true);
-      expect(containsText(cleanOutput, 'help')).toBe(true);
+      expect(containsText(cleanOutput, "Need help")).toBe(true);
+      expect(containsText(cleanOutput, "help")).toBe(true);
     });
   });
 
-  describe('showCompactBanner', () => {
-    it('should display compact banner', async () => {
-      const { showCompactBanner } = await import('../lib/banner.js');
+  describe("showCompactBanner", () => {
+    it("should display compact banner", async () => {
+      const { showCompactBanner } = await import("../lib/banner.js");
 
       showCompactBanner();
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, 'AgentSync')).toBe(true);
-      expect(containsText(cleanOutput, 'Multi-Tenant Deployment')).toBe(true);
+      expect(containsText(cleanOutput, "AgentSync")).toBe(true);
+      expect(containsText(cleanOutput, "Multi-Tenant Deployment")).toBe(true);
     });
 
-    it('should display border', async () => {
-      const { showCompactBanner } = await import('../lib/banner.js');
+    it("should display border", async () => {
+      const { showCompactBanner } = await import("../lib/banner.js");
 
       showCompactBanner();
 
@@ -179,16 +179,16 @@ describe('Banner Module', () => {
       const cleanOutput = stripAnsi(output);
 
       // Should have box drawing characters
-      expect(cleanOutput).toContain('╔');
-      expect(cleanOutput).toContain('═');
-      expect(cleanOutput).toContain('╗');
-      expect(cleanOutput).toContain('║');
-      expect(cleanOutput).toContain('╚');
-      expect(cleanOutput).toContain('╝');
+      expect(cleanOutput).toContain("╔");
+      expect(cleanOutput).toContain("═");
+      expect(cleanOutput).toContain("╗");
+      expect(cleanOutput).toContain("║");
+      expect(cleanOutput).toContain("╚");
+      expect(cleanOutput).toContain("╝");
     });
 
-    it('should be more compact than full banner', async () => {
-      const { showBanner, showCompactBanner } = await import('../lib/banner.js');
+    it("should be more compact than full banner", async () => {
+      const { showBanner, showCompactBanner } = await import("../lib/banner.js");
 
       // Capture full banner
       showBanner();
@@ -202,8 +202,8 @@ describe('Banner Module', () => {
       const compactOutput = consoleCapture.getAllOutput();
 
       // Compact banner should have fewer lines
-      const fullLines = fullOutput.split('\n').length;
-      const compactLines = compactOutput.split('\n').length;
+      const fullLines = fullOutput.split("\n").length;
+      const compactLines = compactOutput.split("\n").length;
 
       expect(compactLines).toBeLessThan(fullLines);
     });

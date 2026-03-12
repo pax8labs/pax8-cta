@@ -115,9 +115,9 @@ describe("Agents Command", () => {
       const cleanOutput = stripAnsi(output);
 
       // Should show solution type
-      expect(
-        containsText(cleanOutput, "Managed") || containsText(cleanOutput, "Unmanaged")
-      ).toBe(true);
+      expect(containsText(cleanOutput, "Managed") || containsText(cleanOutput, "Unmanaged")).toBe(
+        true
+      );
     });
 
     it("should output JSON when --json flag is used", async () => {
@@ -245,7 +245,14 @@ describe("Agents Command", () => {
       program.addCommand(solutionsCommand);
 
       const agent = DEMO_SOLUTIONS[0];
-      await program.parseAsync(["node", "test", "solutions", "show", agent.uniqueName, "--tenants"]);
+      await program.parseAsync([
+        "node",
+        "test",
+        "solutions",
+        "show",
+        agent.uniqueName,
+        "--tenants",
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
