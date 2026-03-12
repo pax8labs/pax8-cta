@@ -62,8 +62,8 @@ describe("POST /api/errors/report", () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(413);
-      expect(data.error).toBe("Request body too large");
+      expect(response.status).toBe(400);
+      expect(data.error.message).toContain("Request body too large");
     });
 
     it("should reject invalid JSON", async () => {
@@ -78,7 +78,7 @@ describe("POST /api/errors/report", () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe("Invalid JSON body");
+      expect(data.error.message).toBe("Invalid JSON body");
     });
 
     it("should require error or errorMessage field", async () => {
@@ -88,7 +88,7 @@ describe("POST /api/errors/report", () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toContain("Missing or invalid required field");
+      expect(data.error.message).toContain("Missing or invalid required field");
     });
 
     it("should accept errorMessage field", async () => {

@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -24,7 +24,8 @@ vi.mock("@/lib/api-middleware", () => ({
   logAuthFailure: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
 }));
 
@@ -45,7 +46,7 @@ describe("GET /api/deployments/[id]", () => {
     const { requireAuth } = await import("@/lib/api-middleware");
 
     vi.mocked(requireAuth).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }) as any
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
 
     const request = new NextRequest("http://localhost/api/deployments/123");
@@ -69,7 +70,7 @@ describe("GET /api/deployments/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toContain("not found");
+    expect(data.error.message).toContain("not found");
   });
 
   it("should return deployment details when found", async () => {

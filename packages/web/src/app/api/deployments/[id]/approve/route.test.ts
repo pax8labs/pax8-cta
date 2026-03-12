@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -27,18 +27,52 @@ vi.mock("@/lib/api-middleware", () => ({
 
 vi.mock("@/lib/repositories/approval-repository", () => ({
   getApprovalByDeployment: vi.fn(),
-  recordApprovalVote: vi.fn(),
+  createApproval: vi.fn(),
+  addVote: vi.fn(),
+  hasVoted: vi.fn(),
+  updateApprovalStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories/deployment-repository", () => ({
-  updateDeployment: vi.fn(),
+  updateBatchStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories/audit-repository", () => ({
   logApprovalAction: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@/lib/demo-store", () => ({
+  demoDeployments: new Map(),
+  demoBatches: new Map(),
+}));
+
+vi.mock("@/lib/demo-worker", () => ({
+  startDemoDeployment: vi.fn(),
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  deploymentRateLimit: vi.fn(() =>
+    Promise.resolve({ success: true, remaining: 99, reset: Date.now() + 60000 })
+  ),
+  createRateLimitResponse: vi.fn(),
+}));
+
+vi.mock("@/lib/validation", () => ({
+  parseAndValidate: vi.fn(async (request: any) => {
+    const body = await request.json();
+    if (!body.action || !["approve", "reject"].includes(body.action)) {
+      return {
+        success: false,
+        errors: [{ path: "action", message: 'Action must be "approve" or "reject"' }],
+      };
+    }
+    return { success: true, data: body };
+  }),
+  approvalActionSchema: {},
+}));
+
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => false),
   loadConfig: vi.fn(() =>
     Promise.resolve({
@@ -60,7 +94,7 @@ describe("GET /api/deployments/[id]/approve", () => {
     const { requireAuth } = await import("@/lib/api-middleware");
 
     vi.mocked(requireAuth).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }) as any
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
 
     const request = new NextRequest("http://localhost/api/deployments/123/approve");
@@ -127,7 +161,7 @@ describe("POST /api/deployments/[id]/approve", () => {
     const { requireApproverEmail } = await import("@/lib/api-middleware");
 
     vi.mocked(requireApproverEmail).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }) as any
+      NextResponse.json({ error: "Forbidden" }, { status: 403 })
     );
 
     const request = new NextRequest("http://localhost/api/deployments/123/approve", {
@@ -142,34 +176,40 @@ describe("POST /api/deployments/[id]/approve", () => {
 
   it("should allow approved approvers to approve", async () => {
     const { requireApproverEmail } = await import("@/lib/api-middleware");
-    const { getApprovalByDeployment, recordApprovalVote } =
+    const { getApprovalByDeployment, addVote, hasVoted } =
       await import("@/lib/repositories/approval-repository");
-    const { updateDeployment } = await import("@/lib/repositories/deployment-repository");
 
     vi.mocked(requireApproverEmail).mockResolvedValue({
       user: { email: "approver@example.com", roles: ["admin"] },
     } as any);
 
-    vi.mocked(getApprovalByDeployment).mockReturnValue({
-      id: "approval-1",
-      deploymentId: "123",
-      status: "pending",
-      requiredApprovals: 2,
-      approvals: [{ approver: "other@example.com", timestamp: "2024-01-01T00:00:00Z" }],
-      rejections: [],
-      createdAt: "2024-01-01T00:00:00Z",
-      expiresAt: "2024-01-02T00:00:00Z",
-    } as any);
+    vi.mocked(hasVoted).mockReturnValue(false);
 
-    vi.mocked(recordApprovalVote).mockImplementation((approvalId, email, action) => {
-      // Mock that this vote completes the approval (2 approvals)
-      return {
-        approved: action === "approve",
-        rejected: action === "reject",
-        approvalCount: 2,
-        rejectionCount: 0,
-      };
-    });
+    // First call returns the existing approval, second call returns updated state with 2 approvals
+    vi.mocked(getApprovalByDeployment)
+      .mockReturnValueOnce({
+        id: "approval-1",
+        deploymentId: "123",
+        status: "pending",
+        requiredApprovals: 2,
+        approvals: [{ approver: "other@example.com", timestamp: "2024-01-01T00:00:00Z" }],
+        rejections: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      } as any)
+      .mockReturnValueOnce({
+        id: "approval-1",
+        deploymentId: "123",
+        status: "pending",
+        requiredApprovals: 2,
+        approvals: [
+          { approver: "other@example.com", timestamp: "2024-01-01T00:00:00Z" },
+          { approver: "approver@example.com", timestamp: new Date().toISOString() },
+        ],
+        rejections: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      } as any);
 
     const request = new NextRequest("http://localhost/api/deployments/123/approve", {
       method: "POST",
@@ -180,13 +220,13 @@ describe("POST /api/deployments/[id]/approve", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(vi.mocked(recordApprovalVote)).toHaveBeenCalledWith(
+    expect(vi.mocked(addVote)).toHaveBeenCalledWith(
       "approval-1",
       "approver@example.com",
       "approve",
       undefined
     );
-    expect(vi.mocked(updateDeployment)).toHaveBeenCalledWith("123", { status: "approved" });
+    expect(data.status).toBe("approved");
   });
 
   it("should require action in request body", async () => {
@@ -205,38 +245,48 @@ describe("POST /api/deployments/[id]/approve", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("action");
+    expect(data.error.message).toContain("Invalid request body");
   });
 
   it("should handle rejection with reason", async () => {
     const { requireApproverEmail } = await import("@/lib/api-middleware");
-    const { getApprovalByDeployment, recordApprovalVote } =
+    const { getApprovalByDeployment, addVote, hasVoted } =
       await import("@/lib/repositories/approval-repository");
-    const { updateDeployment } = await import("@/lib/repositories/deployment-repository");
 
     vi.mocked(requireApproverEmail).mockResolvedValue({
       user: { email: "approver@example.com", roles: ["admin"] },
     } as any);
 
-    vi.mocked(getApprovalByDeployment).mockReturnValue({
-      id: "approval-1",
-      deploymentId: "123",
-      status: "pending",
-      requiredApprovals: 2,
-      approvals: [],
-      rejections: [],
-      createdAt: "2024-01-01T00:00:00Z",
-      expiresAt: "2024-01-02T00:00:00Z",
-    } as any);
+    vi.mocked(hasVoted).mockReturnValue(false);
 
-    vi.mocked(recordApprovalVote).mockImplementation((approvalId, email, action) => {
-      return {
-        approved: false,
-        rejected: action === "reject",
-        approvalCount: 0,
-        rejectionCount: 1,
-      };
-    });
+    // First call returns the existing approval, second call returns updated state with rejection
+    vi.mocked(getApprovalByDeployment)
+      .mockReturnValueOnce({
+        id: "approval-1",
+        deploymentId: "123",
+        status: "pending",
+        requiredApprovals: 2,
+        approvals: [],
+        rejections: [],
+        createdAt: "2024-01-01T00:00:00Z",
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      } as any)
+      .mockReturnValueOnce({
+        id: "approval-1",
+        deploymentId: "123",
+        status: "pending",
+        requiredApprovals: 2,
+        approvals: [],
+        rejections: [
+          {
+            approver: "approver@example.com",
+            reason: "Security concerns",
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        createdAt: "2024-01-01T00:00:00Z",
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      } as any);
 
     const request = new NextRequest("http://localhost/api/deployments/123/approve", {
       method: "POST",
@@ -250,12 +300,13 @@ describe("POST /api/deployments/[id]/approve", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(vi.mocked(recordApprovalVote)).toHaveBeenCalledWith(
+    expect(vi.mocked(addVote)).toHaveBeenCalledWith(
       "approval-1",
       "approver@example.com",
       "reject",
       "Security concerns"
     );
-    expect(vi.mocked(updateDeployment)).toHaveBeenCalledWith("123", { status: "rejected" });
+    expect(data.status).toBe("rejected");
+    expect(data.message).toBe("Deployment rejected");
   });
 });

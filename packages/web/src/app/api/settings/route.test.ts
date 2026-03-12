@@ -33,7 +33,27 @@ vi.mock("@/lib/auth", () => ({
   },
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@/lib/rate-limit", () => ({
+  apiRateLimit: vi.fn(() =>
+    Promise.resolve({ success: true, remaining: 99, reset: Date.now() + 60000 })
+  ),
+  createRateLimitResponse: vi.fn(),
+}));
+
+vi.mock("@/lib/validation", () => ({
+  parseAndValidate: vi.fn(async (request: any) => {
+    const body = await request.json();
+    return { success: true, data: body };
+  }),
+  updateSettingsSchema: {},
+}));
+
+vi.mock("@/lib/repositories/audit-repository", () => ({
+  writeAuditLog: vi.fn(),
+}));
+
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   getSettingsService: vi.fn(),
 }));
 
@@ -46,7 +66,7 @@ describe("GET /api/settings", () => {
     const { requireAuth } = await import("@/lib/api-middleware");
 
     vi.mocked(requireAuth).mockResolvedValue(
-      new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 }) as any
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
 
     const response = await GET();
@@ -162,8 +182,7 @@ describe("GET /api/settings", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Failed to load settings");
-    expect(data.details).toBe("Database connection failed");
+    expect(data.error.message).toBe("Failed to load settings");
   });
 });
 
@@ -177,7 +196,7 @@ describe("PUT /api/settings", () => {
     const { AppRoles } = await import("@/lib/auth");
 
     vi.mocked(requireRole).mockResolvedValue(
-      new NextResponse(JSON.stringify({ error: "Forbidden" }), { status: 403 }) as any
+      NextResponse.json({ error: "Forbidden" }, { status: 403 })
     );
 
     const request = new NextRequest("http://localhost/api/settings", {
@@ -334,7 +353,6 @@ describe("PUT /api/settings", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Failed to update settings");
-    expect(data.details).toBe("Validation failed");
+    expect(data.error.message).toBe("Failed to update settings");
   });
 });

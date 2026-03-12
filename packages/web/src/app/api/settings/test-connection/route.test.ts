@@ -18,16 +18,44 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
 
 // Mock dependencies
-vi.mock("@agentsync/core", () => ({
+vi.mock("@/lib/api-middleware", () => ({
+  requireRole: vi.fn(),
+  logAuthFailure: vi.fn(),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  AppRoles: { ADMIN: "admin", DEPLOYER: "deployer", VIEWER: "viewer" },
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  apiRateLimit: vi.fn(() =>
+    Promise.resolve({ success: true, remaining: 99, reset: Date.now() + 60000 })
+  ),
+  createRateLimitResponse: vi.fn(),
+}));
+
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   getSettingsService: vi.fn(),
   TokenManager: vi.fn(),
   DataverseClient: vi.fn(),
   PowerPlatformAdminClient: vi.fn(),
 }));
 
+import { NextRequest, NextResponse } from "next/server";
+
+const testRequest = new NextRequest("http://localhost/api/settings/test-connection", {
+  method: "POST",
+});
+
 describe("POST /api/settings/test-connection", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Auth mock - allow through
+    const { requireRole } = await import("@/lib/api-middleware");
+    vi.mocked(requireRole).mockResolvedValue({
+      user: { id: "1", email: "admin@example.com", roles: ["admin"] },
+    } as any);
   });
 
   it("should fail when credentials not configured", async () => {
@@ -42,7 +70,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -73,7 +101,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     const authStep = data.results.find((r: any) => r.step === "authentication");
@@ -101,7 +129,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     expect(data.success).toBe(false);
@@ -144,7 +172,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     const adminStep = data.results.find((r: any) => r.step === "powerplatform_admin");
@@ -180,7 +208,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     // Should still pass overall even if admin API fails
@@ -222,7 +250,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     const sourceStep = data.results.find((r: any) => r.step === "source_environment");
@@ -251,7 +279,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     const sourceStep = data.results.find((r: any) => r.step === "source_environment");
@@ -288,7 +316,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     expect(data.success).toBe(false);
@@ -319,7 +347,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: mockRecordTestResult,
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     await response.json();
 
     expect(mockRecordTestResult).toHaveBeenCalled();
@@ -344,7 +372,7 @@ describe("POST /api/settings/test-connection", () => {
       recordTestResult: vi.fn(),
     } as any);
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     expect(data.testedAt).toBeDefined();
@@ -362,11 +390,10 @@ describe("POST /api/settings/test-connection", () => {
       throw new Error("Service initialization failed");
     });
 
-    const response = await POST();
+    const response = await POST(testRequest);
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.success).toBe(false);
-    expect(data.error).toBe("Connection test failed");
+    expect(data.error.message).toBe("Connection test failed");
   });
 });

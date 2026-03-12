@@ -24,7 +24,8 @@ vi.mock("@/lib/api-middleware", () => ({
   logAuthFailure: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   loadConfig: vi.fn(),
   DEMO_CONFIG: {
@@ -119,7 +120,7 @@ describe("GET /api/tenants/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toBe("Tenant not found");
+    expect(data.error.code).toBe("NOT_FOUND");
   });
 
   it("should include all tenant metadata fields", async () => {
@@ -290,6 +291,6 @@ describe("GET /api/tenants/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Failed to load tenant details");
+    expect(data.error.message).toBe("Failed to load tenant details");
   });
 });

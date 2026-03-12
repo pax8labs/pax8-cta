@@ -33,13 +33,20 @@ vi.mock("@/lib/auth", () => ({
   },
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   loadConfig: vi.fn(),
   SchedulerService: vi.fn(),
 }));
 
 vi.mock("@agentsync/worker", () => ({
   DeploymentQueueManager: vi.fn(),
+}));
+
+vi.mock("@/lib/queue-error-handler", () => ({
+  isRedisConnectionError: vi.fn(() => false),
+  createQueueUnavailableResponse: vi.fn(),
+  safelyCloseQueueManager: vi.fn(),
 }));
 
 describe("GET /api/schedules", () => {
@@ -253,7 +260,7 @@ describe("POST /api/schedules", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("solutionPath and solutionName are required");
+    expect(data.error.message).toContain("solutionPath and solutionName are required");
   });
 
   it("should register schedules successfully", async () => {
@@ -413,14 +420,12 @@ describe("DELETE /api/schedules", () => {
       user: { id: "1", email: "admin@example.com", roles: ["admin"] },
     } as any);
 
-    const mockRemoveAll = vi.fn().mockRejectedValue(new Error("Redis error"));
-    const mockClose = vi.fn();
+    const mockRemoveAll = vi.fn().mockRejectedValue(new Error("Unexpected failure"));
 
     vi.mocked(DeploymentQueueManager).mockImplementation(
       () =>
         ({
           removeAllScheduledDeployments: mockRemoveAll,
-          close: mockClose,
         }) as any
     );
 
@@ -428,7 +433,9 @@ describe("DELETE /api/schedules", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Redis error");
-    expect(mockClose).toHaveBeenCalled();
+    expect(data.error.message).toBe("Failed to remove schedules");
+    // safelyCloseQueueManager handles cleanup on error
+    const { safelyCloseQueueManager } = await import("@/lib/queue-error-handler");
+    expect(vi.mocked(safelyCloseQueueManager)).toHaveBeenCalled();
   });
 });

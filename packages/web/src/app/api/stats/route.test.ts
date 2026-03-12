@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -24,7 +24,8 @@ vi.mock("@/lib/api-middleware", () => ({
   logAuthFailure: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   DEMO_CONFIG: {
     tenants: [
@@ -34,15 +35,41 @@ vi.mock("@agentsync/core", () => ({
     ],
   },
   generateMockDeploymentHistory: vi.fn(() => [
-    { id: "1", status: "in_progress", createdAt: new Date().toISOString() },
-    { id: "2", status: "completed", createdAt: new Date().toISOString() },
+    {
+      id: "1",
+      status: "in_progress",
+      solutionName: "Agent1",
+      createdAt: new Date().toISOString(),
+      tenantResults: [
+        { tenantId: "t1", status: "in_progress", startedAt: new Date().toISOString() },
+      ],
+    },
+    {
+      id: "2",
+      status: "completed",
+      solutionName: "Agent2",
+      createdAt: new Date().toISOString(),
+      tenantResults: [
+        { tenantId: "t2", status: "completed", completedAt: new Date().toISOString() },
+      ],
+    },
     {
       id: "3",
       status: "completed",
+      solutionName: "Agent3",
       createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
-    }, // 25 hours ago
+      tenantResults: [
+        {
+          tenantId: "t3",
+          status: "completed",
+          completedAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
+    },
   ]),
   DEPLOYMENT_STATUS_CATEGORIES: {
+    ACTIVE: ["completed", "in_progress"],
+    FAILED: ["failed", "rejected"],
     ISSUES: ["failed", "rejected"],
   },
 }));
@@ -54,7 +81,12 @@ vi.mock("@/lib/demo-store", () => ({
       {
         id: "batch-1",
         status: "in_progress",
-        tenantResults: [{ status: "failed" }, { status: "completed" }],
+        solutionName: "BatchAgent",
+        createdAt: new Date().toISOString(),
+        tenantResults: [
+          { tenantId: "t4", status: "failed", startedAt: new Date().toISOString() },
+          { tenantId: "t5", status: "completed", completedAt: new Date().toISOString() },
+        ],
       },
     ],
   ]),
@@ -69,15 +101,18 @@ vi.mock("@/lib/db", () => ({
 }));
 
 describe("GET /api/stats", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Re-mock isDemoMode since clearAllMocks resets mock return values
+    const { isDemoMode } = await import("@agentsync/core");
+    vi.mocked(isDemoMode).mockReturnValue(true);
   });
 
   it("should require authentication", async () => {
     const { requireAuth } = await import("@/lib/api-middleware");
 
     vi.mocked(requireAuth).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }) as any
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
 
     const request = new NextRequest("http://localhost/api/stats");
@@ -159,8 +194,8 @@ describe("GET /api/stats", () => {
     const data = await response.json();
 
     // The deployment from 25 hours ago should not be counted
-    // Only recent completed deployment counts
-    expect(data.completedToday).toBe(1);
+    // Two recent completed deployments count (t2 from mockHistory + t5 from demoDeployments)
+    expect(data.completedToday).toBe(2);
   });
 
   it("should count batches with failures", async () => {

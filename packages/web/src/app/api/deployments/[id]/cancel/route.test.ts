@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -24,7 +24,8 @@ vi.mock("@/lib/api-middleware", () => ({
   logAuthFailure: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
 }));
 
@@ -54,23 +55,58 @@ vi.mock("@/lib/demo-store", () => ({
     ],
   ]),
   demoBatches: new Map(),
-  demoDeploymentsV2: [],
+  demoDeploymentsV2: { getByBatchId: vi.fn(() => []), set: vi.fn() },
 }));
 
 vi.mock("@agentsync/worker", () => ({
   DeploymentQueueManager: vi.fn(),
 }));
 
+vi.mock("@/lib/auth", () => ({
+  AppRoles: { ADMIN: "admin", DEPLOYER: "deployer", VIEWER: "viewer" },
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  deploymentRateLimit: vi.fn(() =>
+    Promise.resolve({ success: true, remaining: 99, reset: Date.now() + 60000 })
+  ),
+  createRateLimitResponse: vi.fn(),
+}));
+
 describe("POST /api/deployments/[id]/cancel", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+
+    // Reset demoDeployments to initial state (tests mutate the shared Map)
+    const { demoDeployments } = await import("@/lib/demo-store");
+    demoDeployments.clear();
+    demoDeployments.set("deployment-1", {
+      id: "deployment-1",
+      status: "in_progress",
+      tenantResults: [
+        { tenantId: "tenant-1", status: "pending" },
+        { tenantId: "tenant-2", status: "in_progress" },
+        { tenantId: "tenant-3", status: "completed" },
+      ],
+      updatedAt: "2024-01-01T00:00:00Z",
+    } as any);
+    demoDeployments.set("deployment-2", {
+      id: "deployment-2",
+      status: "completed",
+      tenantResults: [],
+      updatedAt: "2024-01-01T00:00:00Z",
+    } as any);
+
+    // Re-mock isDemoMode since clearAllMocks resets mock return values
+    const { isDemoMode } = await import("@agentsync/core");
+    vi.mocked(isDemoMode).mockReturnValue(true);
   });
 
   it("should require Admin or Deployer role", async () => {
     const { requireRoles } = await import("@/lib/api-middleware");
 
     vi.mocked(requireRoles).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }) as any
+      NextResponse.json({ error: "Forbidden" }, { status: 403 })
     );
 
     const request = new NextRequest("http://localhost/api/deployments/123/cancel", {
@@ -98,7 +134,7 @@ describe("POST /api/deployments/[id]/cancel", () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toContain("not found");
+    expect(data.error.message).toContain("not found");
   });
 
   it("should only allow cancellation of in-progress or pending deployments", async () => {
@@ -116,7 +152,7 @@ describe("POST /api/deployments/[id]/cancel", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("Can only cancel in-progress or pending deployments");
+    expect(data.error.message).toContain("Can only cancel in-progress or pending deployments");
   });
 
   it("should successfully cancel in-progress deployment", async () => {
@@ -134,7 +170,7 @@ describe("POST /api/deployments/[id]/cancel", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.message).toContain("Cancelled");
+    expect(data.message).toContain("cancelled");
     expect(data.cancelledCount).toBe(2); // tenant-1 pending + tenant-2 in_progress
   });
 

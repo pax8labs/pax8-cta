@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -30,7 +30,8 @@ vi.mock("@/lib/rate-limit", () => ({
   createRateLimitResponse: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   DEMO_SOLUTIONS: [
     {
@@ -88,7 +89,7 @@ vi.mock("@/lib/demo-store", () => ({
     ],
   ]),
   initializeDemoAgents: vi.fn(),
-  demoCustomAgents: [],
+  demoCustomAgents: new Map(),
   demoAgentStatus: new Map([
     ["test_agent_1", "active"],
     ["test_agent_2", "active"],
@@ -96,15 +97,18 @@ vi.mock("@/lib/demo-store", () => ({
 }));
 
 describe("GET /api/agents", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Re-mock isDemoMode since clearAllMocks resets mock return values
+    const { isDemoMode } = await import("@agentsync/core");
+    vi.mocked(isDemoMode).mockReturnValue(true);
   });
 
   it("should require authentication", async () => {
     const { requireAuth } = await import("@/lib/api-middleware");
 
     vi.mocked(requireAuth).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }) as any
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
 
     const request = new NextRequest("http://localhost/api/agents");
@@ -158,10 +162,9 @@ describe("GET /api/agents", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveProperty("builtInAgents");
-    expect(data).toHaveProperty("customAgents");
-    expect(Array.isArray(data.builtInAgents)).toBe(true);
-    expect(Array.isArray(data.customAgents)).toBe(true);
+    expect(data).toHaveProperty("agents");
+    expect(Array.isArray(data.agents)).toBe(true);
+    expect(data.demoMode).toBe(true);
   });
 
   it("should include deployment information for each agent", async () => {
@@ -183,15 +186,15 @@ describe("GET /api/agents", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    const agents = data.builtInAgents;
+    const agents = data.agents;
 
     // Should have agents
     expect(agents.length).toBeGreaterThan(0);
 
-    // Each agent should have deployments property
+    // Each agent should have deployedTenants property
     const agent = agents[0];
-    expect(agent).toHaveProperty("deployments");
-    expect(Array.isArray(agent.deployments)).toBe(true);
+    expect(agent).toHaveProperty("deployedTenants");
+    expect(Array.isArray(agent.deployedTenants)).toBe(true);
   });
 
   it("should include agent metadata fields", async () => {
@@ -212,7 +215,7 @@ describe("GET /api/agents", () => {
     const response = await GET(request);
     const data = await response.json();
 
-    const agent = data.builtInAgents[0];
+    const agent = data.agents.find((a: any) => !a.isCustom);
 
     // Check all required metadata fields
     expect(agent).toHaveProperty("id");
@@ -246,7 +249,7 @@ describe("GET /api/agents", () => {
     const response = await GET(request);
     const data = await response.json();
 
-    const builtInAgents = data.builtInAgents;
+    const builtInAgents = data.agents.filter((a: any) => !a.isCustom);
     expect(builtInAgents.every((agent: any) => agent.isCustom === false)).toBe(true);
   });
 
@@ -268,14 +271,14 @@ describe("GET /api/agents", () => {
     const response = await GET(request);
     const data = await response.json();
 
-    // Find agent with deployments
-    const agentWithDeployments = data.builtInAgents.find(
-      (agent: any) => agent.deployments && agent.deployments.length > 0
+    // Find agent with deployedTenants
+    const agentWithDeployments = data.agents.find(
+      (agent: any) => agent.deployedTenants && agent.deployedTenants.length > 0
     );
 
     expect(agentWithDeployments).toBeDefined();
 
-    const deployment = agentWithDeployments.deployments[0];
+    const deployment = agentWithDeployments.deployedTenants[0];
     expect(deployment).toHaveProperty("tenantId");
     expect(deployment).toHaveProperty("tenantName");
     expect(deployment).toHaveProperty("version");
@@ -322,7 +325,9 @@ describe("GET /api/agents", () => {
     const response = await GET(request);
     const data = await response.json();
 
-    expect(data.customAgents).toEqual([]);
+    // No custom agents in the mock, so filter for isCustom
+    const customAgents = data.agents.filter((a: any) => a.isCustom);
+    expect(customAgents).toEqual([]);
   });
 
   it("should aggregate deployments across multiple tenants", async () => {
@@ -344,11 +349,9 @@ describe("GET /api/agents", () => {
     const data = await response.json();
 
     // Find "Test Agent 1" which is deployed to 2 tenants
-    const testAgent1 = data.builtInAgents.find(
-      (agent: any) => agent.friendlyName === "Test Agent 1"
-    );
+    const testAgent1 = data.agents.find((agent: any) => agent.friendlyName === "Test Agent 1");
 
     expect(testAgent1).toBeDefined();
-    expect(testAgent1.deployments.length).toBe(2);
+    expect(testAgent1.deployedTenants.length).toBe(2);
   });
 });

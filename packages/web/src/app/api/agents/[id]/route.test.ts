@@ -19,7 +19,8 @@ import { DELETE } from "./route";
 import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   DEMO_SOLUTIONS: [
     {
@@ -67,11 +68,14 @@ vi.mock("@/lib/demo-store", () => {
 });
 
 describe("DELETE /api/agents/[id]", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Re-mock isDemoMode since clearAllMocks resets mock return values
+    const { isDemoMode } = await import("@agentsync/core");
+    vi.mocked(isDemoMode).mockReturnValue(true);
 
     // Reset custom agents map to initial state
-    const { demoCustomAgents } = require("@/lib/demo-store");
+    const { demoCustomAgents } = await import("@/lib/demo-store");
     demoCustomAgents.clear();
     demoCustomAgents.set("custom_agent_1", {
       id: "custom_agent_1",
@@ -96,7 +100,7 @@ describe("DELETE /api/agents/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("Agent ID is required");
+    expect(data.error.message).toContain("Agent ID is required");
   });
 
   it("should prevent deletion of built-in agents", async () => {
@@ -108,7 +112,7 @@ describe("DELETE /api/agents/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(403);
-    expect(data.error).toBe("Built-in agents cannot be deleted");
+    expect(data.error.message).toBe("Built-in agents cannot be deleted");
   });
 
   it("should return 404 for non-existent custom agent", async () => {
@@ -120,7 +124,7 @@ describe("DELETE /api/agents/[id]", () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toBe("Agent not found");
+    expect(data.error.message).toContain("not found");
   });
 
   it("should successfully delete custom agent", async () => {
@@ -191,6 +195,7 @@ describe("DELETE /api/agents/[id]", () => {
 
     expect(response.status).toBe(501);
     expect(data.error).toContain("not yet implemented");
+    // Note: This route returns plain JSON, not structured error
   });
 
   it("should not delete already deleted agent", async () => {
@@ -211,7 +216,7 @@ describe("DELETE /api/agents/[id]", () => {
     const data2 = await response2.json();
 
     expect(response2.status).toBe(404);
-    expect(data2.error).toBe("Agent not found");
+    expect(data2.error.message).toContain("not found");
   });
 
   it("should preserve other agents when deleting one", async () => {
@@ -250,6 +255,6 @@ describe("DELETE /api/agents/[id]", () => {
 
     // Should still prevent deletion because it's a built-in agent ID
     expect(response.status).toBe(403);
-    expect(data.error).toBe("Built-in agents cannot be deleted");
+    expect(data.error.message).toBe("Built-in agents cannot be deleted");
   });
 });

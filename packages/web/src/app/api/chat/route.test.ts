@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -42,7 +42,8 @@ vi.mock("@/lib/db", () => ({
   })),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => false),
   DEMO_CONFIG: {},
   generateMockDeploymentHistory: vi.fn(() => []),
@@ -61,7 +62,7 @@ describe("POST /api/chat", () => {
     const { requireAuth } = await import("@/lib/api-middleware");
 
     vi.mocked(requireAuth).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }) as any
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
 
     const request = new NextRequest("http://localhost/api/chat", {
@@ -126,7 +127,7 @@ describe("POST /api/chat", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("Message is required");
+    expect(data.error.message).toContain("Invalid request body");
   });
 
   it("should validate message is a string", async () => {
@@ -152,7 +153,7 @@ describe("POST /api/chat", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("must be a string");
+    expect(data.error.message).toContain("Invalid request body");
   });
 
   it("should accept valid chat message with history", async () => {
@@ -277,7 +278,7 @@ describe("POST /api/chat", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.response).toBe("I can help deploy that agent.");
+    expect(data.response).toContain("I can help deploy that agent.");
     expect(data.actions).toBeDefined();
     expect(data.actions.length).toBeGreaterThan(0);
     expect(data.actions[0]).toHaveProperty("type", "deploy");

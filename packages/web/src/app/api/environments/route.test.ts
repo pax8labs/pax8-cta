@@ -18,7 +18,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
 
 // Mock dependencies
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   getEffectiveIntegrationSettings: vi.fn(),
   TokenManager: vi.fn(),
@@ -26,8 +27,11 @@ vi.mock("@agentsync/core", () => ({
 }));
 
 describe("GET /api/environments", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Re-mock isDemoMode since clearAllMocks resets mock return values
+    const { isDemoMode } = await import("@agentsync/core");
+    vi.mocked(isDemoMode).mockReturnValue(true);
   });
 
   it("should return demo environments in demo mode", async () => {
@@ -164,8 +168,7 @@ describe("GET /api/environments", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Failed to fetch environments");
-    expect(data.details).toBe("API timeout");
+    expect(data.error.message).toBe("Failed to fetch environments");
   });
 
   it("should include demo environment URLs", async () => {

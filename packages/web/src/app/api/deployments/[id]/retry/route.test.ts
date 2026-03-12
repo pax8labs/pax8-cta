@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -24,7 +24,8 @@ vi.mock("@/lib/api-middleware", () => ({
   logAuthFailure: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   loadConfig: vi.fn(() => Promise.resolve({ settings: {} })),
   DEPLOYMENT_STATUS_CATEGORIES: {
@@ -34,7 +35,7 @@ vi.mock("@agentsync/core", () => ({
 
 vi.mock("@/lib/demo-store", () => ({
   resolveDeployment: vi.fn(),
-  demoDeployments: [],
+  demoDeployments: new Map(),
 }));
 
 vi.mock("@/lib/posthog-server", () => ({
@@ -42,16 +43,30 @@ vi.mock("@/lib/posthog-server", () => ({
   serverTrackError: vi.fn(),
 }));
 
+vi.mock("@/lib/auth", () => ({
+  AppRoles: { ADMIN: "admin", DEPLOYER: "deployer", VIEWER: "viewer" },
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  deploymentRateLimit: vi.fn(() =>
+    Promise.resolve({ success: true, remaining: 99, reset: Date.now() + 60000 })
+  ),
+  createRateLimitResponse: vi.fn(),
+}));
+
 describe("POST /api/deployments/[id]/retry", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Re-mock isDemoMode since clearAllMocks resets mock return values
+    const { isDemoMode } = await import("@agentsync/core");
+    vi.mocked(isDemoMode).mockReturnValue(true);
   });
 
   it("should require Admin or Deployer role", async () => {
     const { requireRoles } = await import("@/lib/api-middleware");
 
     vi.mocked(requireRoles).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }) as any
+      NextResponse.json({ error: "Forbidden" }, { status: 403 })
     );
 
     const request = new NextRequest("http://localhost/api/deployments/123/retry", {
@@ -82,7 +97,7 @@ describe("POST /api/deployments/[id]/retry", () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toContain("not found");
+    expect(data.error.message).toContain("not found");
   });
 
   it("should return 400 when no retryable tenants exist", async () => {
@@ -112,7 +127,7 @@ describe("POST /api/deployments/[id]/retry", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("No failed or cancelled tenants");
+    expect(data.error.message).toContain("No failed or cancelled tenants");
   });
 
   it("should retry failed tenant deployments", async () => {
@@ -130,9 +145,9 @@ describe("POST /api/deployments/[id]/retry", () => {
       solutionName: "TestAgent",
       status: "in_progress",
       tenantResults: [
-        { tenantId: "tenant-1", status: "completed" },
-        { tenantId: "tenant-2", status: "failed" },
-        { tenantId: "tenant-3", status: "cancelled" },
+        { tenantId: "tenant-1", tenantName: "Tenant 1", status: "completed" },
+        { tenantId: "tenant-2", tenantName: "Tenant 2", status: "failed" },
+        { tenantId: "tenant-3", tenantName: "Tenant 3", status: "cancelled" },
       ],
     };
 
@@ -146,9 +161,8 @@ describe("POST /api/deployments/[id]/retry", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.message).toContain("Retrying");
-    expect(data.retriedCount).toBe(2);
-    expect(data.tenantIds).toEqual(["tenant-2", "tenant-3"]);
+    expect(data.message).toContain("Retrying 2 tenant(s)");
+    expect(data.retriedTenants).toEqual(["Tenant 2", "Tenant 3"]);
   });
 
   it("should only retry retryable statuses (failed, cancelled, rolled_back)", async () => {
@@ -165,11 +179,11 @@ describe("POST /api/deployments/[id]/retry", () => {
       solutionName: "TestAgent",
       status: "in_progress",
       tenantResults: [
-        { tenantId: "tenant-1", status: "failed" }, // Retryable
-        { tenantId: "tenant-2", status: "cancelled" }, // Retryable
-        { tenantId: "tenant-3", status: "rolled_back" }, // Retryable
-        { tenantId: "tenant-4", status: "in_progress" }, // Not retryable
-        { tenantId: "tenant-5", status: "pending" }, // Not retryable
+        { tenantId: "tenant-1", tenantName: "Tenant 1", status: "failed" }, // Retryable
+        { tenantId: "tenant-2", tenantName: "Tenant 2", status: "cancelled" }, // Retryable
+        { tenantId: "tenant-3", tenantName: "Tenant 3", status: "rolled_back" }, // Retryable
+        { tenantId: "tenant-4", tenantName: "Tenant 4", status: "in_progress" }, // Not retryable
+        { tenantId: "tenant-5", tenantName: "Tenant 5", status: "pending" }, // Not retryable
       ],
     };
 
@@ -183,8 +197,8 @@ describe("POST /api/deployments/[id]/retry", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.retriedCount).toBe(3);
-    expect(data.tenantIds).toEqual(["tenant-1", "tenant-2", "tenant-3"]);
+    expect(data.message).toContain("Retrying 3 tenant(s)");
+    expect(data.retriedTenants).toEqual(["Tenant 1", "Tenant 2", "Tenant 3"]);
   });
 
   it("should track retry analytics", async () => {
@@ -201,7 +215,7 @@ describe("POST /api/deployments/[id]/retry", () => {
       batchId: "batch-1",
       solutionName: "TestAgent",
       status: "in_progress",
-      tenantResults: [{ tenantId: "tenant-1", status: "failed" }],
+      tenantResults: [{ tenantId: "tenant-1", tenantName: "Tenant 1", status: "failed" }],
     } as any);
 
     const request = new NextRequest("http://localhost/api/deployments/123/retry", {
@@ -211,9 +225,10 @@ describe("POST /api/deployments/[id]/retry", () => {
     await POST(request, { params: { id: "123" } });
 
     expect(vi.mocked(serverTrackDeployment)).toHaveBeenCalledWith(
-      "123",
+      "deployment_retried",
       expect.objectContaining({
-        action: "retry",
+        deploymentId: "123",
+        tenantCount: 1,
       })
     );
   });

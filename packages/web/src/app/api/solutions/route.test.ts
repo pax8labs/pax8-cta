@@ -18,7 +18,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "./route";
 
 // Mock dependencies
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   loadConfig: vi.fn(),
   getClientSecret: vi.fn(),
@@ -133,8 +134,8 @@ describe("GET /api/solutions", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toContain("Client secret not configured");
-    expect(data.error).toContain("PARTNER_CLIENT_SECRET");
+    expect(data.error.message).toContain("Client secret not configured");
+    expect(data.error.message).toContain("PARTNER_CLIENT_SECRET");
   });
 
   it("should filter system solutions in non-demo mode", async () => {
@@ -223,7 +224,7 @@ describe("GET /api/solutions", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Config file not found");
+    expect(data.error.message).toBe("Failed to list solutions");
   });
 
   it("should handle solution listing errors", async () => {
@@ -253,6 +254,6 @@ describe("GET /api/solutions", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("API timeout");
+    expect(data.error.message).toBe("Failed to list solutions");
   });
 });

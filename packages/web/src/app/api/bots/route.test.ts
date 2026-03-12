@@ -19,7 +19,8 @@ import { GET } from "./route";
 import { NextRequest } from "next/server";
 
 // Mock dependencies
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   loadConfig: vi.fn(),
   getClientSecret: vi.fn(),
   TokenManager: vi.fn(),
@@ -244,7 +245,7 @@ describe("GET /api/bots", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Config not found");
+    expect(data.error.message).toBe("Failed to list bots");
   });
 
   it("should handle missing client secret", async () => {
@@ -265,7 +266,7 @@ describe("GET /api/bots", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("Client secret not configured");
+    expect(data.error.message).toBe("Failed to list bots");
   });
 
   it("should handle API errors", async () => {
@@ -291,6 +292,6 @@ describe("GET /api/bots", () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe("API timeout");
+    expect(data.error.message).toBe("Failed to list bots");
   });
 });

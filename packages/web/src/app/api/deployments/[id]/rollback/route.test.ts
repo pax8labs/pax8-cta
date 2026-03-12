@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // Mock dependencies
 vi.mock("@/lib/api-middleware", () => ({
@@ -24,7 +24,8 @@ vi.mock("@/lib/api-middleware", () => ({
   logAuthFailure: vi.fn(),
 }));
 
-vi.mock("@agentsync/core", () => ({
+vi.mock("@agentsync/core", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@agentsync/core")>()),
   isDemoMode: vi.fn(() => true),
   loadConfig: vi.fn(() => Promise.resolve({ settings: {} })),
   RollbackService: vi.fn(),
@@ -32,27 +33,33 @@ vi.mock("@agentsync/core", () => ({
   DataverseClient: vi.fn(),
 }));
 
+const { mockDemoDeployments } = vi.hoisted(() => {
+  const mkMap = () =>
+    new Map([
+      [
+        "deployment-1",
+        {
+          id: "deployment-1",
+          status: "completed",
+          updatedAt: "2024-01-01T00:00:00Z",
+        },
+      ],
+      [
+        "deployment-2",
+        {
+          id: "deployment-2",
+          status: "in_progress",
+          updatedAt: "2024-01-01T00:00:00Z",
+        },
+      ],
+    ]);
+  return { mockDemoDeployments: mkMap() };
+});
+
 vi.mock("@/lib/demo-store", () => ({
-  demoDeployments: new Map([
-    [
-      "deployment-1",
-      {
-        id: "deployment-1",
-        status: "completed",
-        updatedAt: "2024-01-01T00:00:00Z",
-      },
-    ],
-    [
-      "deployment-2",
-      {
-        id: "deployment-2",
-        status: "in_progress",
-        updatedAt: "2024-01-01T00:00:00Z",
-      },
-    ],
-  ]),
+  demoDeployments: mockDemoDeployments,
   demoBatches: new Map(),
-  demoDeploymentsV2: [],
+  demoDeploymentsV2: { getByBatchId: vi.fn(() => []), set: vi.fn() },
 }));
 
 vi.mock("@/lib/repositories/deployment-repository", () => ({
@@ -65,18 +72,44 @@ vi.mock("@/lib/repositories/snapshot-repository", () => ({
 
 vi.mock("@/lib/repositories/audit-repository", () => ({
   logDeploymentAction: vi.fn(),
+  logRollbackAction: vi.fn(),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  AppRoles: { ADMIN: "admin", DEPLOYER: "deployer", VIEWER: "viewer" },
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  deploymentRateLimit: vi.fn(() =>
+    Promise.resolve({ success: true, remaining: 99, reset: Date.now() + 60000 })
+  ),
+  createRateLimitResponse: vi.fn(),
 }));
 
 describe("POST /api/deployments/[id]/rollback", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Re-mock isDemoMode since clearAllMocks resets mock return values
+    const { isDemoMode } = await import("@agentsync/core");
+    vi.mocked(isDemoMode).mockReturnValue(true);
+    // Reset deployment state since tests mutate the shared Map
+    mockDemoDeployments.set("deployment-1", {
+      id: "deployment-1",
+      status: "completed",
+      updatedAt: "2024-01-01T00:00:00Z",
+    });
+    mockDemoDeployments.set("deployment-2", {
+      id: "deployment-2",
+      status: "in_progress",
+      updatedAt: "2024-01-01T00:00:00Z",
+    });
   });
 
   it("should require Admin role", async () => {
     const { requireRole } = await import("@/lib/api-middleware");
 
     vi.mocked(requireRole).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }) as any
+      NextResponse.json({ error: "Forbidden" }, { status: 403 })
     );
 
     const request = new NextRequest("http://localhost/api/deployments/123/rollback", {
@@ -104,7 +137,7 @@ describe("POST /api/deployments/[id]/rollback", () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toContain("not found");
+    expect(data.error.message).toContain("not found");
   });
 
   it("should only allow rollback of completed or failed deployments", async () => {
@@ -122,7 +155,7 @@ describe("POST /api/deployments/[id]/rollback", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain("Can only rollback completed or failed deployments");
+    expect(data.error.message).toContain("Can only rollback completed or failed deployments");
   });
 
   it("should successfully initiate rollback for completed deployment", async () => {
@@ -141,8 +174,9 @@ describe("POST /api/deployments/[id]/rollback", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.message).toContain("Rollback initiated");
-    expect(data.status).toBe("rolling_back");
+    expect(data.message).toContain("Rolling back deployment");
+    expect(data.demoMode).toBe(true);
+    expect(data.deploymentId).toBe("deployment-1");
     expect(vi.mocked(updateBatchStatus)).toHaveBeenCalledWith("deployment-1", "rolling_back");
   });
 
@@ -197,7 +231,7 @@ describe("POST /api/deployments/[id]/rollback", () => {
     const { requireRole } = await import("@/lib/api-middleware");
 
     vi.mocked(requireRole).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Admin role required" }), { status: 403 }) as any
+      NextResponse.json({ error: "Admin role required" }, { status: 403 })
     );
 
     const request = new NextRequest("http://localhost/api/deployments/deployment-1/rollback", {
