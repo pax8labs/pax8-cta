@@ -27,11 +27,14 @@ export const inspectCommand = new Command("inspect")
   .description("Validate connectivity and permissions for each tenant")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tag <tags...>", "Filter by tags")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync tenants inspect                           Validate all enabled tenants
   agentsync tenants inspect -t production             Validate only tenants tagged "production"
-`)
+`
+  )
   .action(async (options) => {
     const spinner = createSpinner("Loading fleet manifest...").start();
 
@@ -65,13 +68,30 @@ Examples:
       const results: Array<{
         name: string;
         tenantId: string;
+        sameTenant: boolean;
         hasRelationship: boolean;
         hasPowerPlatformAccess: boolean;
         error?: string;
       }> = [];
 
+      const partnerTenantId = config.partner.tenantId;
+
       for (const tenant of destinations) {
         spinner.start(`Inspecting route to ${tenant.name}...`);
+
+        // Same-tenant auth: GDAP is not required when the destination tenant
+        // is the partner's own tenant.
+        if (tenant.tenantId === partnerTenantId) {
+          results.push({
+            name: tenant.name,
+            tenantId: tenant.tenantId,
+            sameTenant: true,
+            hasRelationship: true,
+            hasPowerPlatformAccess: true,
+          });
+          spinner.succeed(`${tenant.name}: ${chalk.green("Same-tenant auth (GDAP not required)")}`);
+          continue;
+        }
 
         try {
           const hasRelationship = await gdapClient.hasActiveRelationship(tenant.tenantId);
@@ -82,6 +102,7 @@ Examples:
           results.push({
             name: tenant.name,
             tenantId: tenant.tenantId,
+            sameTenant: false,
             hasRelationship,
             hasPowerPlatformAccess,
           });
@@ -100,6 +121,7 @@ Examples:
           results.push({
             name: tenant.name,
             tenantId: tenant.tenantId,
+            sameTenant: false,
             hasRelationship: false,
             hasPowerPlatformAccess: false,
             error: errorMsg,
@@ -113,25 +135,30 @@ Examples:
       console.log(chalk.bold("📋 Inspection Report"));
       console.log("─".repeat(60));
 
-      const clearRoutes = results.filter((r) => r.hasPowerPlatformAccess).length;
+      const sameTenantRoutes = results.filter((r) => r.sameTenant).length;
+      const clearRoutes = results.filter((r) => r.hasPowerPlatformAccess && !r.sameTenant).length;
       const missingClearance = results.filter(
-        (r) => r.hasRelationship && !r.hasPowerPlatformAccess
+        (r) => r.hasRelationship && !r.hasPowerPlatformAccess && !r.sameTenant
       ).length;
-      const noRoute = results.filter((r) => !r.hasRelationship && !r.error).length;
+      const noRoute = results.filter((r) => !r.hasRelationship && !r.error && !r.sameTenant).length;
       const errors = results.filter((r) => r.error).length;
 
+      if (sameTenantRoutes > 0) {
+        console.log(`  ${chalk.green("✓")} Same-Tenant Auth:     ${sameTenantRoutes}`);
+      }
       console.log(`  ${chalk.green("✓")} Routes Clear:         ${clearRoutes}`);
       console.log(`  ${chalk.yellow("⚠")} Missing Clearance:    ${missingClearance}`);
       console.log(`  ${chalk.red("✗")} No Route:             ${noRoute}`);
       console.log(`  ${chalk.red("✗")} Inspection Errors:    ${errors}`);
       console.log();
 
-      if (clearRoutes === results.length) {
+      const passingRoutes = clearRoutes + sameTenantRoutes;
+      if (passingRoutes === results.length) {
         console.log(chalk.green("🚢 All shipping routes inspected and clear!"));
       } else {
         console.log(
           chalk.yellow(
-            `⚠️  ${results.length - clearRoutes} destination(s) have shipping route issues.`
+            `⚠️  ${results.length - passingRoutes} destination(s) have shipping route issues.`
           )
         );
       }
