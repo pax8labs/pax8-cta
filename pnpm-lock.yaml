@@ -65,6 +65,9 @@ importers:
       inquirer:
         specifier: 9.2.15
         version: 9.2.15
+      jszip:
+        specifier: 3.10.1
+        version: 3.10.1
       keytar:
         specifier: 7.9.0
         version: 7.9.0
@@ -84,6 +87,9 @@ importers:
       '@types/inquirer':
         specifier: 9.0.7
         version: 9.0.7
+      '@types/jszip':
+        specifier: ^3.4.1
+        version: 3.4.1
       '@types/node':
         specifier: 20.11.0
         version: 20.11.0
@@ -1207,6 +1213,10 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  '@types/jszip@3.4.1':
+    resolution: {integrity: sha512-TezXjmf3lj+zQ651r6hPqvSScqBLvyPI9FxdXBqpEwBijNGQ2NXpaFW/7joGzveYkKQUil7iiDHLo6LV71Pc0A==}
+    deprecated: This is a stub types definition. jszip provides its own type definitions, so you do not need this installed.
 
   '@types/node@20.11.0':
     resolution: {integrity: sha512-o9bjXmDNcF7GbM4CNQpmi+TutCgap/K3w1JyKgxAjqx41zp9qlIAVFi0IhCNsJcXolEqLWhbFbEeL0PvYm4pcQ==}
@@ -4447,6 +4457,10 @@ snapshots:
       rxjs: 7.8.2
 
   '@types/json-schema@7.0.15': {}
+
+  '@types/jszip@3.4.1':
+    dependencies:
+      jszip: 3.10.1
 
   '@types/node@20.11.0':
     dependencies:

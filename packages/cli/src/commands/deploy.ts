@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import { resolve, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
@@ -29,6 +29,9 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
+  UrlTemplater,
+  type TenantUrlValues,
+  type DetectedUrl,
 } from "@agentsync/core";
 import { DeploymentQueueManager } from "@agentsync/worker";
 import { getDemoTenants } from "./demo.js";
@@ -73,14 +76,19 @@ export const deployCommand = new Command("deploy")
   .option("--package-dir <path>", "Directory for exported zip (default: temp)")
   .option("--no-auto-setup", "Skip automatic application user setup")
   .option("--direct", "Deploy sequentially without a background worker")
+  .option("--skip-url-replace", "Skip automatic tenant URL replacement in solution")
   .option("--redis <url>", "Redis URL for background worker", "redis://localhost:6379")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync deploy TestDeploy --all --direct      Deploy to all tenants
   agentsync deploy TestDeploy --tag production     Deploy to production tenants only
   agentsync deploy TestDeploy --all --dry-run      Preview without deploying
   agentsync deploy ./TestDeploy.zip --all          Deploy a pre-exported zip file
-`)
+  agentsync deploy TestDeploy --all --direct --skip-url-replace  Skip URL replacement
+`
+  )
   .action(async (solutionArg: string | undefined, options) => {
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
@@ -390,6 +398,30 @@ Examples:
         let successCount = 0;
         let failCount = 0;
 
+        // Scan solution for tenant-specific URLs (once, before the loop)
+        let detectedUrls: DetectedUrl[] = [];
+        if (!options.skipUrlReplace) {
+          try {
+            const JSZip = (await import("jszip")).default;
+            const zipBuffer = readFileSync(agentPackagePath);
+            const zip = await JSZip.loadAsync(zipBuffer);
+            const templater = new UrlTemplater();
+            detectedUrls = await templater.scanSolution(zip);
+
+            if (detectedUrls.length > 0) {
+              const sourceTenant = templater.inferSourceTenant(detectedUrls);
+              console.log(
+                chalk.gray(
+                  `Found ${detectedUrls.length} tenant-specific URL(s) from source tenant "${sourceTenant}" — will replace per target`
+                )
+              );
+              console.log();
+            }
+          } catch {
+            // JSZip may not be available or ZIP scan failed — skip URL replacement
+          }
+        }
+
         for (const tenant of destinations) {
           const tenantSpinner = createSpinner(`Deploying to ${tenant.name}...`).start();
 
@@ -407,11 +439,37 @@ Examples:
 
             const solutionOps = new SolutionOperations(dataverseClient);
 
+            // Apply URL replacements if tenant-specific URLs were detected
+            let importPath = agentPackagePath;
+            if (detectedUrls.length > 0) {
+              try {
+                const modifiedPath = await applyUrlReplacements(
+                  agentPackagePath,
+                  detectedUrls,
+                  tenant
+                );
+                if (modifiedPath) {
+                  importPath = modifiedPath;
+                }
+              } catch {
+                // URL replacement failed — import original solution
+              }
+            }
+
             // Start async import
-            const importJobId = await solutionOps.importSolutionAsync(agentPackagePath, {
+            const importJobId = await solutionOps.importSolutionAsync(importPath, {
               overwriteUnmanagedCustomizations: true,
               publishWorkflows: true,
             });
+
+            // Clean up temp modified ZIP after import starts
+            if (importPath !== agentPackagePath && existsSync(importPath)) {
+              try {
+                unlinkSync(importPath);
+              } catch {
+                /* ignore */
+              }
+            }
 
             // Wait for completion with progress
             const result = await solutionOps.waitForImport(importJobId, {
@@ -755,4 +813,53 @@ async function detectSolutionMode(
     notInstalledCount,
     hasConflict,
   };
+}
+
+/**
+ * Apply URL replacements to a solution ZIP for a specific target tenant.
+ * Returns path to modified ZIP, or null if no replacements were needed.
+ */
+async function applyUrlReplacements(
+  originalZipPath: string,
+  detectedUrls: DetectedUrl[],
+  tenant: TenantConfig
+): Promise<string | null> {
+  if (detectedUrls.length === 0) return null;
+
+  const JSZip = (await import("jszip")).default;
+  const templater = new UrlTemplater();
+
+  // Extract target tenant identifier from environment URL
+  // e.g., https://org54870a4d.crm.dynamics.com → org54870a4d
+  const envUrl = new URL(tenant.environmentUrl);
+  const targetTenantId = envUrl.hostname.split(".")[0];
+  const crmRegion = envUrl.hostname.match(/\.(crm\d*)\.dynamics\.com/)?.[1] || "crm";
+
+  const tenantUrls: TenantUrlValues = {
+    tenant: targetTenantId,
+    sharepoint: `${targetTenantId}.sharepoint.com`,
+    dynamicsCrm: `${targetTenantId}.${crmRegion}.dynamics.com`,
+    onmicrosoft: `${targetTenantId}.onmicrosoft.com`,
+  };
+
+  // Build replacement map: original URL → resolved URL
+  const replacements = new Map<string, string>();
+  for (const url of detectedUrls) {
+    const resolved = templater.resolveTemplate(url.templatePattern, tenantUrls);
+    if (resolved !== url.originalUrl) {
+      replacements.set(url.originalUrl, resolved);
+    }
+  }
+
+  if (replacements.size === 0) return null;
+
+  // Modify the ZIP
+  const zipBuffer = readFileSync(originalZipPath);
+  const modifiedBuffer = await templater.modifySolution(zipBuffer, replacements, new JSZip());
+
+  // Write to temp file
+  const tempPath = join(tmpdir(), `agentsync-deploy-${randomUUID()}.zip`);
+  writeFileSync(tempPath, modifiedBuffer);
+
+  return tempPath;
 }
