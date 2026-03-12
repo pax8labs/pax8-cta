@@ -35,12 +35,15 @@ export const exportCommand = new Command("export")
   .option("-o, --output <path>", "Output directory for the zip file", "./agent packages")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--unmanaged", "Export as unmanaged (default: managed)")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync export TestDeploy                     Export as managed solution
   agentsync export TestDeploy --unmanaged         Export as unmanaged
   agentsync export TestDeploy -o ./my-exports     Export to custom directory
-`)
+`
+  )
   .action(async (solutionArg: string | undefined, options) => {
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
@@ -91,7 +94,7 @@ Examples:
         console.log(`  Package:  ${chalk.cyan(outputPath)}`);
         console.log();
         console.log(
-          chalk.gray(`Use 'agentsync ship --solution ${outputPath} --all' to ship to your fleet`)
+          chalk.gray(`Use 'agentsync deploy <solution> --all --direct' to deploy to your tenants`)
         );
         return;
       }
@@ -151,7 +154,7 @@ Examples:
       console.log(`  Agent package:    ${chalk.cyan(outputPath)}`);
       console.log();
       console.log(
-        chalk.gray(`Use 'agentsync ship --agent package ${outputPath}' to ship to your fleet`)
+        chalk.gray(`Use 'agentsync deploy <solution> --all --direct' to deploy to your tenants`)
       );
     } catch (error) {
       handleCommandError(error, spinner, "Packing failed");

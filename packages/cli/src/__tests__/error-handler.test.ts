@@ -86,7 +86,7 @@ describe("Error Handler", () => {
       expect(formatted.code).toBe("ERROR_SOLUTION_NOT_FOUND");
       expect(formatted.message).toContain("not found");
       expect(formatted.context?.solutionName).toBe("MyAgent");
-      expect(formatted.recovery.join(" ")).toContain("agentsync agents list");
+      expect(formatted.recovery.join(" ")).toContain("agentsync solutions list");
     });
 
     it("should map network errors - ECONNREFUSED", () => {

@@ -89,12 +89,12 @@ function mockProductionFlow(
   } = overrides;
 
   mockQuestion
-    .mockResolvedValueOnce(signIn)     // sign in: no
-    .mockResolvedValueOnce(tenantId)   // tenant ID
-    .mockResolvedValueOnce(clientId)   // client ID
-    .mockResolvedValueOnce(secret)     // client secret
-    .mockResolvedValueOnce(sourceEnv)  // source env URL (skip)
-    .mockResolvedValueOnce(addTenant)  // add tenant manually
+    .mockResolvedValueOnce(signIn) // sign in: no
+    .mockResolvedValueOnce(tenantId) // tenant ID
+    .mockResolvedValueOnce(clientId) // client ID
+    .mockResolvedValueOnce(secret) // client secret
+    .mockResolvedValueOnce(sourceEnv) // source env URL (skip)
+    .mockResolvedValueOnce(addTenant) // add tenant manually
     .mockResolvedValueOnce(testCreds); // test credentials
 }
 
@@ -150,7 +150,7 @@ describe("Init Command", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "Try these commands")).toBe(true);
-      expect(containsText(output, "agentsync fleet list")).toBe(true);
+      expect(containsText(output, "agentsync tenants list")).toBe(true);
       expect(containsText(output, "agentsync demo off")).toBe(true);
     });
 
@@ -198,11 +198,10 @@ describe("Init Command", () => {
 
     it("should proceed when user confirms overwrite", async () => {
       vi.mocked(fs.existsSync)
-        .mockReturnValueOnce(true)  // config exists
-        .mockReturnValue(false);    // other paths
+        .mockReturnValueOnce(true) // config exists
+        .mockReturnValue(false); // other paths
 
-      mockQuestion
-        .mockResolvedValueOnce("y");  // overwrite: yes
+      mockQuestion.mockResolvedValueOnce("y"); // overwrite: yes
 
       // Then standard production flow
       mockProductionFlow();
@@ -316,7 +315,14 @@ describe("Init Command", () => {
       const program = new Command();
       program.addCommand(initCommand);
 
-      await program.parseAsync(["node", "test", "init", "--config", "./custom/path.yaml", "--no-gdap"]);
+      await program.parseAsync([
+        "node",
+        "test",
+        "init",
+        "--config",
+        "./custom/path.yaml",
+        "--no-gdap",
+      ]);
 
       const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
       const configPath = writeCall[0] as string;
@@ -341,17 +347,17 @@ describe("Init Command", () => {
 
     it("should add manually entered tenant to config", async () => {
       mockQuestion
-        .mockResolvedValueOnce("n")               // sign in: no
-        .mockResolvedValueOnce("tid")             // tenant ID
-        .mockResolvedValueOnce("cid")             // client ID
-        .mockResolvedValueOnce("secret")          // client secret
-        .mockResolvedValueOnce("")                // source env: skip
-        .mockResolvedValueOnce("y")               // add tenant manually: yes
-        .mockResolvedValueOnce("Contoso")         // tenant name
+        .mockResolvedValueOnce("n") // sign in: no
+        .mockResolvedValueOnce("tid") // tenant ID
+        .mockResolvedValueOnce("cid") // client ID
+        .mockResolvedValueOnce("secret") // client secret
+        .mockResolvedValueOnce("") // source env: skip
+        .mockResolvedValueOnce("y") // add tenant manually: yes
+        .mockResolvedValueOnce("Contoso") // tenant name
         .mockResolvedValueOnce("contoso-tenant-id")
         .mockResolvedValueOnce("https://contoso.crm.dynamics.com")
-        .mockResolvedValueOnce("n")               // add another: no
-        .mockResolvedValueOnce("n");              // test credentials: no
+        .mockResolvedValueOnce("n") // add another: no
+        .mockResolvedValueOnce("n"); // test credentials: no
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();
@@ -369,21 +375,21 @@ describe("Init Command", () => {
 
     it("should handle multiple manually added tenants", async () => {
       mockQuestion
-        .mockResolvedValueOnce("n")               // sign in: no
-        .mockResolvedValueOnce("tid")             // tenant ID
-        .mockResolvedValueOnce("cid")             // client ID
-        .mockResolvedValueOnce("secret")          // client secret
-        .mockResolvedValueOnce("")                // source env: skip
-        .mockResolvedValueOnce("y")               // add tenant: yes
+        .mockResolvedValueOnce("n") // sign in: no
+        .mockResolvedValueOnce("tid") // tenant ID
+        .mockResolvedValueOnce("cid") // client ID
+        .mockResolvedValueOnce("secret") // client secret
+        .mockResolvedValueOnce("") // source env: skip
+        .mockResolvedValueOnce("y") // add tenant: yes
         .mockResolvedValueOnce("Contoso")
         .mockResolvedValueOnce("contoso-tid")
         .mockResolvedValueOnce("https://contoso.crm.dynamics.com")
-        .mockResolvedValueOnce("y")               // add another: yes
+        .mockResolvedValueOnce("y") // add another: yes
         .mockResolvedValueOnce("Fabrikam")
         .mockResolvedValueOnce("fabrikam-tid")
         .mockResolvedValueOnce("https://fabrikam.crm.dynamics.com")
-        .mockResolvedValueOnce("n")               // add another: no
-        .mockResolvedValueOnce("n");              // test credentials: no
+        .mockResolvedValueOnce("n") // add another: no
+        .mockResolvedValueOnce("n"); // test credentials: no
 
       const { initCommand } = await import("../commands/init.js");
       const program = new Command();

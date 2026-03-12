@@ -178,7 +178,7 @@ export function formatError(error: unknown): AgentSyncError {
           ? `Verify the solution name '${context.solutionName}' is correct`
           : "Verify the solution name is correct and matches exactly (case-sensitive)",
         "List available solutions in the source environment:",
-        "  agentsync agents list",
+        "  agentsync solutions list",
         "Check that you're connected to the correct source environment",
         "Ensure the solution is published and visible in the source environment",
         "Retry with the correct solution name",

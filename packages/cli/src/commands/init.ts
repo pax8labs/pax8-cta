@@ -99,7 +99,9 @@ export const initCommand = new Command("init")
       console.log(chalk.green("✓ Setup complete!"));
       console.log();
       console.log(chalk.cyan("Try these commands:"));
-      console.log(chalk.gray("  agentsync fleet list          ") + chalk.dim("# View demo fleet"));
+      console.log(
+        chalk.gray("  agentsync tenants list        ") + chalk.dim("# View demo tenants")
+      );
       console.log(chalk.gray("  agentsync --help             ") + chalk.dim("# See all commands"));
       console.log();
       console.log(chalk.dim("To switch to production mode later: agentsync demo off"));
@@ -370,14 +372,18 @@ export const initCommand = new Command("init")
             clientId: partnerClientId,
             clientSecret: partnerClientSecret,
           });
-          const dvToken = await tokenManager.getToken(["https://globaldisco.crm.dynamics.com/.default"]);
+          const dvToken = await tokenManager.getToken([
+            "https://globaldisco.crm.dynamics.com/.default",
+          ]);
           const resp = await fetch(
             "https://globaldisco.crm.dynamics.com/api/discovery/v2.0/Instances",
             { headers: { Authorization: `Bearer ${dvToken}` } }
           );
 
           if (resp.ok) {
-            const data = (await resp.json()) as { value: Array<{ FriendlyName: string; Url: string; State: number }> };
+            const data = (await resp.json()) as {
+              value: Array<{ FriendlyName: string; Url: string; State: number }>;
+            };
             const instances = (data.value || []).filter((i) => i.State === 0);
 
             if (instances.length > 0) {
@@ -397,13 +403,9 @@ export const initCommand = new Command("init")
 
               if (idx >= 0 && idx < instances.length) {
                 sourceEnvironmentUrl = instances[idx].Url;
-                console.log(
-                  chalk.green(`   ✓ Source: ${instances[idx].FriendlyName}`)
-                );
+                console.log(chalk.green(`   ✓ Source: ${instances[idx].FriendlyName}`));
               } else if (idx === instances.length) {
-                sourceEnvironmentUrl = await question(
-                  chalk.white("   Source environment URL: ")
-                );
+                sourceEnvironmentUrl = await question(chalk.white("   Source environment URL: "));
               }
               // else: skip
             }
@@ -442,83 +444,87 @@ export const initCommand = new Command("init")
 
           // Let user select which tenants/environments to add
           for (const tenant of discovered) {
-              if (tenant.environments.length === 0) {
-                console.log(
-                  chalk.gray(`   ${tenant.name}: No Dataverse environments found, skipping`)
-                );
-                continue;
-              }
-
-              const add = await question(
-                chalk.white(`   Add ${tenant.name}? `) +
-                  chalk.gray(`(${tenant.environments.length} environment(s)) `) +
-                  chalk.gray("(y/n) ")
+            if (tenant.environments.length === 0) {
+              console.log(
+                chalk.gray(`   ${tenant.name}: No Dataverse environments found, skipping`)
               );
+              continue;
+            }
 
-              if (add.toLowerCase() === "y" || add.toLowerCase() === "yes") {
-                // If multiple environments, let them pick or add all
-                if (tenant.environments.length === 1) {
-                  const env = tenant.environments[0];
-                  tenants.push({
-                    tenantId: tenant.tenantId,
-                    name: `${tenant.name}`,
-                    environmentUrl: env.instanceUrl,
-                  });
-                  console.log(chalk.green(`   ✓ Added ${tenant.name} (${env.displayName})`));
-                } else {
-                  // Multiple environments - show list
-                  console.log(chalk.cyan(`   Environments for ${tenant.name}:`));
-                  tenant.environments.forEach((env, i) => {
-                    console.log(
-                      chalk.gray(
-                        `     ${i + 1}. ${env.displayName} (${env.type}) - ${env.instanceUrl}`
-                      )
-                    );
-                  });
+            const add = await question(
+              chalk.white(`   Add ${tenant.name}? `) +
+                chalk.gray(`(${tenant.environments.length} environment(s)) `) +
+                chalk.gray("(y/n) ")
+            );
 
-                  const envChoice = await question(
-                    chalk.white("   Add which? ") + chalk.gray("(number, 'all', or 'skip') ")
+            if (add.toLowerCase() === "y" || add.toLowerCase() === "yes") {
+              // If multiple environments, let them pick or add all
+              if (tenant.environments.length === 1) {
+                const env = tenant.environments[0];
+                tenants.push({
+                  tenantId: tenant.tenantId,
+                  name: `${tenant.name}`,
+                  environmentUrl: env.instanceUrl,
+                });
+                console.log(chalk.green(`   ✓ Added ${tenant.name} (${env.displayName})`));
+              } else {
+                // Multiple environments - show list
+                console.log(chalk.cyan(`   Environments for ${tenant.name}:`));
+                tenant.environments.forEach((env, i) => {
+                  console.log(
+                    chalk.gray(
+                      `     ${i + 1}. ${env.displayName} (${env.type}) - ${env.instanceUrl}`
+                    )
                   );
+                });
 
-                  if (envChoice.toLowerCase() === "all") {
-                    for (const env of tenant.environments) {
-                      tenants.push({
-                        tenantId: tenant.tenantId,
-                        name: `${tenant.name} - ${env.displayName}`,
-                        environmentUrl: env.instanceUrl,
-                      });
-                    }
-                    console.log(
-                      chalk.green(`   ✓ Added all ${tenant.environments.length} environments`)
-                    );
-                  } else if (envChoice.toLowerCase() !== "skip") {
-                    const envIndex = parseInt(envChoice, 10) - 1;
-                    if (envIndex >= 0 && envIndex < tenant.environments.length) {
-                      const env = tenant.environments[envIndex];
-                      tenants.push({
-                        tenantId: tenant.tenantId,
-                        name: `${tenant.name} - ${env.displayName}`,
-                        environmentUrl: env.instanceUrl,
-                      });
-                      console.log(chalk.green(`   ✓ Added ${env.displayName}`));
-                    }
+                const envChoice = await question(
+                  chalk.white("   Add which? ") + chalk.gray("(number, 'all', or 'skip') ")
+                );
+
+                if (envChoice.toLowerCase() === "all") {
+                  for (const env of tenant.environments) {
+                    tenants.push({
+                      tenantId: tenant.tenantId,
+                      name: `${tenant.name} - ${env.displayName}`,
+                      environmentUrl: env.instanceUrl,
+                    });
+                  }
+                  console.log(
+                    chalk.green(`   ✓ Added all ${tenant.environments.length} environments`)
+                  );
+                } else if (envChoice.toLowerCase() !== "skip") {
+                  const envIndex = parseInt(envChoice, 10) - 1;
+                  if (envIndex >= 0 && envIndex < tenant.environments.length) {
+                    const env = tenant.environments[envIndex];
+                    tenants.push({
+                      tenantId: tenant.tenantId,
+                      name: `${tenant.name} - ${env.displayName}`,
+                      environmentUrl: env.instanceUrl,
+                    });
+                    console.log(chalk.green(`   ✓ Added ${env.displayName}`));
                   }
                 }
               }
             }
           }
+        }
       }
 
       // If --no-gdap was specified, mention it
       if (options.gdap === false && clientSecretCreated) {
-        console.log(chalk.gray("GDAP discovery skipped (--no-gdap). You can add tenants manually.\n"));
+        console.log(
+          chalk.gray("GDAP discovery skipped (--no-gdap). You can add tenants manually.\n")
+        );
       }
 
       // If no tenants added yet, offer manual entry
       if (tenants.length === 0) {
         console.log(chalk.cyan("\n5. Target Tenants"));
         console.log(chalk.gray("   Customer tenants where agents will be deployed."));
-        console.log(chalk.gray("   These must be real Microsoft 365 tenants your app has access to"));
+        console.log(
+          chalk.gray("   These must be real Microsoft 365 tenants your app has access to")
+        );
         console.log(chalk.gray("   (via GDAP or direct app consent). You can add them later.\n"));
 
         const addTenant = await question(
@@ -614,10 +620,13 @@ tenants:${tenantsYaml || " []"}
         chalk.cyan("Test your credentials now? ") + chalk.gray("(y/n) ")
       );
 
-
-
       if (testConnection.toLowerCase() === "y" || testConnection.toLowerCase() === "yes") {
-        await testCredentialsAndGdap(partnerTenantId, partnerClientId, partnerClientSecret, tenants);
+        await testCredentialsAndGdap(
+          partnerTenantId,
+          partnerClientId,
+          partnerClientSecret,
+          tenants
+        );
       }
 
       console.log();
@@ -667,7 +676,7 @@ async function testCredentialsAndGdap(
   partnerTenantId: string,
   partnerClientId: string,
   clientSecret: string,
-  configuredTenants: Array<{ tenantId: string; name: string; environmentUrl: string }>,
+  configuredTenants: Array<{ tenantId: string; name: string; environmentUrl: string }>
 ): Promise<void> {
   console.log();
 
@@ -885,15 +894,17 @@ async function discoverGdapTenantsWithEnvironments(
         });
 
         if (dataverseEnvs.length > 0) {
-          console.log(chalk.green(
-            `   ✓ ${rel.customer.displayName}: ${dataverseEnvs.length} environment(s)`
-          ));
+          console.log(
+            chalk.green(`   ✓ ${rel.customer.displayName}: ${dataverseEnvs.length} environment(s)`)
+          );
         } else {
           console.log(chalk.yellow(`   ⚠ ${rel.customer.displayName}: No Dataverse environments`));
         }
       } catch (envError) {
         // Couldn't discover environments for this tenant
-        console.log(chalk.yellow(`   ⚠ ${rel.customer.displayName}: Could not discover environments`));
+        console.log(
+          chalk.yellow(`   ⚠ ${rel.customer.displayName}: Could not discover environments`)
+        );
         results.push({
           tenantId: rel.customer.tenantId,
           name: rel.customer.displayName,

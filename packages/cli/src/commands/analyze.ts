@@ -55,12 +55,15 @@ export const analyzeCommand = new Command("analyze")
   .option("-t, --tag <tags...>", "Analyze only tenants with these tags")
   .option("--all", "Analyze all tenants (default when no --tag specified)")
   .option("--json", "Output results as JSON")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync analyze TestDeploy                    Analyze risk across all tenants
   agentsync analyze TestDeploy --tag production   Analyze production tenants only
   agentsync analyze ./TestDeploy.zip              Analyze a pre-exported zip
-`)
+`
+  )
   .action(async (solutionArg: string | undefined, options) => {
     const spinner = createSpinner("Loading configuration...").start();
 
@@ -81,7 +84,6 @@ Examples:
     }
 
     try {
-
       // Check for demo mode
       if (isDemo()) {
         spinner.succeed("Demo fleet manifest loaded");
@@ -343,7 +345,7 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
 
   // Next steps
   if (analysis.canProceed) {
-    console.log(chalk.gray("Next step: agentsync ship --solution <path> --tag <tags>"));
+    console.log(chalk.gray("Next step: agentsync deploy <solution> --all --direct"));
   } else {
     console.log(chalk.gray("Fix the blockers listed above, then run 'agentsync analyze' again"));
   }

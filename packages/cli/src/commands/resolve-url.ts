@@ -129,7 +129,10 @@ export const resolveUrlCommand = new Command("resolve-url")
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       const suffix = managed ? "managed" : "unmanaged";
       const outputDir = resolve(options.output);
-      const outputPath = join(outputDir, `${resolved.solution.uniquename}_${timestamp}_${suffix}.zip`);
+      const outputPath = join(
+        outputDir,
+        `${resolved.solution.uniquename}_${timestamp}_${suffix}.zip`
+      );
 
       spinner.start(`Exporting solution '${resolved.solution.uniquename}'...`);
       const metadata = await solutionOps.exportSolution(resolved.solution.uniquename, {
@@ -148,7 +151,7 @@ export const resolveUrlCommand = new Command("resolve-url")
       console.log(`  Output:    ${chalk.cyan(outputPath)}`);
       console.log();
       console.log(
-        chalk.gray(`Use 'agentsync ship --agent package ${outputPath}' to deploy to your fleet`)
+        chalk.gray(`Use 'agentsync deploy <solution> --all --direct' to deploy to your tenants`)
       );
     } catch (error) {
       handleCommandError(error, spinner, "URL resolution failed");
