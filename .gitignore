@@ -28,6 +28,7 @@ pnpm-debug.log*
 
 # Solutions (exported files)
 solutions/*.zip
+agent packages/
 packages/web/solutions/
 
 # Rollback snapshots
