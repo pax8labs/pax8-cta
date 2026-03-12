@@ -43,19 +43,19 @@ function createPlainSpinner(text?: string): Spinner {
       return self;
     },
     succeed(t?: string) {
-      console.log(`✔ ${t ?? currentText}`);
+      console.error(`✔ ${t ?? currentText}`);
       return self;
     },
     fail(t?: string) {
-      console.log(`✖ ${t ?? currentText}`);
+      console.error(`✖ ${t ?? currentText}`);
       return self;
     },
     warn(t?: string) {
-      console.log(`⚠ ${t ?? currentText}`);
+      console.error(`⚠ ${t ?? currentText}`);
       return self;
     },
     info(t?: string) {
-      console.log(`ℹ ${t ?? currentText}`);
+      console.error(`ℹ ${t ?? currentText}`);
       return self;
     },
   };
@@ -74,5 +74,5 @@ export function createSpinner(text?: string): Spinner {
   if (replMode) {
     return createPlainSpinner(text);
   }
-  return ora(text) as unknown as Spinner;
+  return ora({ text, stream: process.stderr }) as unknown as Spinner;
 }
