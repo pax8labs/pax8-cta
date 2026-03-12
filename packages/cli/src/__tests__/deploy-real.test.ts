@@ -83,10 +83,13 @@ describe("Deploy Command (Real Mode - Config File)", () => {
 
   describe("required options validation", () => {
     it("should auto-default to --all when neither --all nor --tag is specified", async () => {
-      const result = await runCli(["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH, "--dry-run"], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
-        cwd: TEST_DIR,
-      });
+      const result = await runCli(
+        ["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH, "--dry-run"],
+        {
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+          cwd: TEST_DIR,
+        }
+      );
 
       // Should auto-default to --all and show all enabled tenants
       const cleanOutput = stripAnsi(result.output);
@@ -100,7 +103,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH, "--all", "--dry-run"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -132,7 +135,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "--dry-run",
         ],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -159,7 +162,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "--dry-run",
         ],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -175,7 +178,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH, "--tag", "nonexistent"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -190,7 +193,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["deploy", "./test.zip", "--config", CONFIG_PATH, "--all", "--dry-run"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -206,7 +209,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["deploy", "--solution", "./test.zip", "--config", "/nonexistent/config.yaml", "--all"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );

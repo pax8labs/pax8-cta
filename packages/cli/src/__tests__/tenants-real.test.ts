@@ -92,7 +92,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
   describe("list command", () => {
     it("should list tenants from config file", async () => {
       const result = await runCli(["tenants", "list", "--config", CONFIG_PATH], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR }, // Use test HOME to avoid global config
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR }, // Use test HOME to avoid global config
         cwd: TEST_DIR,
       });
 
@@ -112,7 +112,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["tenants", "list", "--config", CONFIG_PATH, "--tag", "enterprise"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -129,7 +129,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["tenants", "list", "--config", CONFIG_PATH, "--search", "beta"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -143,7 +143,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["tenants", "list", "--config", CONFIG_PATH, "--status", "enabled"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -161,7 +161,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["tenants", "list", "--config", CONFIG_PATH, "--status", "disabled"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -175,7 +175,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
 
     it("should output JSON format", async () => {
       const result = await runCli(["tenants", "list", "--config", CONFIG_PATH, "--json"], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 
@@ -192,7 +192,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
       const result = await runCli(
         ["tenants", "list", "--config", CONFIG_PATH, "--tag", "enterprise", "--status", "enabled"],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR },
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
         }
       );
@@ -208,7 +208,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
   describe("show command", () => {
     it("should show tenant details by name", async () => {
       const result = await runCli(["tenants", "show", "Test Corp Alpha", "--config", CONFIG_PATH], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 
@@ -220,7 +220,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
 
     it("should show tenant details by partial name", async () => {
       const result = await runCli(["tenants", "show", "beta", "--config", CONFIG_PATH], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 
@@ -229,7 +229,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
 
     it("should show tenant metadata", async () => {
       const result = await runCli(["tenants", "show", "Alpha", "--config", CONFIG_PATH], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 
@@ -240,7 +240,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
 
     it("should output JSON format", async () => {
       const result = await runCli(["tenants", "show", "Alpha", "--config", CONFIG_PATH, "--json"], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 
@@ -252,7 +252,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
 
     it("should handle tenant not found", async () => {
       const result = await runCli(["tenants", "show", "nonexistent", "--config", CONFIG_PATH], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 
@@ -264,7 +264,7 @@ describe("Tenants Command (Real Mode - Config File)", () => {
   describe("error handling", () => {
     it("should handle config file not found", async () => {
       const result = await runCli(["tenants", "list", "--config", "/nonexistent/config.yaml"], {
-        env: { DEMO_MODE: "", HOME: TEST_DIR },
+        env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 

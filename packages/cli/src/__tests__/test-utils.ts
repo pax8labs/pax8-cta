@@ -203,6 +203,7 @@ export async function runCli(args: string[], options: CliRunnerOptions = {}): Pr
         NO_COLOR: "1", // Disable colors for easier parsing
         ...env,
       },
+      // shell: true is needed so npx resolves correctly; uses cmd.exe on Windows
       shell: true,
     });
 

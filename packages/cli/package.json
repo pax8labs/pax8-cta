@@ -22,8 +22,8 @@
     "build:linux-x64": "bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist/binaries/agentsync-linux-x64",
     "build:linux-arm64": "bun build --compile --target=bun-linux-arm64 ./src/index.ts --outfile dist/binaries/agentsync-linux-arm64",
     "build:windows-x64": "bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist/binaries/agentsync-windows-x64.exe",
-    "build:all": "mkdir -p dist/binaries && npm run build:macos-arm64 && npm run build:macos-x64 && npm run build:linux-x64 && npm run build:linux-arm64 && npm run build:windows-x64",
-    "clean": "rm -rf dist agentsync"
+    "build:all": "node -e \"require('fs').mkdirSync('dist/binaries',{recursive:true})\" && npm run build:macos-arm64 && npm run build:macos-x64 && npm run build:linux-x64 && npm run build:linux-arm64 && npm run build:windows-x64",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('agentsync',{force:true});\""
   },
   "dependencies": {
     "@agentsync/core": "workspace:*",
