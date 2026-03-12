@@ -136,12 +136,15 @@ export const validateCommand = new Command("validate")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tenant <name>", "Validate a specific tenant only")
   .option("--skip-source", "Skip source environment check")
-  .addHelpText("after", `
+  .addHelpText(
+    "after",
+    `
 Examples:
   agentsync validate                              Check everything
   agentsync validate -t AgentSync-Test2           Check a specific tenant
   agentsync validate --skip-source                Check only tenants, not source
-`)
+`
+  )
   .action(async (options) => {
     const checks: ValidationCheck[] = [];
     let hasErrors = false;
@@ -175,7 +178,9 @@ Examples:
           (t) => t.name.toLowerCase() === options.tenant.toLowerCase()
         );
         if (!tenant) {
-          throw new CliError(`Tenant '${options.tenant}' not found in configuration or not enabled. Run 'agentsync tenants list' to see available tenants.`);
+          throw new CliError(
+            `Tenant '${options.tenant}' not found in configuration or not enabled. Run 'agentsync tenants list' to see available tenants.`
+          );
         }
         enabledTenants = [tenant];
       }
@@ -187,6 +192,18 @@ Examples:
       });
       spinner.succeed("Configuration file valid");
     } catch (error) {
+      if (error instanceof CliError) {
+        checks.push({
+          name: "Config file",
+          status: "fail",
+          message: error.message,
+        });
+        hasErrors = true;
+        spinner.fail(error.message);
+        displayResults(checks);
+        process.exit(error.exitCode);
+      }
+
       const errorMsg = error instanceof ConfigError ? error.message : String(error);
       checks.push({
         name: "Config file",
