@@ -63,9 +63,62 @@ export function isDemoMode(): boolean {
 }
 
 /**
- * Sample tenant data representing fictional MSP customers
+ * Risk profile types for demo tenants
+ */
+export type DemoRiskProfile = "healthy" | "test" | "problematic" | "production-critical";
+
+/**
+ * GDAP status types for demo tenants
+ */
+export type DemoGdapStatus = "valid" | "missing_role" | "expired" | "propagating" | "expiring_soon";
+
+/**
+ * Connection status types for demo tenants
+ */
+export type DemoConnectionStatus = "valid" | "expired" | "missing" | "expiring_certificate";
+
+/**
+ * Extended demo metadata for risk analysis scenarios
+ */
+export interface DemoTenantMetadata {
+  industry: string;
+  employees: number;
+  contractTier: string;
+  riskProfile: DemoRiskProfile;
+  gdapStatus: DemoGdapStatus;
+  gdapIssue?: string;
+  gdapRelationshipExpiry?: string;
+  connectionStatus: DemoConnectionStatus;
+  connectionIssue?: string;
+  recentFailures: number;
+  lastSuccessfulDeployment?: string;
+  lastDeploymentError?: string;
+  disabledReason?: string;
+}
+
+/**
+ * Get demo metadata for a tenant by ID.
+ * Returns typed metadata or undefined for non-demo tenants.
+ */
+export function getDemoTenantMetadata(tenantId: string): DemoTenantMetadata | undefined {
+  const tenant = DEMO_TENANTS.find((t) => t.tenantId === tenantId);
+  return tenant?.metadata as DemoTenantMetadata | undefined;
+}
+
+/**
+ * Sample tenant data representing fictional MSP customers.
+ * Each tenant has a distinct risk profile and scenario for comprehensive demo coverage:
+ *
+ * Healthy (40%):     Contoso, Fabrikam, Adventure Works, Litware
+ * Test (20%):        Tailspin Toys, Coho Vineyard
+ * Problematic (30%): Northwind Traders, Proseware, Datum Corp
+ * Prod-Critical (10%): Woodgrove Bank
+ * Disabled:          Wingtip Toys
  */
 export const DEMO_TENANTS: TenantConfig[] = [
+  // ──────────────────────────────────────────────────────────────────────
+  // Healthy tenants (40%) - Valid permissions, good history
+  // ──────────────────────────────────────────────────────────────────────
   {
     name: "Contoso Corporation",
     tenantId: "11111111-1111-1111-1111-111111111111",
@@ -77,7 +130,12 @@ export const DEMO_TENANTS: TenantConfig[] = [
       industry: "Manufacturing",
       employees: 5000,
       contractTier: "Enterprise",
-    },
+      riskProfile: "healthy",
+      gdapStatus: "valid",
+      connectionStatus: "valid",
+      recentFailures: 0,
+      lastSuccessfulDeployment: "2025-01-25T10:30:00Z",
+    } satisfies DemoTenantMetadata,
   },
   {
     name: "Fabrikam Inc",
@@ -90,7 +148,12 @@ export const DEMO_TENANTS: TenantConfig[] = [
       industry: "Retail",
       employees: 2500,
       contractTier: "Enterprise",
-    },
+      riskProfile: "healthy",
+      gdapStatus: "valid",
+      connectionStatus: "valid",
+      recentFailures: 0,
+      lastSuccessfulDeployment: "2025-01-24T14:15:00Z",
+    } satisfies DemoTenantMetadata,
   },
   {
     name: "Adventure Works",
@@ -103,60 +166,12 @@ export const DEMO_TENANTS: TenantConfig[] = [
       industry: "Tourism",
       employees: 150,
       contractTier: "Professional",
-    },
-  },
-  {
-    name: "Northwind Traders",
-    tenantId: "44444444-4444-4444-4444-444444444444",
-    environmentUrl: "https://northwind.crm.dynamics.com",
-    tags: ["smb", "priority"],
-    enabled: true,
-    autoSetup: true,
-    metadata: {
-      industry: "Food & Beverage",
-      employees: 300,
-      contractTier: "Professional",
-    },
-  },
-  {
-    name: "Woodgrove Bank",
-    tenantId: "55555555-5555-5555-5555-555555555555",
-    environmentUrl: "https://woodgrove.crm.dynamics.com",
-    tags: ["enterprise", "finance", "priority"],
-    enabled: true,
-    autoSetup: true,
-    metadata: {
-      industry: "Financial Services",
-      employees: 8000,
-      contractTier: "Enterprise",
-    },
-  },
-  {
-    name: "Tailspin Toys",
-    tenantId: "66666666-6666-6666-6666-666666666666",
-    environmentUrl: "https://tailspin.crm.dynamics.com",
-    tags: ["smb", "retail"],
-    enabled: true,
-    autoSetup: true,
-    metadata: {
-      industry: "Retail",
-      employees: 75,
-      contractTier: "Starter",
-    },
-  },
-  {
-    name: "Wingtip Toys",
-    tenantId: "77777777-7777-7777-7777-777777777777",
-    environmentUrl: "https://wingtip.crm.dynamics.com",
-    tags: ["smb", "retail"],
-    enabled: false, // Disabled for demo
-    autoSetup: true,
-    metadata: {
-      industry: "Retail",
-      employees: 50,
-      contractTier: "Starter",
-      disabledReason: "Contract renewal pending",
-    },
+      riskProfile: "healthy",
+      gdapStatus: "valid",
+      connectionStatus: "valid",
+      recentFailures: 0,
+      lastSuccessfulDeployment: "2025-01-23T09:00:00Z",
+    } satisfies DemoTenantMetadata,
   },
   {
     name: "Litware Inc",
@@ -169,7 +184,37 @@ export const DEMO_TENANTS: TenantConfig[] = [
       industry: "Technology",
       employees: 1200,
       contractTier: "Enterprise",
-    },
+      riskProfile: "healthy",
+      gdapStatus: "valid",
+      connectionStatus: "valid",
+      recentFailures: 0,
+      lastSuccessfulDeployment: "2025-01-26T16:45:00Z",
+    } satisfies DemoTenantMetadata,
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Problematic tenants (30%) - Various issues for risk analysis
+  // ──────────────────────────────────────────────────────────────────────
+  {
+    name: "Northwind Traders",
+    tenantId: "44444444-4444-4444-4444-444444444444",
+    environmentUrl: "https://northwind.crm.dynamics.com",
+    tags: ["smb", "priority"],
+    enabled: true,
+    autoSetup: true,
+    metadata: {
+      industry: "Food & Beverage",
+      employees: 300,
+      contractTier: "Professional",
+      riskProfile: "problematic",
+      gdapStatus: "missing_role",
+      gdapIssue: "Missing Power Platform Administrator role",
+      connectionStatus: "expired",
+      connectionIssue: "Dataverse connection expired, needs reauthentication",
+      recentFailures: 3,
+      lastSuccessfulDeployment: "2024-12-01T08:00:00Z",
+      lastDeploymentError: "Connection timeout - environment unreachable",
+    } satisfies DemoTenantMetadata,
   },
   {
     name: "Proseware",
@@ -182,20 +227,125 @@ export const DEMO_TENANTS: TenantConfig[] = [
       industry: "Software",
       employees: 200,
       contractTier: "Professional",
-    },
+      riskProfile: "problematic",
+      gdapStatus: "expired",
+      gdapIssue: "GDAP relationship expired on 2025-01-15",
+      gdapRelationshipExpiry: "2025-01-15T00:00:00Z",
+      connectionStatus: "missing",
+      connectionIssue: "SharePoint connection never configured",
+      recentFailures: 5,
+      lastSuccessfulDeployment: "2024-11-20T11:00:00Z",
+      lastDeploymentError: "Solution import failed: missing required connection reference",
+    } satisfies DemoTenantMetadata,
+  },
+  {
+    name: "Datum Corp",
+    tenantId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    environmentUrl: "https://datum.crm.dynamics.com",
+    tags: ["smb", "healthcare"],
+    enabled: true,
+    autoSetup: true,
+    metadata: {
+      industry: "Healthcare",
+      employees: 400,
+      contractTier: "Professional",
+      riskProfile: "problematic",
+      gdapStatus: "propagating",
+      gdapIssue: "GDAP relationship created 12 hours ago, still propagating",
+      connectionStatus: "expiring_certificate",
+      connectionIssue: "OAuth certificate expires in 15 days",
+      recentFailures: 1,
+      lastSuccessfulDeployment: "2025-01-20T13:30:00Z",
+      lastDeploymentError: "Permission denied: insufficient privileges",
+    } satisfies DemoTenantMetadata,
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Production-critical tenant (10%) - High stakes, requires approval
+  // ──────────────────────────────────────────────────────────────────────
+  {
+    name: "Woodgrove Bank",
+    tenantId: "55555555-5555-5555-5555-555555555555",
+    environmentUrl: "https://woodgrove.crm.dynamics.com",
+    tags: ["enterprise", "finance", "priority", "production"],
+    enabled: true,
+    autoSetup: true,
+    metadata: {
+      industry: "Financial Services",
+      employees: 8000,
+      contractTier: "Enterprise",
+      riskProfile: "production-critical",
+      gdapStatus: "expiring_soon",
+      gdapIssue: "GDAP relationship expires in 5 days",
+      gdapRelationshipExpiry: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      connectionStatus: "valid",
+      recentFailures: 0,
+      lastSuccessfulDeployment: "2025-01-22T02:30:00Z",
+    } satisfies DemoTenantMetadata,
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Test tenants (20%) - Lower risk even with minor issues
+  // ──────────────────────────────────────────────────────────────────────
+  {
+    name: "Tailspin Toys",
+    tenantId: "66666666-6666-6666-6666-666666666666",
+    environmentUrl: "https://tailspin.crm.dynamics.com",
+    tags: ["smb", "retail", "test"],
+    enabled: true,
+    autoSetup: true,
+    metadata: {
+      industry: "Retail",
+      employees: 75,
+      contractTier: "Starter",
+      riskProfile: "test",
+      gdapStatus: "valid",
+      connectionStatus: "valid",
+      recentFailures: 1,
+      lastSuccessfulDeployment: "2025-01-25T08:00:00Z",
+      lastDeploymentError: "Timeout after 120s - retried successfully",
+    } satisfies DemoTenantMetadata,
   },
   {
     name: "Coho Vineyard",
     tenantId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
     environmentUrl: "https://coho.crm.dynamics.com",
-    tags: ["smb", "hospitality"],
+    tags: ["smb", "hospitality", "test"],
     enabled: true,
     autoSetup: true,
     metadata: {
       industry: "Hospitality",
       employees: 45,
       contractTier: "Starter",
-    },
+      riskProfile: "test",
+      gdapStatus: "valid",
+      connectionStatus: "valid",
+      recentFailures: 0,
+    } satisfies DemoTenantMetadata,
+  },
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Disabled tenant - Contract renewal pending
+  // ──────────────────────────────────────────────────────────────────────
+  {
+    name: "Wingtip Toys",
+    tenantId: "77777777-7777-7777-7777-777777777777",
+    environmentUrl: "https://wingtip.crm.dynamics.com",
+    tags: ["smb", "retail"],
+    enabled: false,
+    autoSetup: true,
+    metadata: {
+      industry: "Retail",
+      employees: 50,
+      contractTier: "Starter",
+      riskProfile: "problematic",
+      gdapStatus: "expired",
+      gdapIssue: "Contract renewal pending, GDAP relationship suspended",
+      connectionStatus: "expired",
+      connectionIssue: "All connections expired due to suspended relationship",
+      recentFailures: 0,
+      disabledReason: "Contract renewal pending",
+    } satisfies DemoTenantMetadata,
   },
 ];
 
@@ -236,6 +386,20 @@ export const DEMO_CONFIG: Config = {
     },
   },
 };
+
+/**
+ * Realistic error messages for failed deployments
+ */
+const DEMO_ERROR_MESSAGES = [
+  "Connection timeout - environment unreachable",
+  "Permission denied: insufficient privileges for solution import",
+  "Solution import failed: missing required connection reference 'shared_commondataserviceforapps'",
+  "Validation error: solution version conflict with existing unmanaged customization",
+  "HTTP 503 Service Unavailable - Dataverse API temporarily down",
+  "OAuth token expired during import, reauthentication required",
+  "Solution dependency not met: Microsoft Dataverse base solution version mismatch",
+  "Import timeout after 300s - large solution exceeded maximum import duration",
+];
 
 /**
  * Generate a mock deployment with realistic-looking data
@@ -284,13 +448,21 @@ export function generateMockDeployment(overrides?: Partial<DeploymentJob>): Depl
           ? new Date(baseCreatedAt + (index + 1) * 60000).toISOString()
           : undefined;
 
+      // Use varied error messages based on tenant metadata
+      let error: string | undefined;
+      if (status === "failed") {
+        const meta = getDemoTenantMetadata(tenant.tenantId);
+        error =
+          meta?.lastDeploymentError || DEMO_ERROR_MESSAGES[index % DEMO_ERROR_MESSAGES.length];
+      }
+
       return {
         tenantId: tenant.tenantId,
         tenantName: tenant.name,
         status,
         startedAt,
         completedAt,
-        error: status === "failed" ? "Connection timeout - environment unreachable" : undefined,
+        error,
         solutionImportJobId:
           status !== "pending" ? `import-${tenant.tenantId.slice(0, 8)}` : undefined,
         attemptNumber: 1,
@@ -337,8 +509,14 @@ export function generateMockDeployment(overrides?: Partial<DeploymentJob>): Depl
 }
 
 /**
- * Generate a list of mock deployments for history view
- * Uses deterministic IDs based on index for consistent data across refreshes
+ * Generate a list of mock deployments for history view.
+ * Uses deterministic IDs based on index for consistent data across refreshes.
+ *
+ * Deployment history is designed to exercise risk analysis scenarios:
+ * - 70% success, 20% failure, 10% partial (completed with tenant failures)
+ * - Varied time distribution: recent (last 7 days), medium (last 30 days), old (90+ days)
+ * - Varied durations: fast (2-5 min), normal (8-15 min), slow (20-45 min)
+ * - Different error types: permission, timeout, connection, validation
  */
 export function generateMockDeploymentHistory(count: number = 10): DeploymentJob[] {
   const solutions = [
@@ -353,25 +531,32 @@ export function generateMockDeploymentHistory(count: number = 10): DeploymentJob
   const deployments: DeploymentJob[] = [];
 
   // Use a fixed base timestamp for consistent history
-  // This ensures the same deployments appear on every refresh
   const baseTimestamp = new Date("2025-01-27T00:00:00Z").getTime();
 
   for (let i = 0; i < count; i++) {
     const solution = solutions[i % solutions.length];
-    const hoursAgo = i * 12; // 12 hours apart
+
+    // Varied time distribution: cluster recent deployments closer together
+    let hoursAgo: number;
+    if (i < 5) {
+      hoursAgo = i * 6; // Recent: every 6 hours (last ~30 hours)
+    } else if (i < 15) {
+      hoursAgo = 30 + (i - 5) * 24; // Medium: daily (last ~10 days)
+    } else {
+      hoursAgo = 270 + (i - 15) * 48; // Old: every 2 days (60+ days ago)
+    }
+
     const createdAt = new Date(baseTimestamp - hoursAgo * 60 * 60 * 1000);
 
     // Deterministic deployment ID based on index
     const deploymentId = `demo-hist-${i.toString().padStart(3, "0")}`;
 
-    // Deterministic status pattern
+    // Deterministic status pattern: ~70% success, ~20% failure, ~10% in_progress/partial
     let status: DeploymentStatus;
     if (i === 0) {
       status = "in_progress";
-    } else if (i % 10 === 9) {
-      status = "failed"; // Every 10th deployment failed
-    } else if (i % 7 === 0) {
-      status = "completed"; // But had some tenant failures
+    } else if (i === 3 || i === 7 || i === 12 || i === 18) {
+      status = "failed"; // ~20% failure rate
     } else {
       status = "completed";
     }

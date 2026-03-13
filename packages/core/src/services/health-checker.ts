@@ -21,6 +21,8 @@ import { HEALTH_CHECK_CACHE_DURATION_MS } from "../constants.js";
  * Calculates ongoing health scores for tenants based on GDAP, connections, and deployment history
  */
 
+import { getDemoTenantMetadata } from "../mock/demo-data.js";
+
 export interface TenantHealth {
   tenantId: string;
   tenantName: string;
@@ -208,41 +210,59 @@ class HealthChecker {
   }> {
     const issues: HealthIssue[] = [];
 
-    // In demo mode, simulate GDAP issues for every 5th tenant
+    // In demo mode, use tenant metadata for deterministic GDAP scenarios
     if (process.env.DEMO_MODE === "true") {
-      const tenantIndex = parseInt(context.tenantId.substring(0, 8), 16);
+      const meta = getDemoTenantMetadata(context.tenantId);
 
-      if (tenantIndex % 5 === 0) {
-        issues.push({
-          severity: "critical",
-          category: "permissions",
-          message: "Missing Power Platform Administrator role in GDAP relationship",
-          resolution:
-            "Add the Power Platform Administrator role to this tenant's GDAP relationship in Partner Center",
-          link: "https://partner.microsoft.com/commerce/granularadminrelationships",
-        });
-        return { status: "missing_role", issues };
-      }
+      if (meta) {
+        switch (meta.gdapStatus) {
+          case "missing_role":
+            issues.push({
+              severity: "critical",
+              category: "permissions",
+              message:
+                meta.gdapIssue || "Missing Power Platform Administrator role in GDAP relationship",
+              resolution:
+                "Add the Power Platform Administrator role to this tenant's GDAP relationship in Partner Center",
+              link: "https://partner.microsoft.com/commerce/granularadminrelationships",
+            });
+            return { status: "missing_role", issues };
 
-      if (tenantIndex % 7 === 0) {
-        issues.push({
-          severity: "error",
-          category: "permissions",
-          message: "GDAP relationship expired",
-          resolution: "Renew the GDAP relationship in Partner Center",
-          link: "https://partner.microsoft.com/commerce/granularadminrelationships",
-        });
-        return { status: "expired", issues };
-      }
+          case "expired":
+            issues.push({
+              severity: "error",
+              category: "permissions",
+              message: meta.gdapIssue || "GDAP relationship expired",
+              resolution: "Renew the GDAP relationship in Partner Center",
+              link: "https://partner.microsoft.com/commerce/granularadminrelationships",
+            });
+            return { status: "expired", issues };
 
-      if (tenantIndex % 11 === 0) {
-        issues.push({
-          severity: "warning",
-          category: "permissions",
-          message: "GDAP relationship created recently, permissions may still be propagating",
-          resolution: "Wait 24-48 hours for permissions to fully propagate",
-        });
-        return { status: "propagating", issues };
+          case "propagating":
+            issues.push({
+              severity: "warning",
+              category: "permissions",
+              message:
+                meta.gdapIssue ||
+                "GDAP relationship created recently, permissions may still be propagating",
+              resolution: "Wait 24-48 hours for permissions to fully propagate",
+            });
+            return { status: "propagating", issues };
+
+          case "expiring_soon":
+            issues.push({
+              severity: "warning",
+              category: "permissions",
+              message: meta.gdapIssue || "GDAP relationship expiring soon",
+              resolution: "Renew GDAP relationship before it expires",
+              link: "https://partner.microsoft.com/commerce/granularadminrelationships",
+            });
+            return { status: "valid", issues };
+
+          case "valid":
+          default:
+            return { status: "valid", issues: [] };
+        }
       }
 
       return { status: "valid", issues: [] };
@@ -259,30 +279,47 @@ class HealthChecker {
   }> {
     const issues: HealthIssue[] = [];
 
-    // In demo mode, simulate connection issues for some tenants
+    // In demo mode, use tenant metadata for deterministic connection scenarios
     if (process.env.DEMO_MODE === "true") {
-      const tenantIndex = parseInt(context.tenantId.substring(0, 8), 16);
+      const meta = getDemoTenantMetadata(context.tenantId);
 
-      if (tenantIndex % 6 === 0) {
-        issues.push({
-          severity: "error",
-          category: "connections",
-          message: "Connection reference expired: Dataverse connection requires reauthentication",
-          resolution: "Open the solution in the maker portal and update the connection reference",
-          link: `${context.environmentUrl}/main.aspx?forceUCI=1&pagetype=apps`,
-        });
-        return { status: "expired", issues };
-      }
+      if (meta) {
+        switch (meta.connectionStatus) {
+          case "expired":
+            issues.push({
+              severity: "error",
+              category: "connections",
+              message:
+                meta.connectionIssue || "Connection reference expired: requires reauthentication",
+              resolution:
+                "Open the solution in the maker portal and update the connection reference",
+              link: `${context.environmentUrl}/main.aspx?forceUCI=1&pagetype=apps`,
+            });
+            return { status: "expired", issues };
 
-      if (tenantIndex % 9 === 0) {
-        issues.push({
-          severity: "error",
-          category: "connections",
-          message: "Missing required connection: Dataverse connection not configured",
-          resolution: "Configure the Dataverse connection in the maker portal before deploying",
-          link: `${context.environmentUrl}/main.aspx?forceUCI=1&pagetype=apps`,
-        });
-        return { status: "missing", issues };
+          case "missing":
+            issues.push({
+              severity: "error",
+              category: "connections",
+              message: meta.connectionIssue || "Missing required connection: not configured",
+              resolution: "Configure the required connection in the maker portal before deploying",
+              link: `${context.environmentUrl}/main.aspx?forceUCI=1&pagetype=apps`,
+            });
+            return { status: "missing", issues };
+
+          case "expiring_certificate":
+            issues.push({
+              severity: "warning",
+              category: "connections",
+              message: meta.connectionIssue || "Connection certificate expiring soon",
+              resolution: "Rotate the OAuth certificate before it expires",
+            });
+            return { status: "valid", issues };
+
+          case "valid":
+          default:
+            return { status: "valid", issues: [] };
+        }
       }
 
       return { status: "valid", issues: [] };
@@ -354,19 +391,57 @@ class HealthChecker {
   }
 
   private async getGDAPDetail(context: HealthCheckContext) {
-    // In demo mode, return simulated data
+    // In demo mode, return metadata-driven GDAP details
     if (process.env.DEMO_MODE === "true") {
-      const tenantIndex = parseInt(context.tenantId.substring(0, 8), 16);
+      const meta = getDemoTenantMetadata(context.tenantId);
 
-      if (tenantIndex % 5 === 0) {
-        return {
-          status: "missing_role" as const,
-          roles: ["Dynamics 365 Administrator"],
-          missingRoles: ["Power Platform Administrator"],
-          relationshipExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-          lastVerified: new Date().toISOString(),
-          issue: "Missing required role",
-        };
+      if (meta) {
+        const baseExpiry =
+          meta.gdapRelationshipExpiry ||
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+        switch (meta.gdapStatus) {
+          case "missing_role":
+            return {
+              status: "missing_role" as const,
+              roles: ["Dynamics 365 Administrator"],
+              missingRoles: ["Power Platform Administrator"],
+              relationshipExpiry: baseExpiry,
+              lastVerified: new Date().toISOString(),
+              issue: meta.gdapIssue || "Missing required role",
+            };
+
+          case "expired":
+            return {
+              status: "expired" as const,
+              roles: [],
+              relationshipExpiry:
+                meta.gdapRelationshipExpiry ||
+                new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+              lastVerified: new Date().toISOString(),
+              issue: meta.gdapIssue || "GDAP relationship expired",
+            };
+
+          case "propagating":
+            return {
+              status: "propagating" as const,
+              roles: ["Power Platform Administrator", "Dynamics 365 Administrator"],
+              relationshipExpiry: baseExpiry,
+              lastVerified: new Date().toISOString(),
+              issue: meta.gdapIssue || "Permissions still propagating",
+            };
+
+          case "expiring_soon":
+            return {
+              status: "valid" as const,
+              roles: ["Power Platform Administrator", "Dynamics 365 Administrator"],
+              relationshipExpiry:
+                meta.gdapRelationshipExpiry ||
+                new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+              lastVerified: new Date().toISOString(),
+              issue: meta.gdapIssue || "GDAP relationship expiring soon",
+            };
+        }
       }
 
       return {
@@ -385,30 +460,87 @@ class HealthChecker {
   }
 
   private async getConnectionsDetail(context: HealthCheckContext) {
-    // In demo mode, return simulated connections
+    // In demo mode, return metadata-driven connection details
     if (process.env.DEMO_MODE === "true") {
-      const tenantIndex = parseInt(context.tenantId.substring(0, 8), 16);
+      const meta = getDemoTenantMetadata(context.tenantId);
 
-      const connections = [
-        {
+      const connections: Array<{
+        name: string;
+        displayName: string;
+        status: "valid" | "expired" | "missing";
+        expiryDate?: string;
+        issue?: string;
+      }> = [];
+
+      if (meta) {
+        switch (meta.connectionStatus) {
+          case "expired":
+            connections.push({
+              name: "shared_commondataserviceforapps",
+              displayName: "Dataverse",
+              status: "expired",
+              expiryDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+              issue: meta.connectionIssue || "Connection expired, needs reauthentication",
+            });
+            break;
+
+          case "missing":
+            connections.push({
+              name: "shared_commondataserviceforapps",
+              displayName: "Dataverse",
+              status: "valid",
+              expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+            });
+            connections.push({
+              name: "shared_sharepointonline",
+              displayName: "SharePoint",
+              status: "missing",
+              issue: meta.connectionIssue || "Connection never configured",
+            });
+            break;
+
+          case "expiring_certificate":
+            connections.push({
+              name: "shared_commondataserviceforapps",
+              displayName: "Dataverse",
+              status: "valid",
+              expiryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+              issue: meta.connectionIssue || "OAuth certificate expiring in 15 days",
+            });
+            break;
+
+          default:
+            connections.push({
+              name: "shared_commondataserviceforapps",
+              displayName: "Dataverse",
+              status: "valid",
+              expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+            });
+            break;
+        }
+
+        // Add Office 365 connection for tenants that have valid/expiring connections
+        if (meta.connectionStatus !== "expired") {
+          connections.push({
+            name: "shared_office365",
+            displayName: "Office 365 Outlook",
+            status: "valid",
+            expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+          });
+        }
+      } else {
+        // Unknown tenant, return sensible defaults
+        connections.push({
           name: "shared_commondataserviceforapps",
           displayName: "Dataverse",
-          status: tenantIndex % 6 === 0 ? ("expired" as const) : ("valid" as const),
-          expiryDate:
-            tenantIndex % 6 === 0
-              ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-              : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-          issue: tenantIndex % 6 === 0 ? "Connection expired, needs reauthentication" : undefined,
-        },
-      ];
-
-      if (tenantIndex % 9 !== 0) {
+          status: "valid",
+          expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        });
         connections.push({
           name: "shared_office365",
           displayName: "Office 365 Outlook",
-          status: "valid" as const,
+          status: "valid",
           expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-          issue: undefined,
         });
       }
 
