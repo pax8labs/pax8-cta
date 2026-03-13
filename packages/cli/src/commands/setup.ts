@@ -19,36 +19,16 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
-import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
+import {
+  loadConfig,
+  TenantConfig,
+  TokenManager,
+  DataverseClient,
+  environmentSetupService,
+  type SetupStatus,
+} from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { UsageError, CliError, handleCommandError } from "../lib/errors.js";
-
-interface SetupStatus {
-  tenantName: string;
-  environmentUrl: string;
-  appRegistered: boolean;
-  roleAssigned: boolean;
-  status: "ready" | "needs_setup" | "partial" | "error";
-  error?: string;
-  userId?: string;
-}
-
-interface SystemUser {
-  systemuserid: string;
-  fullname?: string;
-  applicationid?: string;
-  isdisabled?: boolean;
-}
-
-interface SecurityRole {
-  roleid: string;
-  name: string;
-}
-
-interface BusinessUnit {
-  businessunitid: string;
-  name: string;
-}
 
 export const setupCommand = new Command("setup")
   .description("Register your app as an application user in tenant environments")
@@ -107,17 +87,29 @@ Examples:
         process.exit(1);
       }
 
-      // Verify client secret is available
-      await getClientSecretWithFallback();
-
       console.log();
       console.log(chalk.bold(`Checking ${targets.length} environment(s)...`));
       console.log();
 
       // Check setup status for each tenant
+      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
       const statuses: SetupStatus[] = [];
       for (const tenant of targets) {
-        const status = await checkSetupStatus(config, tenant);
+        const tokenManager = new TokenManager({
+          tenantId: tenant.tenantId,
+          clientId: config.partner.clientId,
+          clientSecret,
+        });
+        const client = new DataverseClient({
+          environmentUrl: tenant.environmentUrl,
+          tokenManager,
+        });
+        const status = await environmentSetupService.checkSetupStatus(
+          client,
+          config.partner.clientId,
+          tenant.name,
+          tenant.environmentUrl
+        );
         statuses.push(status);
       }
 
@@ -165,7 +157,21 @@ Examples:
         const setupSpinner = createSpinner(`Setting up ${status.tenantName}...`).start();
 
         try {
-          await setupTenant(config, tenant, status);
+          const tokenManager = new TokenManager({
+            tenantId: tenant.tenantId,
+            clientId: config.partner.clientId,
+            clientSecret,
+          });
+          const client = new DataverseClient({
+            environmentUrl: tenant.environmentUrl,
+            tokenManager,
+          });
+          await environmentSetupService.setupTenant(
+            client,
+            config.partner.clientId,
+            tenant.environmentUrl,
+            status
+          );
           setupSpinner.succeed(chalk.green(`Setup completed: ${status.tenantName}`));
           successCount++;
         } catch (error) {
@@ -187,181 +193,6 @@ Examples:
       handleCommandError(error, spinner, "Setup failed");
     }
   });
-
-/**
- * Check setup status for a tenant using Dataverse Web API
- */
-async function checkSetupStatus(
-  config: { partner: { tenantId: string; clientId: string } },
-  tenant: TenantConfig
-): Promise<SetupStatus> {
-  const clientSecret = await getClientSecretWithFallback();
-  const tokenManager = new TokenManager({
-    tenantId: tenant.tenantId,
-    clientId: config.partner.clientId,
-    clientSecret: clientSecret,
-  });
-
-  const client = new DataverseClient({
-    environmentUrl: tenant.environmentUrl,
-    tokenManager,
-  });
-
-  try {
-    // Check if app user exists
-    const appId = config.partner.clientId;
-    const result = await client.get<{ value: SystemUser[] }>("/systemusers", {
-      $filter: `applicationid eq '${appId}'`,
-      $select: "systemuserid,fullname,applicationid,isdisabled",
-    });
-
-    if (result.value.length === 0) {
-      return {
-        tenantName: tenant.name,
-        environmentUrl: tenant.environmentUrl,
-        appRegistered: false,
-        roleAssigned: false,
-        status: "needs_setup",
-      };
-    }
-
-    const user = result.value[0];
-
-    // Check if System Administrator role is assigned
-    const rolesResult = await client.get<{ value: SecurityRole[] }>(
-      `/systemusers(${user.systemuserid})/systemuserroles_association`,
-      {
-        $select: "roleid,name",
-      }
-    );
-
-    const hasAdminRole = rolesResult.value.some((r) => r.name === "System Administrator");
-
-    if (!hasAdminRole) {
-      return {
-        tenantName: tenant.name,
-        environmentUrl: tenant.environmentUrl,
-        appRegistered: true,
-        roleAssigned: false,
-        status: "partial",
-        userId: user.systemuserid,
-      };
-    }
-
-    return {
-      tenantName: tenant.name,
-      environmentUrl: tenant.environmentUrl,
-      appRegistered: true,
-      roleAssigned: true,
-      status: "ready",
-      userId: user.systemuserid,
-    };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-
-    // Check if it's an auth error (app not registered)
-    if (errorMsg.includes("not a member of the organization")) {
-      return {
-        tenantName: tenant.name,
-        environmentUrl: tenant.environmentUrl,
-        appRegistered: false,
-        roleAssigned: false,
-        status: "needs_setup",
-        error: "App not registered in this environment (bootstrap required)",
-      };
-    }
-
-    return {
-      tenantName: tenant.name,
-      environmentUrl: tenant.environmentUrl,
-      appRegistered: false,
-      roleAssigned: false,
-      status: "error",
-      error: errorMsg,
-    };
-  }
-}
-
-/**
- * Setup application user for a tenant using Dataverse Web API
- */
-async function setupTenant(
-  config: { partner: { tenantId: string; clientId: string } },
-  tenant: TenantConfig,
-  status: SetupStatus
-): Promise<void> {
-  const clientSecret = await getClientSecretWithFallback();
-  const tokenManager = new TokenManager({
-    tenantId: tenant.tenantId,
-    clientId: config.partner.clientId,
-    clientSecret: clientSecret,
-  });
-
-  const client = new DataverseClient({
-    environmentUrl: tenant.environmentUrl,
-    tokenManager,
-  });
-
-  const appId = config.partner.clientId;
-  let userId = status.userId;
-
-  // Create app user if needed
-  if (!status.appRegistered) {
-    // Get root business unit
-    const buResult = await client.get<{ value: BusinessUnit[] }>("/businessunits", {
-      $filter: "parentbusinessunitid eq null",
-      $select: "businessunitid,name",
-    });
-
-    if (buResult.value.length === 0) {
-      throw new Error("Could not find root business unit");
-    }
-
-    const buId = buResult.value[0].businessunitid;
-
-    // Create app user
-    await client.post("/systemusers", {
-      applicationid: appId,
-      "businessunitid@odata.bind": `/businessunits(${buId})`,
-    });
-
-    // Get the newly created user's ID
-    const userResult = await client.get<{ value: SystemUser[] }>("/systemusers", {
-      $filter: `applicationid eq '${appId}'`,
-      $select: "systemuserid",
-    });
-
-    if (userResult.value.length === 0) {
-      throw new Error("Failed to create app user");
-    }
-
-    userId = userResult.value[0].systemuserid;
-    console.log(chalk.gray(`  Created app user: ${userId}`));
-  }
-
-  // Assign System Administrator role if needed
-  if (!status.roleAssigned && userId) {
-    // Get System Administrator role
-    const roleResult = await client.get<{ value: SecurityRole[] }>("/roles", {
-      $filter: "name eq 'System Administrator'",
-      $select: "roleid,name",
-    });
-
-    if (roleResult.value.length === 0) {
-      throw new Error("Could not find System Administrator role");
-    }
-
-    const roleId = roleResult.value[0].roleid;
-
-    // Assign role to user
-    const apiUrl = tenant.environmentUrl.replace(/\/$/, "") + "/api/data/v9.2";
-    await client.post(`/systemusers(${userId})/systemuserroles_association/$ref`, {
-      "@odata.id": `${apiUrl}/roles(${roleId})`,
-    });
-
-    console.log(chalk.gray(`  Assigned System Administrator role`));
-  }
-}
 
 /**
  * Display setup status in a table

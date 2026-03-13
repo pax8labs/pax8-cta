@@ -32,34 +32,14 @@ import {
   UrlTemplater,
   type TenantUrlValues,
   type DetectedUrl,
+  environmentSetupService,
+  detectSolutionMode,
 } from "@agentsync/core";
 import { DeploymentQueueManager } from "@agentsync/worker";
 import { getDemoTenants } from "./demo.js";
 import { isDemo } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
-
-interface SystemUser {
-  systemuserid: string;
-  fullname?: string;
-  applicationid?: string;
-  isdisabled?: boolean;
-}
-
-interface SecurityRole {
-  roleid: string;
-  name: string;
-}
-
-interface BusinessUnit {
-  businessunitid: string;
-  name: string;
-}
-
-interface PrepareEnvironmentResult {
-  success: boolean;
-  message: string;
-}
 
 export const deployCommand = new Command("deploy")
   .description("Export a solution from source and import it to target tenants")
@@ -362,9 +342,23 @@ Examples:
         let setupCount = 0;
         let warningCount = 0;
 
+        const setupClientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
         for (const tenant of destinations) {
           const prepareSpinner = createSpinner(`Checking ${tenant.name}...`).start();
-          const prepared = await prepareEnvironment(config, tenant);
+          const setupTokenManager = new TokenManager({
+            tenantId: tenant.tenantId,
+            clientId: config.partner.clientId,
+            clientSecret: setupClientSecret,
+          });
+          const setupClient = new DataverseClient({
+            environmentUrl: tenant.environmentUrl,
+            tokenManager: setupTokenManager,
+          });
+          const prepared = await environmentSetupService.prepareEnvironment(
+            setupClient,
+            config.partner.clientId,
+            tenant.environmentUrl
+          );
 
           if (prepared.success) {
             prepareSpinner.succeed(chalk.green(`${tenant.name}: ${prepared.message}`));
@@ -563,303 +557,3 @@ Examples:
       handleCommandError(error, spinner, "Shipment failed");
     }
   });
-
-/**
- * Prepare environment by ensuring app user exists and has proper permissions
- * Reuses logic from setup.ts checkSetupStatus and setupTenant functions
- */
-async function prepareEnvironment(
-  config: { partner: { tenantId: string; clientId: string } },
-  tenant: TenantConfig
-): Promise<PrepareEnvironmentResult> {
-  try {
-    const clientSecret = await getClientSecretWithFallback();
-    const tokenManager = new TokenManager({
-      tenantId: tenant.tenantId,
-      clientId: config.partner.clientId,
-      clientSecret: clientSecret,
-    });
-
-    const client = new DataverseClient({
-      environmentUrl: tenant.environmentUrl,
-      tokenManager,
-    });
-
-    const appId = config.partner.clientId;
-
-    // Check if app user exists
-    const userResult = await client.get<{ value: SystemUser[] }>("/systemusers", {
-      $filter: `applicationid eq '${appId}'`,
-      $select: "systemuserid,fullname,applicationid,isdisabled",
-    });
-
-    let userId: string | undefined;
-    let appRegistered = userResult.value.length > 0;
-
-    // Create app user if needed
-    if (!appRegistered) {
-      try {
-        // Get root business unit
-        const buResult = await client.get<{ value: BusinessUnit[] }>("/businessunits", {
-          $filter: "parentbusinessunitid eq null",
-          $select: "businessunitid,name",
-        });
-
-        if (buResult.value.length === 0) {
-          return {
-            success: false,
-            message: "Could not find root business unit",
-          };
-        }
-
-        const buId = buResult.value[0].businessunitid;
-
-        // Create app user
-        await client.post("/systemusers", {
-          applicationid: appId,
-          "businessunitid@odata.bind": `/businessunits(${buId})`,
-        });
-
-        // Get the newly created user's ID
-        const newUserResult = await client.get<{ value: SystemUser[] }>("/systemusers", {
-          $filter: `applicationid eq '${appId}'`,
-          $select: "systemuserid",
-        });
-
-        if (newUserResult.value.length === 0) {
-          return {
-            success: false,
-            message: "Failed to create app user",
-          };
-        }
-
-        userId = newUserResult.value[0].systemuserid;
-        appRegistered = true;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (errorMsg.includes("not a member of the organization")) {
-          return {
-            success: false,
-            message:
-              "App not registered (requires manual bootstrap in Power Platform admin center)",
-          };
-        }
-        return {
-          success: false,
-          message: `Failed to create app user: ${errorMsg}`,
-        };
-      }
-    } else {
-      userId = userResult.value[0].systemuserid;
-    }
-
-    // Check if System Administrator role is assigned
-    const rolesResult = await client.get<{ value: SecurityRole[] }>(
-      `/systemusers(${userId})/systemuserroles_association`,
-      {
-        $select: "roleid,name",
-      }
-    );
-
-    const hasAdminRole = rolesResult.value.some((r) => r.name === "System Administrator");
-
-    // Assign System Administrator role if needed
-    if (!hasAdminRole) {
-      try {
-        // Get System Administrator role
-        const roleResult = await client.get<{ value: SecurityRole[] }>("/roles", {
-          $filter: "name eq 'System Administrator'",
-          $select: "roleid,name",
-        });
-
-        if (roleResult.value.length === 0) {
-          return {
-            success: false,
-            message: "Could not find System Administrator role",
-          };
-        }
-
-        const roleId = roleResult.value[0].roleid;
-
-        // Assign role to user
-        const apiUrl = tenant.environmentUrl.replace(/\/$/, "") + "/api/data/v9.2";
-        await client.post(`/systemusers(${userId})/systemuserroles_association/$ref`, {
-          "@odata.id": `${apiUrl}/roles(${roleId})`,
-        });
-
-        // Determine what was done
-        if (userResult.value.length === 0) {
-          return {
-            success: true,
-            message: "Created app user and assigned System Administrator role",
-          };
-        } else {
-          return {
-            success: true,
-            message: "Assigned System Administrator role",
-          };
-        }
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        return {
-          success: false,
-          message: `Failed to assign role: ${errorMsg}`,
-        };
-      }
-    }
-
-    // If we created the user, report that
-    if (userResult.value.length === 0) {
-      return {
-        success: true,
-        message: "Created app user with System Administrator role",
-      };
-    }
-
-    // Otherwise, everything was already ready
-    return {
-      success: true,
-      message: "Ready",
-    };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-
-    // Check if it's an auth error (app not registered)
-    if (errorMsg.includes("not a member of the organization")) {
-      return {
-        success: false,
-        message: "App not registered (requires manual bootstrap in Power Platform admin center)",
-      };
-    }
-
-    return {
-      success: false,
-      message: `Error: ${errorMsg}`,
-    };
-  }
-}
-
-interface SolutionRecord {
-  solutionid: string;
-  uniquename: string;
-  ismanaged: boolean;
-}
-
-interface SolutionModeCheck {
-  managedCount: number;
-  unmanagedCount: number;
-  notInstalledCount: number;
-  hasConflict: boolean;
-}
-
-/**
- * Check solution installation mode across target environments
- * Returns counts of managed/unmanaged/not-installed to help auto-detect export mode
- */
-async function detectSolutionMode(
-  solutionName: string,
-  targets: TenantConfig[],
-  clientId: string,
-  clientSecret: string
-): Promise<SolutionModeCheck> {
-  let managedCount = 0;
-  let unmanagedCount = 0;
-  let notInstalledCount = 0;
-
-  // Check each target in parallel for speed
-  const checks = targets.map(async (tenant) => {
-    try {
-      const tokenManager = new TokenManager({
-        tenantId: tenant.tenantId,
-        clientId,
-        clientSecret,
-      });
-
-      const client = new DataverseClient({
-        environmentUrl: tenant.environmentUrl,
-        tokenManager,
-      });
-
-      const result = await client.get<{ value: SolutionRecord[] }>("/solutions", {
-        $filter: `uniquename eq '${solutionName}'`,
-        $select: "solutionid,uniquename,ismanaged",
-      });
-
-      if (result.value.length === 0) {
-        return "not_installed";
-      }
-
-      return result.value[0].ismanaged ? "managed" : "unmanaged";
-    } catch {
-      // If we can't check, assume not installed (will fail at import if wrong)
-      return "not_installed";
-    }
-  });
-
-  const results = await Promise.all(checks);
-
-  for (const mode of results) {
-    if (mode === "managed") managedCount++;
-    else if (mode === "unmanaged") unmanagedCount++;
-    else notInstalledCount++;
-  }
-
-  // Conflict if we have both managed and unmanaged installations
-  const hasConflict = managedCount > 0 && unmanagedCount > 0;
-
-  return {
-    managedCount,
-    unmanagedCount,
-    notInstalledCount,
-    hasConflict,
-  };
-}
-
-/**
- * Apply URL replacements to a solution ZIP for a specific target tenant.
- * Returns path to modified ZIP, or null if no replacements were needed.
- */
-async function applyUrlReplacements(
-  originalZipPath: string,
-  detectedUrls: DetectedUrl[],
-  tenant: TenantConfig
-): Promise<string | null> {
-  if (detectedUrls.length === 0) return null;
-
-  const JSZip = (await import("jszip")).default;
-  const templater = new UrlTemplater();
-
-  // Extract target tenant identifier from environment URL
-  // e.g., https://org54870a4d.crm.dynamics.com → org54870a4d
-  const envUrl = new URL(tenant.environmentUrl);
-  const targetTenantId = envUrl.hostname.split(".")[0];
-  const crmRegion = envUrl.hostname.match(/\.(crm\d*)\.dynamics\.com/)?.[1] || "crm";
-
-  const tenantUrls: TenantUrlValues = {
-    tenant: targetTenantId,
-    sharepoint: `${targetTenantId}.sharepoint.com`,
-    dynamicsCrm: `${targetTenantId}.${crmRegion}.dynamics.com`,
-    onmicrosoft: `${targetTenantId}.onmicrosoft.com`,
-  };
-
-  // Build replacement map: original URL → resolved URL
-  const replacements = new Map<string, string>();
-  for (const url of detectedUrls) {
-    const resolved = templater.resolveTemplate(url.templatePattern, tenantUrls);
-    if (resolved !== url.originalUrl) {
-      replacements.set(url.originalUrl, resolved);
-    }
-  }
-
-  if (replacements.size === 0) return null;
-
-  // Modify the ZIP
-  const zipBuffer = readFileSync(originalZipPath);
-  const modifiedBuffer = await templater.modifySolution(zipBuffer, replacements, new JSZip());
-
-  // Write to temp file
-  const tempPath = join(tmpdir(), `agentsync-deploy-${randomUUID()}.zip`);
-  writeFileSync(tempPath, modifiedBuffer);
-
-  return tempPath;
-}
