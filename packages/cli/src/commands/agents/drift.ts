@@ -332,7 +332,7 @@ Examples:
           const results: DriftFixResult[] = [];
 
           for (const entry of willFix) {
-            const fixSpinner = ora(`Updating ${entry.tenantName}...`).start();
+            const fixSpinner = createSpinner(`Updating ${entry.tenantName}...`).start();
 
             // Simulate deployment delay
             await new Promise((resolve) => setTimeout(resolve, 100));

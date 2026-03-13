@@ -632,32 +632,20 @@ tenants:${tenantsYaml || " []"}
       console.log();
       console.log(chalk.green.bold("✓ Setup complete!\n"));
 
-      if (tenants.length > 0) {
-        // User added tenants - show next steps for deployment
-        console.log(chalk.cyan("Next steps:"));
-        console.log();
-        console.log(chalk.white("  1. Verify your tenants:"));
-        console.log(chalk.gray("     agentsync tenants list -c " + options.config));
-        console.log();
-        console.log(chalk.white("  2. Export a solution from your source environment:"));
-        console.log(chalk.gray("     agentsync export --solution YourSolutionName"));
-        console.log();
-        console.log(chalk.white("  3. Deploy to your tenants:"));
-        console.log(chalk.gray("     agentsync deploy --solution ./exports/YourSolution.zip"));
-        console.log();
-      } else {
-        // No tenants yet - guide them to add some
+      // Show live environment summary if we have credentials and tenants
+      if (partnerClientSecret && (sourceEnvironmentUrl || tenants.length > 0)) {
+        await showEnvironmentSummary(
+          partnerTenantId,
+          partnerClientId,
+          partnerClientSecret,
+          sourceEnvironmentUrl,
+          tenants
+        );
+      } else if (tenants.length === 0) {
         console.log(chalk.cyan("Next steps:"));
         console.log();
         console.log(chalk.white("  1. Add target tenants to your config:"));
         console.log(chalk.gray("     " + configPath));
-        console.log();
-        console.log(chalk.gray("     Example:"));
-        console.log(chalk.gray("     tenants:"));
-        console.log(chalk.gray('       - tenantId: "customer-tenant-guid"'));
-        console.log(chalk.gray('         name: "Contoso"'));
-        console.log(chalk.gray('         environmentUrl: "https://contoso.crm.dynamics.com"'));
-        console.log(chalk.gray("         enabled: true"));
         console.log();
         console.log(chalk.white("  2. Verify your configuration:"));
         console.log(chalk.gray("     agentsync tenants list -c " + options.config));
@@ -668,6 +656,180 @@ tenants:${tenantsYaml || " []"}
       handleCommandError(error, null, "Setup failed");
     }
   });
+
+/**
+ * Show a live summary of the user's environment after init completes.
+ * Queries source for solutions, checks tenant health, and shows drift status.
+ */
+async function showEnvironmentSummary(
+  partnerTenantId: string,
+  partnerClientId: string,
+  clientSecret: string,
+  sourceEnvironmentUrl: string,
+  tenants: Array<{ tenantId: string; name: string; environmentUrl: string }>
+): Promise<void> {
+  console.log(chalk.cyan.bold("━".repeat(60)));
+  console.log(chalk.cyan.bold("  Your Environment"));
+  console.log(chalk.cyan.bold("━".repeat(60)));
+  console.log();
+
+  try {
+    const { TokenManager, DataverseClient, VersionChecker, DriftAnalyzer } =
+      await import("@agentsync/core");
+
+    // Query source environment for solutions
+    if (sourceEnvironmentUrl) {
+      try {
+        const sourceTokenManager = new TokenManager({
+          tenantId: partnerTenantId,
+          clientId: partnerClientId,
+          clientSecret,
+        });
+        const sourceClient = new DataverseClient({
+          environmentUrl: sourceEnvironmentUrl,
+          tokenManager: sourceTokenManager,
+          clientId: partnerClientId,
+        });
+
+        const solutions = await sourceClient.querySolutions();
+        const customSolutions = solutions.filter(
+          (s) =>
+            s.uniquename !== "Default" &&
+            s.uniquename !== "Active" &&
+            !s.uniquename.startsWith("msdyn_") &&
+            !s.uniquename.startsWith("msft_") &&
+            !s.uniquename.startsWith("mspcat_")
+        );
+
+        console.log(chalk.white("  Source Environment"));
+        console.log(chalk.gray(`  ${sourceEnvironmentUrl}`));
+        console.log(chalk.green(`  ✓ ${customSolutions.length} deployable solution(s) found`));
+
+        if (customSolutions.length > 0) {
+          for (const sol of customSolutions.slice(0, 5)) {
+            console.log(chalk.gray(`    • ${sol.friendlyname} v${sol.version}`));
+          }
+          if (customSolutions.length > 5) {
+            console.log(chalk.gray(`    ... and ${customSolutions.length - 5} more`));
+          }
+        }
+        console.log();
+
+        // Check tenant health and drift if we have tenants
+        if (tenants.length > 0) {
+          console.log(chalk.white(`  Target Tenants (${tenants.length})`));
+
+          const checker = new VersionChecker();
+          const analyzer = new DriftAnalyzer();
+          const expectedSolutions = customSolutions.map((s) => ({
+            uniqueName: s.uniquename,
+            friendlyName: s.friendlyname,
+            version: s.version,
+          }));
+
+          for (const tenant of tenants) {
+            try {
+              const tm = new TokenManager({
+                tenantId: tenant.tenantId,
+                clientId: partnerClientId,
+                clientSecret,
+              });
+
+              const tenantConfig = {
+                name: tenant.name,
+                tenantId: tenant.tenantId,
+                environmentUrl: tenant.environmentUrl,
+                tags: [] as string[],
+                enabled: true,
+                autoSetup: true,
+              };
+
+              const versionStatus = await checker.checkTenantVersions(
+                tenantConfig,
+                expectedSolutions,
+                tm,
+                true
+              );
+
+              const analysis = analyzer.analyzeTenant(tenantConfig, versionStatus);
+
+              const statusIcon =
+                versionStatus.overallStatus === "current"
+                  ? chalk.green("✓")
+                  : versionStatus.overallStatus === "outdated"
+                    ? chalk.yellow("⚠")
+                    : chalk.gray("?");
+
+              const outdatedCount = versionStatus.solutions.filter(
+                (s) => s.status === "outdated"
+              ).length;
+              const driftInfo =
+                outdatedCount > 0
+                  ? chalk.yellow(` (${outdatedCount} outdated)`)
+                  : chalk.green(" (all current)");
+
+              console.log(`  ${statusIcon} ${tenant.name}${driftInfo}`);
+
+              if (analysis.riskScore > 0) {
+                const riskColor = analysis.riskLevel === "high" ? chalk.red : chalk.yellow;
+                console.log(
+                  chalk.gray(`    Risk: `) +
+                    riskColor(`${analysis.riskScore}/100 ${analysis.riskLevel}`)
+                );
+              }
+            } catch {
+              console.log(
+                `  ${chalk.red("✖")} ${tenant.name} ${chalk.gray("(connection failed)")}`
+              );
+            }
+          }
+          console.log();
+        }
+      } catch (sourceError) {
+        console.log(chalk.yellow("  ⚠ Could not query source environment"));
+        console.log(
+          chalk.gray(
+            `  ${sourceError instanceof Error ? sourceError.message.slice(0, 60) : "Unknown error"}`
+          )
+        );
+        console.log();
+      }
+    }
+
+    // Show quick start commands
+    console.log(chalk.white("  Quick Start"));
+    console.log(chalk.gray("  ─".repeat(28)));
+    if (tenants.length > 0) {
+      console.log(
+        chalk.gray("  agentsync solutions list        ") + chalk.dim("# See your solutions")
+      );
+      console.log(
+        chalk.gray("  agentsync solutions drift --risk") + chalk.dim("# Check drift & risk")
+      );
+      console.log(
+        chalk.gray("  agentsync deploy <name> --all   ") + chalk.dim("# Deploy to all tenants")
+      );
+    } else {
+      console.log(
+        chalk.gray("  agentsync solutions list        ") + chalk.dim("# See your solutions")
+      );
+      console.log(
+        chalk.gray("  agentsync validate              ") + chalk.dim("# Verify configuration")
+      );
+    }
+    console.log();
+  } catch {
+    // If anything fails, just show static next steps
+    console.log(chalk.cyan("Next steps:"));
+    console.log(
+      chalk.gray("  agentsync validate              ") + chalk.dim("# Verify configuration")
+    );
+    console.log(
+      chalk.gray("  agentsync solutions list        ") + chalk.dim("# See your solutions")
+    );
+    console.log();
+  }
+}
 
 /**
  * Test credentials and optionally discover GDAP relationships

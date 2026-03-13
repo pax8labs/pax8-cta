@@ -242,7 +242,7 @@ describe("Analyze Command (Real Mode - Config File)", () => {
       ).toBe(true);
     });
 
-    it("should error when neither --all nor --tag specified", async () => {
+    it("should default to all tenants when neither --all nor --tag specified", async () => {
       const result = await runCli(
         ["analyze", "--solution", "./test.zip", "--config", CONFIG_PATH],
         {
@@ -251,8 +251,8 @@ describe("Analyze Command (Real Mode - Config File)", () => {
         }
       );
 
-      expect(result.exitCode).toBe(1);
-      expect(containsText(result.output, "Must specify --all or --tag")).toBe(true);
+      // analyze defaults to --all when no --tag specified
+      expect(result.exitCode).toBe(0);
     });
   });
 

@@ -342,7 +342,7 @@ Examples:
         let setupCount = 0;
         let warningCount = 0;
 
-        const setupClientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+        const setupClientSecret = await getClientSecretWithFallback();
         for (const tenant of destinations) {
           const prepareSpinner = createSpinner(`Checking ${tenant.name}...`).start();
           const setupTokenManager = new TokenManager({
@@ -557,3 +557,52 @@ Examples:
       handleCommandError(error, spinner, "Shipment failed");
     }
   });
+
+/**
+ * Apply URL replacements to a solution ZIP for a specific target tenant.
+ * Returns path to modified ZIP, or null if no replacements were needed.
+ */
+async function applyUrlReplacements(
+  originalZipPath: string,
+  detectedUrls: DetectedUrl[],
+  tenant: TenantConfig
+): Promise<string | null> {
+  if (detectedUrls.length === 0) return null;
+
+  const JSZip = (await import("jszip")).default;
+  const templater = new UrlTemplater();
+
+  // Extract target tenant identifier from environment URL
+  // e.g., https://org54870a4d.crm.dynamics.com → org54870a4d
+  const envUrl = new URL(tenant.environmentUrl);
+  const targetTenantId = envUrl.hostname.split(".")[0];
+  const crmRegion = envUrl.hostname.match(/\.(crm\d*)\.dynamics\.com/)?.[1] || "crm";
+
+  const tenantUrls: TenantUrlValues = {
+    tenant: targetTenantId,
+    sharepoint: `${targetTenantId}.sharepoint.com`,
+    dynamicsCrm: `${targetTenantId}.${crmRegion}.dynamics.com`,
+    onmicrosoft: `${targetTenantId}.onmicrosoft.com`,
+  };
+
+  // Build replacement map: original URL → resolved URL
+  const replacements = new Map<string, string>();
+  for (const url of detectedUrls) {
+    const resolved = templater.resolveTemplate(url.templatePattern, tenantUrls);
+    if (resolved !== url.originalUrl) {
+      replacements.set(url.originalUrl, resolved);
+    }
+  }
+
+  if (replacements.size === 0) return null;
+
+  // Modify the ZIP
+  const zipBuffer = readFileSync(originalZipPath);
+  const modifiedBuffer = await templater.modifySolution(zipBuffer, replacements, new JSZip());
+
+  // Write to temp file
+  const tempPath = join(tmpdir(), `agentsync-deploy-${randomUUID()}.zip`);
+  writeFileSync(tempPath, modifiedBuffer);
+
+  return tempPath;
+}

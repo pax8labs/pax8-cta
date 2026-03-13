@@ -25,7 +25,7 @@ import { ConfigValidationError, ErrorCode } from "../errors.js";
  * Kept for backwards compatibility.
  */
 export class ConfigError extends ConfigValidationError {
-  override readonly name = "ConfigError";
+  override readonly name = "ConfigValidationError" as const;
 
   constructor(message: string, cause?: unknown) {
     // Map generic messages to error codes

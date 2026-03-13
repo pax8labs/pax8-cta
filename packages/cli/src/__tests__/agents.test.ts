@@ -544,14 +544,14 @@ describe("Agents Command", () => {
 
   describe("drift fix command", () => {
     it("should show drift fix plan with --fix --dry-run", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       await program.parseAsync([
         "node",
         "test",
-        "agents",
+        "solutions",
         "drift",
         "--fix",
         "--dry-run",
@@ -573,11 +573,11 @@ describe("Agents Command", () => {
     });
 
     it("should show risk labels in fix plan", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--dry-run"]);
+      await program.parseAsync(["node", "test", "solutions", "drift", "--fix", "--dry-run"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -587,11 +587,11 @@ describe("Agents Command", () => {
     });
 
     it("should skip high-risk tenants by default", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--dry-run"]);
+      await program.parseAsync(["node", "test", "solutions", "drift", "--fix", "--dry-run"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -603,14 +603,14 @@ describe("Agents Command", () => {
     });
 
     it("should include medium-risk tenants with --max-risk medium", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       await program.parseAsync([
         "node",
         "test",
-        "agents",
+        "solutions",
         "drift",
         "--fix",
         "--dry-run",
@@ -630,14 +630,14 @@ describe("Agents Command", () => {
     });
 
     it("should include all tenants with --force", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       await program.parseAsync([
         "node",
         "test",
-        "agents",
+        "solutions",
         "drift",
         "--fix",
         "--dry-run",
@@ -653,11 +653,11 @@ describe("Agents Command", () => {
     });
 
     it("should execute fix with --yes flag", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--yes", "--force"]);
+      await program.parseAsync(["node", "test", "solutions", "drift", "--fix", "--yes", "--force"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
@@ -673,14 +673,14 @@ describe("Agents Command", () => {
     });
 
     it("should filter to specific tenant with --tenant", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       await program.parseAsync([
         "node",
         "test",
-        "agents",
+        "solutions",
         "drift",
         "--fix",
         "--dry-run",
@@ -698,11 +698,19 @@ describe("Agents Command", () => {
     });
 
     it("should output JSON with --fix --json", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--json", "--force"]);
+      await program.parseAsync([
+        "node",
+        "test",
+        "solutions",
+        "drift",
+        "--fix",
+        "--json",
+        "--force",
+      ]);
 
       const output = consoleCapture.getAllOutput();
       const json = extractJson<{ plan: unknown[]; willFix: string[]; maxRisk: string }>(output);
@@ -716,15 +724,15 @@ describe("Agents Command", () => {
     });
 
     it("should handle tenant not found with --fix --tenant", async () => {
-      const { agentsCommand } = await import("../commands/agents/index.js");
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
-      program.addCommand(agentsCommand);
+      program.addCommand(solutionsCommand);
 
       try {
         await program.parseAsync([
           "node",
           "test",
-          "agents",
+          "solutions",
           "drift",
           "--fix",
           "--tenant",

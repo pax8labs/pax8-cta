@@ -87,12 +87,15 @@ Examples:
         process.exit(1);
       }
 
+      // Verify client secret is available
+      await getClientSecretWithFallback();
+
       console.log();
       console.log(chalk.bold(`Checking ${targets.length} environment(s)...`));
       console.log();
 
       // Check setup status for each tenant
-      const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+      const clientSecret = await getClientSecretWithFallback();
       const statuses: SetupStatus[] = [];
       for (const tenant of targets) {
         const tokenManager = new TokenManager({

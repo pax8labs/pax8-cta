@@ -159,7 +159,7 @@ Examples:
       const tenantSpinner = createSpinner(`Checking ${tenant.name}...`).start();
 
       try {
-        const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+        const clientSecret = await getClientSecretWithFallback();
         const tokenManager = new TokenManager({
           tenantId: tenant.tenantId,
           clientId: config.partner.clientId,
