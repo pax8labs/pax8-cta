@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { HEALTH_CHECK_CACHE_DURATION_MS } from "../constants.js";
+
 /**
  * Tenant Health Checker Service
  * Calculates ongoing health scores for tenants based on GDAP, connections, and deployment history
@@ -88,7 +90,7 @@ export interface HealthCheckContext {
 
 class HealthChecker {
   private cache = new Map<string, { data: TenantHealth; timestamp: number }>();
-  private readonly CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+  private readonly CACHE_DURATION_MS = HEALTH_CHECK_CACHE_DURATION_MS;
 
   /**
    * Check health for a single tenant

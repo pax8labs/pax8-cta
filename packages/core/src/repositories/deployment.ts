@@ -24,6 +24,7 @@ import Database from "better-sqlite3";
 import { mkdirSync, existsSync } from "fs";
 import { dirname } from "path";
 import { getDatabasePath, logDatabaseConfig } from "../config/database.js";
+import { DEFAULT_DB_RETRY_COUNT, DB_RETRY_BASE_DELAY_MS } from "../constants.js";
 
 // Database file location (shared across web and worker)
 const DB_PATH = getDatabasePath();
@@ -36,7 +37,7 @@ let dbLoggedOnce = false;
  * Retry database operation with exponential backoff for SQLITE_BUSY errors
  * SQLite can only handle limited concurrent writes, so we retry with backoff
  */
-function retryDatabaseOperation<T>(operation: () => T, maxRetries = 3): T {
+function retryDatabaseOperation<T>(operation: () => T, maxRetries = DEFAULT_DB_RETRY_COUNT): T {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -54,7 +55,7 @@ function retryDatabaseOperation<T>(operation: () => T, maxRetries = 3): T {
       }
 
       // Exponential backoff: 100ms, 200ms, 400ms
-      const delayMs = 100 * Math.pow(2, attempt);
+      const delayMs = DB_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
       console.warn(
         `[Database] Retry attempt ${attempt + 1}/${maxRetries} after ${delayMs}ms due to: ${lastError.message}`
       );

@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 import crypto from "node:crypto";
+import {
+  DEFAULT_MEMORY_QUEUE_CONCURRENCY,
+  DEFAULT_MEMORY_QUEUE_RETRIES,
+  DEFAULT_MEMORY_QUEUE_RETRY_DELAY_MS,
+} from "../constants.js";
 
 /**
  * In-memory job queue for simple single-process deployments
@@ -77,9 +82,9 @@ export class MemoryQueue<T = unknown, R = unknown> {
     public readonly name: string,
     options: MemoryQueueOptions = {}
   ) {
-    this.concurrency = options.concurrency ?? 5;
-    this.maxRetries = options.maxRetries ?? 3;
-    this.retryDelay = options.retryDelay ?? 5000;
+    this.concurrency = options.concurrency ?? DEFAULT_MEMORY_QUEUE_CONCURRENCY;
+    this.maxRetries = options.maxRetries ?? DEFAULT_MEMORY_QUEUE_RETRIES;
+    this.retryDelay = options.retryDelay ?? DEFAULT_MEMORY_QUEUE_RETRY_DELAY_MS;
   }
 
   /**

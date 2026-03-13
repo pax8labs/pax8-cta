@@ -15,6 +15,7 @@
  */
 
 import { Schedule } from "../config/schema.js";
+import { MAX_SCHEDULE_ITERATIONS } from "../constants.js";
 
 /**
  * Parsed cron expression
@@ -156,7 +157,7 @@ export class SchedulerService {
     candidate.setMinutes(candidate.getMinutes() + 1);
 
     // Search for up to 1 year
-    const maxIterations = 366 * 24 * 60;
+    const maxIterations = MAX_SCHEDULE_ITERATIONS;
 
     for (let i = 0; i < maxIterations; i++) {
       if (this.matchesCron(candidate, parsed)) {

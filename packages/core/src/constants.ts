@@ -44,6 +44,80 @@ export const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 export const ONE_MONTH_MS = 30 * ONE_DAY_MS;
 
 // ============================================================================
+// AZURE AD / GDAP ROLE IDS
+// ============================================================================
+
+/** Power Platform Administrator role definition ID (Azure AD built-in role) */
+export const POWER_PLATFORM_ADMIN_ROLE_ID = "11648597-926c-4cf3-9c36-bcebb0ba8dcc";
+
+// ============================================================================
+// TOKEN MANAGEMENT
+// ============================================================================
+
+/** Buffer time before token expiry to trigger a refresh (5 minutes) */
+export const TOKEN_REFRESH_BUFFER_MS = 5 * ONE_MINUTE_MS;
+
+/** Default cache TTL for secrets manager (5 minutes) */
+export const DEFAULT_SECRETS_CACHE_TTL_MS = 5 * ONE_MINUTE_MS;
+
+// ============================================================================
+// SCHEDULER
+// ============================================================================
+
+/** Maximum iterations when searching for next cron match (~1 year of minutes) */
+export const MAX_SCHEDULE_ITERATIONS = 366 * 24 * 60;
+
+// ============================================================================
+// DEPLOYMENT
+// ============================================================================
+
+/** Default max concurrent tenant deployments */
+export const DEFAULT_DEPLOYMENT_CONCURRENCY = 3;
+
+// ============================================================================
+// HEALTH CHECK
+// ============================================================================
+
+/** Duration to cache health check results (15 minutes) */
+export const HEALTH_CHECK_CACHE_DURATION_MS = 15 * ONE_MINUTE_MS;
+
+/** Default number of retries for health check endpoint requests */
+export const DEFAULT_HEALTH_CHECK_RETRIES = 3;
+
+/** Default expected HTTP status for health check endpoints */
+export const DEFAULT_HEALTH_CHECK_EXPECTED_STATUS = 200;
+
+// ============================================================================
+// WEBHOOK
+// ============================================================================
+
+/** Default number of retries for webhook delivery */
+export const DEFAULT_WEBHOOK_RETRIES = 3;
+
+// ============================================================================
+// MEMORY QUEUE
+// ============================================================================
+
+/** Default concurrency for in-memory queue processing */
+export const DEFAULT_MEMORY_QUEUE_CONCURRENCY = 5;
+
+/** Default max retries for in-memory queue jobs */
+export const DEFAULT_MEMORY_QUEUE_RETRIES = 3;
+
+/** Default retry delay for in-memory queue jobs (5 seconds) */
+export const DEFAULT_MEMORY_QUEUE_RETRY_DELAY_MS = 5 * ONE_SECOND_MS;
+
+// ============================================================================
+// DATABASE
+// ============================================================================
+
+/** Default max retries for SQLite busy/locked errors */
+export const DEFAULT_DB_RETRY_COUNT = 3;
+
+/** Base delay for exponential backoff on database retries (100ms) */
+export const DB_RETRY_BASE_DELAY_MS = 100;
+
+// ============================================================================
 // QUEUE CONFIGURATION
 // ============================================================================
 
