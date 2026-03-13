@@ -474,5 +474,71 @@ describe("Agents Command", () => {
       // Should show error message
       expect(containsText(cleanOutput, "not found")).toBe(true);
     });
+
+    it("should show fleet risk analysis with --risk", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
+      const program = new Command();
+      program.addCommand(solutionsCommand);
+
+      await program.parseAsync(["node", "test", "solutions", "drift", "--risk"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      expect(containsText(cleanOutput, "Fleet Drift Risk Analysis")).toBe(true);
+      expect(containsText(cleanOutput, "Recommendation")).toBe(true);
+      expect(containsText(cleanOutput, "Score")).toBe(true);
+    });
+
+    it("should filter risk analysis by level", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
+      const program = new Command();
+      program.addCommand(solutionsCommand);
+
+      await program.parseAsync(["node", "test", "solutions", "drift", "--risk", "medium"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      expect(containsText(cleanOutput, "Fleet Drift Risk Analysis")).toBe(true);
+      // Should not contain LOW-risk tenants in the table
+      expect(containsText(cleanOutput, "current")).toBe(false);
+    });
+
+    it("should show tenant risk analysis with --risk -t", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
+      const program = new Command();
+      program.addCommand(solutionsCommand);
+
+      await program.parseAsync(["node", "test", "solutions", "drift", "--risk", "-t", "contoso"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      expect(containsText(cleanOutput, "Drift Risk Analysis")).toBe(true);
+      expect(containsText(cleanOutput, "Risk Score")).toBe(true);
+      expect(containsText(cleanOutput, "Risk Factors")).toBe(true);
+    });
+
+    it("should output risk JSON with --risk --json", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
+      const program = new Command();
+      program.addCommand(solutionsCommand);
+
+      await program.parseAsync(["node", "test", "solutions", "drift", "--risk", "--json"]);
+
+      const output = consoleCapture.getAllOutput();
+
+      const json = extractJson<{
+        tenants: Array<{ riskScore: number; recommendation: string }>;
+        summary: { total: number };
+      }>(output);
+      expect(json).not.toBeNull();
+      expect(json!.tenants).toBeDefined();
+      expect(json!.summary).toBeDefined();
+      expect(json!.summary.total).toBeGreaterThan(0);
+      expect(json!.tenants[0].riskScore).toBeDefined();
+      expect(json!.tenants[0].recommendation).toBeDefined();
+    });
   });
 });

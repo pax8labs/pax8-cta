@@ -31,16 +31,24 @@ import {
   TenantVersionStatus,
   VersionDriftSummary,
   SolutionVersionInfo,
+  DriftAnalyzer,
+  TenantDriftAnalysis,
+  FleetDriftAnalysis,
+  TenantDeploymentHistory,
+  DriftRecommendation,
 } from "@agentsync/core";
 import { isDemo } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
+
+const driftAnalyzer = new DriftAnalyzer();
 
 export const driftCommand = new Command("drift")
   .description("Compare solution versions across tenants to find outdated deployments")
   .option("-a, --agent <name>", "Check specific agent only")
   .option("-t, --tenant <name>", "Check specific tenant only")
   .option("--outdated", "Show only outdated tenants")
+  .option("--risk [level]", "Show risk analysis (optionally filter by: low, medium, high)")
   .option("--json", "Output as JSON")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .addHelpText(
@@ -50,6 +58,8 @@ Examples:
   agentsync solutions drift                           Show fleet-wide version drift summary
   agentsync solutions drift -t AgentSync-Test2        Check drift for a specific tenant
   agentsync solutions drift --outdated                Show only outdated tenants
+  agentsync solutions drift --risk                    Show drift with risk scores
+  agentsync solutions drift --risk high               Show only high-risk tenants
 `
   )
   .action(async (options) => {
@@ -60,9 +70,11 @@ Examples:
         spinner.stop();
         console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
+        const enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);
+
         // Single tenant mode
         if (options.tenant) {
-          const tenant = DEMO_TENANTS.find(
+          const tenant = enabledTenants.find(
             (t) =>
               t.name.toLowerCase().includes(options.tenant.toLowerCase()) ||
               t.tenantId.toLowerCase().includes(options.tenant.toLowerCase())
@@ -79,60 +91,47 @@ Examples:
             process.exit(1);
           }
 
+          if (options.risk !== undefined) {
+            const history = generateDemoDeployHistory(tenant.tenantId);
+            const analysis = driftAnalyzer.analyzeTenant(tenant, status, history);
+
+            if (options.json) {
+              console.log(JSON.stringify(analysis, null, 2));
+              return;
+            }
+
+            displayTenantRiskAnalysis(analysis);
+            return;
+          }
+
           if (options.json) {
             console.log(JSON.stringify(status, null, 2));
             return;
           }
 
-          console.log(chalk.bold(`${status.tenantName} - Version Status`));
-          console.log("━".repeat(60));
-
-          const table = new Table({
-            head: ["Agent", "Expected", "Deployed", "Status"],
-            style: { head: ["cyan"] },
-          });
-
-          status.solutions.forEach((sol) => {
-            let statusIcon: string;
-            switch (sol.status) {
-              case "current":
-                statusIcon = chalk.green("✓ current");
-                break;
-              case "outdated":
-                statusIcon = chalk.yellow(`↑ outdated (${sol.versionDrift})`);
-                break;
-              case "ahead":
-                statusIcon = chalk.blue(`↓ ahead (+${sol.versionDrift})`);
-                break;
-              case "not_deployed":
-                statusIcon = chalk.gray("✗ not deployed");
-                break;
-              default:
-                statusIcon = chalk.gray("? unknown");
-            }
-
-            table.push([
-              sol.uniqueName,
-              sol.expectedVersion,
-              sol.deployedVersion || "-",
-              statusIcon,
-            ]);
-          });
-
-          console.log(table.toString());
-          console.log();
-
-          const overallIcon =
-            status.overallStatus === "current"
-              ? chalk.green("✓")
-              : status.overallStatus === "outdated"
-                ? chalk.yellow("⚠")
-                : chalk.gray("?");
-          console.log(`Overall: ${overallIcon} ${status.overallStatus}`);
+          displayTenantStatus(status);
           return;
         }
 
-        // Fleet-wide summary
+        // Fleet-wide view
+        if (options.risk !== undefined) {
+          const statuses = enabledTenants.map((t) => getDemoTenantVersionStatus(t.tenantId)!);
+          const histories = new Map<string, TenantDeploymentHistory>();
+          for (const t of enabledTenants) {
+            histories.set(t.tenantId, generateDemoDeployHistory(t.tenantId));
+          }
+          const fleetAnalysis = driftAnalyzer.analyzeFleet(enabledTenants, statuses, histories);
+
+          if (options.json) {
+            console.log(JSON.stringify(fleetAnalysis, null, 2));
+            return;
+          }
+
+          displayFleetRiskAnalysis(fleetAnalysis, options.risk);
+          return;
+        }
+
+        // Fleet-wide summary (no risk)
         const summary = getDemoVersionDriftSummary();
 
         if (options.json) {
@@ -195,7 +194,7 @@ Examples:
             style: { head: ["cyan"] },
           });
 
-          DEMO_TENANTS.filter((t) => t.enabled).forEach((tenant) => {
+          enabledTenants.forEach((tenant) => {
             const status = getDemoTenantVersionStatus(tenant.tenantId);
             if (!status) return;
 
@@ -213,6 +212,9 @@ Examples:
 
           console.log(outdatedTable.toString());
         }
+
+        console.log();
+        console.log(chalk.gray("Tip: Use --risk to see risk scores and update recommendations"));
 
         return;
       }
@@ -292,7 +294,41 @@ Examples:
 
       spinner.stop();
 
-      // Single tenant mode
+      // Risk analysis mode
+      if (options.risk !== undefined) {
+        // Build deployment history from Dataverse solution history
+        const histories = new Map<string, TenantDeploymentHistory>();
+        // TODO (#258): Query real deployment history per tenant for richer risk scoring.
+        // For now, risk scoring works with version drift + tags (no deploy history).
+
+        if (options.tenant && statuses.length === 1) {
+          const analysis = driftAnalyzer.analyzeTenant(
+            tenants[0],
+            statuses[0],
+            histories.get(tenants[0].tenantId)
+          );
+
+          if (options.json) {
+            console.log(JSON.stringify(analysis, null, 2));
+            return;
+          }
+
+          displayTenantRiskAnalysis(analysis);
+          return;
+        }
+
+        const fleetAnalysis = driftAnalyzer.analyzeFleet(tenants, statuses, histories);
+
+        if (options.json) {
+          console.log(JSON.stringify(fleetAnalysis, null, 2));
+          return;
+        }
+
+        displayFleetRiskAnalysis(fleetAnalysis, options.risk);
+        return;
+      }
+
+      // Single tenant mode (no risk)
       if (options.tenant && statuses.length === 1) {
         const status = statuses[0];
         if (options.json) {
@@ -303,7 +339,7 @@ Examples:
         return;
       }
 
-      // Fleet-wide summary
+      // Fleet-wide summary (no risk)
       const summary = buildSummary(statuses, expectedSolutions);
 
       if (options.json) {
@@ -415,6 +451,193 @@ function buildSummary(
     solutionSummary,
   };
 }
+
+// ============================================================================
+// Risk analysis display helpers
+// ============================================================================
+
+function formatRiskLevel(level: string): string {
+  switch (level) {
+    case "high":
+      return chalk.red("HIGH");
+    case "medium":
+      return chalk.yellow("MED");
+    case "low":
+      return chalk.green("LOW");
+    default:
+      return chalk.gray(level);
+  }
+}
+
+function formatRecommendation(rec: DriftRecommendation): string {
+  switch (rec) {
+    case "current":
+      return chalk.green("✓ current");
+    case "safe_to_update":
+      return chalk.green("safe to update");
+    case "review_recommended":
+      return chalk.yellow("review recommended");
+    case "update_risky":
+      return chalk.red("update risky");
+    case "do_not_update":
+      return chalk.red("⚠ do not update");
+    default:
+      return chalk.gray(rec);
+  }
+}
+
+function displayTenantRiskAnalysis(analysis: TenantDriftAnalysis): void {
+  console.log(chalk.bold(`${analysis.tenantName} — Drift Risk Analysis`));
+  console.log("━".repeat(70));
+  console.log();
+
+  console.log(
+    `  Risk Score:       ${analysis.riskScore}/100 ${formatRiskLevel(analysis.riskLevel)}`
+  );
+  console.log(`  Recommendation:   ${formatRecommendation(analysis.recommendation)}`);
+  console.log(`  Reason:           ${analysis.recommendationReason}`);
+  console.log();
+
+  if (analysis.factors.length > 0) {
+    console.log(chalk.bold("Risk Factors"));
+    console.log("─".repeat(70));
+
+    const factorTable = new Table({
+      head: ["Factor", "Level", "Weight", "Details"],
+      style: { head: ["cyan"] },
+    });
+
+    analysis.factors.forEach((f) => {
+      factorTable.push([
+        f.name.replace(/_/g, " "),
+        formatRiskLevel(f.level),
+        `${f.weight}/10`,
+        f.description,
+      ]);
+    });
+
+    console.log(factorTable.toString());
+    console.log();
+  }
+
+  if (analysis.outdatedSolutions.length > 0) {
+    console.log(chalk.bold("Outdated Solutions"));
+    console.log("─".repeat(70));
+
+    const solTable = new Table({
+      head: ["Solution", "Expected", "Deployed", "Drift"],
+      style: { head: ["cyan"] },
+    });
+
+    analysis.outdatedSolutions.forEach((sol) => {
+      solTable.push([
+        sol.uniqueName,
+        sol.expectedVersion,
+        sol.deployedVersion || "-",
+        chalk.yellow(`${sol.versionDrift} behind`),
+      ]);
+    });
+
+    console.log(solTable.toString());
+  }
+}
+
+function displayFleetRiskAnalysis(fleet: FleetDriftAnalysis, riskFilter?: string | true): void {
+  let analyses = fleet.tenants;
+
+  // Filter by risk level if specified (e.g., --risk high)
+  if (typeof riskFilter === "string") {
+    const level = riskFilter.toLowerCase();
+    analyses = analyses.filter((a) => a.riskLevel === level);
+  }
+
+  // Sort: do_not_update first, then update_risky, review_recommended, safe_to_update, current
+  const recOrder: Record<string, number> = {
+    do_not_update: 0,
+    update_risky: 1,
+    review_recommended: 2,
+    safe_to_update: 3,
+    current: 4,
+  };
+  analyses.sort((a, b) => (recOrder[a.recommendation] ?? 5) - (recOrder[b.recommendation] ?? 5));
+
+  console.log(chalk.bold("Fleet Drift Risk Analysis"));
+  console.log("━".repeat(80));
+  console.log();
+
+  // Summary
+  const s = fleet.summary;
+  console.log(`Tenants: ${s.total} total`);
+  console.log(`  ${chalk.green("✓")} Current:            ${s.current}`);
+  console.log(`  ${chalk.green("●")} Safe to update:     ${s.safeToUpdate}`);
+  console.log(`  ${chalk.yellow("●")} Review recommended: ${s.reviewRecommended}`);
+  console.log(`  ${chalk.red("●")} Update risky:       ${s.risky}`);
+  if (s.doNotUpdate > 0) {
+    console.log(`  ${chalk.red("⚠")} Do not update:      ${s.doNotUpdate}`);
+  }
+  console.log();
+
+  if (analyses.length === 0) {
+    console.log(chalk.gray("No tenants match the specified risk filter."));
+    return;
+  }
+
+  // Detailed table
+  const table = new Table({
+    head: ["Tenant", "Score", "Risk", "Recommendation", "Top Factor"],
+    style: { head: ["cyan"] },
+    colWidths: [22, 8, 8, 22, 35],
+    wordWrap: true,
+  });
+
+  analyses.forEach((a) => {
+    const topFactor =
+      a.factors.length > 0
+        ? a.factors.filter((f) => f.level !== "low").sort((x, y) => y.weight - x.weight)[0]
+            ?.description || "Minor risk"
+        : "-";
+
+    table.push([
+      a.tenantName,
+      `${a.riskScore}`,
+      formatRiskLevel(a.riskLevel),
+      formatRecommendation(a.recommendation),
+      topFactor,
+    ]);
+  });
+
+  console.log(table.toString());
+}
+
+// ============================================================================
+// Demo mode deployment history generator
+// ============================================================================
+
+function generateDemoDeployHistory(tenantId: string): TenantDeploymentHistory {
+  // Generate deterministic but varied history based on tenant ID
+  const seed = parseInt(tenantId.replace(/-/g, "").slice(0, 8), 16) || 0;
+  const total = 3 + (seed % 20);
+  const successRate = 0.5 + (seed % 50) / 100; // 50-99%
+  const successful = Math.min(total, Math.round(total * successRate));
+
+  const daysAgo = 5 + (seed % 120);
+  const lastDate = new Date();
+  lastDate.setDate(lastDate.getDate() - daysAgo);
+
+  const lastResult = successful === total ? "success" : seed % 3 === 0 ? "failure" : "success";
+
+  return {
+    tenantId,
+    lastDeployResult: lastResult as "success" | "failure",
+    lastDeployDate: lastDate.toISOString(),
+    totalDeploys: total,
+    successfulDeploys: successful,
+  };
+}
+
+// ============================================================================
+// Non-risk display helpers
+// ============================================================================
 
 function displayFleetSummary(
   summary: VersionDriftSummary,
