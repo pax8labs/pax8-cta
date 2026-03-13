@@ -15,6 +15,7 @@
  */
 
 import { TokenManager } from "../auth/token-manager.js";
+import { DataverseApiError, ErrorCode, GdapError } from "../errors.js";
 
 export interface DataverseClientConfig {
   environmentUrl: string;
@@ -39,21 +40,47 @@ export interface ErrorContext {
 }
 
 /**
- * Format Dataverse errors with helpful guidance for common authentication issues
+ * Format Dataverse errors with helpful guidance for common authentication issues.
+ *
+ * Throws a typed error (DataverseApiError or GdapError) instead of
+ * returning a plain string, so callers can switch on error.code.
  */
-export function formatDataverseError(
+export function throwDataverseError(
   error: DataverseError,
   statusCode: number,
   context?: ErrorContext
-): string {
+): never {
   const errorMessage = error.message;
   const innerMessage = error.innererror?.message || "";
   const fullMessage = `${errorMessage}${innerMessage ? ` - ${innerMessage}` : ""}`;
+
+  const errorContext = {
+    environmentUrl: context?.environmentUrl,
+    clientId: context?.clientId,
+  };
 
   // Check for common S2S authentication patterns
   const isNotMemberError =
     /user is not a member of the organization/i.test(fullMessage) ||
     /not a member of.*environment/i.test(fullMessage);
+
+  if (isNotMemberError) {
+    let helpfulMessage = `Authentication failed: ${fullMessage}\n`;
+    helpfulMessage += `\nThe application is not registered as a user in the Power Platform environment.\n`;
+    helpfulMessage += `\nTo fix:\n`;
+    helpfulMessage += `1. Go to https://admin.powerplatform.microsoft.com\n`;
+    helpfulMessage += `2. Select the environment → Settings → Users + permissions → Application users\n`;
+    helpfulMessage += `3. Click "+ New app user" and add your application\n`;
+    if (context?.clientId) {
+      helpfulMessage += `   Client ID: ${context.clientId}\n`;
+    }
+    helpfulMessage += `4. Assign the "System Administrator" security role\n`;
+    helpfulMessage += `5. Save and retry the command\n`;
+    if (context?.environmentUrl) {
+      helpfulMessage += `\nEnvironment: ${context.environmentUrl}`;
+    }
+    throw new GdapError(ErrorCode.GDAP_APP_USER_NOT_REGISTERED, helpfulMessage, errorContext);
+  }
 
   const isPrivilegeError =
     /prvRead/i.test(fullMessage) ||
@@ -67,21 +94,8 @@ export function formatDataverseError(
   const isForbiddenError = statusCode === 403;
   const isUnauthorizedError = statusCode === 401;
 
-  // Build helpful error message
-  let helpfulMessage = `Authentication failed: ${fullMessage}\n`;
-
-  if (isNotMemberError) {
-    helpfulMessage += `\nThe application is not registered as a user in the Power Platform environment.\n`;
-    helpfulMessage += `\nTo fix:\n`;
-    helpfulMessage += `1. Go to https://admin.powerplatform.microsoft.com\n`;
-    helpfulMessage += `2. Select the environment → Settings → Users + permissions → Application users\n`;
-    helpfulMessage += `3. Click "+ New app user" and add your application\n`;
-    if (context?.clientId) {
-      helpfulMessage += `   Client ID: ${context.clientId}\n`;
-    }
-    helpfulMessage += `4. Assign the "System Administrator" security role\n`;
-    helpfulMessage += `5. Save and retry the command\n`;
-  } else if (isPrivilegeError || isForbiddenError) {
+  if (isPrivilegeError || isForbiddenError) {
+    let helpfulMessage = `Authentication failed: ${fullMessage}\n`;
     helpfulMessage += `\nThe application lacks required permissions in the Power Platform environment.\n`;
     helpfulMessage += `\nTo fix:\n`;
     helpfulMessage += `1. Go to https://admin.powerplatform.microsoft.com\n`;
@@ -95,7 +109,19 @@ export function formatDataverseError(
     helpfulMessage += `5. Ensure "System Administrator" role is assigned\n`;
     helpfulMessage += `   (Required privileges: prvReadSolution, prvWriteSolution, prvCreateSolution, etc.)\n`;
     helpfulMessage += `6. Save and retry the command\n`;
-  } else if (isUnauthorizedError) {
+    if (context?.environmentUrl) {
+      helpfulMessage += `\nEnvironment: ${context.environmentUrl}`;
+    }
+    throw new DataverseApiError(
+      isPrivilegeError ? ErrorCode.PERMISSION_PRIVILEGE_MISSING : ErrorCode.DATAVERSE_FORBIDDEN,
+      helpfulMessage,
+      statusCode,
+      errorContext
+    );
+  }
+
+  if (isUnauthorizedError) {
+    let helpfulMessage = `Authentication failed: ${fullMessage}\n`;
     helpfulMessage += `\nAuthentication token could not be acquired or is invalid.\n`;
     helpfulMessage += `\nTo fix:\n`;
     helpfulMessage += `1. Verify the app registration in Azure Portal:\n`;
@@ -111,13 +137,51 @@ export function formatDataverseError(
     helpfulMessage += `   - Check if the secret has expired\n`;
     helpfulMessage += `   - Generate a new secret if needed and update your configuration\n`;
     helpfulMessage += `4. Retry the command\n`;
+    if (context?.environmentUrl) {
+      helpfulMessage += `\nEnvironment: ${context.environmentUrl}`;
+    }
+    throw new DataverseApiError(
+      ErrorCode.DATAVERSE_UNAUTHORIZED,
+      helpfulMessage,
+      statusCode,
+      errorContext
+    );
   }
 
+  // Generic Dataverse API error
+  let helpfulMessage = `Dataverse API error: ${fullMessage}`;
   if (context?.environmentUrl) {
     helpfulMessage += `\nEnvironment: ${context.environmentUrl}`;
   }
+  throw new DataverseApiError(
+    ErrorCode.DATAVERSE_API_ERROR,
+    helpfulMessage,
+    statusCode,
+    errorContext
+  );
+}
 
-  return helpfulMessage;
+/**
+ * Format Dataverse errors with helpful guidance for common authentication issues.
+ *
+ * @deprecated Use throwDataverseError() instead. This is kept for backwards
+ * compatibility but will be removed in a future release.
+ */
+export function formatDataverseError(
+  error: DataverseError,
+  statusCode: number,
+  context?: ErrorContext
+): string {
+  try {
+    throwDataverseError(error, statusCode, context);
+  } catch (e) {
+    if (e instanceof Error) {
+      return e.message;
+    }
+    return String(e);
+  }
+  // Unreachable, but TypeScript needs it
+  return "";
 }
 
 /**
@@ -262,22 +326,32 @@ export class DataverseClient {
   }
 
   private async handleError(response: Response): Promise<never> {
-    let errorMessage = `Dataverse API error: ${response.status} ${response.statusText}`;
-
     try {
       const errorBody = (await response.json()) as { error?: DataverseError };
       if (errorBody.error) {
-        // Use formatted error with helpful guidance
-        errorMessage = formatDataverseError(errorBody.error, response.status, {
+        // Throws a typed error (DataverseApiError, GdapError, etc.)
+        throwDataverseError(errorBody.error, response.status, {
           environmentUrl: this.config.environmentUrl,
           clientId: this.config.clientId,
         });
       }
-    } catch {
+    } catch (e) {
+      // Re-throw typed errors from throwDataverseError
+      if (e instanceof DataverseApiError || e instanceof GdapError) {
+        throw e;
+      }
       // Ignore JSON parse errors - fall back to basic error
     }
 
-    throw new Error(errorMessage);
+    throw new DataverseApiError(
+      ErrorCode.DATAVERSE_API_ERROR,
+      `Dataverse API error: ${response.status} ${response.statusText}`,
+      response.status,
+      {
+        environmentUrl: this.config.environmentUrl,
+        clientId: this.config.clientId,
+      }
+    );
   }
 }
 

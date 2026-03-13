@@ -18,6 +18,7 @@ import crypto from "node:crypto";
 import { writeFile, readFile } from "node:fs/promises";
 import { DataverseClient, SolutionRecord } from "./client.js";
 import { SolutionMetadata } from "../config/schema.js";
+import { SolutionError, ErrorCode } from "../errors.js";
 
 /**
  * Request parameters for ExportSolution action
@@ -115,7 +116,13 @@ export class SolutionOperations {
     // First, verify the solution exists
     const solution = await this.getSolution(solutionName);
     if (!solution) {
-      throw new Error(`Solution '${solutionName}' not found in environment`);
+      throw new SolutionError(
+        ErrorCode.SOLUTION_NOT_FOUND,
+        `Solution '${solutionName}' not found in environment`,
+        {
+          solutionName,
+        }
+      );
     }
 
     const request: ExportSolutionRequest = {

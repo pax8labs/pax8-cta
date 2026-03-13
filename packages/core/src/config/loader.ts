@@ -18,14 +18,28 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { Config, ConfigSchema } from "./schema.js";
+import { ConfigValidationError, ErrorCode } from "../errors.js";
 
-export class ConfigError extends Error {
-  constructor(
-    message: string,
-    public readonly cause?: unknown
-  ) {
-    super(message);
-    this.name = "ConfigError";
+/**
+ * @deprecated Use ConfigValidationError from @agentsync/core/errors instead.
+ * Kept for backwards compatibility.
+ */
+export class ConfigError extends ConfigValidationError {
+  override readonly name = "ConfigError";
+
+  constructor(message: string, cause?: unknown) {
+    // Map generic messages to error codes
+    let code: ErrorCode = ErrorCode.CONFIG_INVALID;
+    if (message.includes("not found")) {
+      code = ErrorCode.CONFIG_NOT_FOUND;
+    } else if (message.includes("Failed to read")) {
+      code = ErrorCode.CONFIG_READ_FAILED;
+    } else if (message.includes("Failed to parse")) {
+      code = ErrorCode.CONFIG_PARSE_FAILED;
+    } else if (message.includes("Missing client secret")) {
+      code = ErrorCode.CONFIG_SECRET_MISSING;
+    }
+    super(code, message, undefined, cause ? { cause } : undefined);
   }
 }
 

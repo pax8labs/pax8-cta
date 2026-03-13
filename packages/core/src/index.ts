@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// Errors
+export * from "./errors.js";
+
 // Constants
 export * from "./constants.js";
 
