@@ -19,6 +19,8 @@
  * Analyzes deployment risk before execution
  */
 
+import { getDemoTenantMetadata } from "../mock/demo-data.js";
+
 // Simple tenant interface for risk analysis
 export interface Tenant {
   id: string;
@@ -148,27 +150,82 @@ export class DeploymentRiskAnalyzer {
    */
   private async checkGDAPPermissions(context: DeploymentContext): Promise<RiskIssue[]> {
     const issues: RiskIssue[] = [];
-    const tenantsWithIssues: string[] = [];
 
-    // In demo mode, simulate GDAP checks
+    // In demo mode, use tenant metadata for deterministic GDAP scenarios
     if (process.env.DEMO_MODE === "true") {
-      // Simulate 20% of tenants having GDAP issues
-      const problematicTenants = context.tenants.filter((_, i) => i % 5 === 0);
+      const missingRoleTenants: string[] = [];
+      const expiredTenants: string[] = [];
+      const propagatingTenants: string[] = [];
+      const expiringSoonTenants: string[] = [];
 
-      if (problematicTenants.length > 0) {
-        tenantsWithIssues.push(...problematicTenants.map((t) => t.name));
+      for (const tenant of context.tenants) {
+        const meta = getDemoTenantMetadata(tenant.id);
+        if (!meta) continue;
 
+        switch (meta.gdapStatus) {
+          case "missing_role":
+            missingRoleTenants.push(tenant.name);
+            break;
+          case "expired":
+            expiredTenants.push(tenant.name);
+            break;
+          case "propagating":
+            propagatingTenants.push(tenant.name);
+            break;
+          case "expiring_soon":
+            expiringSoonTenants.push(tenant.name);
+            break;
+        }
+      }
+
+      if (missingRoleTenants.length > 0) {
         issues.push({
           severity: "critical",
           category: "permissions",
-          message: `${problematicTenants.length} tenants missing Power Platform Admin role`,
-          affectedTenants: problematicTenants.map((t) => t.name),
+          message: `${missingRoleTenants.length} tenant${missingRoleTenants.length > 1 ? "s" : ""} missing Power Platform Admin role`,
+          affectedTenants: missingRoleTenants,
           resolution: "Add Power Platform Admin role to GDAP relationship in Partner Center",
           link: "https://partner.microsoft.com/en-us/dashboard/commerce2/customers/delegatedadmin",
           details: {
             missingRole: "Power Platform Administrator",
             requiredFor: ["Solution import", "Connection management", "Flow activation"],
           },
+        });
+      }
+
+      if (expiredTenants.length > 0) {
+        issues.push({
+          severity: "critical",
+          category: "permissions",
+          message: `${expiredTenants.length} tenant${expiredTenants.length > 1 ? "s" : ""} with expired GDAP relationship`,
+          affectedTenants: expiredTenants,
+          resolution: "Renew GDAP relationship in Partner Center",
+          link: "https://partner.microsoft.com/en-us/dashboard/commerce2/customers/delegatedadmin",
+          details: {
+            issue: "GDAP relationship has ended",
+            impact: "Cannot perform any delegated admin operations",
+          },
+        });
+      }
+
+      if (propagatingTenants.length > 0) {
+        issues.push({
+          severity: "warning",
+          category: "permissions",
+          message: `${propagatingTenants.length} tenant${propagatingTenants.length > 1 ? "s" : ""} with recently added GDAP (permissions may not be propagated)`,
+          affectedTenants: propagatingTenants,
+          resolution: "Wait 24-48 hours for GDAP permissions to fully propagate",
+        });
+      }
+
+      if (expiringSoonTenants.length > 0) {
+        issues.push({
+          severity: "warning",
+          category: "permissions",
+          message: `${expiringSoonTenants.length} tenant${expiringSoonTenants.length > 1 ? "s" : ""} with GDAP relationship expiring within 7 days`,
+          affectedTenants: expiringSoonTenants,
+          resolution: "Renew GDAP relationships before they expire",
+          link: "https://partner.microsoft.com/en-us/dashboard/commerce2/customers/delegatedadmin",
         });
       }
     }
@@ -182,23 +239,66 @@ export class DeploymentRiskAnalyzer {
   /**
    * Check connection references
    */
-  private async checkConnections(_context: DeploymentContext): Promise<RiskIssue[]> {
+  private async checkConnections(context: DeploymentContext): Promise<RiskIssue[]> {
     const issues: RiskIssue[] = [];
 
-    // In demo mode, simulate connection checks
+    // In demo mode, use tenant metadata for deterministic connection scenarios
     if (process.env.DEMO_MODE === "true") {
-      // Simulate 15% chance of expired connection
-      if (Math.random() < 0.15) {
+      const expiredTenants: string[] = [];
+      const missingTenants: string[] = [];
+      const expiringCertTenants: string[] = [];
+
+      for (const tenant of context.tenants) {
+        const meta = getDemoTenantMetadata(tenant.id);
+        if (!meta) continue;
+
+        switch (meta.connectionStatus) {
+          case "expired":
+            expiredTenants.push(tenant.name);
+            break;
+          case "missing":
+            missingTenants.push(tenant.name);
+            break;
+          case "expiring_certificate":
+            expiringCertTenants.push(tenant.name);
+            break;
+        }
+      }
+
+      if (expiredTenants.length > 0) {
         issues.push({
           severity: "critical",
           category: "connections",
-          message: "SharePoint connection reference expired",
-          resolution: "Renew SharePoint connection in Connections page",
+          message: `${expiredTenants.length} tenant${expiredTenants.length > 1 ? "s" : ""} with expired connection references`,
+          affectedTenants: expiredTenants,
+          resolution: "Renew expired connections in the Connections page of each affected tenant",
           details: {
-            connectionName: "SharePoint Site",
-            expiredDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            affectedComponents: ["Document Flow", "HR Portal App"],
+            connectionType: "OAuth",
+            impact: "Solution import will fail without valid connections",
           },
+        });
+      }
+
+      if (missingTenants.length > 0) {
+        issues.push({
+          severity: "critical",
+          category: "connections",
+          message: `${missingTenants.length} tenant${missingTenants.length > 1 ? "s" : ""} with missing required connections`,
+          affectedTenants: missingTenants,
+          resolution: "Configure required connections before deploying",
+          details: {
+            impact: "Solution cannot function without required connections",
+          },
+        });
+      }
+
+      if (expiringCertTenants.length > 0) {
+        issues.push({
+          severity: "warning",
+          category: "connections",
+          message: `${expiringCertTenants.length} tenant${expiringCertTenants.length > 1 ? "s" : ""} with certificates expiring within 30 days`,
+          affectedTenants: expiringCertTenants,
+          resolution: "Rotate certificates before they expire to avoid deployment failures",
         });
       }
     }
@@ -291,6 +391,86 @@ export class DeploymentRiskAnalyzer {
    */
   private async analyzeHistory(context: DeploymentContext): Promise<RiskIssue[]> {
     const issues: RiskIssue[] = [];
+
+    // In demo mode, generate history issues from tenant metadata
+    if (process.env.DEMO_MODE === "true" && !context.deploymentHistory) {
+      const tenantsWithNoDeployments: string[] = [];
+      const tenantsWithHighFailRate: string[] = [];
+      const tenantsWithRecentFailures: string[] = [];
+      const tenantsWithStaleData: string[] = [];
+
+      for (const tenant of context.tenants) {
+        const meta = getDemoTenantMetadata(tenant.id);
+        if (!meta) {
+          tenantsWithNoDeployments.push(tenant.name);
+          continue;
+        }
+
+        if (!meta.lastSuccessfulDeployment) {
+          tenantsWithNoDeployments.push(tenant.name);
+          continue;
+        }
+
+        // Check for stale deployments (> 30 days since last success)
+        const lastSuccess = new Date(meta.lastSuccessfulDeployment);
+        const daysSinceSuccess = (Date.now() - lastSuccess.getTime()) / (24 * 60 * 60 * 1000);
+        if (daysSinceSuccess > 30) {
+          tenantsWithStaleData.push(tenant.name);
+        }
+
+        // Check for high failure rate
+        if (meta.recentFailures >= 3) {
+          tenantsWithHighFailRate.push(tenant.name);
+        } else if (meta.recentFailures >= 1 && meta.lastDeploymentError) {
+          tenantsWithRecentFailures.push(tenant.name);
+        }
+      }
+
+      if (tenantsWithNoDeployments.length > 0) {
+        issues.push({
+          severity: "info",
+          category: "history",
+          message: `${tenantsWithNoDeployments.length} tenant${tenantsWithNoDeployments.length > 1 ? "s" : ""} with no deployment history`,
+          affectedTenants: tenantsWithNoDeployments,
+          resolution: "Consider deploying to a test tenant first",
+        });
+      }
+
+      if (tenantsWithHighFailRate.length > 0) {
+        issues.push({
+          severity: "warning",
+          category: "history",
+          message: `${tenantsWithHighFailRate.length} tenant${tenantsWithHighFailRate.length > 1 ? "s" : ""} with high recent failure rate`,
+          affectedTenants: tenantsWithHighFailRate,
+          resolution: "Review and fix common failure patterns before deploying",
+          details: {
+            threshold: "3+ recent failures",
+          },
+        });
+      }
+
+      if (tenantsWithRecentFailures.length > 0) {
+        issues.push({
+          severity: "info",
+          category: "history",
+          message: `${tenantsWithRecentFailures.length} tenant${tenantsWithRecentFailures.length > 1 ? "s" : ""} with recent deployment failures`,
+          affectedTenants: tenantsWithRecentFailures,
+          resolution: "Monitor these tenants during deployment",
+        });
+      }
+
+      if (tenantsWithStaleData.length > 0) {
+        issues.push({
+          severity: "warning",
+          category: "history",
+          message: `${tenantsWithStaleData.length} tenant${tenantsWithStaleData.length > 1 ? "s" : ""} not deployed to in over 30 days`,
+          affectedTenants: tenantsWithStaleData,
+          resolution: "Validate environment connectivity before deploying to stale tenants",
+        });
+      }
+
+      return issues;
+    }
 
     if (!context.deploymentHistory || context.deploymentHistory.length === 0) {
       issues.push({
