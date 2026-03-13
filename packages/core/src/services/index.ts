@@ -33,3 +33,6 @@ export * from "./deployment-notifications.js";
 export * from "./risk-analyzer.js";
 export * from "./health-checker.js";
 export * from "./version-checker.js";
+export * from "./auth-error-parser.js";
+export * from "./environment-setup.js";
+export * from "./solution-mode-detector.js";

@@ -25,6 +25,8 @@ import {
   TokenManager,
   DataverseClient,
   ConfigError,
+  parseAuthError,
+  environmentSetupService,
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 
@@ -33,101 +35,6 @@ interface ValidationCheck {
   status: "pass" | "fail" | "warn";
   message: string;
   fix?: string;
-}
-
-interface SystemUser {
-  systemuserid: string;
-  fullname?: string;
-  applicationid?: string;
-  isdisabled?: boolean;
-}
-
-interface SecurityRole {
-  roleid: string;
-  name: string;
-}
-
-/**
- * Parse common Azure/Dataverse errors into user-friendly messages with fixes
- */
-function parseAuthError(errorMsg: string): { message: string; fix: string } {
-  // Invalid client secret
-  if (errorMsg.includes("AADSTS7000215") || errorMsg.includes("Invalid client secret")) {
-    return {
-      message: "Invalid client secret",
-      fix: "Ensure PARTNER_CLIENT_SECRET contains the secret value (not the secret ID). Generate a new secret in Azure Portal if needed.",
-    };
-  }
-
-  // Client secret expired
-  if (errorMsg.includes("AADSTS7000222") || errorMsg.includes("expired")) {
-    return {
-      message: "Client secret has expired",
-      fix: "Generate a new client secret in Azure Portal → App registrations → Your app → Certificates & secrets",
-    };
-  }
-
-  // App not found
-  if (errorMsg.includes("AADSTS700016") || errorMsg.includes("Application.*not found")) {
-    return {
-      message: "Application not found in Azure AD",
-      fix: "Verify the PARTNER_CLIENT_ID is correct. Check Azure Portal → App registrations.",
-    };
-  }
-
-  // Tenant not found
-  if (errorMsg.includes("AADSTS90002") || errorMsg.includes("tenant.*not found")) {
-    return {
-      message: "Tenant not found",
-      fix: "Verify the PARTNER_TENANT_ID is correct. Check Azure Portal → Azure Active Directory → Overview.",
-    };
-  }
-
-  // Not a member of organization (GDAP/app user issue)
-  if (
-    errorMsg.includes("not a member of the organization") ||
-    errorMsg.includes("is not a member")
-  ) {
-    return {
-      message: "App not registered in environment",
-      fix: "Create app user in Power Platform Admin Center, or run 'agentsync setup --all'",
-    };
-  }
-
-  // Permission denied
-  if (
-    errorMsg.includes("prvRead") ||
-    errorMsg.includes("prvWrite") ||
-    errorMsg.includes("privilege") ||
-    errorMsg.includes("403")
-  ) {
-    return {
-      message: "Insufficient permissions",
-      fix: "Assign System Administrator role to the app user in Power Platform Admin Center",
-    };
-  }
-
-  // Token acquisition failed (generic)
-  if (errorMsg.includes("Token acquisition failed")) {
-    // Extract the AADSTS code if present
-    const aadstsMatch = errorMsg.match(/AADSTS\d+/);
-    if (aadstsMatch) {
-      return {
-        message: `Authentication failed (${aadstsMatch[0]})`,
-        fix: "Check Azure AD app configuration. Verify client ID, tenant ID, and secret are correct.",
-      };
-    }
-    return {
-      message: "Authentication failed",
-      fix: "Check client credentials. Run 'agentsync auth status' to verify configuration.",
-    };
-  }
-
-  // Default: return first line of error
-  return {
-    message: errorMsg.split("\n")[0].slice(0, 100),
-    fix: "Check the error message above and verify your configuration",
-  };
 }
 
 export const validateCommand = new Command("validate")
@@ -229,7 +136,21 @@ export const validateCommand = new Command("validate")
       const tenantSpinner = ora(`Checking ${tenant.name}...`).start();
 
       try {
-        const result = await validateTenant(config, tenant);
+        const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
+        const tokenManager = new TokenManager({
+          tenantId: tenant.tenantId,
+          clientId: config.partner.clientId,
+          clientSecret,
+        });
+        const client = new DataverseClient({
+          environmentUrl: tenant.environmentUrl,
+          tokenManager,
+          clientId: config.partner.clientId,
+        });
+        const result = await environmentSetupService.validateTenant(
+          client,
+          config.partner.clientId
+        );
 
         if (result.appUserExists && result.hasSystemAdminRole) {
           checks.push({
@@ -329,59 +250,6 @@ export const validateCommand = new Command("validate")
       process.exit(1);
     }
   });
-
-/**
- * Validate a single tenant's app user setup
- */
-async function validateTenant(
-  config: { partner: { tenantId: string; clientId: string } },
-  tenant: TenantConfig
-): Promise<{ appUserExists: boolean; hasSystemAdminRole: boolean; userId?: string }> {
-  const clientSecret = await getClientSecretWithFallback("PARTNER_CLIENT_SECRET");
-  const tokenManager = new TokenManager({
-    tenantId: tenant.tenantId,
-    clientId: config.partner.clientId,
-    clientSecret: clientSecret,
-  });
-
-  const client = new DataverseClient({
-    environmentUrl: tenant.environmentUrl,
-    tokenManager,
-    clientId: config.partner.clientId,
-  });
-
-  // Check if app user exists
-  const appId = config.partner.clientId;
-  const result = await client.get<{ value: SystemUser[] }>("/systemusers", {
-    $filter: `applicationid eq '${appId}'`,
-    $select: "systemuserid,fullname,applicationid,isdisabled",
-  });
-
-  if (result.value.length === 0) {
-    return {
-      appUserExists: false,
-      hasSystemAdminRole: false,
-    };
-  }
-
-  const user = result.value[0];
-
-  // Check if System Administrator role is assigned
-  const rolesResult = await client.get<{ value: SecurityRole[] }>(
-    `/systemusers(${user.systemuserid})/systemuserroles_association`,
-    {
-      $select: "roleid,name",
-    }
-  );
-
-  const hasAdminRole = rolesResult.value.some((r) => r.name === "System Administrator");
-
-  return {
-    appUserExists: true,
-    hasSystemAdminRole: hasAdminRole,
-    userId: user.systemuserid,
-  };
-}
 
 /**
  * Display validation results in a formatted output
