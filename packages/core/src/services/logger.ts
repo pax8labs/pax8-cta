@@ -239,12 +239,55 @@ export class Logger {
   }
 }
 
-// Pre-configured loggers for different services
-export const coreLogger = new Logger({ service: "core" });
-export const authLogger = new Logger({ service: "auth" });
-export const deploymentLogger = new Logger({ service: "deployment" });
-export const workerLogger = new Logger({ service: "worker" });
-export const apiLogger = new Logger({ service: "api" });
+// Pre-configured loggers for different services.
+// These are mutable so they can be reconfigured via configureLogging().
+export let coreLogger = new Logger({ service: "core" });
+export let authLogger = new Logger({ service: "auth" });
+export let deploymentLogger = new Logger({ service: "deployment" });
+export let workerLogger = new Logger({ service: "worker" });
+export let apiLogger = new Logger({ service: "api" });
+
+/**
+ * Reconfigure the singleton loggers at runtime.
+ * Useful for testing (e.g., swapping in a silent transport) or changing
+ * log levels / transports without vi.mock().
+ *
+ * Only the keys you provide are replaced; the rest keep their current value.
+ *
+ * @example
+ * // Silence all loggers in tests
+ * const noop: LogTransport = { log: () => {} };
+ * configureLogging({ transports: [noop] });
+ *
+ * // Restore defaults after tests
+ * resetLogging();
+ */
+export function configureLogging(
+  options: {
+    transports?: LogTransport[];
+    minLevel?: LogLevel;
+  } = {}
+): void {
+  const rebind = (service: string) =>
+    new Logger({ service, transports: options.transports, minLevel: options.minLevel });
+
+  coreLogger = rebind("core");
+  authLogger = rebind("auth");
+  deploymentLogger = rebind("deployment");
+  workerLogger = rebind("worker");
+  apiLogger = rebind("api");
+}
+
+/**
+ * Reset all singleton loggers to their defaults (ConsoleTransport, LOG_LEVEL from env).
+ */
+export function resetLogging(): void {
+  coreLogger = new Logger({ service: "core" });
+  authLogger = new Logger({ service: "auth" });
+  deploymentLogger = new Logger({ service: "deployment" });
+  workerLogger = new Logger({ service: "worker" });
+  apiLogger = new Logger({ service: "api" });
+}
 
 // Request logging middleware helper
 export function createRequestLogger(
