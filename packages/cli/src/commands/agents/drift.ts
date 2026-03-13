@@ -23,8 +23,105 @@ import {
   DEMO_TENANTS,
   getDemoVersionDriftSummary,
   getDemoTenantVersionStatus,
+  type TenantVersionStatus,
 } from "@agentsync/core";
 import { isDemoModeEnabled } from "../demo.js";
+
+/** Risk level for a tenant based on its drift state */
+export type DriftRiskLevel = "low" | "medium" | "high";
+
+/** A tenant's drift fix plan entry */
+export interface DriftFixEntry {
+  tenantName: string;
+  tenantId: string;
+  risk: DriftRiskLevel;
+  outdatedSolutions: Array<{
+    uniqueName: string;
+    deployedVersion: string | null;
+    expectedVersion: string;
+    versionDrift: number;
+  }>;
+}
+
+/** Result of a drift fix operation for a single tenant */
+export interface DriftFixResult {
+  tenantName: string;
+  tenantId: string;
+  status: "updated" | "skipped_risk" | "skipped_current" | "failed";
+  risk: DriftRiskLevel;
+  error?: string;
+}
+
+/**
+ * Calculate the drift risk level for a tenant based on its version status.
+ *
+ * - low: 1 minor version behind on all solutions
+ * - medium: 2+ versions behind or multiple outdated solutions
+ * - high: not deployed solutions or 3+ versions behind
+ */
+export function calculateDriftRisk(status: TenantVersionStatus): DriftRiskLevel {
+  const outdated = status.solutions.filter((s) => s.status === "outdated");
+  const notDeployed = status.solutions.filter((s) => s.status === "not_deployed");
+
+  if (notDeployed.length > 0) return "high";
+
+  if (outdated.length === 0) return "low";
+
+  const maxDrift = Math.max(...outdated.map((s) => Math.abs(s.versionDrift)));
+
+  if (maxDrift >= 3) return "high";
+  if (maxDrift >= 2 || outdated.length >= 2) return "medium";
+  return "low";
+}
+
+/**
+ * Build the drift fix plan: identify outdated tenants and their risk levels.
+ */
+export function buildDriftFixPlan(
+  tenantStatuses: Array<{ tenant: { name: string; tenantId: string }; status: TenantVersionStatus }>
+): DriftFixEntry[] {
+  const plan: DriftFixEntry[] = [];
+
+  for (const { tenant, status } of tenantStatuses) {
+    const outdatedSolutions = status.solutions.filter(
+      (s) => s.status === "outdated" || s.status === "not_deployed"
+    );
+
+    if (outdatedSolutions.length === 0) continue;
+
+    plan.push({
+      tenantName: tenant.name,
+      tenantId: tenant.tenantId,
+      risk: calculateDriftRisk(status),
+      outdatedSolutions: outdatedSolutions.map((s) => ({
+        uniqueName: s.uniqueName,
+        deployedVersion: s.deployedVersion,
+        expectedVersion: s.expectedVersion,
+        versionDrift: s.versionDrift,
+      })),
+    });
+  }
+
+  // Sort by risk: low first, then medium, then high
+  const riskOrder: Record<DriftRiskLevel, number> = { low: 0, medium: 1, high: 2 };
+  plan.sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk]);
+
+  return plan;
+}
+
+/**
+ * Parse the --max-risk option into a numeric threshold.
+ */
+function riskLevelValue(level: DriftRiskLevel): number {
+  switch (level) {
+    case "low":
+      return 1;
+    case "medium":
+      return 2;
+    case "high":
+      return 3;
+  }
+}
 
 export const driftCommand = new Command("drift")
   .description("Check for version drift across tenants")
@@ -32,6 +129,15 @@ export const driftCommand = new Command("drift")
   .option("-t, --tenant <name>", "Check specific tenant only")
   .option("--outdated", "Show only outdated tenants")
   .option("--json", "Output as JSON")
+  .option("--fix", "Deploy current version to outdated tenants (risk-gated)")
+  .option(
+    "--max-risk <level>",
+    "Maximum risk level to auto-fix: low, medium, or high (default: low)",
+    "low"
+  )
+  .option("--force", "Fix all tenants regardless of risk (same as --max-risk high)")
+  .option("--dry-run", "Show what would be fixed without executing")
+  .option("-y, --yes", "Skip confirmation prompt")
   .action(async (options) => {
     const spinner = ora("Checking version drift...").start();
 
@@ -39,6 +145,199 @@ export const driftCommand = new Command("drift")
       if (isDemoModeEnabled() || isDemoModeCore()) {
         spinner.stop();
         console.log(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+
+        // --fix mode: deploy current version to outdated tenants
+        if (options.fix) {
+          const maxRisk: DriftRiskLevel = options.force ? "high" : options.maxRisk;
+
+          if (!["low", "medium", "high"].includes(maxRisk)) {
+            console.log(
+              chalk.red(`Invalid --max-risk value: '${maxRisk}'. Use low, medium, or high.`)
+            );
+            process.exit(1);
+          }
+
+          // Build tenant version statuses
+          let enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);
+
+          // Filter to specific tenant if requested
+          if (options.tenant) {
+            enabledTenants = enabledTenants.filter(
+              (t) =>
+                t.name.toLowerCase().includes(options.tenant.toLowerCase()) ||
+                t.tenantId.toLowerCase().includes(options.tenant.toLowerCase())
+            );
+
+            if (enabledTenants.length === 0) {
+              console.log(chalk.red(`Tenant '${options.tenant}' not found`));
+              process.exit(1);
+            }
+          }
+
+          const tenantStatuses = enabledTenants.map((tenant) => ({
+            tenant,
+            status: getDemoTenantVersionStatus(tenant.tenantId)!,
+          }));
+
+          const plan = buildDriftFixPlan(tenantStatuses);
+
+          if (plan.length === 0) {
+            console.log(chalk.green("All tenants are up to date. Nothing to fix."));
+            return;
+          }
+
+          const maxRiskValue = riskLevelValue(maxRisk);
+
+          // Categorize entries
+          const willFix = plan.filter((e) => riskLevelValue(e.risk) <= maxRiskValue);
+          const willSkip = plan.filter((e) => riskLevelValue(e.risk) > maxRiskValue);
+
+          // Display the fix plan
+          console.log(chalk.bold("Drift Fix Plan:"));
+
+          for (const entry of plan) {
+            const riskVal = riskLevelValue(entry.risk);
+            const included = riskVal <= maxRiskValue;
+
+            const versions = entry.outdatedSolutions
+              .map((s) => `${s.deployedVersion || "none"} -> ${s.expectedVersion}`)
+              .join(", ");
+
+            if (included) {
+              if (entry.risk === "low") {
+                console.log(
+                  chalk.green(`  ✓ ${entry.tenantName}  ${versions}  (low risk -- safe)`)
+                );
+              } else if (entry.risk === "medium") {
+                console.log(
+                  chalk.yellow(`  ⚠ ${entry.tenantName}  ${versions}  (medium risk -- included)`)
+                );
+              } else {
+                console.log(
+                  chalk.red(`  ✗ ${entry.tenantName}  ${versions}  (high risk -- included)`)
+                );
+              }
+            } else {
+              if (entry.risk === "medium") {
+                console.log(
+                  chalk.yellow(`  ⚠ ${entry.tenantName}  ${versions}  (medium risk -- SKIPPED)`)
+                );
+              } else {
+                console.log(
+                  chalk.red(`  ✗ ${entry.tenantName}  ${versions}  (high risk -- SKIPPED)`)
+                );
+              }
+            }
+          }
+
+          console.log();
+
+          if (willFix.length === 0) {
+            console.log(
+              chalk.yellow(
+                `No tenants within --max-risk=${maxRisk} threshold. Use --max-risk medium or --force to include higher-risk tenants.`
+              )
+            );
+            return;
+          }
+
+          console.log(
+            `Will update ${willFix.length} of ${plan.length} outdated tenant${plan.length !== 1 ? "s" : ""}.` +
+              (willSkip.length > 0 ? ` ${willSkip.length} skipped (risk above ${maxRisk}).` : "")
+          );
+
+          if (options.json) {
+            console.log(
+              JSON.stringify(
+                {
+                  plan,
+                  willFix: willFix.map((e) => e.tenantName),
+                  willSkip: willSkip.map((e) => ({ tenantName: e.tenantName, risk: e.risk })),
+                  maxRisk,
+                  dryRun: !!options.dryRun,
+                },
+                null,
+                2
+              )
+            );
+            return;
+          }
+
+          if (options.dryRun) {
+            console.log(chalk.gray("\n--dry-run: No changes were made."));
+            return;
+          }
+
+          // Confirmation prompt (skip if --yes)
+          if (!options.yes) {
+            // In demo mode tests, we skip the interactive prompt.
+            // The readline import is deferred to avoid issues in test environments.
+            const readline = await import("node:readline");
+            const rl = readline.createInterface({
+              input: process.stdin,
+              output: process.stdout,
+            });
+
+            const answer = await new Promise<string>((resolve) => {
+              rl.question("Continue? [y/N] ", (ans) => {
+                rl.close();
+                resolve(ans.trim().toLowerCase());
+              });
+            });
+
+            if (answer !== "y" && answer !== "yes") {
+              console.log(chalk.gray("Aborted."));
+              return;
+            }
+          }
+
+          // Execute fixes (simulated in demo mode)
+          console.log();
+          const results: DriftFixResult[] = [];
+
+          for (const entry of willFix) {
+            const fixSpinner = ora(`Updating ${entry.tenantName}...`).start();
+
+            // Simulate deployment delay
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            // In demo mode, simulate success
+            fixSpinner.succeed(`${entry.tenantName} updated successfully`);
+            results.push({
+              tenantName: entry.tenantName,
+              tenantId: entry.tenantId,
+              status: "updated",
+              risk: entry.risk,
+            });
+          }
+
+          // Add skipped entries to results
+          for (const entry of willSkip) {
+            results.push({
+              tenantName: entry.tenantName,
+              tenantId: entry.tenantId,
+              status: "skipped_risk",
+              risk: entry.risk,
+            });
+          }
+
+          // Summary
+          console.log();
+          console.log(chalk.bold("Results:"));
+          const updated = results.filter((r) => r.status === "updated").length;
+          const skippedRisk = results.filter((r) => r.status === "skipped_risk").length;
+          const failed = results.filter((r) => r.status === "failed").length;
+
+          console.log(chalk.green(`  Updated:        ${updated}`));
+          if (skippedRisk > 0) {
+            console.log(chalk.yellow(`  Skipped (risk): ${skippedRisk}`));
+          }
+          if (failed > 0) {
+            console.log(chalk.red(`  Failed:         ${failed}`));
+          }
+
+          return;
+        }
 
         // Single tenant mode
         if (options.tenant) {
