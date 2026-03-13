@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "TooManyRequests",
+    "message": "Rate limit is exceeded. Try again in 27 seconds.",
+    "innerError": {
+      "date": "2026-03-13T12:00:00",
+      "request-id": "aabbccdd-1122-3344-5566-778899aabbcc",
+      "client-request-id": "ddeeff00-1122-3344-5566-778899aabbcc"
+    }
+  }
+}

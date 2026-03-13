@@ -1,0 +1,27 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#tenantRelationships/delegatedAdminRelationships",
+  "value": [
+    {
+      "id": "rel-expiring-001",
+      "displayName": "Partner - Expiring Soon Customer",
+      "duration": "P365D",
+      "status": "active",
+      "createdDateTime": "2025-04-01T10:00:00Z",
+      "lastModifiedDateTime": "2025-04-02T08:00:00Z",
+      "activatedDateTime": "2025-04-02T08:00:00Z",
+      "endDateTime": "2026-04-01T10:00:00Z",
+      "customer": {
+        "tenantId": "expiring-tenant-1111-2222-333333333333",
+        "displayName": "Expiring Soon Corp"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    }
+  ]
+}

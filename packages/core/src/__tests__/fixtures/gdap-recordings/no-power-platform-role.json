@@ -1,0 +1,30 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#tenantRelationships/delegatedAdminRelationships",
+  "value": [
+    {
+      "id": "rel-norole-001",
+      "displayName": "Partner - No PP Admin Customer",
+      "duration": "P730D",
+      "status": "active",
+      "createdDateTime": "2025-03-01T10:00:00Z",
+      "lastModifiedDateTime": "2025-03-02T08:00:00Z",
+      "activatedDateTime": "2025-03-02T08:00:00Z",
+      "endDateTime": "2027-03-01T10:00:00Z",
+      "customer": {
+        "tenantId": "norole-tenant-1111-2222-333333333333",
+        "displayName": "No PP Admin Corp"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "62e90394-69f5-4237-9190-012177145e10"
+          },
+          {
+            "roleDefinitionId": "194ae4cb-b126-40b2-bd5b-6091b380977d"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    }
+  ]
+}

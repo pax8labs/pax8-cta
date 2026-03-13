@@ -1,0 +1,93 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#tenantRelationships/delegatedAdminRelationships",
+  "value": [
+    {
+      "id": "rel-active-001",
+      "displayName": "Partner - Active Customer",
+      "duration": "P730D",
+      "status": "active",
+      "createdDateTime": "2025-01-15T10:30:00Z",
+      "lastModifiedDateTime": "2025-01-16T08:00:00Z",
+      "activatedDateTime": "2025-01-16T08:00:00Z",
+      "endDateTime": "2027-01-15T10:30:00Z",
+      "customer": {
+        "tenantId": "active-tenant-1111-2222-333333333333",
+        "displayName": "Active Customer Corp"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    },
+    {
+      "id": "rel-expired-002",
+      "displayName": "Partner - Expired Customer",
+      "duration": "P365D",
+      "status": "expired",
+      "createdDateTime": "2024-01-01T10:00:00Z",
+      "lastModifiedDateTime": "2025-01-01T10:00:00Z",
+      "activatedDateTime": "2024-01-02T08:00:00Z",
+      "endDateTime": "2025-01-01T10:00:00Z",
+      "customer": {
+        "tenantId": "expired-tenant-4444-5555-666666666666",
+        "displayName": "Expired Customer LLC"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    },
+    {
+      "id": "rel-pending-003",
+      "displayName": "Partner - Pending Customer",
+      "duration": "P730D",
+      "status": "pending",
+      "createdDateTime": "2026-03-10T14:00:00Z",
+      "lastModifiedDateTime": "2026-03-10T14:00:00Z",
+      "activatedDateTime": null,
+      "endDateTime": "2028-03-10T14:00:00Z",
+      "customer": {
+        "tenantId": "pending-tenant-7777-8888-999999999999",
+        "displayName": "Pending Customer Inc"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    },
+    {
+      "id": "rel-terminated-004",
+      "displayName": "Partner - Terminated Customer",
+      "duration": "P730D",
+      "status": "terminated",
+      "createdDateTime": "2024-06-01T10:00:00Z",
+      "lastModifiedDateTime": "2025-06-01T10:00:00Z",
+      "activatedDateTime": "2024-06-02T08:00:00Z",
+      "endDateTime": "2026-06-01T10:00:00Z",
+      "customer": {
+        "tenantId": "terminated-tenant-aaaa-bbbb-cccccccccccc",
+        "displayName": "Terminated Customer Co"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    }
+  ]
+}

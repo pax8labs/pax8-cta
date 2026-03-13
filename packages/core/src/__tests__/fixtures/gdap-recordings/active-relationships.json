@@ -1,0 +1,81 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#tenantRelationships/delegatedAdminRelationships",
+  "@odata.count": 3,
+  "value": [
+    {
+      "id": "aaaaaaaa-1111-2222-3333-444444444444-bbbbbbbb-5555-6666-7777-888888888888",
+      "displayName": "Partner - Contoso Ltd",
+      "duration": "P730D",
+      "status": "active",
+      "createdDateTime": "2025-01-15T10:30:00Z",
+      "lastModifiedDateTime": "2025-01-16T08:00:00Z",
+      "activatedDateTime": "2025-01-16T08:00:00Z",
+      "endDateTime": "2027-01-15T10:30:00Z",
+      "customer": {
+        "tenantId": "cccccccc-1111-2222-3333-444444444444",
+        "displayName": "Contoso Ltd"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          },
+          {
+            "roleDefinitionId": "62e90394-69f5-4237-9190-012177145e10"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    },
+    {
+      "id": "aaaaaaaa-1111-2222-3333-444444444444-dddddddd-9999-aaaa-bbbb-cccccccccccc",
+      "displayName": "Partner - Fabrikam Inc",
+      "duration": "P730D",
+      "status": "active",
+      "createdDateTime": "2025-02-01T14:00:00Z",
+      "lastModifiedDateTime": "2025-02-02T09:00:00Z",
+      "activatedDateTime": "2025-02-02T09:00:00Z",
+      "endDateTime": "2027-02-01T14:00:00Z",
+      "customer": {
+        "tenantId": "dddddddd-9999-aaaa-bbbb-cccccccccccc",
+        "displayName": "Fabrikam Inc"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    },
+    {
+      "id": "aaaaaaaa-1111-2222-3333-444444444444-eeeeeeee-1111-2222-3333-ffffffffffff",
+      "displayName": "Partner - Adventure Works",
+      "duration": "P365D",
+      "status": "active",
+      "createdDateTime": "2025-06-10T16:00:00Z",
+      "lastModifiedDateTime": "2025-06-11T10:00:00Z",
+      "activatedDateTime": "2025-06-11T10:00:00Z",
+      "endDateTime": "2026-06-10T16:00:00Z",
+      "customer": {
+        "tenantId": "eeeeeeee-1111-2222-3333-ffffffffffff",
+        "displayName": "Adventure Works"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          },
+          {
+            "roleDefinitionId": "194ae4cb-b126-40b2-bd5b-6091b380977d"
+          },
+          {
+            "roleDefinitionId": "f28a1f50-f6e7-4571-818b-6a12f2af6b6c"
+          }
+        ]
+      },
+      "autoExtendDuration": "P180D"
+    }
+  ]
+}
