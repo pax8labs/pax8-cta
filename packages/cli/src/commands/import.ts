@@ -15,7 +15,8 @@
  */
 
 import { Command } from "commander";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import {
@@ -85,7 +86,7 @@ Examples:
       spinner.succeed(`Route established to ${destination.name}`);
 
       // Import solution (deliver agent package)
-      const agentPackagePath = resolve(options.agentPackage || options.solution);
+      const agentPackagePath = resolveAgentPackage(options.agentPackage || options.solution);
       spinner.start(`Delivering agent package to ${destination.name}...`);
 
       const importJobId = await solutionOps.importSolutionAsync(agentPackagePath, {
@@ -117,3 +118,41 @@ Examples:
       handleCommandError(error, spinner, "Delivery failed");
     }
   });
+
+/**
+ * Resolve a solution argument to an actual file path.
+ * If the argument looks like an explicit path (contains / or .zip), resolve it directly.
+ * Otherwise, treat it as a solution name and search "agent packages/" for the
+ * most recent matching zip.
+ */
+function resolveAgentPackage(input: string): string {
+  // If it looks like an explicit file path, resolve directly (let downstream handle missing)
+  if (input.includes("/") || input.includes("\\") || input.endsWith(".zip")) {
+    return resolve(input);
+  }
+
+  // Check if the exact name exists as a file (unlikely but handle it)
+  const direct = resolve(input);
+  if (existsSync(direct)) return direct;
+
+  // Treat as solution name — search "agent packages/" for matching zips
+  const agentPackagesDir = resolve(process.cwd(), "agent packages");
+  if (existsSync(agentPackagesDir)) {
+    const matches = readdirSync(agentPackagesDir)
+      .filter((f) => f.startsWith(input) && f.endsWith(".zip"))
+      .map((f) => ({
+        name: f,
+        path: join(agentPackagesDir, f),
+        mtime: statSync(join(agentPackagesDir, f)).mtimeMs,
+      }))
+      .sort((a, b) => b.mtime - a.mtime);
+
+    if (matches.length > 0) {
+      return matches[0].path;
+    }
+  }
+
+  throw new CliError(
+    `Solution '${input}' not found.\nNo matching zips in 'agent packages/'.\nTip: Export first with 'agentsync export ${input}', then retry.`
+  );
+}
