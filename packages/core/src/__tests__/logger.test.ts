@@ -4,7 +4,11 @@ import {
   timedOperation,
   withTraceContext,
   withTraceContextAsync,
+  configureLogging,
+  resetLogging,
 } from "../services/logger.js";
+import type { LogTransport, LogEntry } from "../services/logger.js";
+import * as loggerModule from "../services/logger.js";
 
 describe("Logger", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn<typeof console, "log">>;
@@ -241,5 +245,51 @@ describe("withTraceContext helpers", () => {
     }, "my-trace");
 
     expect((capturedCtx as { traceId?: string })?.traceId).toBe("my-trace");
+  });
+});
+
+describe("configureLogging / resetLogging", () => {
+  afterEach(() => {
+    resetLogging();
+  });
+
+  it("should replace singleton transports via configureLogging", () => {
+    const entries: LogEntry[] = [];
+    const capture: LogTransport = { log: (e) => entries.push(e) };
+
+    configureLogging({ transports: [capture] });
+
+    // ESM live bindings: loggerModule.coreLogger reflects the reassigned export
+    loggerModule.coreLogger.info("hello from reconfigured logger");
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].message).toBe("hello from reconfigured logger");
+    expect(entries[0].service).toBe("core");
+  });
+
+  it("should allow setting a custom minLevel", () => {
+    const entries: LogEntry[] = [];
+    const capture: LogTransport = { log: (e) => entries.push(e) };
+
+    configureLogging({ transports: [capture], minLevel: "error" });
+
+    loggerModule.coreLogger.info("should be suppressed");
+    loggerModule.coreLogger.error("should appear");
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].level).toBe("error");
+  });
+
+  it("resetLogging should restore default behaviour", () => {
+    const entries: LogEntry[] = [];
+    const capture: LogTransport = { log: (e) => entries.push(e) };
+
+    configureLogging({ transports: [capture] });
+    resetLogging();
+
+    // After reset, the capture transport should no longer receive logs.
+    // coreLogger is now a fresh Logger with the default ConsoleTransport.
+    loggerModule.coreLogger.info("after reset");
+    expect(entries).toHaveLength(0);
   });
 });
