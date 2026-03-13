@@ -15,6 +15,7 @@
  */
 
 import { DataverseClient, SolutionRecord } from "./client.js";
+import { AgentResolutionError, ErrorCode, DataverseApiError } from "../errors.js";
 
 /**
  * Bot (Copilot) record from Dataverse
@@ -83,7 +84,11 @@ export class AgentResolver {
     const titleId = parsed.searchParams.get("titleId");
 
     if (!titleId) {
-      throw new Error("No titleId parameter found in URL");
+      throw new AgentResolutionError(
+        ErrorCode.AGENT_URL_INVALID,
+        "No titleId parameter found in URL",
+        { agentUrl: url }
+      );
     }
 
     // Try to extract the GUID portion from titleId
@@ -133,8 +138,11 @@ export class AgentResolver {
       });
       return result;
     } catch (error) {
-      // Bot not found
-      if (error instanceof Error && error.message.includes("404")) {
+      // Bot not found - check by typed error code or status code
+      if (
+        (error instanceof DataverseApiError && error.statusCode === 404) ||
+        (error instanceof Error && error.message.includes("404"))
+      ) {
         return null;
       }
       throw error;
@@ -233,10 +241,12 @@ export class AgentResolver {
       }
     }
 
-    throw new Error(
+    throw new AgentResolutionError(
+      ErrorCode.AGENT_RESOLUTION_FAILED,
       `Could not resolve agent URL to a solution. titleId: ${parsed.titleId}\n` +
         `Tried: direct lookup, pattern matching across ${allBots.length} bots.\n` +
-        `The titleId format may require M365 Graph API access to resolve.`
+        `The titleId format may require M365 Graph API access to resolve.`,
+      { agentUrl: url }
     );
   }
 

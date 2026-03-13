@@ -16,6 +16,16 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AgentSyncError, formatError, printError } from "../lib/error-handler.js";
+import {
+  AuthError,
+  GdapError,
+  DataverseApiError,
+  SolutionError,
+  AgentResolutionError,
+  ConfigValidationError,
+  NetworkError,
+  ErrorCode,
+} from "@agentsync/core";
 
 describe("Error Handler", () => {
   describe("AgentSyncError", () => {
@@ -37,7 +47,118 @@ describe("Error Handler", () => {
     });
   });
 
-  describe("formatError", () => {
+  describe("formatError - structured error codes (code path)", () => {
+    it("should map GdapError with GDAP_APP_USER_NOT_REGISTERED", () => {
+      const error = new GdapError(
+        ErrorCode.GDAP_APP_USER_NOT_REGISTERED,
+        "App user not registered",
+        { clientId: "test-id", environmentUrl: "https://test.crm.dynamics.com" }
+      );
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_GDAP_MISSING");
+      expect(formatted.message).toContain("Application user not registered");
+      expect(formatted.causes).toHaveLength(3);
+      expect(formatted.recovery).toContain("Go to https://admin.powerplatform.microsoft.com");
+      expect(formatted.context?.clientId).toBe("test-id");
+      expect(formatted.context?.environmentUrl).toBe("https://test.crm.dynamics.com");
+    });
+
+    it("should map AuthError with AUTH_FAILED", () => {
+      const error = new AuthError(ErrorCode.AUTH_FAILED, "Token acquisition failed", {
+        clientId: "test-id",
+      });
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_AUTH_FAILED");
+      expect(formatted.message).toContain("Authentication failed");
+      expect(formatted.causes).toContain("The client secret may have expired");
+    });
+
+    it("should map AuthError with AUTH_INVALID_SECRET", () => {
+      const error = new AuthError(ErrorCode.AUTH_INVALID_SECRET, "Secret expired");
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_AUTH_FAILED");
+    });
+
+    it("should map AuthError with AUTH_APP_NOT_FOUND", () => {
+      const error = new AuthError(ErrorCode.AUTH_APP_NOT_FOUND, "App not found");
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_AUTH_FAILED");
+    });
+
+    it("should map DataverseError with PERMISSION_PRIVILEGE_MISSING", () => {
+      const error = new DataverseApiError(
+        ErrorCode.PERMISSION_PRIVILEGE_MISSING,
+        "prvRead missing",
+        403,
+        { clientId: "abc-123" }
+      );
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_INSUFFICIENT_PERMISSIONS");
+      expect(formatted.message).toContain("lacks required permissions");
+      expect(formatted.context?.clientId).toBe("abc-123");
+    });
+
+    it("should map DataverseError with DATAVERSE_FORBIDDEN", () => {
+      const error = new DataverseApiError(ErrorCode.DATAVERSE_FORBIDDEN, "Forbidden", 403);
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_INSUFFICIENT_PERMISSIONS");
+    });
+
+    it("should map DataverseError with DATAVERSE_UNAUTHORIZED", () => {
+      const error = new DataverseApiError(ErrorCode.DATAVERSE_UNAUTHORIZED, "Unauthorized", 401);
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_AUTH_FAILED");
+    });
+
+    it("should map SolutionError with SOLUTION_NOT_FOUND", () => {
+      const error = new SolutionError(ErrorCode.SOLUTION_NOT_FOUND, "Solution not found", {
+        solutionName: "MyAgent",
+      });
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_SOLUTION_NOT_FOUND");
+      expect(formatted.message).toContain("not found");
+      expect(formatted.context?.solutionName).toBe("MyAgent");
+    });
+
+    it("should map AgentResolutionError", () => {
+      const error = new AgentResolutionError(
+        ErrorCode.AGENT_RESOLUTION_FAILED,
+        "Could not resolve"
+      );
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_SOLUTION_NOT_FOUND");
+      expect(formatted.message).toContain("resolve agent URL");
+    });
+
+    it("should map ConfigValidationError with CONFIG_NOT_FOUND", () => {
+      const error = new ConfigValidationError(ErrorCode.CONFIG_NOT_FOUND, "Config not found");
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_CONFIG_NOT_FOUND");
+      expect(formatted.message).toContain("Configuration file");
+    });
+
+    it("should map NetworkError with NETWORK_CONNECTION_REFUSED", () => {
+      const error = new NetworkError(ErrorCode.NETWORK_CONNECTION_REFUSED, "Connection refused", {
+        environmentUrl: "https://test.crm.dynamics.com",
+      });
+      const formatted = formatError(error);
+
+      expect(formatted.code).toBe("ERROR_NETWORK");
+      expect(formatted.message).toContain("Network connection failed");
+    });
+  });
+
+  describe("formatError - regex fallback (legacy path)", () => {
     it("should map GDAP missing errors", () => {
       const error = new Error(
         "user is not a member of the organization. Environment: https://test.crm.dynamics.com"

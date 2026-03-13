@@ -20,6 +20,7 @@ import {
   AuthenticationResult,
 } from "@azure/msal-node";
 import { TOKEN_REFRESH_BUFFER_MS } from "../constants.js";
+import { AuthError, ErrorCode } from "../errors.js";
 
 export interface TokenManagerConfig {
   tenantId: string;
@@ -107,51 +108,83 @@ export class TokenManager {
       });
 
       if (!result) {
-        throw new Error("Failed to acquire token - no result returned");
+        throw new AuthError(ErrorCode.AUTH_FAILED, "Failed to acquire token - no result returned", {
+          clientId: this.config.clientId,
+        });
       }
 
       return result;
     } catch (error) {
-      // Enhance error message with helpful guidance
-      let errorMessage = `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}`;
+      // Re-throw if already a typed error
+      if (error instanceof AuthError) {
+        throw error;
+      }
 
       const errorString = String(error);
+      const context = { clientId: this.config.clientId, tenantId: this.config.tenantId };
 
       // Check for common authentication errors
       if (/AADSTS700016/i.test(errorString)) {
-        // Application not found in directory
-        errorMessage += `\n\nThe application (Client ID: ${this.config.clientId}) is not registered in the tenant.\n`;
-        errorMessage += `\nTo fix:\n`;
-        errorMessage += `1. Verify the Client ID in your configuration\n`;
-        errorMessage += `2. Go to https://portal.azure.com → Azure Active Directory → App registrations\n`;
-        errorMessage += `3. Ensure the app is registered in the correct tenant\n`;
-        errorMessage += `4. Check that the app has not been deleted\n`;
+        throw new AuthError(
+          ErrorCode.AUTH_APP_NOT_FOUND,
+          `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
+            `The application (Client ID: ${this.config.clientId}) is not registered in the tenant.\n` +
+            `\nTo fix:\n` +
+            `1. Verify the Client ID in your configuration\n` +
+            `2. Go to https://portal.azure.com → Azure Active Directory → App registrations\n` +
+            `3. Ensure the app is registered in the correct tenant\n` +
+            `4. Check that the app has not been deleted`,
+          context,
+          { cause: error }
+        );
       } else if (/AADSTS7000215/i.test(errorString)) {
-        // Invalid client secret
-        errorMessage += `\n\nThe client secret for application (Client ID: ${this.config.clientId}) is invalid.\n`;
-        errorMessage += `\nTo fix:\n`;
-        errorMessage += `1. Go to https://portal.azure.com → Azure Active Directory → App registrations\n`;
-        errorMessage += `2. Find your application and go to "Certificates & secrets"\n`;
-        errorMessage += `3. Generate a new client secret\n`;
-        errorMessage += `4. Update your configuration with the new secret\n`;
-        errorMessage += `5. Note: Secrets expire - check the expiration date\n`;
+        throw new AuthError(
+          ErrorCode.AUTH_INVALID_SECRET,
+          `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
+            `The client secret for application (Client ID: ${this.config.clientId}) is invalid.\n` +
+            `\nTo fix:\n` +
+            `1. Go to https://portal.azure.com → Azure Active Directory → App registrations\n` +
+            `2. Find your application and go to "Certificates & secrets"\n` +
+            `3. Generate a new client secret\n` +
+            `4. Update your configuration with the new secret\n` +
+            `5. Note: Secrets expire - check the expiration date`,
+          context,
+          { cause: error }
+        );
       } else if (/AADSTS50034/i.test(errorString)) {
-        // User account not found
-        errorMessage += `\n\nThe application (Client ID: ${this.config.clientId}) account does not exist in tenant ${this.config.tenantId}.\n`;
-        errorMessage += `\nTo fix:\n`;
-        errorMessage += `1. Verify the Tenant ID in your configuration\n`;
-        errorMessage += `2. Ensure the application is registered in the correct Azure AD tenant\n`;
-      } else if (/invalid_client/i.test(errorString) || /AADSTS700016/i.test(errorString)) {
-        errorMessage += `\n\nAuthentication credentials are invalid for application (Client ID: ${this.config.clientId}).\n`;
-        errorMessage += `\nTo fix:\n`;
-        errorMessage += `1. Verify Client ID and Client Secret are correct\n`;
-        errorMessage += `2. Check if the client secret has expired\n`;
-        errorMessage += `3. Ensure the application has the required API permissions:\n`;
-        errorMessage += `   - For Power Platform: "Dynamics CRM" → "user_impersonation"\n`;
-        errorMessage += `   - Click "Grant admin consent" after adding permissions\n`;
+        throw new AuthError(
+          ErrorCode.AUTH_ACCOUNT_NOT_FOUND,
+          `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
+            `The application (Client ID: ${this.config.clientId}) account does not exist in tenant ${this.config.tenantId}.\n` +
+            `\nTo fix:\n` +
+            `1. Verify the Tenant ID in your configuration\n` +
+            `2. Ensure the application is registered in the correct Azure AD tenant`,
+          context,
+          { cause: error }
+        );
+      } else if (/invalid_client/i.test(errorString)) {
+        throw new AuthError(
+          ErrorCode.AUTH_INVALID_CLIENT,
+          `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
+            `Authentication credentials are invalid for application (Client ID: ${this.config.clientId}).\n` +
+            `\nTo fix:\n` +
+            `1. Verify Client ID and Client Secret are correct\n` +
+            `2. Check if the client secret has expired\n` +
+            `3. Ensure the application has the required API permissions:\n` +
+            `   - For Power Platform: "Dynamics CRM" → "user_impersonation"\n` +
+            `   - Click "Grant admin consent" after adding permissions`,
+          context,
+          { cause: error }
+        );
       }
 
-      throw new Error(errorMessage);
+      // Generic auth failure
+      throw new AuthError(
+        ErrorCode.AUTH_FAILED,
+        `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}`,
+        context,
+        { cause: error }
+      );
     }
   }
 

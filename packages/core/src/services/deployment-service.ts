@@ -21,6 +21,7 @@ import { ConnectionOperations } from "../dataverse/connection-refs.js";
 import { ConnectionMapping, EnvironmentVariable } from "../config/schema.js";
 import { PowerPlatformAdminClient } from "../powerplatform/admin-client.js";
 import { DEFAULT_DEPLOYMENT_CONCURRENCY } from "../constants.js";
+import { GdapError, ErrorCode } from "../errors.js";
 
 export interface DeploymentServiceConfig extends TokenManagerConfig {
   // Partner/MSP tenant credentials for GDAP access
@@ -149,8 +150,7 @@ export class DeploymentService {
         await dataverseClient.querySolutions();
       } catch (error) {
         // Check if this is an app user setup issue
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const isAppUserError = this.isAppUserNotRegisteredError(errorMessage);
+        const isAppUserError = this.isAppUserNotRegisteredError(error);
 
         if (isAppUserError) {
           // Check if auto-setup is enabled (default: true)
@@ -158,7 +158,8 @@ export class DeploymentService {
 
           if (!autoSetup) {
             // Auto-setup is disabled, provide helpful error message
-            throw new Error(
+            throw new GdapError(
+              ErrorCode.GDAP_APP_USER_NOT_REGISTERED,
               `Application user not registered in environment.\n\n` +
                 `Auto-setup is disabled (autoSetup: false in config).\n\n` +
                 `To fix manually:\n` +
@@ -167,7 +168,14 @@ export class DeploymentService {
                 `3. Click "+ New app user" and add your application (Client ID: ${this.config.clientId})\n` +
                 `4. Assign the "System Administrator" security role\n` +
                 `5. Save and retry the deployment\n\n` +
-                `Or enable auto-setup by removing 'autoSetup: false' from your tenant configuration.`
+                `Or enable auto-setup by removing 'autoSetup: false' from your tenant configuration.`,
+              {
+                clientId: this.config.clientId,
+                tenantId: target.tenantId,
+                tenantName: target.tenantName,
+                environmentUrl: target.environmentUrl,
+              },
+              { cause: error }
             );
           }
 
@@ -439,9 +447,16 @@ export class DeploymentService {
   }
 
   /**
-   * Check if an error message indicates the app user is not registered
+   * Check if an error indicates the app user is not registered.
+   * Prefers checking the structured error code; falls back to regex on the message.
    */
-  private isAppUserNotRegisteredError(errorMessage: string): boolean {
+  private isAppUserNotRegisteredError(error: unknown): boolean {
+    // Check typed error code first
+    if (error instanceof GdapError && error.code === ErrorCode.GDAP_APP_USER_NOT_REGISTERED) {
+      return true;
+    }
+    // Fallback to message matching for untyped errors from external sources
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return (
       /user is not a member of the organization/i.test(errorMessage) ||
       /not a member of.*environment/i.test(errorMessage) ||
@@ -462,17 +477,29 @@ export class DeploymentService {
       // This is a fallback - ideally environmentId should be provided in config
       const match = target.environmentUrl.match(/https:\/\/([^.]+)\./);
       if (!match) {
-        throw new Error(
+        throw new GdapError(
+          ErrorCode.GDAP_ENVIRONMENT_ID_MISSING,
           "Cannot auto-setup application user: environmentId not provided in target configuration.\n" +
-            "Please add 'environmentId' to your tenant configuration or set 'autoSetup: false' to disable auto-setup."
+            "Please add 'environmentId' to your tenant configuration or set 'autoSetup: false' to disable auto-setup.",
+          {
+            tenantId: target.tenantId,
+            tenantName: target.tenantName,
+            environmentUrl: target.environmentUrl,
+          }
         );
       }
       // Note: This is the org name, not the full environment ID
       // The Admin API requires the full ID like: /providers/Microsoft.BusinessAppPlatform/scopes/admin/environments/{guid}
-      throw new Error(
+      throw new GdapError(
+        ErrorCode.GDAP_ENVIRONMENT_ID_MISSING,
         "Cannot auto-setup application user: environmentId not provided in target configuration.\n" +
           "Please add 'environmentId' to your tenant configuration.\n" +
-          "You can find the environment ID in the Power Platform Admin Center URL when viewing the environment."
+          "You can find the environment ID in the Power Platform Admin Center URL when viewing the environment.",
+        {
+          tenantId: target.tenantId,
+          tenantName: target.tenantName,
+          environmentUrl: target.environmentUrl,
+        }
       );
     }
 
@@ -488,16 +515,25 @@ export class DeploymentService {
       );
 
       if (result.created) {
-        console.log(`✓ ${result.message}`);
+        console.log(`\u2713 ${result.message}`);
       } else {
-        console.log(`✓ ${result.message}`);
+        console.log(`\u2713 ${result.message}`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(
+      throw new GdapError(
+        ErrorCode.GDAP_SETUP_FAILED,
         `Failed to auto-setup application user: ${errorMessage}\n\n` +
           `You can disable auto-setup by setting 'autoSetup: false' in your tenant configuration,\n` +
-          `then follow the manual setup instructions.`
+          `then follow the manual setup instructions.`,
+        {
+          clientId: this.config.clientId,
+          tenantId: target.tenantId,
+          tenantName: target.tenantName,
+          environmentUrl: target.environmentUrl,
+          environmentId: target.environmentId,
+        },
+        { cause: error }
       );
     }
   }
