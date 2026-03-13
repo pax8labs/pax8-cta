@@ -42,12 +42,17 @@ function createRelationship(
   };
 }
 
+const mockHeaders = (extra: Record<string, string> = {}) => ({
+  get: (name: string) => extra[name.toLowerCase()] ?? null,
+});
+
 function mockGraphResponse(value: DelegatedAdminRelationship[]) {
   mockFetch.mockResolvedValueOnce({
     ok: true,
     status: 200,
     json: () => Promise.resolve({ value }),
     text: () => Promise.resolve(JSON.stringify({ value })),
+    headers: mockHeaders(),
   });
 }
 
@@ -57,21 +62,29 @@ function mockGraphSingleResponse(rel: DelegatedAdminRelationship) {
     status: 200,
     json: () => Promise.resolve(rel),
     text: () => Promise.resolve(JSON.stringify(rel)),
+    headers: mockHeaders(),
   });
 }
 
-function mockGraphError(errorText: string, status = 500) {
-  mockFetch.mockResolvedValueOnce({
-    ok: false,
-    status,
-    text: () => Promise.resolve(errorText),
-  });
+function mockGraphError(errorText: string, status = 500, headers: Record<string, string> = {}) {
+  // For retryable errors (429, 5xx), provide enough mocks to exhaust retries
+  const isRetryable = [429, 500, 502, 503, 504].includes(status);
+  const count = isRetryable ? 4 : 1; // MAX_RETRIES + 1
+  for (let i = 0; i < count; i++) {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status,
+      text: () => Promise.resolve(errorText),
+      headers: mockHeaders(headers),
+    });
+  }
 }
 
 describe("GdapClient", () => {
   let client: GdapClient;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     mockFetch.mockReset();
     MockTokenManager.mockImplementation(() => ({
       getGraphToken: vi.fn().mockResolvedValue("mock-graph-token"),
@@ -84,6 +97,10 @@ describe("GdapClient", () => {
       clientId: "partner-client-id",
       clientSecret: "partner-secret",
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   // ---------------------------------------------------------------------------
@@ -151,20 +168,29 @@ describe("GdapClient", () => {
       );
     });
 
-    it("should throw on 429 throttled", async () => {
+    it("should throw on 429 after retries exhausted", async () => {
       mockGraphError("Too Many Requests", 429);
 
-      await expect(client.listDelegatedAdminRelationships()).rejects.toThrow(
-        "Failed to list delegated admin relationships"
-      );
+      const promise = client.listDelegatedAdminRelationships().catch((e: Error) => e);
+      await vi.runAllTimersAsync();
+      const error = await promise;
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain("Failed to list delegated admin relationships");
+      // 1 initial + 3 retries = 4 calls
+      expect(mockFetch).toHaveBeenCalledTimes(4);
     });
 
-    it("should throw on 500 server error", async () => {
+    it("should throw on 500 after retries exhausted", async () => {
       mockGraphError("Internal Server Error", 500);
 
-      await expect(client.listDelegatedAdminRelationships()).rejects.toThrow(
-        "Failed to list delegated admin relationships"
-      );
+      const promise = client.listDelegatedAdminRelationships().catch((e: Error) => e);
+      await vi.runAllTimersAsync();
+      const error = await promise;
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain("Failed to list delegated admin relationships");
+      expect(mockFetch).toHaveBeenCalledTimes(4);
     });
 
     it("should include error body in thrown message", async () => {
@@ -215,12 +241,15 @@ describe("GdapClient", () => {
       );
     });
 
-    it("should throw on server error", async () => {
+    it("should throw on server error after retries", async () => {
       mockGraphError("Internal error", 500);
 
-      await expect(client.getDelegatedAdminRelationship("rel-001")).rejects.toThrow(
-        "Failed to get delegated admin relationship"
-      );
+      const promise = client.getDelegatedAdminRelationship("rel-001").catch((e: Error) => e);
+      await vi.runAllTimersAsync();
+      const error = await promise;
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain("Failed to get delegated admin relationship");
     });
   });
 
@@ -453,6 +482,215 @@ describe("GdapClient", () => {
       const tm2 = client.getCustomerTokenManager("customer-2", partnerConfig);
 
       expect(tm1).not.toBe(tm2);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pagination (#267)
+  // ---------------------------------------------------------------------------
+  describe("pagination", () => {
+    it("should follow @odata.nextLink to fetch all pages", async () => {
+      const page1Rels = [
+        createRelationship({ id: "rel-1", customer: { tenantId: "t1", displayName: "T1" } }),
+        createRelationship({ id: "rel-2", customer: { tenantId: "t2", displayName: "T2" } }),
+      ];
+      const page2Rels = [
+        createRelationship({ id: "rel-3", customer: { tenantId: "t3", displayName: "T3" } }),
+      ];
+
+      // Page 1 with nextLink
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            value: page1Rels,
+            "@odata.nextLink":
+              "https://graph.microsoft.com/v1.0/tenantRelationships/delegatedAdminRelationships?$skiptoken=page2",
+          }),
+        headers: mockHeaders(),
+      });
+      // Page 2 without nextLink
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ value: page2Rels }),
+        headers: mockHeaders(),
+      });
+
+      const result = await client.listDelegatedAdminRelationships();
+
+      expect(result).toHaveLength(3);
+      expect(result.map((r) => r.id)).toEqual(["rel-1", "rel-2", "rel-3"]);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should use nextLink URL for subsequent pages", async () => {
+      const nextLinkUrl =
+        "https://graph.microsoft.com/v1.0/tenantRelationships/delegatedAdminRelationships?$skiptoken=abc123";
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            value: [createRelationship()],
+            "@odata.nextLink": nextLinkUrl,
+          }),
+        headers: mockHeaders(),
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ value: [] }),
+        headers: mockHeaders(),
+      });
+
+      await client.listDelegatedAdminRelationships();
+
+      // Second call should use the nextLink URL exactly
+      expect(mockFetch.mock.calls[1][0]).toBe(nextLinkUrl);
+    });
+
+    it("should handle many pages", async () => {
+      // Simulate 3 pages of 2 relationships each
+      for (let page = 0; page < 3; page++) {
+        const isLast = page === 2;
+        const rels = [
+          createRelationship({
+            id: `rel-${page * 2}`,
+            customer: { tenantId: `t${page * 2}`, displayName: `T${page * 2}` },
+          }),
+          createRelationship({
+            id: `rel-${page * 2 + 1}`,
+            customer: { tenantId: `t${page * 2 + 1}`, displayName: `T${page * 2 + 1}` },
+          }),
+        ];
+        const body: any = { value: rels };
+        if (!isLast) {
+          body["@odata.nextLink"] = `https://graph.microsoft.com/v1.0/next?page=${page + 1}`;
+        }
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(body),
+          headers: mockHeaders(),
+        });
+      }
+
+      const result = await client.listDelegatedAdminRelationships();
+      expect(result).toHaveLength(6);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should stop at single page when no nextLink", async () => {
+      mockGraphResponse([createRelationship()]);
+
+      const result = await client.listDelegatedAdminRelationships();
+      expect(result).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Retry (#268)
+  // ---------------------------------------------------------------------------
+  describe("retry", () => {
+    it("should retry on 429 and succeed", async () => {
+      // First call: 429, second call: success
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve("Too Many Requests"),
+        headers: mockHeaders({ "retry-after": "0" }),
+      });
+      mockGraphResponse([createRelationship()]);
+
+      const promise = client.listDelegatedAdminRelationships();
+      await vi.runAllTimersAsync();
+      const result = await promise;
+
+      expect(result).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should retry on 502 and succeed", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        text: () => Promise.resolve("Bad Gateway"),
+        headers: mockHeaders(),
+      });
+      mockGraphResponse([createRelationship()]);
+
+      const promise = client.listDelegatedAdminRelationships();
+      await vi.runAllTimersAsync();
+      const result = await promise;
+
+      expect(result).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should respect Retry-After header", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve("Too Many Requests"),
+        headers: mockHeaders({ "retry-after": "5" }),
+      });
+      mockGraphResponse([createRelationship()]);
+
+      const promise = client.listDelegatedAdminRelationships();
+
+      // Advance past the 5s Retry-After
+      await vi.advanceTimersByTimeAsync(5000);
+      const result = await promise;
+
+      expect(result).toHaveLength(1);
+    });
+
+    it("should not retry on 400", async () => {
+      mockGraphError("Bad Request", 400);
+
+      await expect(client.listDelegatedAdminRelationships()).rejects.toThrow(
+        "Failed to list delegated admin relationships"
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not retry on 401", async () => {
+      mockGraphError("Unauthorized", 401);
+
+      await expect(client.listDelegatedAdminRelationships()).rejects.toThrow(
+        "Failed to list delegated admin relationships"
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not retry on 403", async () => {
+      mockGraphError("Forbidden", 403);
+
+      await expect(client.listDelegatedAdminRelationships()).rejects.toThrow(
+        "Failed to list delegated admin relationships"
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should retry getDelegatedAdminRelationship on 503", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: () => Promise.resolve("Service Unavailable"),
+        headers: mockHeaders(),
+      });
+      mockGraphSingleResponse(createRelationship({ id: "rel-recovered" }));
+
+      const promise = client.getDelegatedAdminRelationship("rel-recovered");
+      await vi.runAllTimersAsync();
+      const result = await promise;
+
+      expect(result.id).toBe("rel-recovered");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 });

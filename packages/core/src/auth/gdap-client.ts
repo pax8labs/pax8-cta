@@ -48,6 +48,15 @@ export interface CustomerEnvironment {
   }>;
 }
 
+/** Max retries for transient Graph API errors (429, 5xx) */
+const MAX_RETRIES = 3;
+
+/** Status codes that are safe to retry */
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+
+/** Max pages to follow to prevent infinite loops */
+const MAX_PAGES = 50;
+
 /**
  * Client for interacting with Microsoft Graph GDAP APIs
  * Used to discover and validate delegated admin relationships
@@ -61,43 +70,75 @@ export class GdapClient {
   }
 
   /**
-   * List all active delegated admin relationships
+   * Make a GET request to the Graph API with retry on transient errors.
    */
-  async listDelegatedAdminRelationships(): Promise<DelegatedAdminRelationship[]> {
+  private async graphGet(url: string): Promise<Response> {
     const token = await this.tokenManager.getGraphToken();
-    const response = await fetch(
-      `${this.graphBaseUrl}/tenantRelationships/delegatedAdminRelationships?$filter=status eq 'active'`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to list delegated admin relationships: ${error}`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const response = await fetch(url, { headers });
+
+      if (response.ok) {
+        return response;
+      }
+
+      if (RETRYABLE_STATUS_CODES.has(response.status) && attempt < MAX_RETRIES) {
+        const retryAfter = response.headers.get("Retry-After");
+        const delayMs = retryAfter
+          ? parseInt(retryAfter, 10) * 1000
+          : Math.min(1000 * 2 ** attempt, 10000);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      // Non-retryable error or final attempt
+      return response;
     }
 
-    const data = (await response.json()) as { value: DelegatedAdminRelationship[] };
-    return data.value;
+    // Unreachable, but TypeScript needs it
+    throw new Error("Unexpected: exhausted retries without returning");
+  }
+
+  /**
+   * List all active delegated admin relationships.
+   * Follows @odata.nextLink for pagination.
+   */
+  async listDelegatedAdminRelationships(): Promise<DelegatedAdminRelationship[]> {
+    const allRelationships: DelegatedAdminRelationship[] = [];
+    let url: string | null =
+      `${this.graphBaseUrl}/tenantRelationships/delegatedAdminRelationships?$filter=status eq 'active'`;
+    let pages = 0;
+
+    while (url && pages < MAX_PAGES) {
+      const response = await this.graphGet(url);
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to list delegated admin relationships: ${error}`);
+      }
+
+      const data = (await response.json()) as {
+        value: DelegatedAdminRelationship[];
+        "@odata.nextLink"?: string;
+      };
+      allRelationships.push(...data.value);
+      url = data["@odata.nextLink"] ?? null;
+      pages++;
+    }
+
+    return allRelationships;
   }
 
   /**
    * Get a specific delegated admin relationship by ID
    */
   async getDelegatedAdminRelationship(relationshipId: string): Promise<DelegatedAdminRelationship> {
-    const token = await this.tokenManager.getGraphToken();
-    const response = await fetch(
-      `${this.graphBaseUrl}/tenantRelationships/delegatedAdminRelationships/${relationshipId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const url = `${this.graphBaseUrl}/tenantRelationships/delegatedAdminRelationships/${relationshipId}`;
+    const response = await this.graphGet(url);
 
     if (!response.ok) {
       const error = await response.text();

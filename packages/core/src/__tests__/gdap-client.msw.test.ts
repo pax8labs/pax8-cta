@@ -18,6 +18,8 @@ import {
   activeRelationshipsHandlers,
   emptyRelationshipsHandlers,
   mixedStatusHandlers,
+  paginatedHandlers,
+  transientFailureHandlers,
   expiringSoonHandlers,
   noPowerPlatformRoleHandlers,
   unauthorizedHandlers,
@@ -251,8 +253,8 @@ describe("GdapClient (MSW replay)", () => {
       );
     });
 
-    it("should throw on 429 throttled response", async () => {
-      server.use(...throttledHandlers());
+    it("should throw on 429 after exhausting retries", async () => {
+      server.use(...throttledHandlers(0)); // 0s Retry-After for fast test
 
       await expect(client.listDelegatedAdminRelationships()).rejects.toThrow(
         /Failed to list delegated admin relationships/
@@ -269,6 +271,60 @@ describe("GdapClient (MSW replay)", () => {
       server.use(...forbiddenHandlers());
 
       await expect(client.validatePowerPlatformAccess("any-tenant")).rejects.toThrow();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pagination (#267)
+  // ---------------------------------------------------------------------------
+  describe("pagination recording", () => {
+    beforeEach(() => server.use(...paginatedHandlers()));
+
+    it("should aggregate relationships across pages", async () => {
+      const relationships = await client.listDelegatedAdminRelationships();
+
+      // Page 1 has 2 relationships, page 2 has 1
+      expect(relationships).toHaveLength(3);
+    });
+
+    it("should include tenants from all pages", async () => {
+      const relationships = await client.listDelegatedAdminRelationships();
+      const tenantIds = relationships.map((r) => r.customer.tenantId);
+
+      // Page 1 tenants
+      expect(tenantIds).toContain("page1-tenant-aaaa-1111-222222222222");
+      expect(tenantIds).toContain("page1-tenant-bbbb-3333-444444444444");
+      // Page 2 tenant
+      expect(tenantIds).toContain("page2-tenant-cccc-5555-666666666666");
+    });
+
+    it("should find tenant from second page via hasActiveRelationship", async () => {
+      const found = await client.hasActiveRelationship("page2-tenant-cccc-5555-666666666666");
+      expect(found).toBe(true);
+    });
+
+    it("should validate PP access for tenant on second page", async () => {
+      const valid = await client.validatePowerPlatformAccess("page2-tenant-cccc-5555-666666666666");
+      expect(valid).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Retry recovery (#268)
+  // ---------------------------------------------------------------------------
+  describe("transient failure recovery", () => {
+    beforeEach(() => server.use(...transientFailureHandlers()));
+
+    it("should recover from 503 and return relationships", async () => {
+      const relationships = await client.listDelegatedAdminRelationships();
+
+      // Should have retried and gotten the active-relationships fixture
+      expect(relationships).toHaveLength(3);
+    });
+
+    it("should find tenant after transient recovery", async () => {
+      const found = await client.hasActiveRelationship("cccccccc-1111-2222-3333-444444444444");
+      expect(found).toBe(true);
     });
   });
 });

@@ -139,16 +139,59 @@ export function forbiddenHandlers() {
 
 /**
  * 429 Throttled error with Retry-After header
+ * @param retryAfterSeconds - Retry-After value in seconds (default: 0 for fast tests)
  */
-export function throttledHandlers() {
+export function throttledHandlers(retryAfterSeconds = 0) {
   const data = loadFixture("error-throttled.json");
   return [
     tokenHandler,
     http.get(RELATIONSHIPS_URL, () => {
       return HttpResponse.json(data, {
         status: 429,
-        headers: { "Retry-After": "27" },
+        headers: { "Retry-After": String(retryAfterSeconds) },
       });
+    }),
+  ];
+}
+
+/**
+ * Paginated response: page 1 has nextLink, page 2 is final
+ */
+export function paginatedHandlers() {
+  const page1 = loadFixture("paginated-page1.json") as any;
+  const page2 = loadFixture("paginated-page2.json");
+  const nextLinkUrl = page1["@odata.nextLink"];
+
+  return [
+    tokenHandler,
+    // First page (filtered URL)
+    http.get(RELATIONSHIPS_URL, ({ request }) => {
+      const url = new URL(request.url);
+      if (url.searchParams.has("$skiptoken")) {
+        return HttpResponse.json(page2);
+      }
+      return HttpResponse.json(page1);
+    }),
+  ];
+}
+
+/**
+ * Transient failure then recovery: first request returns 503, subsequent succeed
+ */
+export function transientFailureHandlers() {
+  const data = loadFixture("active-relationships.json");
+  let callCount = 0;
+  return [
+    tokenHandler,
+    http.get(RELATIONSHIPS_URL, () => {
+      callCount++;
+      if (callCount === 1) {
+        return HttpResponse.json(
+          { error: { code: "ServiceUnavailable", message: "Temporary failure" } },
+          { status: 503 }
+        );
+      }
+      return HttpResponse.json(data);
     }),
   ];
 }

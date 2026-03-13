@@ -1,0 +1,50 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#tenantRelationships/delegatedAdminRelationships",
+  "@odata.nextLink": "https://graph.microsoft.com/v1.0/tenantRelationships/delegatedAdminRelationships?$filter=status%20eq%20%27active%27&$skiptoken=eyJza2lwIjoyfQ",
+  "value": [
+    {
+      "id": "page1-rel-001",
+      "displayName": "Partner - Page1 Tenant A",
+      "duration": "P730D",
+      "status": "active",
+      "createdDateTime": "2025-01-15T10:30:00Z",
+      "lastModifiedDateTime": "2025-01-16T08:00:00Z",
+      "activatedDateTime": "2025-01-16T08:00:00Z",
+      "endDateTime": "2027-01-15T10:30:00Z",
+      "customer": {
+        "tenantId": "page1-tenant-aaaa-1111-222222222222",
+        "displayName": "Page1 Tenant A Corp"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    },
+    {
+      "id": "page1-rel-002",
+      "displayName": "Partner - Page1 Tenant B",
+      "duration": "P730D",
+      "status": "active",
+      "createdDateTime": "2025-02-01T14:00:00Z",
+      "lastModifiedDateTime": "2025-02-02T09:00:00Z",
+      "activatedDateTime": "2025-02-02T09:00:00Z",
+      "endDateTime": "2027-02-01T14:00:00Z",
+      "customer": {
+        "tenantId": "page1-tenant-bbbb-3333-444444444444",
+        "displayName": "Page1 Tenant B Inc"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "PT0S"
+    }
+  ]
+}

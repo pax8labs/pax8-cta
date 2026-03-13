@@ -1,0 +1,27 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#tenantRelationships/delegatedAdminRelationships",
+  "value": [
+    {
+      "id": "page2-rel-003",
+      "displayName": "Partner - Page2 Tenant C",
+      "duration": "P365D",
+      "status": "active",
+      "createdDateTime": "2025-06-10T16:00:00Z",
+      "lastModifiedDateTime": "2025-06-11T10:00:00Z",
+      "activatedDateTime": "2025-06-11T10:00:00Z",
+      "endDateTime": "2026-06-10T16:00:00Z",
+      "customer": {
+        "tenantId": "page2-tenant-cccc-5555-666666666666",
+        "displayName": "Page2 Tenant C LLC"
+      },
+      "accessDetails": {
+        "unifiedRoles": [
+          {
+            "roleDefinitionId": "11648597-926c-4cf3-9c36-bcebb0ba8dcc"
+          }
+        ]
+      },
+      "autoExtendDuration": "P180D"
+    }
+  ]
+}
