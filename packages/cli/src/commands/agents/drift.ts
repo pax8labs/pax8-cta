@@ -23,7 +23,10 @@ import {
   DEMO_TENANTS,
   getDemoVersionDriftSummary,
   getDemoTenantVersionStatus,
+  getDemoUnmanagedCustomizations,
+  getDemoCustomizationSummary,
 } from "@agentsync/core";
+import type { UnmanagedCustomizationResult } from "@agentsync/core";
 import { isDemoModeEnabled } from "../demo.js";
 
 export const driftCommand = new Command("drift")
@@ -59,8 +62,16 @@ export const driftCommand = new Command("drift")
             process.exit(1);
           }
 
+          // Also get unmanaged customizations for this tenant
+          const customizationResult = getDemoUnmanagedCustomizations(
+            tenant.tenantId,
+            "CustomerServiceAgent"
+          );
+
           if (options.json) {
-            console.log(JSON.stringify(status, null, 2));
+            console.log(
+              JSON.stringify({ ...status, customizations: customizationResult }, null, 2)
+            );
             return;
           }
 
@@ -109,14 +120,20 @@ export const driftCommand = new Command("drift")
                 ? chalk.yellow("⚠")
                 : chalk.gray("?");
           console.log(`Overall: ${overallIcon} ${status.overallStatus}`);
+
+          // Show unmanaged customizations section
+          displayCustomizationDetails(customizationResult);
           return;
         }
 
         // Fleet-wide summary
         const summary = getDemoVersionDriftSummary();
+        const customizationSummary = getDemoCustomizationSummary("CustomerServiceAgent");
 
         if (options.json) {
-          console.log(JSON.stringify(summary, null, 2));
+          console.log(
+            JSON.stringify({ ...summary, customizations: customizationSummary }, null, 2)
+          );
           return;
         }
 
@@ -194,6 +211,9 @@ export const driftCommand = new Command("drift")
           console.log(outdatedTable.toString());
         }
 
+        // Show unmanaged customizations fleet summary
+        displayCustomizationFleetSummary(customizationSummary);
+
         return;
       }
 
@@ -206,3 +226,111 @@ export const driftCommand = new Command("drift")
       process.exit(1);
     }
   });
+
+/**
+ * Display unmanaged customization details for a single tenant
+ */
+function displayCustomizationDetails(result: UnmanagedCustomizationResult): void {
+  console.log();
+
+  if (result.totalCustomizations === 0) {
+    console.log(chalk.green("Customizations: None detected - clean environment"));
+    return;
+  }
+
+  const riskIcon =
+    result.riskLevel === "high"
+      ? chalk.red("⚠")
+      : result.riskLevel === "medium"
+        ? chalk.yellow("⚠")
+        : chalk.blue("ℹ");
+
+  console.log(chalk.bold("Unmanaged Customizations"));
+  console.log("─".repeat(60));
+  console.log(`${riskIcon} ${result.riskSummary}`);
+  console.log();
+
+  const custTable = new Table({
+    head: ["Component", "Type", "Description"],
+    style: { head: ["cyan"] },
+    colWidths: [30, 15, 45],
+    wordWrap: true,
+  });
+
+  result.customizations.forEach((c) => {
+    const typeColor =
+      c.componentType === "flow" ||
+      c.componentType === "security_role" ||
+      c.componentType === "plugin"
+        ? chalk.red
+        : chalk.yellow;
+
+    custTable.push([c.displayName, typeColor(c.componentType), c.description]);
+  });
+
+  console.log(custTable.toString());
+
+  // Type summary
+  const nonZeroTypes = Object.entries(result.byType)
+    .filter(([_, count]) => count > 0)
+    .map(([type, count]) => `${count} ${type}`)
+    .join(", ");
+
+  console.log(chalk.gray(`\nBreakdown: ${nonZeroTypes}`));
+}
+
+/**
+ * Display fleet-wide unmanaged customization summary
+ */
+function displayCustomizationFleetSummary(summary: {
+  totalTenants: number;
+  tenantsWithCustomizations: number;
+  tenantsClean: number;
+  totalCustomizations: number;
+  highRiskTenants: string[];
+  results: UnmanagedCustomizationResult[];
+}): void {
+  console.log();
+  console.log(chalk.bold("Unmanaged Customizations"));
+  console.log("─".repeat(60));
+  console.log(`  ${chalk.green("✓")} Clean:        ${summary.tenantsClean} tenants`);
+  console.log(
+    `  ${chalk.yellow("⚠")} Customized:   ${summary.tenantsWithCustomizations} tenants (${summary.totalCustomizations} total)`
+  );
+
+  if (summary.highRiskTenants.length > 0) {
+    console.log(`  ${chalk.red("⚠")} High risk:    ${summary.highRiskTenants.join(", ")}`);
+  }
+
+  // Show per-tenant customization counts
+  const tenantsWithCustomizations = summary.results.filter((r) => r.totalCustomizations > 0);
+  if (tenantsWithCustomizations.length > 0) {
+    console.log();
+
+    const custTable = new Table({
+      head: ["Tenant", "Count", "Risk", "Top Types"],
+      style: { head: ["cyan"] },
+    });
+
+    tenantsWithCustomizations.forEach((r) => {
+      const riskColor =
+        r.riskLevel === "high" ? chalk.red : r.riskLevel === "medium" ? chalk.yellow : chalk.blue;
+
+      const topTypes = Object.entries(r.byType)
+        .filter(([_, count]) => count > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([type, count]) => `${count} ${type}`)
+        .join(", ");
+
+      custTable.push([
+        r.tenantName,
+        r.totalCustomizations.toString(),
+        riskColor(r.riskLevel),
+        topTypes,
+      ]);
+    });
+
+    console.log(custTable.toString());
+  }
+}
