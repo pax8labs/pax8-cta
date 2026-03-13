@@ -630,7 +630,7 @@ tenants:
   describe("ConfigError", () => {
     it("should have correct name", () => {
       const error = new ConfigError("Test error");
-      expect(error.name).toBe("ConfigError");
+      expect(error.name).toBe("ConfigValidationError");
     });
 
     it("should store cause", () => {
