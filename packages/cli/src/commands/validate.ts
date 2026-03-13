@@ -25,6 +25,7 @@ import {
   TokenManager,
   DataverseClient,
   ConfigError,
+  GdapClient,
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError } from "../lib/errors.js";
@@ -136,11 +137,13 @@ export const validateCommand = new Command("validate")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tenant <name>", "Validate a specific tenant only")
   .option("--skip-source", "Skip source environment check")
+  .option("--gdap", "Also check GDAP relationships and Power Platform Admin role")
   .addHelpText(
     "after",
     `
 Examples:
   agentsync validate                              Check everything
+  agentsync validate --gdap                       Also verify GDAP delegation
   agentsync validate -t AgentSync-Test2           Check a specific tenant
   agentsync validate --skip-source                Check only tenants, not source
 `
@@ -292,7 +295,132 @@ Examples:
       }
     }
 
-    // Check 4: Source environment (if configured and not skipped)
+    // Check 4: GDAP relationships (if --gdap flag is set)
+    if (options.gdap) {
+      console.log();
+      console.log(chalk.bold("Checking GDAP relationships..."));
+      console.log();
+
+      try {
+        const clientSecret = await getClientSecretWithFallback();
+        const gdapClient = new GdapClient({
+          tenantId: config.partner.tenantId,
+          clientId: config.partner.clientId,
+          clientSecret: clientSecret,
+        });
+
+        const gdapSpinner = createSpinner("Fetching GDAP relationships...").start();
+        let relationships;
+        try {
+          relationships = await gdapClient.listDelegatedAdminRelationships();
+          gdapSpinner.succeed(
+            `Found ${relationships.length} active GDAP relationship${relationships.length === 1 ? "" : "s"}`
+          );
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const parsed = parseAuthError(errorMsg);
+          checks.push({
+            name: "GDAP relationships",
+            status: "fail",
+            message: parsed.message,
+            fix: parsed.fix,
+          });
+          hasErrors = true;
+          gdapSpinner.fail(`GDAP check failed: ${parsed.message}`);
+          relationships = null;
+        }
+
+        if (relationships) {
+          for (const tenant of enabledTenants) {
+            const tenantSpinner = createSpinner(`Checking GDAP for ${tenant.name}...`).start();
+
+            const relationship = relationships.find(
+              (rel) => rel.customer.tenantId === tenant.tenantId
+            );
+
+            if (!relationship) {
+              checks.push({
+                name: `GDAP: ${tenant.name}`,
+                status: "fail",
+                message: "No active GDAP relationship found",
+                fix: `Set up a GDAP relationship with tenant ${tenant.tenantId} in Partner Center`,
+              });
+              hasErrors = true;
+              tenantSpinner.fail(chalk.red(`${tenant.name}: No GDAP relationship`));
+              continue;
+            }
+
+            if (relationship.status !== "active") {
+              checks.push({
+                name: `GDAP: ${tenant.name}`,
+                status: "fail",
+                message: `GDAP relationship is ${relationship.status}`,
+                fix: `Renew the GDAP relationship in Partner Center (expires: ${relationship.endDateTime})`,
+              });
+              hasErrors = true;
+              tenantSpinner.fail(chalk.red(`${tenant.name}: GDAP ${relationship.status}`));
+              continue;
+            }
+
+            // Check for Power Platform Administrator role
+            const powerPlatformAdminRoleId = "11648597-926c-4cf3-9c36-bcebb0ba8dcc";
+            const hasPPAdmin = relationship.accessDetails.unifiedRoles.some(
+              (role) => role.roleDefinitionId === powerPlatformAdminRoleId
+            );
+
+            if (!hasPPAdmin) {
+              checks.push({
+                name: `GDAP: ${tenant.name}`,
+                status: "fail",
+                message: "Missing Power Platform Administrator role",
+                fix: "Add Power Platform Administrator role to the GDAP relationship in Partner Center",
+              });
+              hasErrors = true;
+              tenantSpinner.fail(chalk.red(`${tenant.name}: Missing Power Platform Admin role`));
+              continue;
+            }
+
+            // Check expiration (warn if within 30 days)
+            const endDate = new Date(relationship.endDateTime);
+            const daysUntilExpiry = Math.floor(
+              (endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+            );
+
+            if (daysUntilExpiry <= 30) {
+              checks.push({
+                name: `GDAP: ${tenant.name}`,
+                status: "warn",
+                message: `GDAP expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"} (${relationship.endDateTime})`,
+                fix: "Renew the GDAP relationship in Partner Center before it expires",
+              });
+              tenantSpinner.warn(
+                chalk.yellow(`${tenant.name}: GDAP expires in ${daysUntilExpiry} days`)
+              );
+            } else {
+              checks.push({
+                name: `GDAP: ${tenant.name}`,
+                status: "pass",
+                message: `Active with Power Platform Admin (expires in ${daysUntilExpiry} days)`,
+              });
+              tenantSpinner.succeed(
+                chalk.green(`${tenant.name}: GDAP valid (${daysUntilExpiry}d remaining)`)
+              );
+            }
+          }
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        checks.push({
+          name: "GDAP relationships",
+          status: "fail",
+          message: errorMsg,
+          fix: "Ensure partner credentials are correct and Graph API permissions are granted",
+        });
+        hasErrors = true;
+      }
+    }
+
+    // Check 5: Source environment (if configured and not skipped)
     if (!options.skipSource && config.source) {
       console.log();
       const sourceSpinner = createSpinner("Checking source environment...").start();
