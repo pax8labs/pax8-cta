@@ -16,6 +16,7 @@
 
 import * as crypto from "node:crypto";
 import { Webhook, WebhookEvent, DeploymentStatus } from "../config/schema.js";
+import { DEFAULT_WEBHOOK_RETRIES } from "../constants.js";
 
 /**
  * Webhook event types
@@ -104,7 +105,7 @@ export class WebhookService {
     webhook: Webhook,
     event: WebhookEvent
   ): Promise<{ success: boolean; error?: string }> {
-    const maxRetries = webhook.retries ?? 3;
+    const maxRetries = webhook.retries ?? DEFAULT_WEBHOOK_RETRIES;
     let lastError: string = "";
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {

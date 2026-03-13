@@ -15,6 +15,7 @@
  */
 
 import { coreLogger } from "./logger.js";
+import { DEFAULT_SECRETS_CACHE_TTL_MS } from "../constants.js";
 
 const logger = coreLogger.child({ service: "secrets" });
 
@@ -48,7 +49,7 @@ class AzureKeyVaultProvider implements SecretProvider {
 
   constructor(options: { vaultUrl: string; cacheTtlMs?: number }) {
     this.vaultUrl = options.vaultUrl;
-    this.cacheTtlMs = options.cacheTtlMs ?? 5 * 60 * 1000; // 5 minutes default
+    this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_SECRETS_CACHE_TTL_MS;
   }
 
   private async getAccessToken(): Promise<string> {

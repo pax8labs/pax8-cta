@@ -20,6 +20,7 @@ import { SolutionOperations, ImportResult } from "../dataverse/solution-ops.js";
 import { ConnectionOperations } from "../dataverse/connection-refs.js";
 import { ConnectionMapping, EnvironmentVariable } from "../config/schema.js";
 import { PowerPlatformAdminClient } from "../powerplatform/admin-client.js";
+import { DEFAULT_DEPLOYMENT_CONCURRENCY } from "../constants.js";
 
 export interface DeploymentServiceConfig extends TokenManagerConfig {
   // Partner/MSP tenant credentials for GDAP access
@@ -298,7 +299,7 @@ export class DeploymentService {
       onProgress?: RealDeploymentProgressCallback;
     }
   ): Promise<DeploymentResult[]> {
-    const { maxConcurrent = 3, onProgress } = options || {};
+    const { maxConcurrent = DEFAULT_DEPLOYMENT_CONCURRENCY, onProgress } = options || {};
 
     const results: DeploymentResult[] = [];
     const pending = [...targets];

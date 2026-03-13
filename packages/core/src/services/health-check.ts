@@ -16,6 +16,11 @@
 
 import { HealthCheck, parseDuration, TenantConfig } from "../config/schema.js";
 import { DataverseClient } from "../dataverse/client.js";
+import {
+  DEFAULT_HEALTH_CHECK_RETRIES,
+  DEFAULT_HEALTH_CHECK_EXPECTED_STATUS,
+  HEALTH_CHECK_TIMEOUT_MS,
+} from "../constants.js";
 
 /**
  * Result of a health check
@@ -51,9 +56,9 @@ export class HealthCheckService {
     // Merge with defaults to ensure all properties exist
     const defaultSettings: HealthCheck = {
       enabled: true,
-      expectedStatus: 200,
+      expectedStatus: DEFAULT_HEALTH_CHECK_EXPECTED_STATUS,
       timeout: "30s",
-      retries: 3,
+      retries: DEFAULT_HEALTH_CHECK_RETRIES,
     };
     const healthSettings: HealthCheck = {
       ...defaultSettings,
@@ -78,7 +83,9 @@ export class HealthCheckService {
       };
     }
 
-    const timeout = healthSettings.timeout ? parseDuration(healthSettings.timeout) : 30000;
+    const timeout = healthSettings.timeout
+      ? parseDuration(healthSettings.timeout)
+      : HEALTH_CHECK_TIMEOUT_MS;
 
     // Check 1: Dataverse connectivity
     const dataverseCheck = await this.checkDataverseConnectivity(client, timeout);
@@ -88,9 +95,9 @@ export class HealthCheckService {
     if (healthSettings.endpoint) {
       const endpointCheck = await this.checkCustomEndpoint(
         healthSettings.endpoint,
-        healthSettings.expectedStatus ?? 200,
+        healthSettings.expectedStatus ?? DEFAULT_HEALTH_CHECK_EXPECTED_STATUS,
         timeout,
-        healthSettings.retries ?? 3
+        healthSettings.retries ?? DEFAULT_HEALTH_CHECK_RETRIES
       );
       checks.push(endpointCheck);
     }

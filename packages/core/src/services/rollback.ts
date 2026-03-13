@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { DeploymentSnapshot, RollbackSettings, parseDuration } from "../config/schema.js";
 import { DataverseClient, SolutionOperations } from "../dataverse/index.js";
 import { coreLogger } from "./logger.js";
+import { ONE_MONTH_MS, ROLLBACK_TIMEOUT_MS } from "../constants.js";
 
 const logger = coreLogger;
 
@@ -62,7 +63,7 @@ export class RollbackService {
 
     // Calculate expiry based on keepVersions (we'll clean up old ones separately)
     const expiresAt = settings.keepVersions
-      ? new Date(Date.now() + settings.keepVersions * 30 * 24 * 60 * 60 * 1000).toISOString() // Approximate: keep for keepVersions months
+      ? new Date(Date.now() + settings.keepVersions * ONE_MONTH_MS).toISOString() // Approximate: keep for keepVersions months
       : undefined;
 
     // Export current solution version
@@ -148,7 +149,7 @@ export class RollbackService {
     }
 
     const solutionOps = new SolutionOperations(client);
-    const timeoutMs = options.timeout ? parseDuration(options.timeout) : 600000;
+    const timeoutMs = options.timeout ? parseDuration(options.timeout) : ROLLBACK_TIMEOUT_MS;
 
     try {
       // Import the previous version

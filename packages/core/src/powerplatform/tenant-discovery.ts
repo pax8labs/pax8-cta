@@ -18,6 +18,7 @@ import { TokenManager, TokenManagerConfig } from "../auth/token-manager.js";
 import { GdapClient, DelegatedAdminRelationship } from "../auth/gdap-client.js";
 import { PowerPlatformAdminClient, EnvironmentSummary } from "./admin-client.js";
 import { DataverseClient } from "../dataverse/client.js";
+import { POWER_PLATFORM_ADMIN_ROLE_ID } from "../constants.js";
 
 export interface TenantDiscoveryConfig extends TokenManagerConfig {
   // Partner/MSP tenant credentials
@@ -143,7 +144,7 @@ export class TenantDiscoveryService {
     const customerTenantId = relationship.customer.tenantId;
 
     // Check for Power Platform Admin role
-    const powerPlatformAdminRoleId = "11648597-926c-4cf3-9c36-bcebb0ba8dcc";
+    const powerPlatformAdminRoleId = POWER_PLATFORM_ADMIN_ROLE_ID;
     const hasPowerPlatformAdmin = relationship.accessDetails.unifiedRoles.some(
       (role) => role.roleDefinitionId === powerPlatformAdminRoleId
     );

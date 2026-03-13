@@ -15,6 +15,7 @@
  */
 
 import { TokenManager, TokenManagerConfig } from "./token-manager.js";
+import { POWER_PLATFORM_ADMIN_ROLE_ID } from "../constants.js";
 
 export interface GdapClientConfig extends TokenManagerConfig {
   // Partner tenant is the home tenant
@@ -163,8 +164,7 @@ export class GdapClient {
    * to a customer tenant via GDAP
    */
   async validatePowerPlatformAccess(customerTenantId: string): Promise<boolean> {
-    // Power Platform Administrator role ID
-    const powerPlatformAdminRoleId = "11648597-926c-4cf3-9c36-bcebb0ba8dcc";
+    const powerPlatformAdminRoleId = POWER_PLATFORM_ADMIN_ROLE_ID;
 
     const relationships = await this.listDelegatedAdminRelationships();
     const relationship = relationships.find((rel) => rel.customer.tenantId === customerTenantId);

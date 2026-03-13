@@ -19,6 +19,7 @@ import {
   Configuration,
   AuthenticationResult,
 } from "@azure/msal-node";
+import { TOKEN_REFRESH_BUFFER_MS } from "../constants.js";
 
 export interface TokenManagerConfig {
   tenantId: string;
@@ -37,7 +38,6 @@ interface CachedToken {
 export class TokenManager {
   private msalClient: ConfidentialClientApplication;
   private tokenCache: Map<string, CachedToken> = new Map();
-  private readonly TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes before expiry
   private readonly config: TokenManagerConfig;
 
   constructor(config: TokenManagerConfig) {
@@ -165,6 +165,6 @@ export class TokenManager {
   private isTokenExpired(cached: CachedToken): boolean {
     const now = Date.now();
     const expiresAt = cached.expiresAt.getTime();
-    return now >= expiresAt - this.TOKEN_REFRESH_BUFFER_MS;
+    return now >= expiresAt - TOKEN_REFRESH_BUFFER_MS;
   }
 }
