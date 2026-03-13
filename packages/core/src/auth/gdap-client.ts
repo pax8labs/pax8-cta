@@ -73,14 +73,14 @@ export class GdapClient {
    * Make a GET request to the Graph API with retry on transient errors.
    */
   private async graphGet(url: string): Promise<Response> {
-    const token = await this.tokenManager.getGraphToken();
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const response = await fetch(url, { headers });
+      const token = await this.tokenManager.getGraphToken();
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         return response;
