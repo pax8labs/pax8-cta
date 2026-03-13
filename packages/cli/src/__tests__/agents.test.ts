@@ -541,4 +541,305 @@ describe("Agents Command", () => {
       expect(json!.tenants[0].recommendation).toBeDefined();
     });
   });
+
+  describe("drift fix command", () => {
+    it("should show drift fix plan with --fix --dry-run", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync([
+        "node",
+        "test",
+        "agents",
+        "drift",
+        "--fix",
+        "--dry-run",
+        "--force",
+      ]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // Should show either the fix plan or indicate all tenants are current
+      const hasPlan = containsText(cleanOutput, "Drift Fix Plan:");
+      const allCurrent = containsText(cleanOutput, "up to date");
+      expect(hasPlan || allCurrent).toBe(true);
+
+      // If there's a plan, it should indicate dry-run
+      if (hasPlan) {
+        expect(containsText(cleanOutput, "--dry-run")).toBe(true);
+      }
+    });
+
+    it("should show risk labels in fix plan", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--dry-run"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // Should include risk labels
+      expect(cleanOutput).toMatch(/low risk|medium risk|high risk/);
+    });
+
+    it("should skip high-risk tenants by default", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--dry-run"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // With default max-risk=low, medium and high risk tenants should be SKIPPED
+      if (cleanOutput.includes("medium risk") || cleanOutput.includes("high risk")) {
+        expect(cleanOutput).toMatch(/SKIPPED/);
+      }
+    });
+
+    it("should include medium-risk tenants with --max-risk medium", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync([
+        "node",
+        "test",
+        "agents",
+        "drift",
+        "--fix",
+        "--dry-run",
+        "--max-risk",
+        "medium",
+      ]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // Should show fix plan
+      expect(containsText(cleanOutput, "Drift Fix Plan:")).toBe(true);
+      // Medium risk tenants should be included not skipped
+      if (cleanOutput.includes("medium risk")) {
+        expect(cleanOutput).toMatch(/medium risk -- included/);
+      }
+    });
+
+    it("should include all tenants with --force", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync([
+        "node",
+        "test",
+        "agents",
+        "drift",
+        "--fix",
+        "--dry-run",
+        "--force",
+      ]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // Should not show any SKIPPED entries
+      expect(containsText(cleanOutput, "SKIPPED")).toBe(false);
+      expect(containsText(cleanOutput, "Drift Fix Plan:")).toBe(true);
+    });
+
+    it("should execute fix with --yes flag", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--yes", "--force"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // Should show either results summary or indicate all tenants are current
+      const hasResults = containsText(cleanOutput, "Results:");
+      const allCurrent = containsText(cleanOutput, "up to date");
+      expect(hasResults || allCurrent).toBe(true);
+
+      if (hasResults) {
+        expect(containsText(cleanOutput, "Updated:")).toBe(true);
+      }
+    });
+
+    it("should filter to specific tenant with --tenant", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync([
+        "node",
+        "test",
+        "agents",
+        "drift",
+        "--fix",
+        "--dry-run",
+        "--tenant",
+        "contoso",
+      ]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // Should either show a plan for Contoso or say all up to date
+      expect(
+        containsText(cleanOutput, "Drift Fix Plan:") || containsText(cleanOutput, "up to date")
+      ).toBe(true);
+    });
+
+    it("should output JSON with --fix --json", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      await program.parseAsync(["node", "test", "agents", "drift", "--fix", "--json", "--force"]);
+
+      const output = consoleCapture.getAllOutput();
+      const json = extractJson<{ plan: unknown[]; willFix: string[]; maxRisk: string }>(output);
+
+      // Might be null if all tenants are current
+      if (json) {
+        expect(json.plan).toBeDefined();
+        expect(json.willFix).toBeDefined();
+        expect(json.maxRisk).toBe("high");
+      }
+    });
+
+    it("should handle tenant not found with --fix --tenant", async () => {
+      const { agentsCommand } = await import("../commands/agents/index.js");
+      const program = new Command();
+      program.addCommand(agentsCommand);
+
+      try {
+        await program.parseAsync([
+          "node",
+          "test",
+          "agents",
+          "drift",
+          "--fix",
+          "--tenant",
+          "nonexistent-tenant",
+        ]);
+      } catch {
+        // Expected to throw due to process.exit
+      }
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      expect(containsText(cleanOutput, "not found")).toBe(true);
+    });
+  });
+
+  describe("drift risk calculation", () => {
+    it("should calculate risk levels correctly", async () => {
+      const { buildDriftFixPlan } = await import("../commands/agents/drift.js");
+      const { getDemoTenantVersionStatus, DEMO_TENANTS } = await import("@agentsync/core");
+
+      const enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);
+      const tenantStatuses = enabledTenants.map((tenant) => ({
+        tenant,
+        status: getDemoTenantVersionStatus(tenant.tenantId)!,
+      }));
+
+      const plan = buildDriftFixPlan(tenantStatuses);
+
+      // Each entry should have a valid risk level
+      for (const entry of plan) {
+        expect(["low", "medium", "high"]).toContain(entry.risk);
+        expect(entry.outdatedSolutions.length).toBeGreaterThan(0);
+      }
+
+      // Plan should be sorted by risk (low first)
+      const riskOrder = { low: 0, medium: 1, high: 2 };
+      for (let i = 1; i < plan.length; i++) {
+        expect(riskOrder[plan[i].risk]).toBeGreaterThanOrEqual(riskOrder[plan[i - 1].risk]);
+      }
+    });
+
+    it("should classify not_deployed as high risk", async () => {
+      const { calculateDriftRisk } = await import("../commands/agents/drift.js");
+
+      const status = {
+        tenantId: "test",
+        tenantName: "Test",
+        environmentUrl: "https://test.crm.dynamics.com",
+        solutions: [
+          {
+            uniqueName: "TestAgent",
+            friendlyName: "Test Agent",
+            expectedVersion: "1.0.0.5",
+            deployedVersion: null,
+            isManaged: true,
+            status: "not_deployed" as const,
+            versionDrift: 0,
+          },
+        ],
+        overallStatus: "outdated" as const,
+        lastChecked: new Date().toISOString(),
+      };
+
+      expect(calculateDriftRisk(status)).toBe("high");
+    });
+
+    it("should classify 1-version drift as low risk", async () => {
+      const { calculateDriftRisk } = await import("../commands/agents/drift.js");
+
+      const status = {
+        tenantId: "test",
+        tenantName: "Test",
+        environmentUrl: "https://test.crm.dynamics.com",
+        solutions: [
+          {
+            uniqueName: "TestAgent",
+            friendlyName: "Test Agent",
+            expectedVersion: "1.0.0.5",
+            deployedVersion: "1.0.0.4",
+            isManaged: true,
+            status: "outdated" as const,
+            versionDrift: -1,
+          },
+        ],
+        overallStatus: "outdated" as const,
+        lastChecked: new Date().toISOString(),
+      };
+
+      expect(calculateDriftRisk(status)).toBe("low");
+    });
+
+    it("should classify 2-version drift as medium risk", async () => {
+      const { calculateDriftRisk } = await import("../commands/agents/drift.js");
+
+      const status = {
+        tenantId: "test",
+        tenantName: "Test",
+        environmentUrl: "https://test.crm.dynamics.com",
+        solutions: [
+          {
+            uniqueName: "TestAgent",
+            friendlyName: "Test Agent",
+            expectedVersion: "1.0.0.5",
+            deployedVersion: "1.0.0.3",
+            isManaged: true,
+            status: "outdated" as const,
+            versionDrift: -2,
+          },
+        ],
+        overallStatus: "outdated" as const,
+        lastChecked: new Date().toISOString(),
+      };
+
+      expect(calculateDriftRisk(status)).toBe("medium");
+    });
+  });
 });
