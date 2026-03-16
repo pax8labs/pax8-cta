@@ -18,6 +18,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
 import { isDemoModeEnabled } from "../demo.js";
+import { requireQueueManager } from "../../lib/queue.js";
 
 // ============================================================================
 // deployments approve
@@ -42,8 +43,7 @@ export const approveCommand = new Command("approve")
 
     try {
       // In production, call the API or queue manager
-      const { DeploymentQueueManager } = await import("@agentsync/worker");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
 
       // Check deployment exists and is awaiting approval
       const deployment = await queueManager.getDeploymentStatus(id);
@@ -103,8 +103,7 @@ export const rejectCommand = new Command("reject")
     const spinner = ora("Rejecting deployment...").start();
 
     try {
-      const { DeploymentQueueManager } = await import("@agentsync/worker");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
 
       // Check deployment exists
       const deployment = await queueManager.getDeploymentStatus(id);
@@ -155,8 +154,7 @@ export const cancelCommand = new Command("cancel")
     const spinner = ora("Cancelling deployment...").start();
 
     try {
-      const { DeploymentQueueManager } = await import("@agentsync/worker");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
 
       const cancelledCount = await queueManager.cancelDeployment(id);
 
@@ -205,8 +203,7 @@ export const retryCommand = new Command("retry")
     const spinner = ora("Retrying failed jobs...").start();
 
     try {
-      const { DeploymentQueueManager } = await import("@agentsync/worker");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
 
       // Check deployment exists
       const deployment = await queueManager.getDeploymentStatus(id);
@@ -265,8 +262,7 @@ export const rollbackCommand = new Command("rollback")
     const spinner = ora("Initiating rollback...").start();
 
     try {
-      const { DeploymentQueueManager } = await import("@agentsync/worker");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
 
       // Check deployment exists
       const deployment = await queueManager.getDeploymentStatus(id);

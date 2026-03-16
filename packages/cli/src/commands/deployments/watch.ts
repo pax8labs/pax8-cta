@@ -20,6 +20,7 @@ import ora from "ora";
 import { generateMockDeploymentHistory } from "@agentsync/core";
 import { isDemoModeEnabled } from "../demo.js";
 import { outputDeploymentDetails } from "./helpers.js";
+import { requireQueueManager } from "../../lib/queue.js";
 
 export const watchCommand = new Command("watch")
   .argument("<id>", "Deployment ID")
@@ -47,8 +48,7 @@ export const watchCommand = new Command("watch")
     const spinner = ora("Connecting to deployment service...").start();
 
     try {
-      const { DeploymentQueueManager } = await import("@agentsync/worker");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
       spinner.succeed("Connected");
 
       const interval = parseInt(options.interval, 10);
