@@ -16,10 +16,7 @@
  * limitations under the License.
  */
 
-// Disable worker auto-start in CLI mode
-process.env.AGENTSYNC_CLI_MODE = "true";
-
-// Suppress worker logs in CLI mode
+// Set default log level for CLI
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "error";
 
 // Load .env file from CWD (if it exists) so commands can find PARTNER_CLIENT_SECRET etc.

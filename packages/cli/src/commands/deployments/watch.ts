@@ -21,6 +21,7 @@ import { generateMockDeploymentHistory } from "@agentsync/core";
 import { isDemo } from "../../lib/command-wrapper.js";
 import { outputDeploymentDetails } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { requireQueueManager } from "../../lib/queue.js";
 
 export const watchCommand = new Command("watch")
   .argument("<id>", "Deployment ID")
@@ -48,8 +49,7 @@ export const watchCommand = new Command("watch")
     const spinner = createSpinner("Connecting to deployment service...").start();
 
     try {
-      const { DeploymentQueueManager } = await import("@agentsync/worker");
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
       spinner.succeed("Connected");
 
       const interval = parseInt(options.interval, 10);

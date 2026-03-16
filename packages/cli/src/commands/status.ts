@@ -20,8 +20,8 @@ import { existsSync } from "node:fs";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
-import { DeploymentQueueManager } from "@agentsync/worker";
 import { isDemo } from "../lib/command-wrapper.js";
+import { requireQueueManager } from "../lib/queue.js";
 import { DEMO_TENANTS } from "@agentsync/core";
 import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib/formatters.js";
 import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
@@ -253,7 +253,7 @@ export const statusCommand = new Command("status")
     const spinner = createSpinner("Connecting to shipping dock...").start();
 
     try {
-      const queueManager = new DeploymentQueueManager(options.redis);
+      const queueManager = await requireQueueManager(options.redis);
       spinner.succeed("Connected to shipping dock");
 
       const displayStatus = async () => {

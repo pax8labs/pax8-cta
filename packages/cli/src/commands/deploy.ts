@@ -35,9 +35,9 @@ import {
   environmentSetupService,
   detectSolutionMode,
 } from "@agentsync/core";
-import { DeploymentQueueManager } from "@agentsync/worker";
 import { getDemoTenants } from "./demo.js";
 import { isDemo } from "../lib/command-wrapper.js";
+import { isWorkerAvailable, tryLoadQueueManager } from "../lib/queue.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
 
@@ -384,7 +384,18 @@ Examples:
       }
 
       // Deploy - either direct or via queue
-      if (options.direct) {
+      // Default to direct mode when worker package is not available
+      const workerAvailable = !options.direct && (await isWorkerAvailable());
+      const useDirectMode = options.direct || !workerAvailable;
+      if (!options.direct && useDirectMode) {
+        console.log(
+          chalk.yellow(
+            "Queue-based deployment unavailable (no @agentsync/worker). Using direct mode.\n"
+          )
+        );
+      }
+
+      if (useDirectMode) {
         // Direct deployment - import to each tenant sequentially
         console.log(chalk.bold("Deploying directly to destinations...\n"));
 
@@ -502,9 +513,17 @@ Examples:
           process.exit(1);
         }
       } else {
-        // Queue-based deployment
+        // Queue-based deployment (requires @agentsync/worker + Redis)
         spinner.start("Connecting to shipping dock...");
-        const queueManager = new DeploymentQueueManager(options.redis);
+        const queueManager = await tryLoadQueueManager(options.redis);
+        if (!queueManager) {
+          spinner.fail(
+            chalk.red(
+              "Queue-based deployment unavailable. Use --direct flag for standalone deployment."
+            )
+          );
+          process.exit(1);
+        }
 
         const shipmentId = randomUUID();
 
