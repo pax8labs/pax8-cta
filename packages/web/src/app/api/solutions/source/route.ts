@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 
 // Demo solutions that would be available in a source environment
 const DEMO_SOURCE_SOLUTIONS: Record<string, DemoSolution[]> = {
-  "https://pax8demo.crm.dynamics.com": [
+  "https://contoso-prod.crm.dynamics.com": [
     {
       solutionId: "src-sol-1",
       uniqueName: "CopilotStudioHRBot",
@@ -118,13 +118,13 @@ const DEMO_SOURCE_SOLUTIONS: Record<string, DemoSolution[]> = {
       hasBot: false,
     },
   ],
-  "https://pax8dev.crm.dynamics.com": [
+  "https://contoso-dev.crm.dynamics.com": [
     {
       solutionId: "dev-sol-1",
       uniqueName: "DevTestBot",
       displayName: "Development Test Bot",
       version: "0.1.0.0",
-      publisher: "Pax8 Labs",
+      publisher: "Contoso Solutions",
       description: "Bot used for development testing.",
       isManaged: false,
       createdOn: "2024-11-01T10:00:00Z",
@@ -145,7 +145,7 @@ const DEMO_SOURCE_SOLUTIONS: Record<string, DemoSolution[]> = {
       uniqueName: "QATestAgent",
       displayName: "QA Test Agent",
       version: "1.0.0.0",
-      publisher: "Pax8 Labs",
+      publisher: "Contoso Solutions",
       description: "Agent for QA testing scenarios.",
       isManaged: false,
       createdOn: "2024-10-01T10:00:00Z",
@@ -183,7 +183,7 @@ interface DemoSolution {
 }
 
 // Default demo environment URL
-const DEFAULT_DEMO_ENV = "https://pax8demo.crm.dynamics.com";
+const DEFAULT_DEMO_ENV = "https://contoso-prod.crm.dynamics.com";
 
 /**
  * Get solutions available in a specific environment

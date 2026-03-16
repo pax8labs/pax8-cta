@@ -7,9 +7,9 @@ dist/
 
 # Environment
 .env
-.env.local
-.env.*.local
-.env.gdap-e2e
+.env.*
+!.env.example
+!.env.sandbox.example
 
 # Config with secrets (keep example)
 config/tenants.yaml
@@ -56,6 +56,14 @@ data/
 # Playwright
 playwright-report/
 test-results/
-.env.sandbox
 config/tenants.sandbox.yaml
 test-solutions/
+
+# MSW recorded fixtures (may contain real API responses)
+*.recorded.json
+
+# Credentials and secrets
+*.pem
+*.key
+*.p12
+*.pfx

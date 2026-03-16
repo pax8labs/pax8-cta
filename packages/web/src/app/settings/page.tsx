@@ -31,7 +31,7 @@ const DEMO_SETTINGS = {
     partnerClientId: "f9e8d7c6-b5a4-3210-fedc-ba0987654321",
     partnerClientSecret: "••••••••••••••••",
     sourceTenantId: "",
-    sourceEnvironmentUrl: "https://pax8-demo.crm.dynamics.com",
+    sourceEnvironmentUrl: "https://contoso-prod.crm.dynamics.com",
     tenantDiscoveryEnabled: true,
     connectionMappingEnabled: true,
     environmentVariablesEnabled: false,
