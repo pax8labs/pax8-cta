@@ -147,20 +147,20 @@ jobs:
           ## Usage
           ```bash
           # Deploy agents to all tenants
-          agentsync ship --all --solution ./myagent.zip
+          agentsync deploy --all --solution ./myagent.zip
 
           # Deploy to specific tenants by tag
-          agentsync ship --tag production --solution ./myagent.zip
+          agentsync deploy --tag production --solution ./myagent.zip
 
-          # Track deployment status
-          agentsync track --shipment <deployment-id>
+          # View deployment status
+          agentsync deployments show <deployment-id>
 
           # List tenants
-          agentsync fleet list
+          agentsync tenants list
 
           # Get help
           agentsync --help
-          agentsync ship --help
+          agentsync deploy --help
           ```
 
           ## Checksums
