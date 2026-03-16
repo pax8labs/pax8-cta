@@ -268,8 +268,10 @@ class HealthChecker {
       return { status: "valid", issues: [] };
     }
 
-    // TODO: Real GDAP check via Microsoft Graph API
+    // Live GDAP checks require Microsoft Graph API access, which is not available in all
+    // deployment contexts. When Graph credentials are provided, this will query:
     // GET https://graph.microsoft.com/v1.0/tenantRelationships/delegatedAdminRelationships
+    // For now, returns "unknown" — the CLI validate command performs real GDAP checks separately.
     return { status: "unknown", issues: [] };
   }
 
@@ -325,7 +327,9 @@ class HealthChecker {
       return { status: "valid", issues: [] };
     }
 
-    // TODO: Real connection check via Dataverse API
+    // Live connection checks require Dataverse API access per tenant. When credentials
+    // are available, this will query connectionreferences entity. For now, returns "unknown"
+    // — the CLI validate command performs real connection checks separately.
     return { status: "unknown", issues: [] };
   }
 
@@ -452,7 +456,7 @@ class HealthChecker {
       };
     }
 
-    // TODO: Real GDAP detail via Microsoft Graph API
+    // Live GDAP detail requires Microsoft Graph API access (see checkGDAPHealth above).
     return {
       status: "unknown" as const,
       lastVerified: new Date().toISOString(),
@@ -547,7 +551,7 @@ class HealthChecker {
       return connections;
     }
 
-    // TODO: Real connection detail via Dataverse API
+    // Live connection detail requires Dataverse API access per tenant (see checkConnectionsHealth above).
     return [];
   }
 

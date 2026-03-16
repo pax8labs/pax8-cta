@@ -28,7 +28,7 @@ vi.mock("posthog-node", () => ({
 
 // Mock conf to avoid writing to disk
 const mockStore: Record<string, unknown> = {
-  telemetryEnabled: true,
+  telemetryEnabled: false, // Matches production default (opt-in)
   firstRunShown: false,
   machineId: "test-machine-id",
 };
@@ -60,7 +60,7 @@ describe("Telemetry", () => {
     consoleCapture.start();
 
     // Reset mock store
-    mockStore.telemetryEnabled = true;
+    mockStore.telemetryEnabled = false;
     mockStore.firstRunShown = false;
     mockStore.machineId = "test-machine-id";
 
@@ -210,8 +210,8 @@ describe("Telemetry", () => {
       const notice = getFirstRunNotice();
 
       expect(notice).toContain("anonymous usage data");
-      expect(notice).toContain("telemetry off");
-      expect(notice).toContain("DO_NOT_TRACK");
+      expect(notice).toContain("telemetry on");
+      expect(notice).toContain("disabled by default");
     });
 
     it("should track first run shown state", async () => {

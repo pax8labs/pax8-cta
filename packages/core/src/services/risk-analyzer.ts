@@ -230,8 +230,8 @@ export class DeploymentRiskAnalyzer {
       }
     }
 
-    // TODO: In production, check actual GDAP via Microsoft Graph API
-    // const gdapStatus = await this.checkGDAPViaGraph(context.tenants)
+    // Live GDAP risk checks via Microsoft Graph API are planned for a future release.
+    // Currently uses demo metadata and deployment history for risk assessment.
 
     return issues;
   }
@@ -303,8 +303,8 @@ export class DeploymentRiskAnalyzer {
       }
     }
 
-    // TODO: In production, check actual connection references
-    // const connections = await this.checkConnectionsViaDataverse(context)
+    // Live connection reference checks via Dataverse API are planned for a future release.
+    // Currently uses demo metadata for connection risk assessment.
 
     return issues;
   }

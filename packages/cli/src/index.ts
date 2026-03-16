@@ -88,7 +88,13 @@ export function createProgram(): Command {
   program
     .name("agentsync")
     .description("AgentSync - Deploy and manage Power Platform agents across tenants")
-    .version(VERSION);
+    .version(VERSION)
+    .option("--verbose", "Enable verbose output for debugging")
+    .hook("preAction", (thisCommand) => {
+      if (thisCommand.opts().verbose) {
+        process.env.LOG_LEVEL = "debug";
+      }
+    });
 
   // Getting started
   program.addCommand(initCommand);
@@ -128,11 +134,13 @@ if (shouldShowBanner) {
   }
 }
 
-// Show first-run telemetry notice (once)
-if (isTelemetryEnabled() && !hasShownFirstRunNotice() && args.length > 0) {
+// Show first-run telemetry notice (once, regardless of state, so users know the option exists)
+if (!hasShownFirstRunNotice() && args.length > 0) {
   console.log(chalk.gray(getFirstRunNotice()));
   markFirstRunNoticeShown();
-  trackFirstRun();
+  if (isTelemetryEnabled()) {
+    trackFirstRun();
+  }
 }
 
 // Graceful shutdown handling

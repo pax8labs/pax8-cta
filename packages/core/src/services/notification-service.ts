@@ -151,19 +151,16 @@ export class NotificationService {
   /**
    * Send email notification
    *
-   * Note: This is a placeholder implementation. In production, you would integrate
-   * with an email service like SendGrid, AWS SES, or similar.
+   * Email notifications are not yet implemented. Slack and Teams webhooks are
+   * fully supported. Email integration (SendGrid, AWS SES, etc.) is planned
+   * for a future release.
    */
   async sendEmailNotification(recipients: string, payload: NotificationPayload): Promise<void> {
-    // TODO: Integrate with actual email service
-    logger.info("Email notification would be sent", {
+    logger.info("Email notification skipped (not yet implemented)", {
       recipients,
       title: payload.title,
-      message: "Email service not yet implemented - use Slack or Teams for now",
+      message: "Use Slack or Teams webhooks for notifications",
     });
-
-    // For now, just log that we would send an email
-    // In production, implement with SendGrid, AWS SES, etc.
   }
 
   /**
