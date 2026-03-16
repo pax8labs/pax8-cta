@@ -32,7 +32,7 @@ import {
  * Follows the resource-action pattern: `agentsync deployments <action>`
  */
 export const deploymentsCommand = new Command("deployments")
-  .description("View, approve, cancel, or rollback deployments")
+  .description("View, cancel, and retry deployments")
   .addHelpText(
     "after",
     `
@@ -47,11 +47,14 @@ Examples:
 deploymentsCommand.addCommand(listCommand);
 deploymentsCommand.addCommand(showCommand);
 deploymentsCommand.addCommand(watchCommand);
-deploymentsCommand.addCommand(approveCommand);
-deploymentsCommand.addCommand(rejectCommand);
 deploymentsCommand.addCommand(cancelCommand);
 deploymentsCommand.addCommand(retryCommand);
-deploymentsCommand.addCommand(rollbackCommand);
+
+// These commands are planned but not yet implemented — hidden from help
+// but still registered so users get a clear message if they try them.
+deploymentsCommand.addCommand(approveCommand, { hidden: true });
+deploymentsCommand.addCommand(rejectCommand, { hidden: true });
+deploymentsCommand.addCommand(rollbackCommand, { hidden: true });
 
 // Re-export helpers for backwards compatibility
 export {
