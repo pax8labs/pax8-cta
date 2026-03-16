@@ -1,0 +1,43 @@
+# Ensure consistent line endings across platforms
+# Windows Git defaults to core.autocrlf=true which converts to CRLF on checkout.
+# This file enforces LF in the repo and lets Git handle conversion.
+
+# Default: auto-detect and normalize to LF in repo
+* text=auto
+
+# Force LF for source files (prevents CRLF in diffs and CI)
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.sql text eol=lf
+*.graphql text eol=lf
+
+# Shell scripts must stay LF
+*.sh text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+.gitignore text eol=lf
+.env.example text eol=lf
+
+# PowerShell scripts can use CRLF (native Windows)
+*.ps1 text eol=crlf
+
+# Lock files - exact as committed
+pnpm-lock.yaml text eol=lf
+
+# Binary files - do not touch
+*.zip binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

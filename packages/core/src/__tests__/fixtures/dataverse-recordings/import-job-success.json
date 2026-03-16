@@ -1,0 +1,13 @@
+{
+  "@odata.context": "https://org54870a4d.crm.dynamics.com/api/data/v9.2/$metadata#importjobs",
+  "value": [
+    {
+      "importjobid": "ij111111-2222-3333-4444-555555555555",
+      "solutionname": "CustomerServiceAgent",
+      "progress": 100,
+      "completedon": "2026-03-15T10:32:15Z",
+      "startedon": "2026-03-15T10:30:00Z",
+      "data": "<importexportxml><solutionManifests><solutionManifest><UniqueName>CustomerServiceAgent</UniqueName><LocalizedNames><LocalizedName description=\"Customer Service Agent\" languagecode=\"1033\" /></LocalizedNames><Version>1.2.0.4</Version><Managed>1</Managed></solutionManifest></solutionManifests><results><result result=\"success\" errorcode=\"0\" errortext=\"\" datetime=\"2026-03-15T10:32:15Z\" /></results></importexportxml>"
+    }
+  ]
+}

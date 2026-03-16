@@ -20,23 +20,29 @@ import {
   AuthenticationResult,
   LogLevel,
 } from "@azure/msal-node";
-import * as keytar from "keytar";
-import { exec } from "node:child_process";
+import open from "open";
+import chalk from "chalk";
 import { storeSecret } from "./credentials.js";
 
 const KEYTAR_SERVICE = "agentsync-cli";
 
 /**
+ * Lazily load keytar (optional dependency — may not be installed if native
+ * compilation failed, e.g. on Windows without Visual Studio Build Tools).
+ */
+async function getKeytar(): Promise<typeof import("keytar") | null> {
+  try {
+    return await import("keytar");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Open a URL in the default browser
  */
 function openBrowser(url: string): void {
-  const command =
-    process.platform === "darwin"
-      ? `open "${url}"`
-      : process.platform === "win32"
-        ? `start "${url}"`
-        : `xdg-open "${url}"`;
-  exec(command);
+  open(url);
 }
 
 export interface InteractiveLoginResult {
@@ -91,10 +97,10 @@ export async function interactiveLogin(options?: {
       if (shouldOpenBrowser) {
         openBrowser(response.verificationUri);
         console.log(`  ✓ Browser opened`);
-        console.log(`  Enter code: \x1b[1m${response.userCode}\x1b[0m`);
+        console.log(`  Enter code: ${chalk.bold(response.userCode)}`);
       } else {
         console.log(`  1. Open: ${response.verificationUri}`);
-        console.log(`  2. Enter code: \x1b[1m${response.userCode}\x1b[0m`);
+        console.log(`  2. Enter code: ${chalk.bold(response.userCode)}`);
       }
       console.log();
       console.log("  Waiting for you to sign in...");
@@ -136,22 +142,25 @@ export async function storeCredentials(
   clientSecret: string,
   tenantId?: string
 ): Promise<void> {
-  try {
-    // Store in the canonical location so getClientSecretWithFallback() can find it
-    await storeSecret(clientSecret);
+  // Store in the canonical location so getClientSecretWithFallback() can find it
+  await storeSecret(clientSecret);
 
-    // Also store per-clientId for tenant-specific retrieval
-    await keytar.setPassword(KEYTAR_SERVICE, `clientSecret:${clientId}`, clientSecret);
+  const keytar = await getKeytar();
+  if (keytar) {
+    try {
+      // Also store per-clientId for tenant-specific retrieval
+      await keytar.setPassword(KEYTAR_SERVICE, `clientSecret:${clientId}`, clientSecret);
 
-    // Store tenant ID if provided
-    if (tenantId) {
-      await keytar.setPassword(KEYTAR_SERVICE, `tenantId:${clientId}`, tenantId);
+      // Store tenant ID if provided
+      if (tenantId) {
+        await keytar.setPassword(KEYTAR_SERVICE, `tenantId:${clientId}`, tenantId);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to store credentials: ${error.message}`);
+      }
+      throw error;
     }
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to store credentials: ${error.message}`);
-    }
-    throw error;
   }
 }
 
@@ -162,6 +171,9 @@ export async function getStoredCredentials(
   clientId: string
 ): Promise<{ clientSecret: string; tenantId?: string } | null> {
   try {
+    const keytar = await getKeytar();
+    if (!keytar) return null;
+
     const clientSecret = await keytar.getPassword(KEYTAR_SERVICE, `clientSecret:${clientId}`);
 
     if (!clientSecret) {
@@ -185,6 +197,8 @@ export async function getStoredCredentials(
  */
 export async function clearCredentials(clientId: string): Promise<void> {
   try {
+    const keytar = await getKeytar();
+    if (!keytar) return;
     await keytar.deletePassword(KEYTAR_SERVICE, `clientSecret:${clientId}`);
     await keytar.deletePassword(KEYTAR_SERVICE, `tenantId:${clientId}`);
   } catch (error) {

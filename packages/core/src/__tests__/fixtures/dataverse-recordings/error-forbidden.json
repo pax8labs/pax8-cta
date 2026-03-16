@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "0x80040220",
+    "message": "Principal user (Id=us111111-2222-3333-4444-555555555555, type=8, roleCount=0, privilegeCount=0, accessMode=4) is missing prvReadSolution privilege (Id=a8ecac53-09e8-4571-bda7-0b54c0e39a4d)",
+    "innererror": {
+      "message": "Principal user is missing prvReadSolution privilege",
+      "type": "Microsoft.Crm.CrmSecurityException",
+      "stacktrace": ""
+    }
+  }
+}

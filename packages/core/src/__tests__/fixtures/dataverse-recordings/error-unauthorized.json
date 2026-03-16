@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "0x80044308",
+    "message": "The caller is not authenticated. Please authenticate and try again.",
+    "innererror": {
+      "message": "The caller is not authenticated. Please authenticate and try again.",
+      "type": "System.ServiceModel.FaultException",
+      "stacktrace": ""
+    }
+  }
+}

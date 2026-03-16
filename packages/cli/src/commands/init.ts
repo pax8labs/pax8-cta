@@ -19,7 +19,7 @@ import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import { existsSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { exec } from "node:child_process";
+import open from "open";
 import { question } from "../lib/input.js";
 import { handleCommandError } from "../lib/errors.js";
 
@@ -29,13 +29,7 @@ const DEFAULT_CONFIG_PATH = "./config/tenants.yaml";
  * Open a URL in the default browser
  */
 function openUrl(url: string): void {
-  const command =
-    process.platform === "darwin"
-      ? `open "${url}"`
-      : process.platform === "win32"
-        ? `start "${url}"`
-        : `xdg-open "${url}"`;
-  exec(command);
+  open(url);
 }
 
 export const initCommand = new Command("init")
@@ -332,7 +326,16 @@ export const initCommand = new Command("init")
                   : envContent + `\nPARTNER_CLIENT_SECRET=${clientSecret}\n`;
               writeFileSync(envPath, newContent, { mode: 0o600 });
               // Ensure restrictive permissions even if file existed
-              chmodSync(envPath, 0o600);
+              if (process.platform !== "win32") {
+                chmodSync(envPath, 0o600);
+              } else {
+                // Note: Windows doesn't support Unix file permissions
+                console.log(
+                  chalk.dim(
+                    "  Note: On Windows, use NTFS permissions to restrict .env file access"
+                  )
+                );
+              }
               console.log(chalk.green("   ✓ Secret saved to .env (restricted permissions)"));
               partnerClientSecret = clientSecret;
 

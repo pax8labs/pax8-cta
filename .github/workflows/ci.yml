@@ -180,6 +180,97 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  test-windows:
+    name: Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm run build
+
+      - name: Run CLI tests
+        run: pnpm --filter @agentsync/cli test
+        env:
+          DEMO_MODE: 'true'
+
+      - name: Run core tests (no Redis)
+        run: pnpm --filter @agentsync/core test -- --run --testPathIgnorePatterns=gdap-e2e
+        continue-on-error: true
+
+  test-windows-binary:
+    name: Windows Binary Smoke Test
+    runs-on: windows-latest
+    needs: [test-windows]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows binary
+        run: |
+          New-Item -ItemType Directory -Path dist/binaries -Force | Out-Null
+          bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist/binaries/agentsync-windows-x64.exe
+        shell: pwsh
+        working-directory: packages/cli
+
+      - name: Smoke test binary
+        run: |
+          $exe = "packages/cli/dist/binaries/agentsync-windows-x64.exe"
+          Write-Host "Testing --version..."
+          & $exe --version
+          Write-Host "Testing --help..."
+          & $exe --help
+          Write-Host "Testing tenants list (demo mode)..."
+          $env:DEMO_MODE = "true"
+          & $exe tenants list
+        shell: pwsh
+
+      - name: Test install.ps1 syntax
+        run: |
+          $errors = $null
+          [System.Management.Automation.PSParser]::Tokenize((Get-Content install.ps1 -Raw), [ref]$errors)
+          if ($errors.Count -gt 0) {
+            Write-Host "PowerShell syntax errors found:" -ForegroundColor Red
+            $errors | ForEach-Object { Write-Host "  Line $($_.Token.StartLine): $($_.Message)" }
+            exit 1
+          }
+          Write-Host "install.ps1 syntax is valid" -ForegroundColor Green
+        shell: pwsh
+
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest

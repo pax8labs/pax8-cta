@@ -349,10 +349,14 @@ async function waitForEnter(): Promise<void> {
   return new Promise((resolve) => {
     const onData = () => {
       process.stdin.removeListener("data", onData);
-      process.stdin.setRawMode?.(false);
+      if (process.stdin.isTTY) {
+        process.stdin.setRawMode(false);
+      }
       resolve();
     };
-    process.stdin.setRawMode?.(true);
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
     process.stdin.resume();
     process.stdin.once("data", onData);
   });
@@ -364,7 +368,10 @@ async function waitForEnter(): Promise<void> {
 async function runCommand(command: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const args = command.split(" ");
-    const proc = spawn(process.execPath, [process.argv[1], ...args], {
+    // When running as a compiled binary, execPath is the CLI itself
+    const isBundled = !process.argv[1] || process.argv[1] === process.execPath;
+    const spawnArgs = isBundled ? [...args] : [process.argv[1], ...args];
+    const proc = spawn(process.execPath, spawnArgs, {
       stdio: ["ignore", "inherit", "inherit"],
       env: {
         ...process.env,

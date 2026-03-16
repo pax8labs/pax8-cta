@@ -224,7 +224,7 @@ export async function runCli(args: string[], options: CliRunnerOptions = {}): Pr
     }
 
     const timeoutId = setTimeout(() => {
-      proc.kill("SIGTERM");
+      proc.kill(process.platform === "win32" ? "SIGKILL" : "SIGTERM");
       reject(new Error(`CLI command timed out after ${timeout}ms`));
     }, timeout);
 
@@ -308,7 +308,7 @@ export interface ParsedTable {
  */
 export function parseTable(output: string): ParsedTable {
   const lines = stripAnsi(output)
-    .split("\n")
+    .split(/\r?\n/)
     .filter((line) => line.trim())
     .filter((line) => !line.match(/^[┌└├─┬┴┼┐┘┤]+$/)); // Filter box-drawing borders
 

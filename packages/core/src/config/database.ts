@@ -19,7 +19,7 @@
  * Ensures web and worker packages use the same SQLite database file
  */
 
-import { resolve } from "path";
+import { join, resolve } from "path";
 
 /**
  * Get the absolute path to the SQLite database file
@@ -41,7 +41,7 @@ export function getDatabasePath(): string {
 
   // Default: resolve relative to current working directory
   // In monorepo, cwd is typically the repo root when using pnpm
-  return resolve(process.cwd(), "data/agentsync.db");
+  return join(process.cwd(), "data", "agentsync.db");
 }
 
 /**

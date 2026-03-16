@@ -1,0 +1,33 @@
+{
+  "@odata.context": "https://org60b532ae.crm.dynamics.com/api/data/v9.2/$metadata#solutions",
+  "value": [
+    {
+      "solutionid": "aa111111-2222-3333-4444-555555555555",
+      "uniquename": "CustomerServiceAgent",
+      "friendlyname": "Customer Service Agent",
+      "version": "1.2.0.4",
+      "ismanaged": true
+    },
+    {
+      "solutionid": "bb222222-3333-4444-5555-666666666666",
+      "uniquename": "SalesAssistantBot",
+      "friendlyname": "Sales Assistant Bot",
+      "version": "2.0.1.0",
+      "ismanaged": true
+    },
+    {
+      "solutionid": "cc333333-4444-5555-6666-777777777777",
+      "uniquename": "InternalHelpdesk",
+      "friendlyname": "Internal Helpdesk",
+      "version": "1.0.0.1",
+      "ismanaged": false
+    },
+    {
+      "solutionid": "dd444444-5555-6666-7777-888888888888",
+      "uniquename": "Default",
+      "friendlyname": "Default Solution",
+      "version": "1.0.0.0",
+      "ismanaged": false
+    }
+  ]
+}

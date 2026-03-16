@@ -38,7 +38,7 @@ const ENV_SKIP_KEYS = new Set([
 const envPath = resolve(process.cwd(), ".env");
 if (existsSync(envPath)) {
   const envContent = readFileSync(envPath, "utf-8");
-  for (const line of envContent.split("\n")) {
+  for (const line of envContent.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     const eqIdx = trimmed.indexOf("=");
@@ -159,7 +159,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
 
 // Register signal handlers for graceful shutdown
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+if (process.platform !== "win32") {
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+}
 
 // If no arguments provided, enter interactive mode
 if (args.length === 0) {

@@ -41,7 +41,7 @@ function loadEnvFile(): void {
     if (existsSync(envPath)) {
       console.log(`Loading credentials from ${envPath}`);
       const content = readFileSync(envPath, "utf-8");
-      for (const line of content.split("\n")) {
+      for (const line of content.split(/\r?\n/)) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith("#")) continue;
         const eqIndex = trimmed.indexOf("=");

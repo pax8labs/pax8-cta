@@ -25,7 +25,7 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "db:migrate": "echo 'Run: psql $DATABASE_URL < packages/core/src/db/schema.sql'",
-    "clean": "pnpm -r exec rm -rf dist .next node_modules/.cache",
+    "clean": "pnpm -r exec node -e \"var fs=require('fs');['dist','.next','node_modules/.cache'].forEach(function(d){fs.rmSync(d,{recursive:true,force:true})})\"",
     "prepare": "husky || true"
   },
   "devDependencies": {

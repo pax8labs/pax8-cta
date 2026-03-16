@@ -1,0 +1,17 @@
+{
+  "@odata.context": "https://org60b532ae.crm.dynamics.com/api/data/v9.2/$metadata#solutions",
+  "value": [
+    {
+      "solutionid": "aa111111-2222-3333-4444-555555555555",
+      "uniquename": "CustomerServiceAgent",
+      "friendlyname": "Customer Service Agent",
+      "version": "1.2.0.4",
+      "ismanaged": true,
+      "publisherid": {
+        "publisherid": "pp111111-2222-3333-4444-555555555555",
+        "uniquename": "contosopublisher",
+        "friendlyname": "Contoso Publisher"
+      }
+    }
+  ]
+}

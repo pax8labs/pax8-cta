@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "0x80072560",
+    "message": "The user is not a member of the organization. The user must be added to the environment before they can access it.",
+    "innererror": {
+      "message": "The user is not a member of the organization. They need to be added as an application user.",
+      "type": "Microsoft.Crm.CrmException",
+      "stacktrace": ""
+    }
+  }
+}

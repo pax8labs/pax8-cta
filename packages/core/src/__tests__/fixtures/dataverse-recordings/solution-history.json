@@ -1,0 +1,53 @@
+{
+  "@odata.context": "https://org54870a4d.crm.dynamics.com/api/data/v9.2/$metadata#msdyn_solutionhistories",
+  "value": [
+    {
+      "msdyn_solutionhistoryid": "sh111111-2222-3333-4444-555555555555",
+      "msdyn_name": "CustomerServiceAgent",
+      "msdyn_solutionversion": "1.2.0.4",
+      "msdyn_operation": 0,
+      "msdyn_suboperation": 2,
+      "msdyn_result": true,
+      "msdyn_status": 1,
+      "msdyn_starttime": "2026-03-14T10:30:00Z",
+      "msdyn_endtime": "2026-03-14T10:32:15Z",
+      "msdyn_totaltime": 135,
+      "msdyn_ismanaged": true,
+      "msdyn_exceptionmessage": null,
+      "msdyn_errorcode": null,
+      "msdyn_publishername": "Contoso Publisher"
+    },
+    {
+      "msdyn_solutionhistoryid": "sh222222-3333-4444-5555-666666666666",
+      "msdyn_name": "CustomerServiceAgent",
+      "msdyn_solutionversion": "1.1.0.3",
+      "msdyn_operation": 0,
+      "msdyn_suboperation": 1,
+      "msdyn_result": true,
+      "msdyn_status": 1,
+      "msdyn_starttime": "2026-02-20T14:00:00Z",
+      "msdyn_endtime": "2026-02-20T14:03:45Z",
+      "msdyn_totaltime": 225,
+      "msdyn_ismanaged": true,
+      "msdyn_exceptionmessage": null,
+      "msdyn_errorcode": null,
+      "msdyn_publishername": "Contoso Publisher"
+    },
+    {
+      "msdyn_solutionhistoryid": "sh333333-4444-5555-6666-777777777777",
+      "msdyn_name": "SalesAssistantBot",
+      "msdyn_solutionversion": "2.0.0.0",
+      "msdyn_operation": 0,
+      "msdyn_suboperation": 2,
+      "msdyn_result": false,
+      "msdyn_status": 1,
+      "msdyn_starttime": "2026-03-10T09:00:00Z",
+      "msdyn_endtime": "2026-03-10T09:05:30Z",
+      "msdyn_totaltime": 330,
+      "msdyn_ismanaged": true,
+      "msdyn_exceptionmessage": "Solution import failed: missing dependency 'mscrm.SharePointIntegration'",
+      "msdyn_errorcode": 80048540,
+      "msdyn_publishername": "Contoso Publisher"
+    }
+  ]
+}

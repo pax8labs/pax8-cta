@@ -71,12 +71,25 @@ To add customer tenants, either:
 
 Run the Control Tower web dashboard on your local machine:
 
+**macOS / Linux:**
+
 ```bash
 git clone https://github.com/pax8labs/agentsync.git
 cd agentsync
 npm install -g pnpm           # Skip if you have pnpm
 pnpm install && pnpm build
 cp .env.example .env          # Then edit with your credentials
+pnpm web                      # Opens Control Tower dashboard at localhost:3000
+```
+
+**Windows (PowerShell):**
+
+```powershell
+git clone https://github.com/pax8labs/agentsync.git
+cd agentsync
+npm install -g pnpm           # Skip if you have pnpm
+pnpm install; pnpm build
+Copy-Item .env.example .env   # Then edit with your credentials
 pnpm web                      # Opens Control Tower dashboard at localhost:3000
 ```
 
@@ -220,9 +233,34 @@ Choose the option that matches your comfort level:
 
 | Option                                             | Best For                      | Technical Skill   |
 | -------------------------------------------------- | ----------------------------- | ----------------- |
+| [CLI Binary](#option-0-cli-binary---recommended)   | MSPs on Windows/Mac/Linux     | ⭐ Beginner       |
 | [Vercel (Cloud)](#option-1-vercel-cloud---easiest) | IT admins, quick setup        | ⭐ Beginner       |
 | [Docker](#option-2-docker---recommended-for-scale) | Self-hosted, bulk deployments | ⭐⭐ Intermediate |
 | [Local Development](#option-3-local-development)   | Developers, customization     | ⭐⭐⭐ Advanced   |
+
+### Option 0: CLI Binary - Recommended
+
+Standalone binary with no dependencies. Works on Windows, macOS, and Linux.
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/pax8labs/agentsync/main/install.ps1 | iex
+```
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh | bash
+```
+
+Then get started:
+
+```
+agentsync init          # Interactive setup wizard
+agentsync tenants list  # See your fleet
+agentsync deploy --help # Deploy agents
+```
 
 ### Option 1: Vercel (Cloud) - Easiest
 
@@ -232,14 +270,16 @@ No servers to manage. Click the button at the top of this README, fill in your c
 
 ### Option 2: Docker - Recommended for Scale
 
+> **Note:** Docker Desktop is available for Windows, macOS, and Linux. The commands below work in any terminal.
+
 ```bash
 # Clone the repository
 git clone https://github.com/pax8labs/agentsync.git
 cd agentsync
 
 # Configure
-cp config/tenants.example.yaml config/tenants.yaml
-cp .env.example .env
+cp config/tenants.example.yaml config/tenants.yaml  # PowerShell: Copy-Item config/tenants.example.yaml config/tenants.yaml
+cp .env.example .env                                  # PowerShell: Copy-Item .env.example .env
 # Edit both files with your values
 
 # Start services (web dashboard + worker + Redis)
@@ -252,20 +292,27 @@ Access Control Tower at `http://localhost:3000`
 
 For developers who want to customize or contribute:
 
+**macOS / Linux:**
+
 ```bash
-# Install dependencies
 pnpm install
-
-# Build all packages
 pnpm build
-
-# Set environment variables
 export PARTNER_CLIENT_SECRET="your-secret"
-
-# Start Control Tower
 pnpm web  # Runs at http://localhost:3000
+```
 
-# Optional: For background job processing with Redis
+**Windows (PowerShell):**
+
+```powershell
+pnpm install
+pnpm build
+$env:PARTNER_CLIENT_SECRET = "your-secret"
+pnpm web  # Runs at http://localhost:3000
+```
+
+**Optional:** For background job processing with Redis:
+
+```bash
 docker run -d -p 6379:6379 redis:7-alpine
 pnpm worker  # In a separate terminal
 ```
@@ -431,6 +478,8 @@ settings:
 | `DEMO_MODE`             | Enable demo mode (uses in-memory stores)      | `false`                  |
 
 ## CLI Usage
+
+> **Platform support:** All CLI commands work identically on Windows (PowerShell/cmd), macOS, and Linux. Examples below use `agentsync` which works on all platforms after installation.
 
 ### Pack a Solution (Export)
 
@@ -736,7 +785,8 @@ pnpm --filter @agentsync/cli test:coverage
 pnpm --filter @agentsync/web test:e2e
 
 # Run tests in demo mode (no credentials needed)
-DEMO_MODE=true pnpm test
+DEMO_MODE=true pnpm test                    # macOS/Linux
+$env:DEMO_MODE="true"; pnpm test            # Windows PowerShell
 ```
 
 ### Quality Standards
@@ -746,6 +796,7 @@ DEMO_MODE=true pnpm test
 - **API Validation**: Zod schema validation
 - **Error Handling**: Comprehensive error messages with troubleshooting hints
 - **Audit Logging**: All operations logged to SQLite for compliance
+- **Cross-platform CI**: Tests run on both Ubuntu and Windows in GitHub Actions
 
 ## Project Structure
 
@@ -812,7 +863,7 @@ source:
 
 ### Protections
 
-- **`.env` permissions**: `agentsync init` creates `.env` with `chmod 600` (owner read/write only)
+- **`.env` permissions**: `agentsync init` creates `.env` with `chmod 600` on macOS/Linux (owner read/write only). On Windows, a note is displayed to set NTFS permissions manually
 - **Auto-gitignore**: `init` automatically adds `.env` to `.gitignore` if not already present
 - **Masked input**: Interactive prompts mask secret entry with `*` characters
 - **No secret logging**: Client secrets and tokens are never written to console output, error messages, or log files. Error handlers extract only safe context (tenant name, environment URL, client ID)
@@ -1010,14 +1061,30 @@ Telemetry is only active when a PostHog key is configured — open-source users 
 Opt out anytime:
 
 ```bash
-agentsync telemetry off          # or
-export DO_NOT_TRACK=1            # consoledonottrack.com standard
+agentsync telemetry off          # Works on all platforms
+
+# Environment variable (macOS/Linux)
+export DO_NOT_TRACK=1
 export AGENTSYNC_TELEMETRY_DISABLED=1
+
+# Environment variable (Windows PowerShell)
+$env:DO_NOT_TRACK = "1"
+$env:AGENTSYNC_TELEMETRY_DISABLED = "1"
 ```
 
 See the [CLI telemetry docs](packages/cli/README.md#telemetry) for full details on what is and isn't collected.
 
 ---
+
+## Platform Support
+
+| Platform | CLI Binary | Node.js (dev) | CI Tested |
+| -------- | ---------- | ------------- | --------- |
+| Windows x64 (PowerShell) | Yes | Yes | Yes |
+| macOS arm64 (Apple Silicon) | Yes | Yes | No |
+| macOS x64 (Intel) | Yes | Yes | No |
+| Linux x64 | Yes | Yes | Yes |
+| Linux arm64 | Yes | Yes | No |
 
 ## Known Limitations
 

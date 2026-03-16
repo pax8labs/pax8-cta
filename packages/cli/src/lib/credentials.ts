@@ -14,16 +14,28 @@
  * limitations under the License.
  */
 
-import keytar from "keytar";
-
 const SERVICE_NAME = "agentsync";
 const ACCOUNT_NAME = "client-secret";
+
+/**
+ * Lazily load keytar (optional dependency — may not be installed if native
+ * compilation failed, e.g. on Windows without Visual Studio Build Tools).
+ */
+async function getKeytar(): Promise<typeof import("keytar") | null> {
+  try {
+    return await import("keytar");
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Get stored secret from OS keychain
  */
 export async function getStoredSecret(): Promise<string | null> {
   try {
+    const keytar = await getKeytar();
+    if (!keytar) return null;
     return await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
   } catch (error) {
     // If keytar fails (e.g., on unsupported platforms), return null
@@ -39,12 +51,20 @@ export async function storeSecret(secret: string): Promise<void> {
     throw new Error("Secret cannot be empty");
   }
 
+  const keytar = await getKeytar();
+  if (!keytar) {
+    const hint =
+      process.platform === "win32"
+        ? "OS keychain is unavailable (keytar not installed — requires Visual Studio Build Tools on Windows).\n  Set the PARTNER_CLIENT_SECRET environment variable or add it to .env instead."
+        : "OS keychain is unavailable (keytar not installed).\n  Set the PARTNER_CLIENT_SECRET environment variable or add it to .env instead.";
+    throw new Error(hint);
+  }
+
   try {
     await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, secret);
   } catch (error) {
-    throw new Error(
-      `Failed to store secret in keychain: ${error instanceof Error ? error.message : String(error)}`
-    );
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to store secret in keychain: ${msg}`);
   }
 }
 
@@ -53,6 +73,8 @@ export async function storeSecret(secret: string): Promise<void> {
  */
 export async function deleteSecret(): Promise<void> {
   try {
+    const keytar = await getKeytar();
+    if (!keytar) return;
     await keytar.deletePassword(SERVICE_NAME, ACCOUNT_NAME);
   } catch (error) {
     // Ignore errors when deleting (secret may not exist)

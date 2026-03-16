@@ -28,7 +28,7 @@ jobs:
           - os: ubuntu-latest
             target: bun-linux-arm64
             name: agentsync-linux-arm64
-          - os: ubuntu-latest
+          - os: windows-latest
             target: bun-windows-x64
             name: agentsync-windows-x64.exe
 
@@ -45,19 +45,37 @@ jobs:
         run: bun install
         working-directory: packages/cli
 
-      - name: Build binary
+      - name: Build binary (Unix)
+        if: runner.os != 'Windows'
         run: |
           mkdir -p dist/binaries
           bun build --compile --target=${{ matrix.target }} ./src/index.ts --outfile ${{ matrix.name }}
         working-directory: packages/cli
 
-      - name: Generate checksums
+      - name: Build binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Path dist/binaries -Force | Out-Null
+          bun build --compile --target=${{ matrix.target }} ./src/index.ts --outfile ${{ matrix.name }}
+        shell: pwsh
+        working-directory: packages/cli
+
+      - name: Generate checksums (Unix)
+        if: runner.os != 'Windows'
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             shasum -a 256 ${{ matrix.name }} > ${{ matrix.name }}.sha256
           else
             sha256sum ${{ matrix.name }} > ${{ matrix.name }}.sha256
           fi
+        working-directory: packages/cli
+
+      - name: Generate checksums (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $hash = (Get-FileHash -Path "${{ matrix.name }}" -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.name }}" | Out-File -FilePath "${{ matrix.name }}.sha256" -Encoding ascii
+        shell: pwsh
         working-directory: packages/cli
 
       - name: Upload artifact
@@ -136,6 +154,12 @@ jobs:
           ```
 
           ### Windows
+          ```powershell
+          # One-line install (PowerShell)
+          irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex
+
+          # Or download manually
+          ```
           Download [agentsync-windows-x64.exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-windows-x64.exe) and add to your PATH.
 
           ## Verify Installation

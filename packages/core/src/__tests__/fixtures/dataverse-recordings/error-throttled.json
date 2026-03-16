@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "0x8005F103",
+    "message": "Number of requests exceeded the limit of 6000 over time window of 300 seconds."
+  }
+}
