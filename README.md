@@ -93,7 +93,19 @@ npm install -g @agentsync/cli
 
 ### Standalone Binaries
 
-Pre-built binaries are available for macOS (arm64, x64), Linux (arm64, x64), and Windows (x64). Download from the [Releases](https://github.com/pax8-oss/agentsync/releases) page.
+Pre-built binaries are available for macOS (arm64, x64), Linux (arm64, x64), and Windows (x64). Download from the [Releases](https://github.com/pax8-oss/agentsync/releases) page, or use the install scripts:
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pax8-oss/agentsync/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/pax8-oss/agentsync/main/install.ps1 | iex
+```
 
 ### From Source
 
@@ -126,6 +138,7 @@ Run `agentsync` with no arguments to enter interactive REPL mode, or use command
 | `agentsync setup`       | Configure credentials interactively                  |
 | `agentsync init`        | Initialize a new AgentSync project with config files |
 | `agentsync status`      | Show current configuration and connection status     |
+| `agentsync telemetry`   | View or change anonymous usage telemetry settings    |
 
 ### Deploy
 
@@ -537,6 +550,26 @@ sequenceDiagram
 1. **make.powerapps.com does not support GDAP** -- All operations must go through APIs
 2. **Flows with owner-only triggers** -- May require manual configuration in the target environment
 3. **Cross-region deployments** -- May experience higher latency (API calls traverse regions)
+
+---
+
+## Telemetry
+
+AgentSync collects anonymous usage telemetry to help improve the tool. This is **enabled by default** and can be disabled at any time.
+
+**What's collected:** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
+
+**What's never collected:** tenant IDs, solution names, file paths, environment URLs, error messages, or any personally identifiable information.
+
+**Opt out:**
+
+```bash
+agentsync telemetry off
+# or
+export AGENTSYNC_TELEMETRY_DISABLED=1
+```
+
+Telemetry is automatically disabled in CI environments (`CI=true`) and respects the [`DO_NOT_TRACK`](https://consoledonottrack.com/) standard.
 
 ---
 
