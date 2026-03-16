@@ -1078,13 +1078,13 @@ See the [CLI telemetry docs](packages/cli/README.md#telemetry) for full details 
 
 ## Platform Support
 
-| Platform | CLI Binary | Node.js (dev) | CI Tested |
-| -------- | ---------- | ------------- | --------- |
-| Windows x64 (PowerShell) | Yes | Yes | Yes |
-| macOS arm64 (Apple Silicon) | Yes | Yes | No |
-| macOS x64 (Intel) | Yes | Yes | No |
-| Linux x64 | Yes | Yes | Yes |
-| Linux arm64 | Yes | Yes | No |
+| Platform                    | CLI Binary | Node.js (dev) | CI Tested |
+| --------------------------- | ---------- | ------------- | --------- |
+| Windows x64 (PowerShell)    | Yes        | Yes           | Yes       |
+| macOS arm64 (Apple Silicon) | Yes        | Yes           | No        |
+| macOS x64 (Intel)           | Yes        | Yes           | No        |
+| Linux x64                   | Yes        | Yes           | Yes       |
+| Linux arm64                 | Yes        | Yes           | No        |
 
 ## Known Limitations
 
@@ -1096,7 +1096,7 @@ See the [CLI telemetry docs](packages/cli/README.md#telemetry) for full details 
 
 ## License
 
-MIT
+[Apache 2.0](LICENSE)
 
 ## Contributing
 
