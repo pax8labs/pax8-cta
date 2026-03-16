@@ -37,6 +37,7 @@
  * Opt-out:
  * - Run: agentsync telemetry off
  * - Or set: AGENTSYNC_TELEMETRY_DISABLED=1
+ * - Or set: DO_NOT_TRACK=1 (https://consoledonottrack.com)
  *
  * More info: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry
  */
@@ -108,6 +109,11 @@ export function isTelemetryEnabled(): boolean {
     return false;
   }
 
+  // Respect DO_NOT_TRACK convention (https://consoledonottrack.com)
+  if (process.env.DO_NOT_TRACK === "1") {
+    return false;
+  }
+
   // CI environments - disable by default
   if (process.env.CI === "true" || process.env.CI === "1") {
     return false;
@@ -176,9 +182,13 @@ function getClient(): PostHog | null {
  * Shutdown telemetry client gracefully
  */
 export async function shutdownTelemetry(): Promise<void> {
-  if (client) {
-    await client.shutdown();
-    client = null;
+  try {
+    if (client) {
+      await client.shutdown();
+      client = null;
+    }
+  } catch {
+    // Telemetry should never affect CLI functionality
   }
 }
 
@@ -202,25 +212,29 @@ export interface CommandContext {
  * Track a CLI command execution
  */
 export function trackCommand(ctx: CommandContext): void {
-  const posthog = getClient();
-  if (!posthog) return;
+  try {
+    const posthog = getClient();
+    if (!posthog) return;
 
-  posthog.capture({
-    distinctId: getMachineId(),
-    event: "cli_command",
-    properties: {
-      command: ctx.command,
-      subcommand: ctx.subcommand,
-      flags: ctx.flags,
-      success: ctx.success,
-      duration_ms: ctx.durationMs,
-      error_type: ctx.errorType,
-      demo_mode: ctx.demoMode,
-      cli_version: CLI_VERSION,
-      os: process.platform,
-      node_version: process.version,
-    },
-  });
+    posthog.capture({
+      distinctId: getMachineId(),
+      event: "cli_command",
+      properties: {
+        command: ctx.command,
+        subcommand: ctx.subcommand,
+        flags: ctx.flags,
+        success: ctx.success,
+        duration_ms: ctx.durationMs,
+        error_type: ctx.errorType,
+        demo_mode: ctx.demoMode,
+        cli_version: CLI_VERSION,
+        os: process.platform,
+        node_version: process.version,
+      },
+    });
+  } catch {
+    // Telemetry should never affect CLI functionality
+  }
 }
 
 /**
@@ -230,58 +244,70 @@ export function trackNotFound(
   resource: "tenant" | "deployment" | "agent" | "command",
   query: string
 ): void {
-  const posthog = getClient();
-  if (!posthog) return;
+  try {
+    const posthog = getClient();
+    if (!posthog) return;
 
-  // Don't track the actual query value for privacy - just the resource type
-  posthog.capture({
-    distinctId: getMachineId(),
-    event: "cli_not_found",
-    properties: {
-      resource_type: resource,
-      // Hash the query so we can see patterns without seeing actual values
-      query_hash: createHash("sha256").update(query).digest("hex").substring(0, 8),
-      cli_version: CLI_VERSION,
-      os: process.platform,
-    },
-  });
+    // Don't track the actual query value for privacy - just the resource type
+    posthog.capture({
+      distinctId: getMachineId(),
+      event: "cli_not_found",
+      properties: {
+        resource_type: resource,
+        // Hash the query so we can see patterns without seeing actual values
+        query_hash: createHash("sha256").update(query).digest("hex").substring(0, 8),
+        cli_version: CLI_VERSION,
+        os: process.platform,
+      },
+    });
+  } catch {
+    // Telemetry should never affect CLI functionality
+  }
 }
 
 /**
  * Track an error (without sensitive details)
  */
 export function trackError(errorType: string, command?: string): void {
-  const posthog = getClient();
-  if (!posthog) return;
+  try {
+    const posthog = getClient();
+    if (!posthog) return;
 
-  posthog.capture({
-    distinctId: getMachineId(),
-    event: "cli_error",
-    properties: {
-      error_type: errorType,
-      command,
-      cli_version: CLI_VERSION,
-      os: process.platform,
-    },
-  });
+    posthog.capture({
+      distinctId: getMachineId(),
+      event: "cli_error",
+      properties: {
+        error_type: errorType,
+        command,
+        cli_version: CLI_VERSION,
+        os: process.platform,
+      },
+    });
+  } catch {
+    // Telemetry should never affect CLI functionality
+  }
 }
 
 /**
  * Track first run
  */
 export function trackFirstRun(): void {
-  const posthog = getClient();
-  if (!posthog) return;
+  try {
+    const posthog = getClient();
+    if (!posthog) return;
 
-  posthog.capture({
-    distinctId: getMachineId(),
-    event: "cli_first_run",
-    properties: {
-      cli_version: CLI_VERSION,
-      os: process.platform,
-      node_version: process.version,
-    },
-  });
+    posthog.capture({
+      distinctId: getMachineId(),
+      event: "cli_first_run",
+      properties: {
+        cli_version: CLI_VERSION,
+        os: process.platform,
+        node_version: process.version,
+      },
+    });
+  } catch {
+    // Telemetry should never affect CLI functionality
+  }
 }
 
 // ============================================================================
@@ -293,12 +319,12 @@ export function trackFirstRun(): void {
  */
 export function getFirstRunNotice(): string {
   return `
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│  AgentSync CLI collects anonymous usage data to improve the tool.               │
-│                                                                                  │
-│  • Run 'agentsync telemetry off' to disable                                      │
-│  • Set AGENTSYNC_TELEMETRY_DISABLED=1 in your environment                        │
-│  • Learn more: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry │
-└──────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│  AgentSync CLI collects anonymous usage data to improve the tool.         │
+│                                                                           │
+│  • Run 'agentsync telemetry off' to disable                               │
+│  • Set AGENTSYNC_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1                   │
+│  • Learn more: github.com/pax8labs/agentsync/tree/main/packages/cli       │
+└────────────────────────────────────────────────────────────────────────────┘
 `;
 }

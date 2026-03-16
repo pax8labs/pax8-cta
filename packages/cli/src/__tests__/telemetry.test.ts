@@ -194,6 +194,16 @@ describe("Telemetry", () => {
       expect(isTelemetryEnabled()).toBe(false);
     });
 
+    it("should respect DO_NOT_TRACK=1", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({ DO_NOT_TRACK: "1" });
+
+      vi.resetModules();
+      const { isTelemetryEnabled } = await import("../lib/telemetry.js");
+
+      expect(isTelemetryEnabled()).toBe(false);
+    });
+
     it("should provide first run notice text", async () => {
       const { getFirstRunNotice } = await import("../lib/telemetry.js");
 
@@ -201,7 +211,7 @@ describe("Telemetry", () => {
 
       expect(notice).toContain("anonymous usage data");
       expect(notice).toContain("telemetry off");
-      expect(notice).toContain("AGENTSYNC_TELEMETRY_DISABLED");
+      expect(notice).toContain("DO_NOT_TRACK");
     });
 
     it("should track first run shown state", async () => {

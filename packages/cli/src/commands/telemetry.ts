@@ -89,6 +89,7 @@ function showStatus(): void {
 
   if (enabled) {
     console.log(chalk.gray("To disable: agentsync telemetry off"));
+    console.log(chalk.gray("  Or set: AGENTSYNC_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1"));
   } else {
     console.log(chalk.gray("To enable: agentsync telemetry on"));
   }

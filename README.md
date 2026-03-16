@@ -783,6 +783,52 @@ agentsync/
 └── Dockerfile
 ```
 
+## Security & Credential Management
+
+AgentSync is designed so that **secrets never end up where they shouldn't be**.
+
+### Where Secrets Live
+
+| Storage                  | What                    | How                                                                                                                                                    |
+| ------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Environment variable** | `PARTNER_CLIENT_SECRET` | Primary method. Set in your shell or `.env` file                                                                                                       |
+| **OS keychain**          | Client secret           | `agentsync auth login` stores it in macOS Keychain / Windows Credential Manager / Linux Secret Service via [keytar](https://github.com/nicedoc/keytar) |
+| **Azure Key Vault**      | Client secret           | Enterprise option for production deployments                                                                                                           |
+
+The CLI checks these in order (env var → keychain → Key Vault) and uses the first one found.
+
+### What's NOT a Secret
+
+`config/tenants.yaml` contains only **IDs and URLs** — tenant IDs, client ID, environment URLs. These are not secrets and are safe to commit (though `.gitignore` excludes the file by default since the IDs are still internal).
+
+```yaml
+# tenants.yaml — no secrets here
+partner:
+  tenantId: "xxxxxxxx-..." # just an identifier
+  clientId: "xxxxxxxx-..." # public app ID
+source:
+  environmentUrl: "https://org.crm.dynamics.com"
+```
+
+### Protections
+
+- **`.env` permissions**: `agentsync init` creates `.env` with `chmod 600` (owner read/write only)
+- **Auto-gitignore**: `init` automatically adds `.env` to `.gitignore` if not already present
+- **Masked input**: Interactive prompts mask secret entry with `*` characters
+- **No secret logging**: Client secrets and tokens are never written to console output, error messages, or log files. Error handlers extract only safe context (tenant name, environment URL, client ID)
+- **In-memory tokens**: Access tokens are cached in memory with automatic refresh before expiry — never written to disk
+- **GDAP model**: AgentSync never stores or handles customer credentials. Cross-tenant access is delegated through Microsoft's GDAP framework
+
+### Token Lifecycle
+
+Tokens are acquired from Azure AD via [MSAL](https://learn.microsoft.com/en-us/entra/msal/) and cached in memory per-scope. They auto-refresh before expiry with a buffer window to prevent clock-skew failures. No tokens are persisted to disk.
+
+### Demo Mode
+
+`DEMO_MODE=true` bypasses authentication using mock data for testing. `agentsync init` automatically disables demo mode when real credentials are configured, so there's no risk of accidentally running in demo mode with production tenants.
+
+---
+
 ## Troubleshooting
 
 ### "Failed to acquire token"
@@ -954,6 +1000,24 @@ AgentSync automatically handles rate limits with:
 - AgentSync automatically retries with backoff
 - Reduce `WORKER_CONCURRENCY` if deploying to many tenants
 - Check for other apps using same credentials
+
+## Telemetry
+
+AgentSync CLI collects **anonymous** usage analytics (command names, success/failure, duration, OS) to understand which features are used and where errors occur. No tenant data, file paths, credentials, or personally identifiable information is ever collected.
+
+Telemetry is only active when a PostHog key is configured — open-source users building from source won't have one, so **telemetry is effectively off by default for self-hosted installs**.
+
+Opt out anytime:
+
+```bash
+agentsync telemetry off          # or
+export DO_NOT_TRACK=1            # consoledonottrack.com standard
+export AGENTSYNC_TELEMETRY_DISABLED=1
+```
+
+See the [CLI telemetry docs](packages/cli/README.md#telemetry) for full details on what is and isn't collected.
+
+---
 
 ## Known Limitations
 
