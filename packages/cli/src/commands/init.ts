@@ -1,5 +1,5 @@
 /**
- * Copyright 2024 Pax8 Labs
+ * Copyright 2024 Pax8, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -287,7 +287,7 @@ export const initCommand = new Command("init")
           chalk.gray("   The secret Value from your app registration (not the Secret ID).")
         );
 
-        // TODO: Add masked input for secret (see https://github.com/pax8-labs/agentsync/issues/XXX)
+        // TODO: Add masked input for secret
         let clientSecret = await question(
           chalk.white("   Secret Value ") + chalk.gray("(or 'o' to open Azure Portal): ")
         );
@@ -331,9 +331,7 @@ export const initCommand = new Command("init")
               } else {
                 // Note: Windows doesn't support Unix file permissions
                 console.log(
-                  chalk.dim(
-                    "  Note: On Windows, use NTFS permissions to restrict .env file access"
-                  )
+                  chalk.dim("  Note: On Windows, use NTFS permissions to restrict .env file access")
                 );
               }
               console.log(chalk.green("   ✓ Secret saved to .env (restricted permissions)"));

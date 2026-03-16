@@ -2,6 +2,13 @@
   "name": "@agentsync/core",
   "version": "0.1.0",
   "license": "Apache-2.0",
+  "author": "Pax8, Inc.",
+  "homepage": "https://github.com/pax8-oss/agentsync",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pax8-oss/agentsync.git",
+    "directory": "packages/core"
+  },
   "description": "Core logic for AgentSync - sync and track agent deployments",
   "type": "module",
   "main": "./dist/index.js",
