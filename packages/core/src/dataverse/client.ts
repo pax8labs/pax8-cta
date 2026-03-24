@@ -16,6 +16,28 @@
 
 import { TokenManager } from "../auth/token-manager.js";
 import { DataverseApiError, ErrorCode, GdapError } from "../errors.js";
+import { coreLogger } from "../services/logger.js";
+
+/**
+ * Extract Microsoft diagnostic/correlation headers from a Dataverse response.
+ * These IDs let you cross-reference errors with Microsoft service health
+ * dashboards and support tickets.
+ */
+function extractMsHeaders(response: Response): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const key of [
+    "x-ms-request-id",
+    "x-ms-ags-diagnostic",
+    "x-ms-service-request-id",
+    "REQ_ID",
+  ]) {
+    const value = response.headers.get(key);
+    if (value) {
+      headers[key] = value;
+    }
+  }
+  return headers;
+}
 
 export interface DataverseClientConfig {
   environmentUrl: string;
@@ -260,8 +282,10 @@ export class DataverseClient {
    */
   async executeActionRaw(actionName: string, parameters: unknown): Promise<Response> {
     const token = await this.config.tokenManager.getDataverseToken(this.config.environmentUrl);
+    const start = Date.now();
+    const url = `${this.apiUrl}/${actionName}`;
 
-    const response = await fetch(`${this.apiUrl}/${actionName}`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -273,9 +297,26 @@ export class DataverseClient {
       body: JSON.stringify(parameters),
     });
 
+    const durationMs = Date.now() - start;
+    const msHeaders = extractMsHeaders(response);
+
     if (!response.ok) {
+      coreLogger.warn("Dataverse raw action error", {
+        action: actionName,
+        status: response.status,
+        durationMs,
+        environmentUrl: this.config.environmentUrl,
+        ...msHeaders,
+      });
       await this.handleError(response);
     }
+
+    coreLogger.debug("Dataverse raw action", {
+      action: actionName,
+      status: response.status,
+      durationMs,
+      ...msHeaders,
+    });
 
     return response;
   }
@@ -305,6 +346,7 @@ export class DataverseClient {
 
   private async fetch(url: string, options: RequestInit): Promise<Response> {
     const token = await this.config.tokenManager.getDataverseToken(this.config.environmentUrl);
+    const start = Date.now();
 
     const response = await fetch(url, {
       ...options,
@@ -318,9 +360,28 @@ export class DataverseClient {
       },
     });
 
+    const durationMs = Date.now() - start;
+    const msHeaders = extractMsHeaders(response);
+
     if (!response.ok) {
+      coreLogger.warn("Dataverse API error response", {
+        method: options.method,
+        url,
+        status: response.status,
+        durationMs,
+        environmentUrl: this.config.environmentUrl,
+        ...msHeaders,
+      });
       await this.handleError(response);
     }
+
+    coreLogger.debug("Dataverse API call", {
+      method: options.method,
+      url,
+      status: response.status,
+      durationMs,
+      ...msHeaders,
+    });
 
     return response;
   }

@@ -29,6 +29,7 @@ vi.mock("posthog-node", () => ({
 // Mock conf to avoid writing to disk
 const mockStore: Record<string, unknown> = {
   telemetryEnabled: false, // Matches production default (opt-in)
+  diagnosticTelemetryEnabled: false,
   firstRunShown: false,
   machineId: "test-machine-id",
 };
@@ -61,6 +62,7 @@ describe("Telemetry", () => {
 
     // Reset mock store
     mockStore.telemetryEnabled = false;
+    mockStore.diagnosticTelemetryEnabled = false;
     mockStore.firstRunShown = false;
     mockStore.machineId = "test-machine-id";
 
@@ -91,8 +93,8 @@ describe("Telemetry", () => {
       const cleanOutput = stripAnsi(output);
 
       expect(containsText(cleanOutput, "Telemetry Status")).toBe(true);
-      expect(containsText(cleanOutput, "What we collect")).toBe(true);
-      expect(containsText(cleanOutput, "What we NEVER collect")).toBe(true);
+      expect(containsText(cleanOutput, "Base telemetry collects")).toBe(true);
+      expect(containsText(cleanOutput, "NEVER collected")).toBe(true);
     });
 
     it("should show status by default", async () => {
@@ -152,10 +154,10 @@ describe("Telemetry", () => {
       expect(containsText(cleanOutput, "Execution duration")).toBe(true);
       expect(containsText(cleanOutput, "CLI version")).toBe(true);
 
-      // What we don't collect
-      expect(containsText(cleanOutput, "Tenant IDs")).toBe(true);
-      expect(containsText(cleanOutput, "Solution names")).toBe(true);
-      expect(containsText(cleanOutput, "Configuration values")).toBe(true);
+      // What we never collect
+      expect(containsText(cleanOutput, "Secrets, tokens")).toBe(true);
+      expect(containsText(cleanOutput, "Tenant names")).toBe(true);
+      expect(containsText(cleanOutput, "Solution contents")).toBe(true);
       expect(containsText(cleanOutput, "personally identifiable")).toBe(true);
     });
 
@@ -265,6 +267,129 @@ describe("Telemetry", () => {
 
       // Should not throw
       await expect(shutdownTelemetry()).resolves.not.toThrow();
+    });
+  });
+
+  describe("diagnostic telemetry", () => {
+    it("should be disabled by default", async () => {
+      const { isDiagnosticTelemetryEnabled } = await import("../lib/telemetry.js");
+
+      expect(isDiagnosticTelemetryEnabled()).toBe(false);
+    });
+
+    it("should enable diagnostic telemetry and base telemetry together", async () => {
+      const { enableDiagnosticTelemetry } = await import("../lib/telemetry.js");
+
+      enableDiagnosticTelemetry();
+
+      // Diagnostic requires base telemetry + PostHog key + no env override
+      // In tests, env disables it, so isDiagnosticTelemetryEnabled() returns false.
+      // But the config value should be set.
+      expect(mockStore.diagnosticTelemetryEnabled).toBe(true);
+      expect(mockStore.telemetryEnabled).toBe(true);
+    });
+
+    it("should disable diagnostic telemetry independently", async () => {
+      const { enableDiagnosticTelemetry, disableDiagnosticTelemetry } =
+        await import("../lib/telemetry.js");
+
+      enableDiagnosticTelemetry();
+      expect(mockStore.diagnosticTelemetryEnabled).toBe(true);
+
+      disableDiagnosticTelemetry();
+      expect(mockStore.diagnosticTelemetryEnabled).toBe(false);
+      // Base telemetry stays on
+      expect(mockStore.telemetryEnabled).toBe(true);
+    });
+
+    it("should format diagnostic report for user consent", async () => {
+      const { formatReportForConsent } = await import("../lib/telemetry.js");
+
+      const report = {
+        event: "cli_diagnose_result" as const,
+        command: "diagnose",
+        errorCode: "GDAP_MISSING",
+        errorMessage: "No active GDAP relationship found",
+        tenantId: "11111111-1111-1111-1111-111111111111",
+        failedStep: "GDAP relationship",
+        steps: [
+          { name: "Client secret", status: "pass" as const, durationMs: 5 },
+          {
+            name: "GDAP relationship",
+            status: "fail" as const,
+            durationMs: 1200,
+            errorCode: "GDAP_MISSING",
+          },
+          { name: "Token acquisition", status: "skip" as const, durationMs: 0 },
+        ],
+        durationMs: 1205,
+      };
+
+      const formatted = formatReportForConsent(report);
+
+      expect(formatted).toContain("cli_diagnose_result");
+      expect(formatted).toContain("GDAP_MISSING");
+      expect(formatted).toContain("11111111");
+      expect(formatted).toContain("Client secret");
+      expect(formatted).toContain("GDAP relationship");
+      expect(formatted).toContain("1205ms");
+    });
+
+    it("should truncate long error messages in consent display", async () => {
+      const { formatReportForConsent } = await import("../lib/telemetry.js");
+
+      const report = {
+        event: "cli_auth_failure" as const,
+        command: "deploy",
+        errorMessage: "A".repeat(300),
+        durationMs: 100,
+      };
+
+      const formatted = formatReportForConsent(report);
+
+      // Should truncate to ~200 chars + "..."
+      expect(formatted).toContain("...");
+      expect(formatted.length).toBeLessThan(500);
+    });
+
+    it("should not throw when sending report without PostHog key", async () => {
+      const { sendDiagnosticReport } = await import("../lib/telemetry.js");
+
+      // No PostHog key in test env — should silently no-op
+      await expect(
+        sendDiagnosticReport({
+          event: "cli_diagnose_result" as const,
+          command: "diagnose",
+          errorCode: "TEST",
+          durationMs: 100,
+        })
+      ).resolves.not.toThrow();
+    });
+
+    it("should show diagnostics subcommand in telemetry command", async () => {
+      const { telemetryCommand } = await import("../commands/telemetry.js");
+      const program = new Command();
+      program.addCommand(telemetryCommand);
+
+      await program.parseAsync(["node", "test", "telemetry", "diagnostics", "on"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      expect(containsText(cleanOutput, "Diagnostic telemetry enabled")).toBe(true);
+    });
+
+    it("should show diagnostic status in telemetry status", async () => {
+      const { telemetryCommand } = await import("../commands/telemetry.js");
+      const program = new Command();
+      program.addCommand(telemetryCommand);
+
+      await program.parseAsync(["node", "test", "telemetry", "status"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      expect(containsText(cleanOutput, "Diagnostic reports")).toBe(true);
     });
   });
 });

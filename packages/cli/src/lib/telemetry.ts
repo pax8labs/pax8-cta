@@ -60,12 +60,14 @@ const POSTHOG_HOST = process.env.AGENTSYNC_POSTHOG_HOST || "https://us.i.posthog
 // Config store for telemetry preferences
 const config = new Conf<{
   telemetryEnabled: boolean;
+  diagnosticTelemetryEnabled: boolean;
   firstRunShown: boolean;
   machineId: string;
 }>({
   projectName: "agentsync-cli",
   defaults: {
     telemetryEnabled: false, // Opt-in: disabled by default, enable with `agentsync telemetry on`
+    diagnosticTelemetryEnabled: false, // Separate opt-in for richer error data
     firstRunShown: false,
     machineId: "",
   },
@@ -154,6 +156,45 @@ export function disableTelemetry(): void {
   }
 }
 
+// ============================================================================
+// Diagnostic Telemetry (Tier 2)
+//
+// Richer error/auth events that include context needed to troubleshoot GDAP
+// issues remotely. Requires BOTH base telemetry AND diagnostic telemetry to
+// be enabled. Separate opt-in because it includes:
+//   - Error messages (not just types)
+//   - Microsoft correlation IDs (x-ms-request-id)
+//   - Tenant IDs (not names or other PII)
+//   - Auth failure codes (AADSTS*)
+//   - Step-level timing from diagnose command
+//
+// Still NEVER includes: secrets, tokens, tenant names, user names, file paths,
+// solution contents, or IP addresses.
+// ============================================================================
+
+/**
+ * Check if diagnostic telemetry is enabled.
+ * Requires base telemetry to also be enabled.
+ */
+export function isDiagnosticTelemetryEnabled(): boolean {
+  return isTelemetryEnabled() && config.get("diagnosticTelemetryEnabled");
+}
+
+/**
+ * Enable diagnostic telemetry (also enables base telemetry)
+ */
+export function enableDiagnosticTelemetry(): void {
+  config.set("telemetryEnabled", true);
+  config.set("diagnosticTelemetryEnabled", true);
+}
+
+/**
+ * Disable diagnostic telemetry (base telemetry stays as-is)
+ */
+export function disableDiagnosticTelemetry(): void {
+  config.set("diagnosticTelemetryEnabled", false);
+}
+
 /**
  * Check if first run notice has been shown
  */
@@ -216,7 +257,14 @@ export async function shutdownTelemetry(): Promise<void> {
 // Event Tracking
 // ============================================================================
 
-export type TelemetryEvent = "cli_command" | "cli_error" | "cli_not_found" | "cli_first_run";
+export type TelemetryEvent =
+  | "cli_command"
+  | "cli_error"
+  | "cli_not_found"
+  | "cli_first_run"
+  | "cli_diagnose_result"
+  | "cli_auth_failure"
+  | "cli_dataverse_error";
 
 export interface CommandContext {
   command: string;
@@ -327,6 +375,158 @@ export function trackFirstRun(): void {
     });
   } catch {
     // Telemetry should never affect CLI functionality
+  }
+}
+
+// ============================================================================
+// Diagnostic Telemetry Events
+// ============================================================================
+
+/**
+ * Structured payload for a diagnostic error report.
+ * This is what gets shown to the user before they consent to send it.
+ */
+export interface DiagnosticReport {
+  event: "cli_diagnose_result" | "cli_auth_failure" | "cli_dataverse_error";
+  /** Which command was running */
+  command: string;
+  /** Error code from ErrorCode enum (e.g., AUTH_FAILED, GDAP_MISSING) */
+  errorCode?: string;
+  /** Error message (may contain environment URLs — never contains secrets) */
+  errorMessage?: string;
+  /** Microsoft correlation ID from response headers */
+  msRequestId?: string;
+  /** Tenant ID (UUID only, never name) */
+  tenantId?: string;
+  /** Which step failed (for diagnose command) */
+  failedStep?: string;
+  /** All step results (for diagnose command) */
+  steps?: Array<{
+    name: string;
+    status: "pass" | "fail" | "skip";
+    durationMs: number;
+    errorCode?: string;
+  }>;
+  /** How long the operation took */
+  durationMs?: number;
+}
+
+/**
+ * Send a diagnostic report to PostHog.
+ * Called only after user consent (ad-hoc or persistent opt-in).
+ */
+export async function sendDiagnosticReport(report: DiagnosticReport): Promise<void> {
+  try {
+    // For ad-hoc sends we need a PostHog key even if telemetry is globally off
+    if (!POSTHOG_KEY) return;
+
+    const posthog =
+      getClient() ??
+      new PostHog(POSTHOG_KEY, {
+        host: POSTHOG_HOST,
+        flushAt: 1,
+        flushInterval: 0,
+      });
+
+    posthog.capture({
+      distinctId: getMachineId(),
+      event: report.event,
+      properties: {
+        ...report,
+        cli_version: CLI_VERSION,
+        os: process.platform,
+        node_version: process.version,
+        diagnostic_telemetry: true,
+      },
+    });
+
+    await posthog.flush();
+  } catch {
+    // Telemetry should never affect CLI functionality
+  }
+}
+
+/**
+ * Format a diagnostic report as human-readable text for the consent prompt.
+ * Shows the user exactly what would be sent — no hidden fields.
+ */
+export function formatReportForConsent(report: DiagnosticReport): string {
+  const lines: string[] = [];
+  lines.push(`  Event:          ${report.event}`);
+  lines.push(`  Command:        ${report.command}`);
+  if (report.errorCode) lines.push(`  Error code:     ${report.errorCode}`);
+  if (report.errorMessage) {
+    // Truncate long messages
+    const msg =
+      report.errorMessage.length > 200
+        ? report.errorMessage.substring(0, 200) + "..."
+        : report.errorMessage;
+    lines.push(`  Error message:  ${msg}`);
+  }
+  if (report.msRequestId) lines.push(`  MS Request ID:  ${report.msRequestId}`);
+  if (report.tenantId) lines.push(`  Tenant ID:      ${report.tenantId}`);
+  if (report.failedStep) lines.push(`  Failed step:    ${report.failedStep}`);
+  if (report.durationMs != null) lines.push(`  Duration:       ${report.durationMs}ms`);
+  if (report.steps) {
+    lines.push(`  Steps:`);
+    for (const step of report.steps) {
+      const icon = step.status === "pass" ? "✓" : step.status === "fail" ? "✗" : "○";
+      lines.push(
+        `    ${icon} ${step.name} (${step.durationMs}ms)${step.errorCode ? ` [${step.errorCode}]` : ""}`
+      );
+    }
+  }
+  lines.push(`  CLI version:    ${CLI_VERSION}`);
+  lines.push(`  OS:             ${process.platform}`);
+  return lines.join("\n");
+}
+
+/**
+ * Prompt the user to send a diagnostic report.
+ * Returns true if the user consented and the report was sent.
+ */
+export async function promptAndSendReport(report: DiagnosticReport): Promise<boolean> {
+  // Skip in non-interactive environments
+  if (!process.stdin.isTTY || !POSTHOG_KEY) return false;
+
+  // If diagnostic telemetry is already on, send without asking
+  if (isDiagnosticTelemetryEnabled()) {
+    await sendDiagnosticReport(report);
+    return true;
+  }
+
+  const { createInterface } = await import("readline");
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+
+  try {
+    console.error("\n────────────────────────────────────────────────────────");
+    console.error("Help us fix this? Send an anonymous error report with:");
+    console.error("");
+    console.error(formatReportForConsent(report));
+    console.error("");
+
+    const answer = await new Promise<string>((resolve) => {
+      rl.question("Send this report? [y/N/always] ", resolve);
+    });
+
+    const choice = answer.trim().toLowerCase();
+
+    if (choice === "always") {
+      enableDiagnosticTelemetry();
+      await sendDiagnosticReport(report);
+      console.error("Report sent. Future errors will be reported automatically.");
+      console.error("Disable anytime: agentsync telemetry diagnostics off");
+      return true;
+    } else if (choice === "y" || choice === "yes") {
+      await sendDiagnosticReport(report);
+      console.error("Report sent. Thank you!");
+      return true;
+    } else {
+      console.error("No report sent.");
+      return false;
+    }
+  } finally {
+    rl.close();
   }
 }
 

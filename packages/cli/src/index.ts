@@ -67,6 +67,7 @@ import { setupCommand } from "./commands/setup.js";
 import { authCommand } from "./commands/auth.js";
 import { validateCommand } from "./commands/validate.js";
 import { statusCommand } from "./commands/status.js";
+import { diagnoseCommand } from "./commands/diagnose.js";
 import { showBanner, showWelcome } from "./lib/banner.js";
 import { startRepl } from "./lib/repl.js";
 import {
@@ -101,6 +102,7 @@ export function createProgram(): Command {
   program.addCommand(initCommand);
   program.addCommand(authCommand);
   program.addCommand(validateCommand);
+  program.addCommand(diagnoseCommand);
 
   // Day-to-day workflow
   program.addCommand(solutionsCommand);

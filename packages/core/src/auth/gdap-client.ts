@@ -16,6 +16,7 @@
 
 import { TokenManager, TokenManagerConfig } from "./token-manager.js";
 import { POWER_PLATFORM_ADMIN_ROLE_ID } from "../constants.js";
+import { authLogger } from "../services/logger.js";
 
 export interface GdapClientConfig extends TokenManagerConfig {
   // Partner tenant is the home tenant
@@ -92,6 +93,14 @@ export class GdapClient {
         const delayMs = retryAfter
           ? parseInt(retryAfter, 10) * 1000
           : Math.min(1000 * 2 ** attempt, 10000);
+        authLogger.warn("Graph API transient error, retrying", {
+          url,
+          status: response.status,
+          attempt: attempt + 1,
+          maxRetries: MAX_RETRIES,
+          retryDelayMs: delayMs,
+          requestId: response.headers.get("request-id"),
+        });
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
@@ -114,11 +123,17 @@ export class GdapClient {
       `${this.graphBaseUrl}/tenantRelationships/delegatedAdminRelationships?$filter=status eq 'active'`;
     let pages = 0;
 
+    authLogger.debug("Listing GDAP relationships");
+
     while (url && pages < MAX_PAGES) {
       const response = await this.graphGet(url);
 
       if (!response.ok) {
         const error = await response.text();
+        authLogger.error("Failed to list GDAP relationships", undefined, {
+          status: response.status,
+          requestId: response.headers.get("request-id"),
+        });
         throw new Error(`Failed to list delegated admin relationships: ${error}`);
       }
 
@@ -130,6 +145,11 @@ export class GdapClient {
       url = data["@odata.nextLink"] ?? null;
       pages++;
     }
+
+    authLogger.debug("GDAP relationships loaded", {
+      count: allRelationships.length,
+      pages,
+    });
 
     return allRelationships;
   }

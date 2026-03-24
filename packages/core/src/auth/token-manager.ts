@@ -21,6 +21,7 @@ import {
 } from "@azure/msal-node";
 import { TOKEN_REFRESH_BUFFER_MS } from "../constants.js";
 import { AuthError, ErrorCode } from "../errors.js";
+import { authLogger } from "../services/logger.js";
 
 export interface TokenManagerConfig {
   tenantId: string;
@@ -69,8 +70,19 @@ export class TokenManager {
     const cached = this.tokenCache.get(cacheKey);
 
     if (cached && !this.isTokenExpired(cached)) {
+      authLogger.debug("Token cache hit", {
+        tenantId: this.config.tenantId,
+        scopes: cacheKey,
+        expiresAt: cached.expiresAt.toISOString(),
+      });
       return cached.accessToken;
     }
+
+    const reason = cached ? "expired" : "miss";
+    authLogger.debug(`Token cache ${reason}, acquiring new token`, {
+      tenantId: this.config.tenantId,
+      scopes: cacheKey,
+    });
 
     const result = await this.acquireToken(scopes);
     this.cacheToken(cacheKey, result);
@@ -102,6 +114,7 @@ export class TokenManager {
   }
 
   private async acquireToken(scopes: string[]): Promise<AuthenticationResult> {
+    const start = Date.now();
     try {
       const result = await this.msalClient.acquireTokenByClientCredential({
         scopes,
@@ -112,6 +125,13 @@ export class TokenManager {
           clientId: this.config.clientId,
         });
       }
+
+      authLogger.debug("Token acquired", {
+        tenantId: this.config.tenantId,
+        scopes: scopes.join(","),
+        expiresOn: result.expiresOn?.toISOString(),
+        durationMs: Date.now() - start,
+      });
 
       return result;
     } catch (error) {
@@ -125,6 +145,15 @@ export class TokenManager {
 
       // Check for common authentication errors
       if (/AADSTS700016/i.test(errorString)) {
+        authLogger.error(
+          "Token acquisition failed: app not found (AADSTS700016)",
+          error instanceof Error ? error : undefined,
+          {
+            tenantId: this.config.tenantId,
+            errorCode: ErrorCode.AUTH_APP_NOT_FOUND,
+            durationMs: Date.now() - start,
+          }
+        );
         throw new AuthError(
           ErrorCode.AUTH_APP_NOT_FOUND,
           `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
@@ -138,6 +167,15 @@ export class TokenManager {
           { cause: error }
         );
       } else if (/AADSTS7000215/i.test(errorString)) {
+        authLogger.error(
+          "Token acquisition failed: invalid secret (AADSTS7000215)",
+          error instanceof Error ? error : undefined,
+          {
+            tenantId: this.config.tenantId,
+            errorCode: ErrorCode.AUTH_INVALID_SECRET,
+            durationMs: Date.now() - start,
+          }
+        );
         throw new AuthError(
           ErrorCode.AUTH_INVALID_SECRET,
           `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
@@ -152,6 +190,15 @@ export class TokenManager {
           { cause: error }
         );
       } else if (/AADSTS50034/i.test(errorString)) {
+        authLogger.error(
+          "Token acquisition failed: account not found (AADSTS50034)",
+          error instanceof Error ? error : undefined,
+          {
+            tenantId: this.config.tenantId,
+            errorCode: ErrorCode.AUTH_ACCOUNT_NOT_FOUND,
+            durationMs: Date.now() - start,
+          }
+        );
         throw new AuthError(
           ErrorCode.AUTH_ACCOUNT_NOT_FOUND,
           `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
@@ -163,6 +210,15 @@ export class TokenManager {
           { cause: error }
         );
       } else if (/invalid_client/i.test(errorString)) {
+        authLogger.error(
+          "Token acquisition failed: invalid client credentials",
+          error instanceof Error ? error : undefined,
+          {
+            tenantId: this.config.tenantId,
+            errorCode: ErrorCode.AUTH_INVALID_CLIENT,
+            durationMs: Date.now() - start,
+          }
+        );
         throw new AuthError(
           ErrorCode.AUTH_INVALID_CLIENT,
           `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}\n\n` +
@@ -179,12 +235,19 @@ export class TokenManager {
       }
 
       // Generic auth failure
-      throw new AuthError(
+      const authError = new AuthError(
         ErrorCode.AUTH_FAILED,
         `Token acquisition failed: ${error instanceof Error ? error.message : String(error)}`,
         context,
         { cause: error }
       );
+      authLogger.error("Token acquisition failed", authError, {
+        tenantId: this.config.tenantId,
+        scopes: scopes.join(","),
+        errorCode: authError.code,
+        durationMs: Date.now() - start,
+      });
+      throw authError;
     }
   }
 
