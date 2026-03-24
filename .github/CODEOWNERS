@@ -2,10 +2,10 @@
 # See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Core packages
-packages/cli/   @pax8labs/agentsync-maintainers
-packages/core/  @pax8labs/agentsync-maintainers
+packages/cli/   @pax8-oss/agentsync-maintainers
+packages/core/  @pax8-oss/agentsync-maintainers
 
 # Root config files
-/*.yml          @pax8labs/agentsync-maintainers
-/*.json         @pax8labs/agentsync-maintainers
-/*.md           @pax8labs/agentsync-maintainers
+/*.yml          @pax8-oss/agentsync-maintainers
+/*.json         @pax8-oss/agentsync-maintainers
+/*.md           @pax8-oss/agentsync-maintainers
