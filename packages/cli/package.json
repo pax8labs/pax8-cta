@@ -44,7 +44,7 @@
     "jszip": "3.10.1",
     "node-fetch": "3.3.2",
     "open": "10.0.3",
-    "ora": "8.0.1",
+    "ora": "9.3.0",
     "posthog-node": "5.24.3"
   },
   "optionalDependencies": {
