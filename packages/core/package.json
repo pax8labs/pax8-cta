@@ -35,7 +35,7 @@
     "better-sqlite3": "12.6.2",
     "node-fetch": "3.3.2",
     "yaml": "2.3.4",
-    "zod": "3.22.4"
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",
