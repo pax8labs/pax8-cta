@@ -30,18 +30,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@azure/identity": "4.2.0",
+    "@azure/identity": "4.13.1",
     "@azure/msal-node": "2.6.0",
-    "better-sqlite3": "12.6.2",
+    "better-sqlite3": "12.8.0",
     "node-fetch": "3.3.2",
-    "yaml": "2.3.4",
+    "yaml": "2.8.3",
     "zod": "3.22.4"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "20.11.0",
     "fast-check": "^4.6.0",
-    "msw": "2.12.7",
+    "msw": "2.12.14",
     "typescript": "5.3.3",
     "vitest": "1.6.1"
   }
