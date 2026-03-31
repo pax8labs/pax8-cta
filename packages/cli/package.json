@@ -4,10 +4,10 @@
   "description": "AgentSync CLI - sync agents to your tenant fleet from the command line",
   "license": "Apache-2.0",
   "author": "Pax8, Inc.",
-  "homepage": "https://github.com/pax8-oss/agentsync",
+  "homepage": "https://github.com/pax8labs/agentsync",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pax8-oss/agentsync.git",
+    "url": "https://github.com/pax8labs/agentsync.git",
     "directory": "packages/cli"
   },
   "type": "module",

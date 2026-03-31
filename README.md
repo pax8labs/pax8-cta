@@ -2,7 +2,7 @@
 
 Multi-tenant Copilot Studio deployment tool for MSPs.
 
-[![CI](https://github.com/pax8-oss/agentsync/actions/workflows/ci.yml/badge.svg)](https://github.com/pax8-oss/agentsync/actions/workflows/ci.yml)
+[![CI](https://github.com/pax8labs/agentsync/actions/workflows/ci.yml/badge.svg)](https://github.com/pax8labs/agentsync/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![npm version](https://img.shields.io/npm/v/@agentsync/cli.svg)](https://www.npmjs.com/package/@agentsync/cli)
 
@@ -93,24 +93,24 @@ npm install -g @agentsync/cli
 
 ### Standalone Binaries
 
-Pre-built binaries are available for macOS (arm64, x64), Linux (arm64, x64), and Windows (x64). Download from the [Releases](https://github.com/pax8-oss/agentsync/releases) page, or use the install scripts:
+Pre-built binaries are available for macOS (arm64, x64), Linux (arm64, x64), and Windows (x64). Download from the [Releases](https://github.com/pax8labs/agentsync/releases) page, or use the install scripts:
 
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pax8-oss/agentsync/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/pax8-oss/agentsync/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/pax8labs/agentsync/main/install.ps1 | iex
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/pax8-oss/agentsync.git
+git clone https://github.com/pax8labs/agentsync.git
 cd agentsync
 npm install -g pnpm
 pnpm install && pnpm build
@@ -585,4 +585,4 @@ Apache 2.0 -- see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-Contributions are welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, or open an issue to discuss your idea first.
+We currently use a publish-only open source model and do not accept external pull requests yet. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for the latest policy and feedback channels.
