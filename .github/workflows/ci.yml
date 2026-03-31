@@ -238,6 +238,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build Core
+        run: pnpm --filter @agentsync/core build
+
       - name: Build Windows binary
         run: |
           New-Item -ItemType Directory -Path dist/binaries -Force | Out-Null

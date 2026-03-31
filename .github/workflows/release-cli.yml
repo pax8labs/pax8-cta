@@ -56,6 +56,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build Core
+        run: pnpm --filter @agentsync/core build
+
       - name: Build binary (Unix)
         if: runner.os != 'Windows'
         run: |
