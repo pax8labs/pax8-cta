@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { SchedulerService } from "../services/scheduler.js";
 import { Schedule } from "../config/schema.js";
 
@@ -193,13 +193,20 @@ describe("SchedulerService", () => {
         timezone: "UTC",
       };
 
-      const runs = scheduler.getNextRuns(schedule, 5);
-      expect(runs).toHaveLength(5);
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date("2024-01-15T10:30:00.000Z"));
 
-      // Each run should be 1 hour apart
-      for (let i = 1; i < runs.length; i++) {
-        const diff = runs[i].getTime() - runs[i - 1].getTime();
-        expect(diff).toBe(3600000); // 1 hour in ms
+        const runs = scheduler.getNextRuns(schedule, 5);
+        expect(runs).toHaveLength(5);
+
+        // Each run should be 1 hour apart
+        for (let i = 1; i < runs.length; i++) {
+          const diff = runs[i].getTime() - runs[i - 1].getTime();
+          expect(diff).toBe(3600000); // 1 hour in ms
+        }
+      } finally {
+        vi.useRealTimers();
       }
     });
   });
