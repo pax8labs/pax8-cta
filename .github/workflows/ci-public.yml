@@ -82,6 +82,9 @@ jobs:
       - name: Test Core
         run: pnpm --filter @agentsync/core test
 
+      - name: Build Core
+        run: pnpm --filter @agentsync/core build
+
       - name: Test CLI
         run: pnpm --filter @agentsync/cli test
 
