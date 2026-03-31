@@ -21,12 +21,12 @@ import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { isDemo } from "../lib/command-wrapper.js";
-import { requireQueueManager } from "../lib/queue.js";
 import { DEMO_TENANTS } from "@agentsync/core";
 import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib/formatters.js";
 import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
+import { exitOssUnavailable } from "../lib/oss-surface.js";
 
 // Mock deployment data for demo mode
 const DEMO_DEPLOYMENTS = [
@@ -133,9 +133,6 @@ export const statusCommand = new Command("status")
   .option("-d, --deployment <id>", "Deployment ID to track")
   .option("-s, --shipment <id>", "Shipment tracking number (alias for --deployment)")
   .option("-l, --list", "List all recent shipments")
-  .option("--redis <url>", "Redis URL for shipping dock", "redis://localhost:6379")
-  .option("-w, --watch", "Watch for status changes")
-  .option("--interval <ms>", "Watch interval in milliseconds", "5000")
   .option("--setup", "Show comprehensive setup status")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .action(async (options) => {
@@ -180,11 +177,12 @@ export const statusCommand = new Command("status")
         console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
         return;
       } else {
-        console.error(
-          chalk.red("--list flag requires Redis connection (not yet implemented in non-demo mode).")
-        );
-        console.error(chalk.gray("Try demo mode: agentsync demo on"));
-        process.exit(2);
+        exitOssUnavailable("status --list", {
+          alternatives: [
+            "Use 'agentsync deployments list' for import history from Dataverse.",
+            "Use 'agentsync status --setup' for tenant readiness checks.",
+          ],
+        });
       }
     }
 
@@ -251,104 +249,12 @@ export const statusCommand = new Command("status")
       return;
     }
 
-    const spinner = createSpinner("Connecting to shipping dock...").start();
-
-    try {
-      const queueManager = await requireQueueManager(options.redis);
-      spinner.succeed("Connected to shipping dock");
-
-      const displayStatus = async () => {
-        const shipment = await queueManager.getDeploymentStatus(trackingId);
-
-        if (!shipment) {
-          console.log(chalk.yellow(`Shipment '${trackingId}' not found`));
-          return false;
-        }
-
-        // Clear screen if watching
-        if (options.watch) {
-          console.clear();
-        }
-
-        // Display overall status
-        console.log();
-        console.log(chalk.bold("📦 Shipment Tracking"));
-        console.log("─".repeat(50));
-        console.log(`  Tracking #:  ${shipment.id}`);
-        console.log(`  Cargo:       ${shipment.solutionName}`);
-        console.log(`  Status:      ${formatShippingStatus(shipment.status)}`);
-        console.log(
-          `  Delivered:   ${shipment.completedTenants}/${shipment.totalTenants} destinations`
-        );
-        if (shipment.failedTenants > 0) {
-          console.log(`  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`);
-        }
-        console.log();
-
-        // Display destination results
-        const table = new Table({
-          head: ["Destination", "Status", "Transit Time", "Issue"],
-          style: { head: ["cyan"] },
-          colWidths: [25, 15, 12, 40],
-          wordWrap: true,
-        });
-
-        shipment.tenantResults
-          .sort((a, b) => {
-            // Sort: in transit first, then pending, then delivered/failed
-            const order: Record<string, number> = {
-              in_progress: 0,
-              pending: 1,
-              scheduled: 1,
-              awaiting_approval: 1,
-              approved: 1,
-              rolling_back: 0,
-              completed: 2,
-              rolled_back: 2,
-              failed: 3,
-              rejected: 3,
-              cancelled: 4,
-            };
-            return (order[a.status] ?? 5) - (order[b.status] ?? 5);
-          })
-          .forEach((result) => {
-            const duration = calculateDuration(result.startedAt, result.completedAt);
-            table.push([
-              result.tenantName,
-              formatShippingStatus(result.status),
-              duration,
-              result.error ? chalk.red(truncate(result.error, 35)) : "-",
-            ]);
-          });
-
-        console.log(table.toString());
-
-        if (options.watch) {
-          console.log();
-          console.log(chalk.gray(`Refreshing every ${options.interval}ms... (Ctrl+C to stop)`));
-        }
-
-        // Return true if shipment is still in transit
-        return shipment.status === "pending" || shipment.status === "in_progress";
-      };
-
-      if (options.watch) {
-        // Watch mode
-        let isInTransit = await displayStatus();
-        while (isInTransit) {
-          await new Promise((resolve) => setTimeout(resolve, parseInt(options.interval, 10)));
-          isInTransit = await displayStatus();
-        }
-        console.log();
-        console.log(chalk.green("📬 All deliveries complete."));
-      } else {
-        await displayStatus();
-      }
-
-      await queueManager.close();
-    } catch (error) {
-      handleCommandError(error, spinner, "Failed to track shipment");
-    }
+    exitOssUnavailable("status tracking", {
+      alternatives: [
+        "Use 'agentsync deployments list' to view recent deployment history.",
+        "Use 'agentsync deployments show <id>' to inspect a specific history entry.",
+      ],
+    });
   });
 
 // Use shipping-style status formatting for this command

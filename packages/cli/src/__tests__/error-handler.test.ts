@@ -237,13 +237,14 @@ describe("Error Handler", () => {
       expect(formatted.recovery.join(" ")).toContain("agentsync init");
     });
 
-    it("should map Redis connection errors", () => {
+    it("should map legacy queue connection errors", () => {
       const error = new Error("Redis connection refused");
       const formatted = formatError(error);
 
       expect(formatted.code).toBe("ERROR_QUEUE_CONNECTION");
-      expect(formatted.message).toContain("deployment queue");
-      expect(formatted.recovery.join(" ")).toContain("redis-cli ping");
+      expect(formatted.message).toContain("open-source CLI");
+      expect(formatted.recovery.join(" ")).toContain("agentsync deploy --direct");
+      expect(formatted.recovery.join(" ")).not.toContain("--redis");
     });
 
     it("should handle generic errors", () => {

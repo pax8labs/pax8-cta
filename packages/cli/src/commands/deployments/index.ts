@@ -32,7 +32,7 @@ import {
  * Follows the resource-action pattern: `agentsync deployments <action>`
  */
 export const deploymentsCommand = new Command("deployments")
-  .description("View, cancel, and retry deployments")
+  .description("View deployment history")
   .addHelpText(
     "after",
     `
@@ -40,15 +40,18 @@ Examples:
   agentsync deployments list                          List recent deployments
   agentsync deployments show dep_abc123               View deployment details
   agentsync deployments list -s failed --since 7d     Show failed deployments from last 7 days
+
+Note:
+  Queue management actions are not available in the open-source CLI.
 `
   );
 
 // Register subcommands
 deploymentsCommand.addCommand(listCommand);
 deploymentsCommand.addCommand(showCommand);
-deploymentsCommand.addCommand(watchCommand);
-deploymentsCommand.addCommand(cancelCommand);
-deploymentsCommand.addCommand(retryCommand);
+deploymentsCommand.addCommand(watchCommand, { hidden: true });
+deploymentsCommand.addCommand(cancelCommand, { hidden: true });
+deploymentsCommand.addCommand(retryCommand, { hidden: true });
 
 // These commands are planned but not yet implemented — hidden from help
 // but still registered so users get a clear message if they try them.

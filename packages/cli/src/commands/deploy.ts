@@ -37,7 +37,6 @@ import {
 } from "@agentsync/core";
 import { getDemoTenants } from "./demo.js";
 import { isDemo } from "../lib/command-wrapper.js";
-import { isWorkerAvailable, tryLoadQueueManager } from "../lib/queue.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
 
@@ -55,9 +54,8 @@ export const deployCommand = new Command("deploy")
   .option("--keep-package", "Keep exported zip after deployment")
   .option("--package-dir <path>", "Directory for exported zip (default: temp)")
   .option("--no-auto-setup", "Skip automatic application user setup")
-  .option("--direct", "Deploy sequentially without a background worker")
+  .option("--direct", "Deploy sequentially (default mode)")
   .option("--skip-url-replace", "Skip automatic tenant URL replacement in solution")
-  .option("--redis <url>", "Redis URL for background worker", "redis://localhost:6379")
   .addHelpText(
     "after",
     `
@@ -383,176 +381,119 @@ Examples:
         console.log();
       }
 
-      // Deploy - either direct or via queue
-      // Default to direct mode when worker package is not available
-      const workerAvailable = !options.direct && (await isWorkerAvailable());
-      const useDirectMode = options.direct || !workerAvailable;
-      if (!options.direct && useDirectMode) {
-        console.log(
-          chalk.yellow(
-            "Queue-based deployment unavailable (no @agentsync/worker). Using direct mode.\n"
-          )
-        );
+      // Direct deployment - import to each tenant sequentially
+      console.log(chalk.bold("Deploying directly to destinations...\n"));
+
+      const clientSecret = await getClientSecretWithFallback();
+      let successCount = 0;
+      let failCount = 0;
+
+      // Scan solution for tenant-specific URLs (once, before the loop)
+      let detectedUrls: DetectedUrl[] = [];
+      if (!options.skipUrlReplace) {
+        try {
+          const JSZip = (await import("jszip")).default;
+          const zipBuffer = readFileSync(agentPackagePath);
+          const zip = await JSZip.loadAsync(zipBuffer);
+          const templater = new UrlTemplater();
+          detectedUrls = await templater.scanSolution(zip);
+
+          if (detectedUrls.length > 0) {
+            const sourceTenant = templater.inferSourceTenant(detectedUrls);
+            console.log(
+              chalk.gray(
+                `Found ${detectedUrls.length} tenant-specific URL(s) from source tenant "${sourceTenant}" — will replace per target`
+              )
+            );
+            console.log();
+          }
+        } catch {
+          // JSZip may not be available or ZIP scan failed — skip URL replacement
+        }
       }
 
-      if (useDirectMode) {
-        // Direct deployment - import to each tenant sequentially
-        console.log(chalk.bold("Deploying directly to destinations...\n"));
+      for (const tenant of destinations) {
+        const tenantSpinner = createSpinner(`Deploying to ${tenant.name}...`).start();
 
-        const clientSecret = await getClientSecretWithFallback();
-        let successCount = 0;
-        let failCount = 0;
+        try {
+          const tokenManager = new TokenManager({
+            tenantId: tenant.tenantId,
+            clientId: config.partner.clientId,
+            clientSecret,
+          });
 
-        // Scan solution for tenant-specific URLs (once, before the loop)
-        let detectedUrls: DetectedUrl[] = [];
-        if (!options.skipUrlReplace) {
-          try {
-            const JSZip = (await import("jszip")).default;
-            const zipBuffer = readFileSync(agentPackagePath);
-            const zip = await JSZip.loadAsync(zipBuffer);
-            const templater = new UrlTemplater();
-            detectedUrls = await templater.scanSolution(zip);
+          const dataverseClient = new DataverseClient({
+            environmentUrl: tenant.environmentUrl,
+            tokenManager,
+          });
 
-            if (detectedUrls.length > 0) {
-              const sourceTenant = templater.inferSourceTenant(detectedUrls);
-              console.log(
-                chalk.gray(
-                  `Found ${detectedUrls.length} tenant-specific URL(s) from source tenant "${sourceTenant}" — will replace per target`
-                )
+          const solutionOps = new SolutionOperations(dataverseClient);
+
+          // Apply URL replacements if tenant-specific URLs were detected
+          let importPath = agentPackagePath;
+          if (detectedUrls.length > 0) {
+            try {
+              const modifiedPath = await applyUrlReplacements(
+                agentPackagePath,
+                detectedUrls,
+                tenant
               );
-              console.log();
+              if (modifiedPath) {
+                importPath = modifiedPath;
+              }
+            } catch {
+              // URL replacement failed — import original solution
             }
-          } catch {
-            // JSZip may not be available or ZIP scan failed — skip URL replacement
           }
-        }
 
-        for (const tenant of destinations) {
-          const tenantSpinner = createSpinner(`Deploying to ${tenant.name}...`).start();
+          // Start async import
+          const importJobId = await solutionOps.importSolutionAsync(importPath, {
+            overwriteUnmanagedCustomizations: true,
+            publishWorkflows: true,
+          });
 
-          try {
-            const tokenManager = new TokenManager({
-              tenantId: tenant.tenantId,
-              clientId: config.partner.clientId,
-              clientSecret,
-            });
-
-            const dataverseClient = new DataverseClient({
-              environmentUrl: tenant.environmentUrl,
-              tokenManager,
-            });
-
-            const solutionOps = new SolutionOperations(dataverseClient);
-
-            // Apply URL replacements if tenant-specific URLs were detected
-            let importPath = agentPackagePath;
-            if (detectedUrls.length > 0) {
-              try {
-                const modifiedPath = await applyUrlReplacements(
-                  agentPackagePath,
-                  detectedUrls,
-                  tenant
-                );
-                if (modifiedPath) {
-                  importPath = modifiedPath;
-                }
-              } catch {
-                // URL replacement failed — import original solution
-              }
+          // Clean up temp modified ZIP after import starts
+          if (importPath !== agentPackagePath && existsSync(importPath)) {
+            try {
+              unlinkSync(importPath);
+            } catch {
+              /* ignore */
             }
+          }
 
-            // Start async import
-            const importJobId = await solutionOps.importSolutionAsync(importPath, {
-              overwriteUnmanagedCustomizations: true,
-              publishWorkflows: true,
-            });
+          // Wait for completion with progress
+          const result = await solutionOps.waitForImport(importJobId, {
+            pollIntervalMs: 3000,
+            timeoutMs: 300000,
+            onProgress: (progress) => {
+              tenantSpinner.text = `Deploying to ${tenant.name}... ${Math.round(progress)}%`;
+            },
+          });
 
-            // Clean up temp modified ZIP after import starts
-            if (importPath !== agentPackagePath && existsSync(importPath)) {
-              try {
-                unlinkSync(importPath);
-              } catch {
-                /* ignore */
-              }
-            }
-
-            // Wait for completion with progress
-            const result = await solutionOps.waitForImport(importJobId, {
-              pollIntervalMs: 3000,
-              timeoutMs: 300000,
-              onProgress: (progress) => {
-                tenantSpinner.text = `Deploying to ${tenant.name}... ${Math.round(progress)}%`;
-              },
-            });
-
-            if (result.success) {
-              tenantSpinner.succeed(chalk.green(`${tenant.name}: Deployed successfully`));
-              successCount++;
-            } else {
-              tenantSpinner.fail(
-                chalk.red(`${tenant.name}: ${result.error || "Deployment failed"}`)
-              );
-              failCount++;
-            }
-          } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            tenantSpinner.fail(chalk.red(`${tenant.name}: ${errorMsg}`));
+          if (result.success) {
+            tenantSpinner.succeed(chalk.green(`${tenant.name}: Deployed successfully`));
+            successCount++;
+          } else {
+            tenantSpinner.fail(chalk.red(`${tenant.name}: ${result.error || "Deployment failed"}`));
             failCount++;
           }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          tenantSpinner.fail(chalk.red(`${tenant.name}: ${errorMsg}`));
+          failCount++;
         }
+      }
 
-        console.log();
-        console.log(chalk.bold("Deployment Summary:"));
-        console.log(`  Total:     ${destinations.length}`);
-        console.log(`  ${chalk.green("Success:")}  ${successCount}`);
-        if (failCount > 0) {
-          console.log(`  ${chalk.red("Failed:")}   ${failCount}`);
-        }
+      console.log();
+      console.log(chalk.bold("Deployment Summary:"));
+      console.log(`  Total:     ${destinations.length}`);
+      console.log(`  ${chalk.green("Success:")}  ${successCount}`);
+      if (failCount > 0) {
+        console.log(`  ${chalk.red("Failed:")}   ${failCount}`);
+      }
 
-        if (failCount > 0) {
-          process.exit(1);
-        }
-      } else {
-        // Queue-based deployment (requires @agentsync/worker + Redis)
-        spinner.start("Connecting to shipping dock...");
-        const queueManager = await tryLoadQueueManager(options.redis);
-        if (!queueManager) {
-          spinner.fail(
-            chalk.red(
-              "Queue-based deployment unavailable. Use --direct flag for standalone deployment."
-            )
-          );
-          process.exit(1);
-        }
-
-        const shipmentId = randomUUID();
-
-        spinner.text = "Loading agent packages onto shipping dock...";
-
-        await queueManager.addTenantDeploymentsBulk(
-          shipmentId,
-          agentPackagePath,
-          destinations,
-          config.partner.tenantId,
-          config.partner.clientId
-        );
-
-        spinner.succeed(chalk.green("Shipment dispatched successfully"));
-
-        console.log();
-        console.log(chalk.bold("Shipment Details:"));
-        console.log(`  Tracking #:    ${chalk.cyan(shipmentId)}`);
-        console.log(`  Agent package:         ${agentPackagePath}`);
-        console.log(`  Destinations:  ${destinations.length}`);
-        console.log();
-        console.log(chalk.gray(`Use 'agentsync track --shipment ${shipmentId}' to track progress`));
-        console.log();
-        console.log(
-          chalk.yellow("Note: Make sure the dockworker is running to process shipments:")
-        );
-        console.log(chalk.gray("  pnpm worker"));
-
-        await queueManager.close();
+      if (failCount > 0) {
+        process.exit(1);
       }
 
       // Clean up temp package if needed

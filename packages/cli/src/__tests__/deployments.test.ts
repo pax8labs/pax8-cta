@@ -637,6 +637,15 @@ describe("Deployments Integration Tests", () => {
     expect(containsText(result.output, "demo-hist-001")).toBe(true);
   });
 
+  it("should reject watch outside demo mode with an OSS message", async () => {
+    const result = await runCliExpectFailure(["deployments", "watch", "demo-hist-001"], {
+      env: { DEMO_MODE: "false" },
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(containsText(result.output, "open-source CLI")).toBe(true);
+  });
+
   it("should show rollback not-implemented for any ID via CLI", async () => {
     const result = await runCliExpectFailure(["deployments", "rollback", "nonexistent-id"]);
     expect(containsText(result.output, "not yet implemented")).toBe(true);
@@ -646,5 +655,16 @@ describe("Deployments Integration Tests", () => {
   it("should handle watch not found via CLI", async () => {
     const result = await runCliExpectFailure(["deployments", "watch", "nonexistent-id"]);
     expect(containsText(result.output, "not found")).toBe(true);
+  });
+
+  it("should hide queue-only actions from help", async () => {
+    const result = await runCliExpectSuccess(["deployments", "--help"]);
+
+    expect(containsText(result.output, "watch")).toBe(false);
+    expect(containsText(result.output, "cancel")).toBe(false);
+    expect(containsText(result.output, "retry")).toBe(false);
+    expect(containsText(result.output, "approve")).toBe(false);
+    expect(containsText(result.output, "reject")).toBe(false);
+    expect(containsText(result.output, "rollback")).toBe(false);
   });
 });

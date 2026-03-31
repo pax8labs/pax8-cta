@@ -27,6 +27,20 @@ import {
   isAgentSyncError,
 } from "@agentsync/core";
 
+const LEGACY_QUEUE_ERROR_MESSAGE =
+  "Legacy deployment queue support is unavailable in the open-source CLI";
+const LEGACY_QUEUE_ERROR_CAUSES = [
+  "A Redis-backed worker was referenced by older tooling or configuration",
+  "The CLI now deploys directly and does not use a queue",
+  "An outdated command or environment variable is still pointing at Redis",
+];
+const LEGACY_QUEUE_ERROR_RECOVERY = [
+  "Remove any legacy queue-related flags or configuration",
+  "Use the direct deployment flow instead:",
+  "  agentsync deploy --direct --all --solution ./agent.zip",
+  "If this is coming from older automation, update it to call the direct CLI",
+];
+
 /**
  * Structured CLI error with recovery guidance.
  *
@@ -280,23 +294,9 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
   if (error.code === ErrorCode.QUEUE_CONNECTION_FAILED) {
     return new AgentSyncError(
       "ERROR_QUEUE_CONNECTION",
-      "Failed to connect to deployment queue (Redis)",
-      [
-        "Redis server may not be running",
-        "Redis connection URL may be incorrect",
-        "Network/firewall may be blocking the connection",
-      ],
-      [
-        "Verify Redis is running:",
-        "  redis-cli ping",
-        "Start Redis if not running:",
-        "  redis-server",
-        "Check the Redis URL in your command or environment:",
-        "  Default: redis://localhost:6379",
-        "Verify network connectivity to Redis host",
-        "Retry the command with correct Redis URL:",
-        "  agentsync deploy --redis redis://localhost:6379 ...",
-      ],
+      LEGACY_QUEUE_ERROR_MESSAGE,
+      LEGACY_QUEUE_ERROR_CAUSES,
+      LEGACY_QUEUE_ERROR_RECOVERY,
       ctx
     );
   }
@@ -527,23 +527,9 @@ function formatByRegex(error: unknown): AgentSyncError {
   ) {
     return new AgentSyncError(
       "ERROR_QUEUE_CONNECTION",
-      "Failed to connect to deployment queue (Redis)",
-      [
-        "Redis server may not be running",
-        "Redis connection URL may be incorrect",
-        "Network/firewall may be blocking the connection",
-      ],
-      [
-        "Verify Redis is running:",
-        "  redis-cli ping",
-        "Start Redis if not running:",
-        "  redis-server",
-        "Check the Redis URL in your command or environment:",
-        "  Default: redis://localhost:6379",
-        "Verify network connectivity to Redis host",
-        "Retry the command with correct Redis URL:",
-        "  agentsync deploy --redis redis://localhost:6379 ...",
-      ],
+      LEGACY_QUEUE_ERROR_MESSAGE,
+      LEGACY_QUEUE_ERROR_CAUSES,
+      LEGACY_QUEUE_ERROR_RECOVERY,
       context
     );
   }

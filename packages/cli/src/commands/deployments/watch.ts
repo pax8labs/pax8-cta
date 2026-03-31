@@ -16,19 +16,16 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
 import { generateMockDeploymentHistory } from "@agentsync/core";
 import { isDemo } from "../../lib/command-wrapper.js";
 import { outputDeploymentDetails } from "./helpers.js";
-import { handleCommandError } from "../../lib/errors.js";
-import { requireQueueManager } from "../../lib/queue.js";
+import { exitOssUnavailable } from "../../lib/oss-surface.js";
 
 export const watchCommand = new Command("watch")
   .argument("<id>", "Deployment ID")
   .description("Watch deployment progress in real-time")
   .option("--interval <ms>", "Refresh interval in milliseconds", "3000")
-  .option("--redis <url>", "Redis URL for production mode", "redis://localhost:6379")
-  .action(async (id: string, options) => {
+  .action(async (id: string) => {
     if (isDemo()) {
       console.error(chalk.yellow("\n⚠️  DEMO MODE - Watch simulates progress\n"));
 
@@ -46,45 +43,7 @@ export const watchCommand = new Command("watch")
       return;
     }
 
-    const spinner = createSpinner("Connecting to deployment service...").start();
-
-    try {
-      const queueManager = await requireQueueManager(options.redis);
-      spinner.succeed("Connected");
-
-      const interval = parseInt(options.interval, 10);
-
-      const displayStatus = async (): Promise<boolean> => {
-        const deployment = await queueManager.getDeploymentStatus(id);
-
-        if (!deployment) {
-          console.log(chalk.yellow(`Deployment '${id}' not found`));
-          return false;
-        }
-
-        console.clear();
-        outputDeploymentDetails(deployment);
-        console.log();
-        console.log(chalk.gray(`Refreshing every ${interval}ms... Press Ctrl+C to stop`));
-
-        // Return true if still active
-        return deployment.status === "pending" || deployment.status === "in_progress";
-      };
-
-      // Initial display
-      let isActive = await displayStatus();
-
-      // Watch loop
-      while (isActive) {
-        await new Promise((resolve) => setTimeout(resolve, interval));
-        isActive = await displayStatus();
-      }
-
-      console.log();
-      console.log(chalk.green("✓ Deployment finished"));
-
-      await queueManager.close();
-    } catch (error) {
-      handleCommandError(error, spinner, "Failed to watch deployment");
-    }
+    exitOssUnavailable("deployments watch", {
+      alternatives: ["Use 'agentsync deployments show <id>' to poll status manually."],
+    });
   });
