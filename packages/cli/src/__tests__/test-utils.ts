@@ -32,11 +32,12 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_PACKAGE_ROOT = resolve(__dirname, "../..");
 const CLI_BUILD_TIMEOUT = 120000;
 let cliBuildPromise: Promise<void> | null = null;
 
-async function ensureCliBuilt(cwd: string): Promise<void> {
-  const cliDistPath = resolve(cwd, "dist/index.js");
+async function ensureCliBuilt(): Promise<void> {
+  const cliDistPath = resolve(CLI_PACKAGE_ROOT, "dist/index.js");
 
   if (existsSync(cliDistPath)) {
     return;
@@ -46,7 +47,7 @@ async function ensureCliBuilt(cwd: string): Promise<void> {
     cliBuildPromise = new Promise<void>((resolveBuild, rejectBuild) => {
       const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
       const proc = spawn(pnpmCommand, ["build"], {
-        cwd,
+        cwd: CLI_PACKAGE_ROOT,
         env: process.env,
       });
 
@@ -248,11 +249,11 @@ export interface CliRunnerOptions {
  * ```
  */
 export async function runCli(args: string[], options: CliRunnerOptions = {}): Promise<CliResult> {
-  const { env = {}, cwd = resolve(__dirname, "../.."), timeout = 30000, stdin } = options;
+  const { env = {}, cwd = CLI_PACKAGE_ROOT, timeout = 30000, stdin } = options;
 
   const startTime = Date.now();
-  await ensureCliBuilt(cwd);
-  const cliPath = resolve(cwd, "dist/index.js");
+  await ensureCliBuilt();
+  const cliPath = resolve(CLI_PACKAGE_ROOT, "dist/index.js");
 
   return new Promise((resolvePromise, reject) => {
     const proc = spawn(process.execPath, [cliPath, ...args], {
