@@ -125,35 +125,55 @@ export function isTelemetryEnabled(): boolean {
   }
 
   // User preference
-  return config.get("telemetryEnabled");
+  try {
+    return config.get("telemetryEnabled");
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Enable telemetry
  */
 export function enableTelemetry(): void {
-  config.set("telemetryEnabled", true);
+  try {
+    config.set("telemetryEnabled", true);
+  } catch {
+    // Non-fatal: telemetry preference persistence should not break CLI.
+  }
 }
 
 /**
  * Disable telemetry
  */
 export function disableTelemetry(): void {
-  config.set("telemetryEnabled", false);
+  try {
+    config.set("telemetryEnabled", false);
+  } catch {
+    // Non-fatal: telemetry preference persistence should not break CLI.
+  }
 }
 
 /**
  * Check if first run notice has been shown
  */
 export function hasShownFirstRunNotice(): boolean {
-  return config.get("firstRunShown");
+  try {
+    return config.get("firstRunShown");
+  } catch {
+    return true;
+  }
 }
 
 /**
  * Mark first run notice as shown
  */
 export function markFirstRunNoticeShown(): void {
-  config.set("firstRunShown", true);
+  try {
+    config.set("firstRunShown", true);
+  } catch {
+    // Non-fatal: telemetry preference persistence should not break CLI.
+  }
 }
 
 // ============================================================================

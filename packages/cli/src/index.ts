@@ -66,6 +66,7 @@ import { telemetryCommand } from "./commands/telemetry.js";
 import { setupCommand } from "./commands/setup.js";
 import { authCommand } from "./commands/auth.js";
 import { validateCommand } from "./commands/validate.js";
+import { statusCommand } from "./commands/status.js";
 import { showBanner, showWelcome } from "./lib/banner.js";
 import { startRepl } from "./lib/repl.js";
 import {
@@ -107,6 +108,7 @@ export function createProgram(): Command {
   program.addCommand(importCommand);
   program.addCommand(deployCommand);
   program.addCommand(deploymentsCommand);
+  program.addCommand(statusCommand);
 
   // Environment management
   program.addCommand(tenantsCommand);
@@ -135,11 +137,26 @@ if (shouldShowBanner) {
 }
 
 // Show first-run telemetry notice (once, regardless of state, so users know the option exists)
-if (!hasShownFirstRunNotice() && args.length > 0) {
-  console.log(chalk.gray(getFirstRunNotice()));
-  markFirstRunNoticeShown();
-  if (isTelemetryEnabled()) {
-    trackFirstRun();
+if (args.length > 0) {
+  let shouldShowFirstRunNotice = false;
+
+  try {
+    shouldShowFirstRunNotice = !hasShownFirstRunNotice();
+  } catch {
+    // If config storage is not writable/readable, skip persistence without crashing.
+    shouldShowFirstRunNotice = false;
+  }
+
+  if (shouldShowFirstRunNotice) {
+    console.log(chalk.gray(getFirstRunNotice()));
+    try {
+      markFirstRunNoticeShown();
+    } catch {
+      // Non-fatal: telemetry preference persistence should never break CLI usage.
+    }
+    if (isTelemetryEnabled()) {
+      trackFirstRun();
+    }
   }
 }
 
