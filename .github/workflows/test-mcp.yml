@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build Core
+        run: pnpm --filter @agentsync/core build
+
       - name: Run tests
         run: pnpm --filter @agentsync/mcp-server test
 
