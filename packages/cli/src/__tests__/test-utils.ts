@@ -43,7 +43,7 @@ async function ensureCliBuilt(cwd: string): Promise<void> {
   }
 
   if (!cliBuildPromise) {
-    cliBuildPromise = new Promise((resolveBuild, rejectBuild) => {
+    cliBuildPromise = new Promise<void>((resolveBuild, rejectBuild) => {
       const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
       const proc = spawn(pnpmCommand, ["build"], {
         cwd,
