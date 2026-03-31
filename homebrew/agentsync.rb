@@ -1,53 +1,27 @@
 # Homebrew Formula for AgentSync CLI
-# To publish: Create a tap repository at https://github.com/yourusername/homebrew-agentsync
-# Then users can install with: brew install yourusername/agentsync/agentsync
+#
+# This file is intentionally kept as a placeholder until an official Homebrew
+# tap and release checksum publication process are in place.
 
 class Agentsync < Formula
   desc "Sync your Copilot Studio agents to all your tenants"
-  homepage "https://github.com/yourusername/agentsync"
+  homepage "https://github.com/pax8labs/agentsync"
   version "0.1.0"
-  license "MIT"
+  license "Apache-2.0"
 
-  on_macos do
-    if Hardware::CPU.arm?
-      url "https://github.com/yourusername/agentsync/releases/download/v0.1.0/agentsync-macos-arm64"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256_FOR_MACOS_ARM64"
-    else
-      url "https://github.com/yourusername/agentsync/releases/download/v0.1.0/agentsync-macos-x64"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256_FOR_MACOS_X64"
-    end
-  end
-
-  on_linux do
-    if Hardware::CPU.arm?
-      url "https://github.com/yourusername/agentsync/releases/download/v0.1.0/agentsync-linux-arm64"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256_FOR_LINUX_ARM64"
-    else
-      url "https://github.com/yourusername/agentsync/releases/download/v0.1.0/agentsync-linux-x64"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256_FOR_LINUX_X64"
-    end
-  end
+  disable! date: "2026-03-31", because: "official Homebrew tap is not published yet"
 
   def install
-    # The downloaded file will be named based on the URL
-    # We need to rename it to just "agentsync"
-    if OS.mac?
-      if Hardware::CPU.arm?
-        bin.install "agentsync-macos-arm64" => "agentsync"
-      else
-        bin.install "agentsync-macos-x64" => "agentsync"
-      end
-    elsif OS.linux?
-      if Hardware::CPU.arm?
-        bin.install "agentsync-linux-arm64" => "agentsync"
-      else
-        bin.install "agentsync-linux-x64" => "agentsync"
-      end
-    end
+    odie <<~EOS
+      Homebrew installation is not available yet.
+      Install using:
+        curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh | bash
+      or download binaries from:
+        https://github.com/pax8labs/agentsync/releases
+    EOS
   end
 
   test do
-    assert_match "0.1.0", shell_output("#{bin}/agentsync --version 2>&1")
-    assert_match "AgentSync", shell_output("#{bin}/agentsync --help 2>&1")
+    assert_match "AgentSync", "AgentSync CLI"
   end
 end

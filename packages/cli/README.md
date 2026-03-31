@@ -51,10 +51,11 @@ $
 curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh | bash
 ```
 
-### Homebrew (macOS/Linux)
+### Homebrew (coming soon)
 
 ```bash
-brew install pax8labs/agentsync/agentsync
+# Homebrew tap is not published yet.
+# Use install.sh or binary downloads from GitHub Releases.
 ```
 
 ### Download Binary
@@ -537,7 +538,7 @@ chmod +x ~/bin/agentsync
 
 ```bash
 # Verify client secret is set
-echo $AGENTSYNC_CLIENT_SECRET
+echo $PARTNER_CLIENT_SECRET
 
 # Verify tenant IDs are correct
 agentsync tenants list
@@ -646,7 +647,7 @@ agentsync telemetry status
 
 ## License
 
-MIT
+Apache 2.0
 
 ## Support
 
