@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Command } from "commander";
 import { ConsoleCapture, mockEnv, containsText, mockProcessExit } from "./test-utils.js";
 import * as fs from "node:fs";
+import { join } from "node:path";
 
 // Mock fs and os modules
 vi.mock("node:fs", () => ({
@@ -31,6 +32,10 @@ vi.mock("node:os", () => ({
   homedir: vi.fn(() => "/tmp/test-home"),
 }));
 
+const TEST_HOME = "/tmp/test-home";
+const CONFIG_DIR = join(TEST_HOME, ".agentsync");
+const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
+
 describe("Demo Command", () => {
   let consoleCapture: ConsoleCapture;
   let restoreEnv: () => void;
@@ -42,6 +47,9 @@ describe("Demo Command", () => {
 
     // Mock environment
     restoreEnv = mockEnv({});
+    delete process.env.DEMO_MODE;
+    delete process.env.PARTNER_CLIENT_SECRET;
+    delete process.env.AGENTSYNC_CLIENT_SECRET;
 
     // Mock process.exit
     exitSpy = mockProcessExit();
@@ -82,7 +90,7 @@ describe("Demo Command", () => {
 
       // Should write config
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        "/tmp/test-home/.agentsync/cli-config.json",
+        CONFIG_FILE,
         expect.stringContaining('"demoMode": true')
       );
     });
@@ -107,7 +115,7 @@ describe("Demo Command", () => {
 
       // Should write config
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        "/tmp/test-home/.agentsync/cli-config.json",
+        CONFIG_FILE,
         expect.stringContaining('"demoMode": false')
       );
     });
@@ -126,7 +134,7 @@ describe("Demo Command", () => {
       await program.parseAsync(["node", "test", "demo"]);
 
       // Should create directory
-      expect(fs.mkdirSync).toHaveBeenCalledWith("/tmp/test-home/.agentsync", { recursive: true });
+      expect(fs.mkdirSync).toHaveBeenCalledWith(CONFIG_DIR, { recursive: true });
     });
   });
 
@@ -142,7 +150,7 @@ describe("Demo Command", () => {
 
       expect(containsText(output, "Demo mode enabled")).toBe(true);
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        "/tmp/test-home/.agentsync/cli-config.json",
+        CONFIG_FILE,
         expect.stringContaining('"demoMode": true')
       );
     });
@@ -172,7 +180,7 @@ describe("Demo Command", () => {
 
       expect(containsText(output, "Demo mode disabled")).toBe(true);
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        "/tmp/test-home/.agentsync/cli-config.json",
+        CONFIG_FILE,
         expect.stringContaining('"demoMode": false')
       );
     });

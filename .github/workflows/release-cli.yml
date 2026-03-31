@@ -6,13 +6,16 @@ on:
       - 'cli-v*'
       - 'v*'
 
-permissions:
-  contents: write
+concurrency:
+  group: release-cli-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:
@@ -41,9 +44,20 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: bun install
-        working-directory: packages/cli
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Core
+        run: pnpm --filter @agentsync/core build
 
       - name: Build binary (Unix)
         if: runner.os != 'Windows'
@@ -91,6 +105,8 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

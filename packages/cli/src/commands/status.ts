@@ -128,6 +128,7 @@ interface SecurityRole {
 }
 
 export const statusCommand = new Command("status")
+  .alias("track")
   .description("Check deployment status")
   .option("-d, --deployment <id>", "Deployment ID to track")
   .option("-s, --shipment <id>", "Shipment tracking number (alias for --deployment)")

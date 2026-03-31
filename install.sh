@@ -2,7 +2,7 @@
 set -e
 
 # AgentSync CLI Installation Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/yourusername/agentsync/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh | bash
 
 REPO="pax8labs/agentsync"
 VERSION="latest"
@@ -132,8 +132,8 @@ if command -v agentsync &> /dev/null; then
   echo ""
   echo -e "${BLUE}Get Started:${NC}"
   echo -e "  agentsync --help"
-  echo -e "  agentsync fleet list"
-  echo -e "  agentsync ship --help"
+  echo -e "  agentsync tenants list"
+  echo -e "  agentsync deploy --help"
 else
   echo -e "${YELLOW}⚠${NC}  Installation succeeded but 'agentsync' not found in PATH"
   echo -e "${YELLOW}→${NC} Add $INSTALL_DIR to your PATH:"

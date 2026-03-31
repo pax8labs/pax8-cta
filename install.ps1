@@ -122,8 +122,8 @@ try {
         Write-Host ""
         Write-Host "Get Started:" -ForegroundColor Blue
         Write-Host "  agentsync --help"
-        Write-Host "  agentsync fleet list"
-        Write-Host "  agentsync ship --help"
+        Write-Host "  agentsync tenants list"
+        Write-Host "  agentsync deploy --help"
     } catch {
         Write-Host "[!] Installation succeeded but could not verify binary" -ForegroundColor Yellow
         Write-Host "    Try running: $DestPath --help" -ForegroundColor Yellow

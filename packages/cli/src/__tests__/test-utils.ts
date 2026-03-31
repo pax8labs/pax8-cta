@@ -27,10 +27,72 @@
 
 import { vi } from "vitest";
 import { spawn } from "child_process";
+import { existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_PACKAGE_ROOT = resolve(__dirname, "../..");
+const CLI_BUILD_TIMEOUT = 120000;
+let cliBuildPromise: Promise<void> | null = null;
+
+async function ensureCliBuilt(): Promise<void> {
+  const cliDistPath = resolve(CLI_PACKAGE_ROOT, "dist/index.js");
+
+  if (existsSync(cliDistPath)) {
+    return;
+  }
+
+  if (!cliBuildPromise) {
+    cliBuildPromise = new Promise<void>((resolveBuild, rejectBuild) => {
+      const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+      const proc = spawn(pnpmCommand, ["build"], {
+        cwd: CLI_PACKAGE_ROOT,
+        env: process.env,
+      });
+
+      let stdout = "";
+      let stderr = "";
+
+      proc.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      proc.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      const timeoutId = setTimeout(() => {
+        proc.kill(process.platform === "win32" ? "SIGKILL" : "SIGTERM");
+        rejectBuild(new Error(`CLI build timed out after ${CLI_BUILD_TIMEOUT}ms`));
+      }, CLI_BUILD_TIMEOUT);
+
+      proc.on("close", (code) => {
+        clearTimeout(timeoutId);
+        if (code === 0) {
+          resolveBuild();
+          return;
+        }
+        rejectBuild(
+          new Error(
+            `CLI build failed with exit code ${code ?? 1}:\n` +
+              `Stdout: ${stdout}\n` +
+              `Stderr: ${stderr}`
+          )
+        );
+      });
+
+      proc.on("error", (err) => {
+        clearTimeout(timeoutId);
+        rejectBuild(err);
+      });
+    }).finally(() => {
+      cliBuildPromise = null;
+    });
+  }
+
+  await cliBuildPromise;
+}
 
 /**
  * Capture console output during test execution
@@ -187,15 +249,14 @@ export interface CliRunnerOptions {
  * ```
  */
 export async function runCli(args: string[], options: CliRunnerOptions = {}): Promise<CliResult> {
-  const { env = {}, cwd = resolve(__dirname, "../.."), timeout = 30000, stdin } = options;
+  const { env = {}, cwd = CLI_PACKAGE_ROOT, timeout = 30000, stdin } = options;
 
   const startTime = Date.now();
-
-  // Use tsx to run the TypeScript source directly
-  const cliPath = resolve(__dirname, "../index.ts");
+  await ensureCliBuilt();
+  const cliPath = resolve(CLI_PACKAGE_ROOT, "dist/index.js");
 
   return new Promise((resolvePromise, reject) => {
-    const proc = spawn("npx", ["tsx", cliPath, ...args], {
+    const proc = spawn(process.execPath, [cliPath, ...args], {
       cwd,
       env: {
         ...process.env,
@@ -203,8 +264,6 @@ export async function runCli(args: string[], options: CliRunnerOptions = {}): Pr
         NO_COLOR: "1", // Disable colors for easier parsing
         ...env,
       },
-      // shell: true is needed so npx resolves correctly; uses cmd.exe on Windows
-      shell: true,
     });
 
     let stdout = "";
@@ -316,19 +375,22 @@ export function parseTable(output: string): ParsedTable {
   const rawRows: string[][] = [];
 
   for (const line of lines) {
-    // Check if line contains table data (has │ separators)
-    if (line.includes("│")) {
-      const cells = line
-        .split("│")
-        .map((cell) => cell.trim())
-        .filter((cell) => cell !== "");
+    const separator = line.includes("│") ? "│" : line.includes("|") ? "|" : null;
+    if (!separator) continue;
 
-      if (headers.length === 0) {
-        // First row with data is headers
-        headers.push(...cells);
-      } else if (cells.length === headers.length) {
-        rawRows.push(cells);
-      }
+    const cells = line
+      .split(separator)
+      .map((cell) => cell.trim())
+      .filter((cell) => cell !== "");
+
+    // Skip boxed notices/log lines that are not tabular rows.
+    if (cells.length < 2) continue;
+
+    if (headers.length === 0) {
+      // First row with data is headers.
+      headers.push(...cells);
+    } else if (cells.length === headers.length) {
+      rawRows.push(cells);
     }
   }
 

@@ -25,6 +25,10 @@ import {
 } from "./test-utils.js";
 import * as fs from "node:fs";
 
+function normalizePathForAssert(pathValue: string): string {
+  return pathValue.replace(/\\/g, "/");
+}
+
 // Mock fs module
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(() => false),
@@ -254,7 +258,7 @@ describe("Init Command", () => {
       const configPath = writeCall[0] as string;
       const configContent = writeCall[1] as string;
 
-      expect(configPath).toContain("config/tenants.yaml");
+      expect(normalizePathForAssert(configPath)).toContain("config/tenants.yaml");
       expect(configContent).toContain("my-tenant-id-123");
       expect(configContent).toContain("my-client-id-456");
       expect(configContent).toContain("AgentSync Configuration");
@@ -327,7 +331,7 @@ describe("Init Command", () => {
       const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
       const configPath = writeCall[0] as string;
 
-      expect(configPath).toContain("custom/path.yaml");
+      expect(normalizePathForAssert(configPath)).toContain("custom/path.yaml");
     });
 
     it("should show setup complete after config creation", async () => {
