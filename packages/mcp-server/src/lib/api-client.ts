@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import fetch, { RequestInit, Response } from "node-fetch";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import {

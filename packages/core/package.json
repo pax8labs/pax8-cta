@@ -33,7 +33,6 @@
     "@azure/identity": "4.2.0",
     "@azure/msal-node": "2.6.0",
     "better-sqlite3": "12.6.2",
-    "node-fetch": "3.3.2",
     "yaml": "2.3.4",
     "zod": "3.22.4"
   },
