@@ -17,14 +17,6 @@
 import { Command } from "commander";
 import { listCommand } from "./list.js";
 import { showCommand } from "./show.js";
-import { watchCommand } from "./watch.js";
-import {
-  approveCommand,
-  rejectCommand,
-  cancelCommand,
-  retryCommand,
-  rollbackCommand,
-} from "./actions.js";
 
 /**
  * Deployments command - manage and view deployments
@@ -46,15 +38,6 @@ Examples:
 // Register subcommands
 deploymentsCommand.addCommand(listCommand);
 deploymentsCommand.addCommand(showCommand);
-deploymentsCommand.addCommand(watchCommand);
-deploymentsCommand.addCommand(cancelCommand);
-deploymentsCommand.addCommand(retryCommand);
-
-// These commands are planned but not yet implemented — hidden from help
-// but still registered so users get a clear message if they try them.
-deploymentsCommand.addCommand(approveCommand, { hidden: true });
-deploymentsCommand.addCommand(rejectCommand, { hidden: true });
-deploymentsCommand.addCommand(rollbackCommand, { hidden: true });
 
 // Re-export helpers for backwards compatibility
 export {
