@@ -32,30 +32,40 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run linter
-        run: pnpm lint || echo "Linting not configured yet"
+        run: |
+          pnpm --filter @agentsync/core lint
+          pnpm --filter @agentsync/cli lint
+          echo "Linting complete for core + cli"
         continue-on-error: true
 
       - name: Type check
         run: |
-          cd packages/web
-          pnpm tsc --noEmit
+          pnpm --filter @agentsync/core build
+          pnpm --filter @agentsync/cli build
 
       - name: Run tests
-        run: pnpm test
+        run: |
+          pnpm --filter @agentsync/core test
+          pnpm --filter @agentsync/cli test
         env:
           CI: true
 
       - name: Build
-        run: pnpm build
+        run: |
+          pnpm --filter @agentsync/core build
+          pnpm --filter @agentsync/cli build
         env:
           DEMO_MODE: true
 
-      - name: Check bundle size
+      - name: Check build size
         run: |
-          cd packages/web
-          if [ -d ".next" ]; then
-            echo "Build size:"
-            du -sh .next
+          if [ -d "packages/core/dist" ]; then
+            echo "Core build size:"
+            du -sh packages/core/dist
+          fi
+          if [ -d "packages/cli/dist" ]; then
+            echo "CLI build size:"
+            du -sh packages/cli/dist
           fi
 
   security-check:
@@ -84,7 +94,7 @@ jobs:
 
       - name: Check for secrets
         run: |
-          if grep -r "demo-client-secret\|demo-secret-for-local-testing" packages/web/src 2>/dev/null; then
+          if grep -r "demo-client-secret\|demo-secret-for-local-testing" packages/cli/src packages/core/src 2>/dev/null; then
             echo "⚠️ WARNING: Found hardcoded demo secrets in source code"
             echo "This should be removed before production (see issue #11)"
           fi

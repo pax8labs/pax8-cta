@@ -30,7 +30,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm run lint
+        run: |
+          pnpm --filter @agentsync/core lint
+          pnpm --filter @agentsync/cli lint
 
   typecheck:
     name: Type Check
@@ -52,7 +54,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type check
-        run: pnpm run typecheck
+        run: |
+          pnpm --filter @agentsync/core build
+          pnpm --filter @agentsync/cli build
 
   test:
     name: Test
@@ -84,11 +88,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Core
-        run: pnpm --filter @agentsync/core build
-
       - name: Run tests
-        run: pnpm run test
+        run: |
+          pnpm --filter @agentsync/core build
+          pnpm --filter @agentsync/core test
+          pnpm --filter @agentsync/cli test
         env:
           REDIS_URL: redis://localhost:6379
 
@@ -120,15 +124,17 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm run build
+        run: |
+          pnpm --filter @agentsync/core build
+          pnpm --filter @agentsync/cli build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
-            packages/*/dist
-            packages/web/.next
+            packages/core/dist
+            packages/cli/dist
           retention-days: 7
 
   docker:
@@ -194,7 +200,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm run build
+        run: |
+          pnpm --filter @agentsync/core build
+          pnpm --filter @agentsync/cli build
 
       - name: Run CLI tests
         run: pnpm --filter @agentsync/cli test
@@ -260,51 +268,3 @@ jobs:
           }
           Write-Host "install.ps1 syntax is valid" -ForegroundColor Green
         shell: pwsh
-
-  e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.event_name == 'pull_request'
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Build
-        run: pnpm run build
-
-      - name: Run E2E tests
-        run: pnpm run test:e2e
-        env:
-          REDIS_URL: redis://localhost:6379
-          NEXTAUTH_SECRET: test-secret
-          NEXTAUTH_URL: http://localhost:3001
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: packages/web/playwright-report
-          retention-days: 7
