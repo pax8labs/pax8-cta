@@ -60,18 +60,18 @@ export const deployCommand = new Command("deploy")
     "after",
     `
 Examples:
-  agentsync deploy TestDeploy --all --direct      Deploy to all tenants
+  agentsync deploy TestDeploy --all                Deploy to all tenants
   agentsync deploy TestDeploy --tag production     Deploy to production tenants only
   agentsync deploy TestDeploy --all --dry-run      Preview without deploying
   agentsync deploy ./TestDeploy.zip --all          Deploy a pre-exported zip file
-  agentsync deploy TestDeploy --all --direct --skip-url-replace  Skip URL replacement
+  agentsync deploy TestDeploy --all --skip-url-replace  Skip URL replacement
 `
   )
   .action(async (solutionArg: string | undefined, options) => {
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
       console.error(chalk.red("Error: solution name or path required."));
-      console.error(chalk.gray("  Example: agentsync deploy TestDeploy --all --direct"));
+      console.error(chalk.gray("  Example: agentsync deploy TestDeploy --all"));
       process.exit(2);
     }
     // Default to --all if no tag filter
@@ -381,8 +381,8 @@ Examples:
         console.log();
       }
 
-      // Direct deployment - import to each tenant sequentially
-      console.log(chalk.bold("Deploying directly to destinations...\n"));
+      // Deploy directly to each tenant sequentially
+      console.log(chalk.bold("Deploying to destinations...\n"));
 
       const clientSecret = await getClientSecretWithFallback();
       let successCount = 0;

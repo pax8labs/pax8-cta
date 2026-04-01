@@ -300,7 +300,6 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
       ctx
     );
   }
-
   // Unknown code from core - fall through to regex
   return null;
 }
@@ -533,7 +532,6 @@ function formatByRegex(error: unknown): AgentSyncError {
       context
     );
   }
-
   // Generic fallback
   return new AgentSyncError(
     "ERROR_UNKNOWN",

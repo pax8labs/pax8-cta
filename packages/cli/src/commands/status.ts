@@ -177,11 +177,8 @@ export const statusCommand = new Command("status")
         console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
         return;
       } else {
-        exitOssUnavailable("status --list", {
-          alternatives: [
-            "Use 'agentsync deployments list' for import history from Dataverse.",
-            "Use 'agentsync status --setup' for tenant readiness checks.",
-          ],
+        exitOssUnavailable("'status --list'", {
+          alternatives: ["agentsync deployments list"],
         });
       }
     }
@@ -249,11 +246,8 @@ export const statusCommand = new Command("status")
       return;
     }
 
-    exitOssUnavailable("status tracking", {
-      alternatives: [
-        "Use 'agentsync deployments list' to view recent deployment history.",
-        "Use 'agentsync deployments show <id>' to inspect a specific history entry.",
-      ],
+    exitOssUnavailable("'status' tracking view", {
+      alternatives: [`agentsync deployments show ${trackingId}`],
     });
   });
 

@@ -273,7 +273,6 @@ describe("Deploy Command (ship)", () => {
       const redisOption = deployCommand.options.find((opt) => opt.long === "--redis");
       expect(redisOption).toBeUndefined();
     });
-
     it("should support --managed flag", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
 

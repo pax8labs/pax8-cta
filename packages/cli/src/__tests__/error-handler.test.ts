@@ -246,7 +246,6 @@ describe("Error Handler", () => {
       expect(formatted.recovery.join(" ")).toContain("agentsync deploy --direct");
       expect(formatted.recovery.join(" ")).not.toContain("--redis");
     });
-
     it("should handle generic errors", () => {
       const error = new Error("Some unexpected error");
       const formatted = formatError(error);
