@@ -16,3 +16,4 @@
 
 export * from "./token-manager.js";
 export * from "./gdap-client.js";
+export * from "./device-code-login.js";

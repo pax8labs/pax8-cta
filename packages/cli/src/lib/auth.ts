@@ -14,12 +14,8 @@
  * limitations under the License.
  */
 
-import {
-  PublicClientApplication,
-  DeviceCodeRequest,
-  AuthenticationResult,
-  LogLevel,
-} from "@azure/msal-node";
+import { deviceCodeLogin } from "@agentsync/core";
+import type { DeviceCodeLoginResult } from "@agentsync/core";
 import open from "open";
 import chalk from "chalk";
 import { storeSecret } from "./credentials.js";
@@ -45,12 +41,7 @@ function openBrowser(url: string): void {
   open(url);
 }
 
-export interface InteractiveLoginResult {
-  accessToken: string;
-  tenantId: string;
-  accountId: string;
-  expiresOn: Date;
-}
+export type InteractiveLoginResult = DeviceCodeLoginResult;
 
 /**
  * Perform interactive device code login for Microsoft authentication
@@ -62,66 +53,26 @@ export async function interactiveLogin(options?: {
   scopes?: string[];
   openBrowser?: boolean;
 }): Promise<InteractiveLoginResult> {
-  // Use Microsoft CLI client ID if not provided (allows public client auth)
-  const clientId = options?.clientId || "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
-  const tenantId = options?.tenantId || "common";
-  const scopes = options?.scopes || [
-    "https://graph.microsoft.com/.default",
-    "https://api.powerplatform.com/.default",
-  ];
-
-  const msalConfig = {
-    auth: {
-      clientId,
-      authority: `https://login.microsoftonline.com/${tenantId}`,
-    },
-    system: {
-      loggerOptions: {
-        logLevel: LogLevel.Error,
-        piiLoggingEnabled: false,
-      },
-    },
-  };
-
-  const pca = new PublicClientApplication(msalConfig);
-
   const shouldOpenBrowser = options?.openBrowser ?? false;
 
-  const deviceCodeRequest: DeviceCodeRequest = {
-    deviceCodeCallback: (response: {
-      message: string;
-      userCode: string;
-      verificationUri: string;
-    }) => {
-      // Auto-open browser if requested
-      if (shouldOpenBrowser) {
-        openBrowser(response.verificationUri);
-        console.log(`  ✓ Browser opened`);
-        console.log(`  Enter code: ${chalk.bold(response.userCode)}`);
-      } else {
-        console.log(`  1. Open: ${response.verificationUri}`);
-        console.log(`  2. Enter code: ${chalk.bold(response.userCode)}`);
-      }
-      console.log();
-      console.log("  Waiting for you to sign in...");
-    },
-    scopes,
-  };
-
   try {
-    const response: AuthenticationResult | null =
-      await pca.acquireTokenByDeviceCode(deviceCodeRequest);
-
-    if (!response) {
-      throw new Error("No authentication result returned");
-    }
-
-    return {
-      accessToken: response.accessToken,
-      tenantId: response.tenantId || tenantId,
-      accountId: response.account?.homeAccountId || "",
-      expiresOn: response.expiresOn || new Date(Date.now() + 3600 * 1000),
-    };
+    return await deviceCodeLogin({
+      clientId: options?.clientId,
+      tenantId: options?.tenantId,
+      scopes: options?.scopes,
+      deviceCodeCallback: (response) => {
+        if (shouldOpenBrowser) {
+          openBrowser(response.verificationUri);
+          console.log(`  ✓ Browser opened`);
+          console.log(`  Enter code: ${chalk.bold(response.userCode)}`);
+        } else {
+          console.log(`  1. Open: ${response.verificationUri}`);
+          console.log(`  2. Enter code: ${chalk.bold(response.userCode)}`);
+        }
+        console.log();
+        console.log("  Waiting for you to sign in...");
+      },
+    });
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Authentication failed: ${error.message}`);
