@@ -52,6 +52,12 @@ export async function questionHidden(prompt: string): Promise<string> {
     return question(prompt);
   }
 
+  // If readline is currently active, close it before raw hidden input.
+  // Otherwise readline listeners can still echo typed characters.
+  if (rl) {
+    closeInput();
+  }
+
   const stdin = process.stdin as NodeJS.ReadStream;
   const stdout = process.stdout;
   const wasRaw = !!stdin.isRaw;
@@ -69,36 +75,36 @@ export async function questionHidden(prompt: string): Promise<string> {
 
     const onData = (chunk: Buffer) => {
       const input = chunk.toString("utf8");
-
-      // Enter/Return
-      if (input === "\r" || input === "\n") {
-        stdout.write("\n");
-        cleanup();
-        resolve(value);
-        return;
-      }
-
-      // Ctrl+C
-      if (input === "\u0003") {
-        cleanup();
-        reject(new Error("Input cancelled"));
-        return;
-      }
-
-      // Backspace/Delete
-      if (input === "\u007f" || input === "\b" || input === "\x08") {
-        if (value.length > 0) {
-          value = value.slice(0, -1);
-        }
-        return;
-      }
-
-      // Ignore escape sequences (arrow keys, etc.)
       if (input.startsWith("\u001b")) {
-        return;
+        return; // Ignore escape sequences (arrow keys, etc.)
       }
 
-      value += input;
+      for (const char of input) {
+        // Enter/Return
+        if (char === "\r" || char === "\n") {
+          stdout.write("\n");
+          cleanup();
+          resolve(value);
+          return;
+        }
+
+        // Ctrl+C
+        if (char === "\u0003") {
+          cleanup();
+          reject(new Error("Input cancelled"));
+          return;
+        }
+
+        // Backspace/Delete
+        if (char === "\u007f" || char === "\b" || char === "\x08") {
+          if (value.length > 0) {
+            value = value.slice(0, -1);
+          }
+          continue;
+        }
+
+        value += char;
+      }
     };
 
     try {
