@@ -125,4 +125,15 @@ describe("Input Module", () => {
     expect(mockCreateInterface).toHaveBeenCalledTimes(1);
     expect(mockQuestion).toHaveBeenCalledTimes(3);
   });
+
+  it("should fall back to question() for hidden prompts in non-TTY environments", async () => {
+    const { questionHidden } = await loadInput();
+
+    mockQuestion.mockResolvedValueOnce("secret-value");
+
+    const value = await questionHidden("secret: ");
+
+    expect(value).toBe("secret-value");
+    expect(mockQuestion).toHaveBeenCalledWith("secret: ");
+  });
 });

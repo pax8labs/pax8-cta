@@ -49,6 +49,8 @@ coverage/
 # Demo mode data
 .demo-*.json
 .agentsync-settings.json
+.agentsync-salt
+.agentsync-encryption-key
 
 # SQLite database
 data/

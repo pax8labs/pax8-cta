@@ -41,6 +41,81 @@ export async function question(prompt: string): Promise<string> {
 }
 
 /**
+ * Prompt for sensitive input without echoing typed characters.
+ * Falls back to standard question() in non-interactive environments.
+ */
+export async function questionHidden(prompt: string): Promise<string> {
+  if (
+    !process.stdin.isTTY ||
+    typeof (process.stdin as NodeJS.ReadStream).setRawMode !== "function"
+  ) {
+    return question(prompt);
+  }
+
+  const stdin = process.stdin as NodeJS.ReadStream;
+  const stdout = process.stdout;
+  const wasRaw = !!stdin.isRaw;
+
+  return new Promise((resolve, reject) => {
+    let value = "";
+
+    const cleanup = () => {
+      stdin.off("data", onData);
+      if (!wasRaw) {
+        stdin.setRawMode(false);
+      }
+      stdin.pause();
+    };
+
+    const onData = (chunk: Buffer) => {
+      const input = chunk.toString("utf8");
+
+      // Enter/Return
+      if (input === "\r" || input === "\n") {
+        stdout.write("\n");
+        cleanup();
+        resolve(value);
+        return;
+      }
+
+      // Ctrl+C
+      if (input === "\u0003") {
+        cleanup();
+        reject(new Error("Input cancelled"));
+        return;
+      }
+
+      // Backspace/Delete
+      if (input === "\u007f" || input === "\b" || input === "\x08") {
+        if (value.length > 0) {
+          value = value.slice(0, -1);
+        }
+        return;
+      }
+
+      // Ignore escape sequences (arrow keys, etc.)
+      if (input.startsWith("\u001b")) {
+        return;
+      }
+
+      value += input;
+    };
+
+    try {
+      stdout.write(prompt);
+      if (!wasRaw) {
+        stdin.setRawMode(true);
+      }
+      stdin.resume();
+      stdin.on("data", onData);
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+/**
  * Close the shared readline (e.g. on exit).
  */
 export function closeInput(): void {
