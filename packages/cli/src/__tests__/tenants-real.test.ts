@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runCli, containsText, extractJson, stripAnsi } from "./test-utils.js";
@@ -31,6 +31,9 @@ import type { TenantConfig } from "@agentsync/core";
 // Create a temporary directory with a test config
 const TEST_DIR = join(tmpdir(), `agentsync-test-${Date.now()}`);
 const CONFIG_PATH = join(TEST_DIR, "config", "tenants.yaml");
+const require = createRequire(import.meta.url);
+const { writeFileSync, mkdirSync, rmSync, existsSync } =
+  require("node:fs") as typeof import("node:fs");
 
 const TEST_CONFIG = `
 version: "2.0"

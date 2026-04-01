@@ -24,13 +24,16 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runCli, containsText, stripAnsi } from "./test-utils.js";
 
 const TEST_DIR = join(tmpdir(), `agentsync-analyze-test-${Date.now()}`);
 const CONFIG_PATH = join(TEST_DIR, "config", "tenants.yaml");
+const require = createRequire(import.meta.url);
+const { writeFileSync, mkdirSync, rmSync, existsSync } =
+  require("node:fs") as typeof import("node:fs");
 
 const TEST_CONFIG = `
 version: "2.0"

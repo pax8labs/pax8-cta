@@ -5,9 +5,11 @@ import { TokenManager } from "../auth/token-manager.js";
 const mockAcquireTokenByClientCredential = vi.fn();
 
 vi.mock("@azure/msal-node", () => ({
-  ConfidentialClientApplication: vi.fn().mockImplementation(() => ({
-    acquireTokenByClientCredential: mockAcquireTokenByClientCredential,
-  })),
+  ConfidentialClientApplication: vi.fn(function ConfidentialClientApplication() {
+    return {
+      acquireTokenByClientCredential: mockAcquireTokenByClientCredential,
+    };
+  }),
 }));
 
 describe("TokenManager", () => {

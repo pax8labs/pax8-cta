@@ -34,12 +34,14 @@ import { tmpdir } from "node:os";
 
 // Mock MSAL so TokenManager doesn't hit Azure AD
 vi.mock("@azure/msal-node", () => ({
-  ConfidentialClientApplication: vi.fn().mockImplementation(() => ({
-    acquireTokenByClientCredential: vi.fn().mockResolvedValue({
-      accessToken: "msw-dataverse-test-token",
-      expiresOn: new Date(Date.now() + 3600 * 1000),
-    }),
-  })),
+  ConfidentialClientApplication: vi.fn(function ConfidentialClientApplication() {
+    return {
+      acquireTokenByClientCredential: vi.fn().mockResolvedValue({
+        accessToken: "msw-dataverse-test-token",
+        expiresOn: new Date(Date.now() + 3600 * 1000),
+      }),
+    };
+  }),
 }));
 
 const server = setupServer();

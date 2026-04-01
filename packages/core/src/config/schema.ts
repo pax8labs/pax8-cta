@@ -98,7 +98,7 @@ export const WebhookSchema = z.object({
       "rollback.completed",
     ])
   ),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   secret: z.string().optional(),
   retries: z.number().int().nonnegative().optional().default(3),
 });
@@ -136,8 +136,8 @@ export const ApprovalWorkflowSchema = z.object({
 // ============================================================================
 
 export const PartnerConfigSchema = z.object({
-  tenantId: z.string().uuid(),
-  clientId: z.string().uuid(),
+  tenantId: z.guid(),
+  clientId: z.guid(),
   // clientSecret should come from environment variable
 });
 
@@ -146,7 +146,7 @@ export const PartnerConfigSchema = z.object({
 // ============================================================================
 
 export const SourceConfigSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.guid(),
   environmentUrl: z.string().url(),
   connectionReferences: z.array(ConnectionReferenceSchema).optional(),
 });
@@ -158,7 +158,7 @@ export const SourceConfigSchema = z.object({
 export const TenantConfigSchema = z.object({
   // Basic info
   name: z.string().min(1),
-  tenantId: z.string().uuid(),
+  tenantId: z.guid(),
   environmentUrl: z.string().url(),
   environmentId: z.string().optional(), // Power Platform environment ID for app user setup
   tags: z.array(z.string()).optional().default([]),
@@ -361,7 +361,7 @@ export function calculateDeploymentStatus(
 }
 
 export const TenantDeploymentResultSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.guid(),
   tenantName: z.string(),
   status: DeploymentStatusSchema,
   startedAt: z.string().datetime().optional(),
@@ -434,7 +434,7 @@ export const DeploymentSchema = z.object({
   solutionPath: z.string().optional(),
 
   // Tenant info
-  tenantId: z.string().uuid(),
+  tenantId: z.guid(),
   tenantName: z.string(),
   environmentUrl: z.string().url().optional(),
 
@@ -574,7 +574,7 @@ export const SolutionMetadataSchema = z.object({
   friendlyName: z.string(),
   version: z.string(),
   isManaged: z.boolean(),
-  publisherId: z.string().uuid().optional(),
+  publisherId: z.string().optional(),
   publisherName: z.string().optional(),
   description: z.string().optional(),
   installedOn: z.string().datetime().optional(),
@@ -589,7 +589,7 @@ export type SolutionMetadata = z.infer<typeof SolutionMetadataSchema>;
 export const DeploymentSnapshotSchema = z.object({
   id: z.string(),
   deploymentId: z.string(),
-  tenantId: z.string().uuid(),
+  tenantId: z.guid(),
   tenantName: z.string(),
   solutionName: z.string(),
   previousVersion: z.string(),
@@ -609,7 +609,7 @@ export const WebhookEventSchema = z.object({
   event: z.string(),
   timestamp: z.string().datetime(),
   deploymentId: z.string(),
-  tenantId: z.string().uuid().optional(),
+  tenantId: z.guid().optional(),
   tenantName: z.string().optional(),
   solutionName: z.string(),
   status: DeploymentStatusSchema,

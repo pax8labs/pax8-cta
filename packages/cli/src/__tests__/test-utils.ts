@@ -26,8 +26,7 @@
  */
 
 import { vi } from "vitest";
-import { spawn } from "child_process";
-import { existsSync } from "fs";
+import { createRequire } from "node:module";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -35,6 +34,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_PACKAGE_ROOT = resolve(__dirname, "../..");
 const CLI_BUILD_TIMEOUT = 120000;
 let cliBuildPromise: Promise<void> | null = null;
+const require = createRequire(import.meta.url);
+const { spawn } = require("node:child_process") as typeof import("node:child_process");
+const { existsSync } = require("node:fs") as typeof import("node:fs");
 
 async function ensureCliBuilt(): Promise<void> {
   const cliDistPath = resolve(CLI_PACKAGE_ROOT, "dist/index.js");

@@ -3,12 +3,14 @@ import { GdapClient, DelegatedAdminRelationship } from "../auth/gdap-client.js";
 
 // vi.hoisted runs before vi.mock hoisting, so the variable is available
 const { MockTokenManager } = vi.hoisted(() => {
-  const MockTokenManager = vi.fn().mockImplementation(() => ({
-    getGraphToken: vi.fn().mockResolvedValue("mock-graph-token"),
-    getDataverseToken: vi.fn().mockResolvedValue("mock-dataverse-token"),
-    getToken: vi.fn().mockResolvedValue("mock-token"),
-    clearCache: vi.fn(),
-  }));
+  const MockTokenManager = vi.fn(function MockTokenManager() {
+    return {
+      getGraphToken: vi.fn().mockResolvedValue("mock-graph-token"),
+      getDataverseToken: vi.fn().mockResolvedValue("mock-dataverse-token"),
+      getToken: vi.fn().mockResolvedValue("mock-token"),
+      clearCache: vi.fn(),
+    };
+  });
   return { MockTokenManager };
 });
 
@@ -86,12 +88,14 @@ describe("GdapClient", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockFetch.mockReset();
-    MockTokenManager.mockImplementation(() => ({
-      getGraphToken: vi.fn().mockResolvedValue("mock-graph-token"),
-      getDataverseToken: vi.fn().mockResolvedValue("mock-dataverse-token"),
-      getToken: vi.fn().mockResolvedValue("mock-token"),
-      clearCache: vi.fn(),
-    }));
+    MockTokenManager.mockImplementation(function MockTokenManager() {
+      return {
+        getGraphToken: vi.fn().mockResolvedValue("mock-graph-token"),
+        getDataverseToken: vi.fn().mockResolvedValue("mock-dataverse-token"),
+        getToken: vi.fn().mockResolvedValue("mock-token"),
+        clearCache: vi.fn(),
+      };
+    });
     client = new GdapClient({
       tenantId: "partner-tenant-id",
       clientId: "partner-client-id",
