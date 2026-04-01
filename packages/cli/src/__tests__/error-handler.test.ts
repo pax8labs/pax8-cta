@@ -237,15 +237,6 @@ describe("Error Handler", () => {
       expect(formatted.recovery.join(" ")).toContain("agentsync init");
     });
 
-    it("should map Redis connection errors", () => {
-      const error = new Error("Redis connection refused");
-      const formatted = formatError(error);
-
-      expect(formatted.code).toBe("ERROR_QUEUE_CONNECTION");
-      expect(formatted.message).toContain("deployment queue");
-      expect(formatted.recovery.join(" ")).toContain("redis-cli ping");
-    });
-
     it("should handle generic errors", () => {
       const error = new Error("Some unexpected error");
       const formatted = formatError(error);

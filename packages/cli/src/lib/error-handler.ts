@@ -276,31 +276,6 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     );
   }
 
-  // --- Queue / Redis errors ---
-  if (error.code === ErrorCode.QUEUE_CONNECTION_FAILED) {
-    return new AgentSyncError(
-      "ERROR_QUEUE_CONNECTION",
-      "Failed to connect to deployment queue (Redis)",
-      [
-        "Redis server may not be running",
-        "Redis connection URL may be incorrect",
-        "Network/firewall may be blocking the connection",
-      ],
-      [
-        "Verify Redis is running:",
-        "  redis-cli ping",
-        "Start Redis if not running:",
-        "  redis-server",
-        "Check the Redis URL in your command or environment:",
-        "  Default: redis://localhost:6379",
-        "Verify network connectivity to Redis host",
-        "Retry the command with correct Redis URL:",
-        "  agentsync deploy --redis redis://localhost:6379 ...",
-      ],
-      ctx
-    );
-  }
-
   // Unknown code from core - fall through to regex
   return null;
 }
@@ -514,35 +489,6 @@ function formatByRegex(error: unknown): AgentSyncError {
         "  agentsync init",
         "Specify a custom config path with --config flag if needed:",
         "  agentsync deploy --config /path/to/config.yaml ...",
-      ],
-      context
-    );
-  }
-
-  // Redis/queue connection errors
-  if (
-    errorString.includes("redis") ||
-    errorString.includes("queue") ||
-    (errorString.includes("connection") && errorString.includes("refused"))
-  ) {
-    return new AgentSyncError(
-      "ERROR_QUEUE_CONNECTION",
-      "Failed to connect to deployment queue (Redis)",
-      [
-        "Redis server may not be running",
-        "Redis connection URL may be incorrect",
-        "Network/firewall may be blocking the connection",
-      ],
-      [
-        "Verify Redis is running:",
-        "  redis-cli ping",
-        "Start Redis if not running:",
-        "  redis-server",
-        "Check the Redis URL in your command or environment:",
-        "  Default: redis://localhost:6379",
-        "Verify network connectivity to Redis host",
-        "Retry the command with correct Redis URL:",
-        "  agentsync deploy --redis redis://localhost:6379 ...",
       ],
       context
     );
