@@ -294,7 +294,7 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
       await getClientSecretWithFallback();
       hasClientSecret = true;
       console.log(`  Client secret:   ${chalk.green("✓")} Found (environment or keychain)`);
-    } catch (error) {
+    } catch {
       console.log(`  Client secret:   ${chalk.red("✗")} Not found in environment or keychain`);
     }
 

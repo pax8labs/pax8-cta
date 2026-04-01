@@ -500,7 +500,7 @@ Examples:
       if (tempPackagePath && existsSync(tempPackagePath)) {
         try {
           unlinkSync(tempPackagePath);
-        } catch (error) {
+        } catch {
           // Ignore cleanup errors
         }
       }

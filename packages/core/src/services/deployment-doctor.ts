@@ -71,7 +71,7 @@ export interface FailureAnalysis {
   }>;
   autoFixSuggestion?: {
     action: "retry" | "retry_with_delay" | "update_config" | "request_admin_action";
-    parameters?: Record<string, any>;
+    parameters?: Record<string, unknown>;
     safetyNote?: string;
   };
 }
