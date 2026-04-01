@@ -108,16 +108,6 @@ export const DEFAULT_MEMORY_QUEUE_RETRIES = 3;
 export const DEFAULT_MEMORY_QUEUE_RETRY_DELAY_MS = 5 * ONE_SECOND_MS;
 
 // ============================================================================
-// DATABASE
-// ============================================================================
-
-/** Default max retries for SQLite busy/locked errors */
-export const DEFAULT_DB_RETRY_COUNT = 3;
-
-/** Base delay for exponential backoff on database retries (100ms) */
-export const DB_RETRY_BASE_DELAY_MS = 100;
-
-// ============================================================================
 // QUEUE CONFIGURATION
 // ============================================================================
 
