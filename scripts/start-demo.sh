@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🎬 Starting AgentSync Demo Environment..."
+echo "🎬 Starting AgentSync CLI demo environment..."
 echo ""
 
 # Colors for output
@@ -45,7 +45,7 @@ fi
 echo ""
 
 # 3. Build packages if needed
-if [ ! -d "packages/core/dist" ] || [ ! -d "packages/web/.next" ]; then
+if [ ! -d "packages/core/dist" ] || [ ! -d "packages/cli/dist" ]; then
     echo -e "${BLUE}3. Building packages...${NC}"
     pnpm build
 else
@@ -57,45 +57,23 @@ echo ""
 echo -e "${BLUE}4. Setting up demo environment...${NC}"
 
 export DEMO_MODE=true
-export NEXTAUTH_SECRET=demo-secret-for-local-testing-only
-export NEXTAUTH_URL=http://localhost:3000
-export NODE_ENV=development
 export LOG_LEVEL=info
-
-# Optional: Start Redis if using Docker
-if command -v docker &> /dev/null; then
-    if docker ps | grep -q agentsync-demo-redis; then
-        echo "   ✓ Redis already running"
-    else
-        echo "   Starting Redis container..."
-        docker run -d \
-            --name agentsync-demo-redis \
-            -p 6379:6379 \
-            --rm \
-            redis:7-alpine > /dev/null 2>&1 || true
-        sleep 2
-        echo "   ✓ Redis started"
-    fi
-    export REDIS_URL=redis://localhost:6379
-fi
+export NODE_ENV=development
 
 echo ""
-
-# 5. Start the web app
-echo -e "${GREEN}5. Starting web application...${NC}"
+echo -e "${GREEN}5. Starting CLI...${NC}"
 echo ""
 echo -e "${YELLOW}================================================${NC}"
 echo -e "${YELLOW}   Demo Environment Ready!${NC}"
 echo -e "${YELLOW}================================================${NC}"
 echo ""
-echo -e "  📱 Web Dashboard: ${GREEN}http://localhost:3000${NC}"
+echo -e "  💻 CLI: ${GREEN}pnpm cli${NC}"
 echo -e "  🔐 Auth: ${GREEN}Demo mode (no login required)${NC}"
 echo -e "  📊 Demo Data: ${GREEN}Pre-loaded${NC}"
 echo ""
 echo -e "${YELLOW}Recording Tips:${NC}"
-echo "  • Clear browser cache for faster loads"
-echo "  • Use Incognito/Private mode for clean session"
-echo "  • Browser zoom: 100% or 110%"
+echo "  • Use the built-in REPL for a smoother demo"
+echo "  • Try 'tenants list', 'deployments list', and 'status --setup'"
 echo "  • Screen resolution: 1920x1080 or 1280x720"
 echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop${NC}"
@@ -107,9 +85,5 @@ sleep 1
 echo "1..."
 sleep 1
 
-# Start the web app (this will block)
-cd packages/web
-DEMO_MODE=true \
-NEXTAUTH_SECRET=demo-secret-for-local-testing-only \
-NEXTAUTH_URL=http://localhost:3000 \
-pnpm start
+# Start the CLI in demo mode (this will block)
+DEMO_MODE=true LOG_LEVEL=info pnpm cli

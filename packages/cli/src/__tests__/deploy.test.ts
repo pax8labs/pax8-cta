@@ -267,6 +267,12 @@ describe("Deploy Command (ship)", () => {
       expect(configOption?.defaultValue).toBe("./config/tenants.yaml");
     });
 
+    it("should not expose legacy redis option", async () => {
+      const { deployCommand } = await import("../commands/deploy.js");
+
+      const redisOption = deployCommand.options.find((opt) => opt.long === "--redis");
+      expect(redisOption).toBeUndefined();
+    });
     it("should support --managed flag", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
 

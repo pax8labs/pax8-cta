@@ -5,7 +5,8 @@
  */
 
 import { Deployment, DeploymentBatch, DEMO_TENANTS } from "../packages/core/src/index.js";
-import { demoDeploymentsV2, demoBatches } from "../packages/web/src/lib/demo-store.ts";
+import { mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
 
 // Realistic error messages for different categories
 const REALISTIC_ERRORS = {
@@ -82,7 +83,7 @@ async function seedFailures() {
     completedAt: now.toISOString(),
   };
 
-  demoBatches.set(batchId, batch);
+  const batches = [batch];
   console.log(`✅ Created batch: ${batchId}`);
 
   // Create failed deployments with realistic errors
@@ -120,7 +121,6 @@ async function seedFailures() {
       triggeredBy: "manual",
     };
     deployments.push(deployment);
-    demoDeploymentsV2.set(deployment.id, deployment);
   }
 
   // Create permission failures for next 3 tenants (to create a fleet pattern)
@@ -146,7 +146,6 @@ async function seedFailures() {
       triggeredBy: "manual",
     };
     deployments.push(deployment);
-    demoDeploymentsV2.set(deployment.id, deployment);
   }
 
   // Create various other failures
@@ -174,7 +173,6 @@ async function seedFailures() {
       triggeredBy: "manual",
     };
     deployments.push(deployment);
-    demoDeploymentsV2.set(deployment.id, deployment);
   }
 
   // Create successful deployments for the rest
@@ -199,12 +197,21 @@ async function seedFailures() {
       triggeredBy: "manual",
     };
     deployments.push(deployment);
-    demoDeploymentsV2.set(deployment.id, deployment);
   }
 
   console.log(
     `✅ Created ${deployments.length} deployments (${batch.failedDeployments} failed, ${batch.completedDeployments} succeeded)\n`
   );
+
+  const outputDir = process.cwd();
+  const deploymentsFile = join(outputDir, ".demo-deployments-v2.json");
+  const batchesFile = join(outputDir, ".demo-batches.json");
+
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(deploymentsFile, JSON.stringify(deployments, null, 2));
+  writeFileSync(batchesFile, JSON.stringify(batches, null, 2));
+  console.log(`📝 Wrote demo deployments to ${deploymentsFile}`);
+  console.log(`📝 Wrote demo batches to ${batchesFile}\n`);
 
   console.log("📊 Failure Breakdown:");
   console.log(`  - 2 authentication failures`);

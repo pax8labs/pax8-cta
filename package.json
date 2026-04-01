@@ -14,16 +14,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm --filter @agentsync/core build && pnpm -r test",
     "test:coverage": "pnpm --filter @agentsync/core build && pnpm -r test -- --coverage",
-    "test:e2e": "pnpm --filter @agentsync/web test:e2e",
     "cli": "pnpm --filter @agentsync/cli start",
-    "web": "pnpm --filter @agentsync/web dev",
-    "worker": "pnpm --filter @agentsync/worker start",
-    "docker:build": "docker build -t agentsync:latest .",
-    "docker:build:web": "docker build --target web -t agentsync-web:latest .",
-    "docker:build:worker": "docker build --target worker -t agentsync-worker:latest .",
-    "docker:build:cli": "docker build --target cli -t agentsync-cli:latest .",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
     "db:migrate": "echo 'Run: psql $DATABASE_URL < packages/core/src/db/schema.sql'",
     "clean": "pnpm -r exec node -e \"var fs=require('fs');['dist','.next','node_modules/.cache'].forEach(function(d){fs.rmSync(d,{recursive:true,force:true})})\"",
     "prepare": "husky || true"
@@ -53,6 +44,7 @@
     "node": ">=20.0.0"
   },
   "workspaces": [
-    "packages/*"
+    "packages/cli",
+    "packages/core"
   ]
 }

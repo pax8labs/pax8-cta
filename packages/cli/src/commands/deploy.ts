@@ -54,6 +54,7 @@ export const deployCommand = new Command("deploy")
   .option("--keep-package", "Keep exported zip after deployment")
   .option("--package-dir <path>", "Directory for exported zip (default: temp)")
   .option("--no-auto-setup", "Skip automatic application user setup")
+  .option("--direct", "Deploy sequentially (default mode)")
   .option("--skip-url-replace", "Skip automatic tenant URL replacement in solution")
   .addHelpText(
     "after",

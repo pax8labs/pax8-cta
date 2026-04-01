@@ -186,8 +186,6 @@ DEMO_MODE=false node packages/cli/dist/index.js deployments list
 - The recent deployment from Test 3.2 may appear (depends on whether direct-mode deployments are tracked in the deployment store)
 - Exit code 0
 
-**Note:** If this command requires Redis/a running worker to have deployment records, it may show an empty list or an error. Document what actually happens.
-
 ---
 
 ### Test 3.5: Remove deployed solution (cleanup)
