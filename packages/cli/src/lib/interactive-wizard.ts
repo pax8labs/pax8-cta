@@ -88,7 +88,7 @@ async function validateSetup(ctx: WizardContext): Promise<{
         );
       }
     }
-  } catch (error) {
+  } catch {
     // Validation errors are not critical
   }
 
@@ -270,7 +270,7 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
         await storeCredentials(ctx.appId!, ctx.clientSecret, ctx.tenantId);
         spinner.succeed(chalk.green("Credentials stored securely"));
       }
-    } catch (error) {
+    } catch {
       spinner.fail("Failed to create client secret");
       console.log(chalk.yellow("\nYou can create a client secret manually:"));
       console.log(chalk.white("  1. Go to portal.azure.com → Azure Active Directory"));

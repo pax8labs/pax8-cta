@@ -29,6 +29,23 @@ function normalizePathForAssert(pathValue: string): string {
   return pathValue.replace(/\\/g, "/");
 }
 
+function getConfigWriteCall(expectedPathSuffix = "config/tenants.yaml") {
+  const calls = vi.mocked(fs.writeFileSync).mock.calls;
+  const match = calls.find(([pathValue]) =>
+    normalizePathForAssert(String(pathValue)).endsWith(expectedPathSuffix)
+  );
+
+  if (!match) {
+    throw new Error(
+      `Expected config write call ending with ${expectedPathSuffix} but saw: ${calls
+        .map(([pathValue]) => normalizePathForAssert(String(pathValue)))
+        .join(", ")}`
+    );
+  }
+
+  return match;
+}
+
 // Mock fs module
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(() => false),
@@ -254,7 +271,7 @@ describe("Init Command", () => {
 
       expect(fs.writeFileSync).toHaveBeenCalled();
 
-      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const writeCall = getConfigWriteCall();
       const configPath = writeCall[0] as string;
       const configContent = writeCall[1] as string;
 
@@ -275,7 +292,7 @@ describe("Init Command", () => {
 
       await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
-      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const writeCall = getConfigWriteCall();
       const configContent = writeCall[1] as string;
 
       expect(configContent).toContain('environmentUrl: "https://mydev.crm.dynamics.com"');
@@ -291,7 +308,7 @@ describe("Init Command", () => {
 
       await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
-      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const writeCall = getConfigWriteCall();
       const configContent = writeCall[1] as string;
 
       expect(configContent).toContain("# source:");
@@ -328,7 +345,7 @@ describe("Init Command", () => {
         "--no-gdap",
       ]);
 
-      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const writeCall = getConfigWriteCall("custom/path.yaml");
       const configPath = writeCall[0] as string;
 
       expect(normalizePathForAssert(configPath)).toContain("custom/path.yaml");
@@ -369,7 +386,7 @@ describe("Init Command", () => {
 
       await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
-      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const writeCall = getConfigWriteCall();
       const configContent = writeCall[1] as string;
 
       expect(configContent).toContain("contoso-tenant-id");
@@ -401,7 +418,7 @@ describe("Init Command", () => {
 
       await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
-      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const writeCall = getConfigWriteCall();
       const configContent = writeCall[1] as string;
 
       expect(configContent).toContain("contoso-tid");
@@ -419,7 +436,7 @@ describe("Init Command", () => {
 
       await program.parseAsync(["node", "test", "init", "--no-gdap"]);
 
-      const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+      const writeCall = getConfigWriteCall();
       const configContent = writeCall[1] as string;
 
       expect(configContent).toContain("tenants: []");

@@ -37,7 +37,7 @@ export async function getStoredSecret(): Promise<string | null> {
     const keytar = await getKeytar();
     if (!keytar) return null;
     return await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
-  } catch (error) {
+  } catch {
     // If keytar fails (e.g., on unsupported platforms), return null
     return null;
   }
@@ -76,7 +76,7 @@ export async function deleteSecret(): Promise<void> {
     const keytar = await getKeytar();
     if (!keytar) return;
     await keytar.deletePassword(SERVICE_NAME, ACCOUNT_NAME);
-  } catch (error) {
+  } catch {
     // Ignore errors when deleting (secret may not exist)
   }
 }

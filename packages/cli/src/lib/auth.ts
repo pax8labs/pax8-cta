@@ -137,7 +137,7 @@ export async function getStoredCredentials(
       clientSecret,
       tenantId: tenantId || undefined,
     };
-  } catch (error) {
+  } catch {
     // Return null if keychain is not available (e.g., in some CI environments)
     return null;
   }
@@ -152,7 +152,7 @@ export async function clearCredentials(clientId: string): Promise<void> {
     if (!keytar) return;
     await keytar.deletePassword(KEYTAR_SERVICE, `clientSecret:${clientId}`);
     await keytar.deletePassword(KEYTAR_SERVICE, `tenantId:${clientId}`);
-  } catch (error) {
+  } catch {
     // Ignore errors when clearing (credential may not exist)
   }
 }

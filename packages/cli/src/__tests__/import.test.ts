@@ -25,14 +25,19 @@ import {
 } from "./test-utils.js";
 
 // Mock @agentsync/core
-vi.mock("@agentsync/core", () => ({
-  loadConfig: vi.fn(),
-  getClientSecret: vi.fn(),
-  findTenant: vi.fn(),
-  TokenManager: vi.fn(),
-  DataverseClient: vi.fn(),
-  SolutionOperations: vi.fn(),
-}));
+vi.mock("@agentsync/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@agentsync/core")>();
+
+  return {
+    ...actual,
+    loadConfig: vi.fn(),
+    getClientSecret: vi.fn(),
+    findTenant: vi.fn(),
+    TokenManager: vi.fn(),
+    DataverseClient: vi.fn(),
+    SolutionOperations: vi.fn(),
+  };
+});
 
 // Mock ora
 vi.mock("ora", () => ({
@@ -239,19 +244,22 @@ describe("Import Command (deliver)", () => {
       vi.mocked(getClientSecret).mockReturnValue("mock-secret");
 
       // Mock classes
-      vi.mocked(TokenManager).mockImplementation(() => ({}) as any);
-      vi.mocked(DataverseClient).mockImplementation(() => ({}) as any);
+      vi.mocked(TokenManager).mockImplementation(function () {
+        return {} as any;
+      });
+      vi.mocked(DataverseClient).mockImplementation(function () {
+        return {} as any;
+      });
 
       const mockImportSolutionAsync = vi.fn().mockResolvedValue("job-123");
       const mockWaitForImport = vi.fn().mockResolvedValue({ success: true });
 
-      vi.mocked(SolutionOperations).mockImplementation(
-        () =>
-          ({
-            importSolutionAsync: mockImportSolutionAsync,
-            waitForImport: mockWaitForImport,
-          }) as any
-      );
+      vi.mocked(SolutionOperations).mockImplementation(function () {
+        return {
+          importSolutionAsync: mockImportSolutionAsync,
+          waitForImport: mockWaitForImport,
+        } as any;
+      });
 
       const { importCommand } = await import("../commands/import.js");
       const program = new Command();
@@ -298,21 +306,24 @@ describe("Import Command (deliver)", () => {
       } as any);
 
       vi.mocked(getClientSecret).mockReturnValue("mock-secret");
-      vi.mocked(TokenManager).mockImplementation(() => ({}) as any);
-      vi.mocked(DataverseClient).mockImplementation(() => ({}) as any);
+      vi.mocked(TokenManager).mockImplementation(function () {
+        return {} as any;
+      });
+      vi.mocked(DataverseClient).mockImplementation(function () {
+        return {} as any;
+      });
 
       const mockImportSolutionAsync = vi.fn().mockResolvedValue("job-123");
       const mockWaitForImport = vi
         .fn()
         .mockResolvedValue({ success: false, error: "Import failed" });
 
-      vi.mocked(SolutionOperations).mockImplementation(
-        () =>
-          ({
-            importSolutionAsync: mockImportSolutionAsync,
-            waitForImport: mockWaitForImport,
-          }) as any
-      );
+      vi.mocked(SolutionOperations).mockImplementation(function () {
+        return {
+          importSolutionAsync: mockImportSolutionAsync,
+          waitForImport: mockWaitForImport,
+        } as any;
+      });
 
       const { importCommand } = await import("../commands/import.js");
       const program = new Command();

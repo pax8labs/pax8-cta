@@ -137,7 +137,7 @@ Examples:
         message: "Found (environment or keychain)",
       });
       spinner.succeed("Client secret found");
-    } catch (error) {
+    } catch {
       checks.push({
         name: "Client secret",
         status: "fail",

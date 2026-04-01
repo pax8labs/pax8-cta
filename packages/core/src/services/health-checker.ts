@@ -567,7 +567,11 @@ class HealthChecker {
     }));
   }
 
-  private generateRecommendations(health: TenantHealth, gdap: any, connections: any[]): string[] {
+  private generateRecommendations(
+    health: TenantHealth,
+    gdap: { status?: string },
+    connections: Array<{ status?: string }>
+  ): string[] {
     const recommendations: string[] = [];
 
     // GDAP recommendations

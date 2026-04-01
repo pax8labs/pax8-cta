@@ -31,5 +31,12 @@ export default tseslint.config(
       "no-constant-binary-expression": "warn",
       "no-useless-escape": "warn",
     },
-  }
+  },
+  {
+    files: ["**/__tests__/**", "**/src/tests/**", "**/*.test.ts", "**/*.spec.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );

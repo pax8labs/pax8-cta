@@ -276,7 +276,6 @@ describe("Error Handler", () => {
   });
 
   describe("printError", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let consoleErrorSpy: any;
 
     beforeEach(() => {

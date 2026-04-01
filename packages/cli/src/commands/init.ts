@@ -1063,7 +1063,7 @@ async function discoverGdapTenantsWithEnvironments(
         } else {
           console.log(chalk.yellow(`   ⚠ ${rel.customer.displayName}: No Dataverse environments`));
         }
-      } catch (envError) {
+      } catch {
         // Couldn't discover environments for this tenant
         console.log(
           chalk.yellow(`   ⚠ ${rel.customer.displayName}: Could not discover environments`)
