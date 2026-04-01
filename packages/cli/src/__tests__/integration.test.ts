@@ -155,7 +155,9 @@ describe("CLI Integration Tests", () => {
     });
 
     it("should toggle demo mode on", async () => {
-      const result = await runCliExpectSuccess(["demo", "on"]);
+      const result = await runCliExpectSuccess(["demo", "on"], {
+        env: { HOME: "/tmp" },
+      });
 
       expect(
         containsText(result.output, "enabled") || containsText(result.output, "Demo mode")
@@ -209,6 +211,17 @@ describe("CLI Integration Tests", () => {
           containsText(result.output, "Status") ||
           containsText(result.output, "DEMO")
       ).toBe(true);
+    });
+  });
+
+  describe("oss-only behavior", () => {
+    it("should reject status --list outside demo mode", async () => {
+      const result = await runCliExpectFailure(["status", "--list"], {
+        env: { DEMO_MODE: "false" },
+      });
+
+      expect(result.exitCode).toBe(2);
+      expect(containsText(result.output, "open-source CLI")).toBe(true);
     });
   });
 

@@ -129,14 +129,17 @@ agentsync deploy --all --solution ./myagent.zip
 agentsync deploy --tag production --solution ./myagent.zip
 ```
 
-### 3. Check Deployment Status
+### 3. View Deployment History
 
 ```bash
-# Get deployment ID from the deploy command output
-agentsync status --deployment dep-abc123
+# List recent deployments
+agentsync deployments list
 
-# Watch mode (auto-refresh)
-agentsync status --deployment dep-abc123 --watch
+# Show a specific deployment history entry
+agentsync deployments show dep-abc123
+
+# Check setup/readiness status
+agentsync status --setup
 ```
 
 ### 4. List Your Tenants
@@ -289,32 +292,25 @@ agentsync deploy --all --solution ./agent.zip --config ./my-config.yaml
 - `-t, --tag <tags...>` - Deploy only to tenants with these tags
 - `--dry-run` - Preview deployment without executing
 - `-c, --config <path>` - Path to config file (default: `./config/tenants.yaml`)
-- `--redis <url>` - Redis URL (default: `redis://localhost:6379`)
 
 ### Status
 
-Check deployment status with real-time updates. (Alias: `track`)
+Check deployment history in demo mode and setup readiness in real mode. (Alias: `track`)
 
 ```bash
-# Check deployment status
-agentsync status --deployment dep-abc123
+# List recent demo shipments
+agentsync status --list
 
-# Watch mode (auto-refresh every 5s)
-agentsync status --deployment dep-abc123 --watch
-
-# Custom refresh interval
-agentsync status --deployment dep-abc123 --watch --interval 10000
+# Show setup/readiness status
+agentsync status --setup
 ```
 
 **Aliases**: `status`
 
 **Options**:
 
-- `-d, --deployment <id>` - Deployment ID to check
-- `-s, --shipment <id>` - Alias for --deployment
-- `-w, --watch` - Watch for status changes (auto-refresh)
-- `--interval <ms>` - Refresh interval in milliseconds (default: 5000)
-- `--redis <url>` - Redis URL (default: `redis://localhost:6379`)
+- `-l, --list` - List recent shipments (demo mode)
+- `--setup` - Show setup/readiness status
 
 ### Tenants
 
@@ -469,7 +465,6 @@ tenants:
 - `AGENTSYNC_CLIENT_SECRET` - Azure AD app client secret (required)
 - `AGENTSYNC_INSTALL_DIR` - Custom installation directory (default: `/usr/local/bin`)
 - `CONFIG_PATH` - Custom config file path (default: `./config/tenants.yaml`)
-- `REDIS_URL` - Redis connection URL (default: `redis://localhost:6379`)
 
 ## Authentication
 
@@ -550,26 +545,22 @@ agentsync tenants inspect
 ### Connection Errors
 
 ```bash
-# Check Redis connection
-redis-cli ping
-
-# Use custom Redis URL
-agentsync deploy --all --solution ./agent.zip --redis redis://custom-host:6379
+# Run direct deployment mode
+agentsync deploy --all --direct --solution ./agent.zip
 
 # Verify tenant environment URLs
 agentsync tenants list
 ```
 
-### Worker Not Running
+### Deployment Failures
 
-Deployments are processed by background workers. Make sure the worker is running:
+AgentSync CLI deployments run directly now, so there is no worker process to start.
+If a deployment fails, inspect the tenant details and retry the command:
 
 ```bash
-# Start worker (in separate terminal)
-pnpm worker
-
-# Or use Docker
-docker-compose up worker
+agentsync deployments list
+agentsync deployments show <deployment-id>
+agentsync deploy --all --direct --solution ./agent.zip
 ```
 
 ## Development
@@ -657,6 +648,4 @@ Apache 2.0
 
 ## Related Projects
 
-- **AgentSync Web**: Web dashboard for visual deployment management
 - **AgentSync Core**: Core library for Dataverse/Dynamics 365 operations
-- **AgentSync Worker**: Background worker for deployment processing

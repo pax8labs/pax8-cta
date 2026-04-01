@@ -120,7 +120,7 @@ describe("Banner Module", () => {
       expect(containsText(cleanOutput, "deploy --all")).toBe(true);
     });
 
-    it("should display status command", async () => {
+    it("should display deployments command", async () => {
       const { showWelcome } = await import("../lib/banner.js");
 
       showWelcome();
@@ -128,8 +128,8 @@ describe("Banner Module", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, "deployment status")).toBe(true);
-      expect(containsText(cleanOutput, "status --deployment")).toBe(true);
+      expect(containsText(cleanOutput, "deployment history")).toBe(true);
+      expect(containsText(cleanOutput, "deployments list")).toBe(true);
     });
 
     it("should display tenants command", async () => {

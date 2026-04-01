@@ -67,7 +67,7 @@ export function showWelcome() {
   console.log(
     chalk.white("  Deploy to all tenants:    ") + chalk.gray("deploy --all --solution ./agent.zip")
   );
-  console.log(chalk.white("  Check deployment status:  ") + chalk.gray("status --deployment <id>"));
+  console.log(chalk.white("  View deployment history:  ") + chalk.gray("deployments list"));
   console.log(chalk.white("  List your tenants:        ") + chalk.gray("tenants list"));
   console.log();
   console.log(chalk.cyan("  Need help? ") + chalk.gray("Type: help"));

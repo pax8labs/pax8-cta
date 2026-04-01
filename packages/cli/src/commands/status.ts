@@ -26,6 +26,7 @@ import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib
 import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
+import { exitOssUnavailable } from "../lib/oss-surface.js";
 
 // Mock deployment data for demo mode
 const DEMO_DEPLOYMENTS = [
@@ -176,7 +177,9 @@ export const statusCommand = new Command("status")
         console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
         return;
       } else {
-        console.log(chalk.gray("Use 'agentsync deployments list' to view deployment history."));
+        exitOssUnavailable("'status --list'", {
+          alternatives: ["agentsync deployments list"],
+        });
       }
     }
 
@@ -243,9 +246,9 @@ export const statusCommand = new Command("status")
       return;
     }
 
-    console.log(
-      chalk.gray(`Use 'agentsync deployments show ${trackingId}' to view deployment details.`)
-    );
+    exitOssUnavailable("'status' tracking view", {
+      alternatives: [`agentsync deployments show ${trackingId}`],
+    });
   });
 
 // Use shipping-style status formatting for this command

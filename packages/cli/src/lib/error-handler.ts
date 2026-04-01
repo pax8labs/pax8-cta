@@ -27,6 +27,20 @@ import {
   isAgentSyncError,
 } from "@agentsync/core";
 
+const LEGACY_QUEUE_ERROR_MESSAGE =
+  "Legacy deployment queue support is unavailable in the open-source CLI";
+const LEGACY_QUEUE_ERROR_CAUSES = [
+  "A Redis-backed worker was referenced by older tooling or configuration",
+  "The CLI now deploys directly and does not use a queue",
+  "An outdated command or environment variable is still pointing at Redis",
+];
+const LEGACY_QUEUE_ERROR_RECOVERY = [
+  "Remove any legacy queue-related flags or configuration",
+  "Use the direct deployment flow instead:",
+  "  agentsync deploy --direct --all --solution ./agent.zip",
+  "If this is coming from older automation, update it to call the direct CLI",
+];
+
 /**
  * Structured CLI error with recovery guidance.
  *
@@ -276,6 +290,16 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     );
   }
 
+  // --- Queue / Redis errors ---
+  if (error.code === ErrorCode.QUEUE_CONNECTION_FAILED) {
+    return new AgentSyncError(
+      "ERROR_QUEUE_CONNECTION",
+      LEGACY_QUEUE_ERROR_MESSAGE,
+      LEGACY_QUEUE_ERROR_CAUSES,
+      LEGACY_QUEUE_ERROR_RECOVERY,
+      ctx
+    );
+  }
   // Unknown code from core - fall through to regex
   return null;
 }
@@ -494,6 +518,20 @@ function formatByRegex(error: unknown): AgentSyncError {
     );
   }
 
+  // Redis/queue connection errors
+  if (
+    errorString.includes("redis") ||
+    errorString.includes("queue") ||
+    (errorString.includes("connection") && errorString.includes("refused"))
+  ) {
+    return new AgentSyncError(
+      "ERROR_QUEUE_CONNECTION",
+      LEGACY_QUEUE_ERROR_MESSAGE,
+      LEGACY_QUEUE_ERROR_CAUSES,
+      LEGACY_QUEUE_ERROR_RECOVERY,
+      context
+    );
+  }
   // Generic fallback
   return new AgentSyncError(
     "ERROR_UNKNOWN",

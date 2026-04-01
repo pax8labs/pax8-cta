@@ -38,12 +38,6 @@ export * from "./powerplatform/index.js";
 // Services
 export * from "./services/index.js";
 
-// Queue (in-memory alternative to Redis)
-export * from "./queue/index.js";
-
-// Repositories
-export * from "./repositories/deployment.js";
-
 // Mock/Demo data
 export * from "./mock/demo-data.js";
 
