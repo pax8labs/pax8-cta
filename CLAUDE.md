@@ -101,8 +101,7 @@ The README and UI use shipping/logistics metaphors. The actual CLI command names
 
 ## Gotchas
 
-- **`AGENTSYNC_CLI_MODE=true`** — Set at the top of `cli/src/index.ts` to prevent `@agentsync/worker` from auto-starting BullMQ workers when the CLI imports it. The CLI only uses the worker package's `DeploymentQueueManager` for enqueuing, not processing.
-- **CLI depends on `@agentsync/worker`** — Only `deploy` and `status` commands import from it (for queue management). This is a coupling point to address when extracting the CLI for open source — the CLI should work without Redis.
+- **`AGENTSYNC_CLI_MODE=true`** — Set at the top of `cli/src/index.ts` to prevent `@agentsync/worker` from auto-starting BullMQ workers when other packages import it.
 - **REPL mode** — Running `agentsync` with no args enters an interactive prompt (`AgentSync> `). It recreates the Commander program for each command to avoid stale state. The REPL intercepts `process.exit()` to prevent commands from killing the session.
 - **Bun binary builds** — `build:binary` compiles to a standalone executable via Bun. This is separate from the normal `tsc` build. The binary targets are macOS arm64/x64, Linux x64/arm64, Windows x64.
 - **CLI .env loading** — The CLI has a custom `.env` parser (not dotenv) that deliberately skips `DEMO_MODE`, `NEXTAUTH_*`, `LOG_LEVEL`, and `NODE_ENV` to avoid conflicts with CLI-managed settings.

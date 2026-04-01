@@ -345,7 +345,7 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
 
   // Next steps
   if (analysis.canProceed) {
-    console.log(chalk.gray("Next step: agentsync deploy <solution> --all --direct"));
+    console.log(chalk.gray("Next step: agentsync deploy <solution> --all"));
   } else {
     console.log(chalk.gray("Fix the blockers listed above, then run 'agentsync analyze' again"));
   }

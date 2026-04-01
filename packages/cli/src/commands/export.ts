@@ -94,7 +94,7 @@ Examples:
         console.log(`  Package:  ${chalk.cyan(outputPath)}`);
         console.log();
         console.log(
-          chalk.gray(`Use 'agentsync deploy <solution> --all --direct' to deploy to your tenants`)
+          chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`)
         );
         return;
       }
@@ -153,9 +153,7 @@ Examples:
       console.log(`  Type:     ${managed ? "Managed" : "Unmanaged"}`);
       console.log(`  Agent package:    ${chalk.cyan(outputPath)}`);
       console.log();
-      console.log(
-        chalk.gray(`Use 'agentsync deploy <solution> --all --direct' to deploy to your tenants`)
-      );
+      console.log(chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`));
     } catch (error) {
       handleCommandError(error, spinner, "Packing failed");
     }
