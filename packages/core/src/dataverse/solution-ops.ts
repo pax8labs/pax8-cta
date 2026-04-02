@@ -124,6 +124,15 @@ export interface SolutionHistoryOptions {
 export class SolutionOperations {
   constructor(private client: DataverseClient) {}
 
+  private isAsyncImportDisabledError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("async operations are currently disabled") ||
+      normalized.includes("asynchronous operations are currently disabled")
+    );
+  }
+
   /**
    * List all visible solutions in the environment
    */
@@ -288,13 +297,29 @@ export class SolutionOperations {
 
     const importJobId = crypto.randomUUID();
 
-    // Use ImportSolutionAsync for async import
-    await this.client.executeAction("ImportSolutionAsync", {
+    const request: ImportSolutionRequest = {
       CustomizationFile: base64Solution,
       OverwriteUnmanagedCustomizations: options.overwriteUnmanagedCustomizations ?? true,
       PublishWorkflows: options.publishWorkflows ?? true,
       ImportJobId: importJobId,
-    });
+    };
+
+    try {
+      // Preferred path for normal environments.
+      await this.client.executeAction("ImportSolutionAsync", request);
+    } catch (error) {
+      // Some environments (for example when async/background operations are disabled)
+      // reject ImportSolutionAsync. Fall back to synchronous import so deployments
+      // can still proceed.
+      if (!this.isAsyncImportDisabledError(error)) {
+        throw error;
+      }
+
+      await this.client.executeAction("ImportSolution", {
+        ...request,
+        ConvertToManaged: options.convertToManaged ?? false,
+      });
+    }
 
     return importJobId;
   }

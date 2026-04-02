@@ -26,9 +26,21 @@ const KEYTAR_SERVICE = "agentsync-cli";
  * Lazily load keytar (optional dependency — may not be installed if native
  * compilation failed, e.g. on Windows without Visual Studio Build Tools).
  */
-async function getKeytar(): Promise<typeof import("keytar") | null> {
+type KeytarModule = typeof import("keytar");
+type KeytarLike = Pick<KeytarModule, "getPassword" | "setPassword" | "deletePassword">;
+
+async function getKeytar(): Promise<KeytarLike | null> {
   try {
-    return await import("keytar");
+    const mod = (await import("keytar")) as KeytarModule & { default?: KeytarModule };
+    const keytar = (mod.default || mod) as KeytarLike;
+    if (
+      typeof keytar.getPassword === "function" &&
+      typeof keytar.setPassword === "function" &&
+      typeof keytar.deletePassword === "function"
+    ) {
+      return keytar;
+    }
+    return null;
   } catch {
     return null;
   }
