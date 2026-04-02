@@ -20,7 +20,7 @@ import { existsSync } from "node:fs";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
-import { isDemo } from "../lib/command-wrapper.js";
+import { withDemoMode } from "../lib/command-wrapper.js";
 import { DEMO_TENANTS } from "@agentsync/core";
 import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib/formatters.js";
 import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agentsync/core";
@@ -143,44 +143,47 @@ export const statusCommand = new Command("status")
     }
     // Handle --list flag
     if (options.list) {
-      if (isDemo()) {
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
-        console.log(chalk.bold("Recent Shipments:"));
-        console.log();
+      await withDemoMode(
+        () => {
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
+          console.log(chalk.bold("Recent Shipments:"));
+          console.log();
 
-        const table = new Table({
-          head: ["Tracking #", "Agent", "Status", "Progress", "Created"],
-          style: { head: ["cyan"] },
-        });
+          const table = new Table({
+            head: ["Tracking #", "Agent", "Status", "Progress", "Created"],
+            style: { head: ["cyan"] },
+          });
 
-        DEMO_DEPLOYMENTS.forEach((d) => {
-          const progress = `${d.completedTenants}/${d.totalTenants}`;
-          const statusText =
-            d.status === "completed"
-              ? d.failedTenants > 0
-                ? chalk.yellow("⚠ Completed")
-                : chalk.green("✓ Completed")
-              : chalk.yellow("🚚 In Progress");
-          const timeAgo = getTimeAgo(d.createdAt);
+          DEMO_DEPLOYMENTS.forEach((d) => {
+            const progress = `${d.completedTenants}/${d.totalTenants}`;
+            const statusText =
+              d.status === "completed"
+                ? d.failedTenants > 0
+                  ? chalk.yellow("⚠ Completed")
+                  : chalk.green("✓ Completed")
+                : chalk.yellow("🚚 In Progress");
+            const timeAgo = getTimeAgo(d.createdAt);
 
-          table.push([
-            chalk.cyan(d.id),
-            d.solutionName,
-            statusText,
-            d.failedTenants > 0 ? `${progress} (${d.failedTenants} failed)` : progress,
-            chalk.gray(timeAgo),
-          ]);
-        });
+            table.push([
+              chalk.cyan(d.id),
+              d.solutionName,
+              statusText,
+              d.failedTenants > 0 ? `${progress} (${d.failedTenants} failed)` : progress,
+              chalk.gray(timeAgo),
+            ]);
+          });
 
-        console.log(table.toString());
-        console.log();
-        console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
-        return;
-      } else {
-        exitOssUnavailable("'status --list'", {
-          alternatives: ["agentsync deployments list"],
-        });
-      }
+          console.log(table.toString());
+          console.log();
+          console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
+        },
+        () => {
+          exitOssUnavailable("'status --list'", {
+            alternatives: ["agentsync deployments list"],
+          });
+        }
+      );
+      return;
     }
 
     const trackingId = options.shipment || options.deployment;
@@ -192,63 +195,64 @@ export const statusCommand = new Command("status")
       process.exit(2);
     }
 
-    // Handle demo mode
-    if (isDemo()) {
-      console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
+    await withDemoMode(
+      () => {
+        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
 
-      const shipment = getDemoDeploymentDetails(trackingId);
+        const shipment = getDemoDeploymentDetails(trackingId);
 
-      if (!shipment) {
-        console.log(chalk.yellow(`Shipment '${trackingId}' not found`));
+        if (!shipment) {
+          console.log(chalk.yellow(`Shipment '${trackingId}' not found`));
+          console.log();
+          console.log(chalk.gray("Available demo shipments:"));
+          DEMO_DEPLOYMENTS.forEach((d) => {
+            console.log(chalk.gray(`  - ${chalk.cyan(d.id)} (${d.solutionName})`));
+          });
+          return;
+        }
+
+        // Display overall status
+        console.log(chalk.bold("📦 Shipment Tracking"));
+        console.log("─".repeat(50));
+        console.log(`  Tracking #:  ${shipment.id}`);
+        console.log(`  Cargo:       ${shipment.solutionName}`);
+        console.log(`  Status:      ${formatShippingStatus(shipment.status)}`);
+        console.log(
+          `  Delivered:   ${shipment.completedTenants}/${shipment.totalTenants} destinations`
+        );
+        if (shipment.failedTenants > 0) {
+          console.log(`  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`);
+        }
         console.log();
-        console.log(chalk.gray("Available demo shipments:"));
-        DEMO_DEPLOYMENTS.forEach((d) => {
-          console.log(chalk.gray(`  - ${chalk.cyan(d.id)} (${d.solutionName})`));
+
+        // Display destination results
+        const table = new Table({
+          head: ["Destination", "Status", "Transit Time", "Issue"],
+          style: { head: ["cyan"] },
+          colWidths: [25, 15, 12, 40],
+          wordWrap: true,
         });
-        return;
+
+        shipment.tenantResults.forEach((result) => {
+          const duration = calculateDuration(result.startedAt, result.completedAt);
+          table.push([
+            result.tenantName,
+            formatShippingStatus(result.status),
+            duration,
+            result.error ? chalk.red(truncate(result.error, 35)) : "-",
+          ]);
+        });
+
+        console.log(table.toString());
+        console.log();
+        console.log(chalk.gray("Demo mode - use 'agentsync demo off' to disable"));
+      },
+      () => {
+        exitOssUnavailable("'status' tracking view", {
+          alternatives: [`agentsync deployments show ${trackingId}`],
+        });
       }
-
-      // Display overall status
-      console.log(chalk.bold("📦 Shipment Tracking"));
-      console.log("─".repeat(50));
-      console.log(`  Tracking #:  ${shipment.id}`);
-      console.log(`  Cargo:       ${shipment.solutionName}`);
-      console.log(`  Status:      ${formatShippingStatus(shipment.status)}`);
-      console.log(
-        `  Delivered:   ${shipment.completedTenants}/${shipment.totalTenants} destinations`
-      );
-      if (shipment.failedTenants > 0) {
-        console.log(`  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`);
-      }
-      console.log();
-
-      // Display destination results
-      const table = new Table({
-        head: ["Destination", "Status", "Transit Time", "Issue"],
-        style: { head: ["cyan"] },
-        colWidths: [25, 15, 12, 40],
-        wordWrap: true,
-      });
-
-      shipment.tenantResults.forEach((result) => {
-        const duration = calculateDuration(result.startedAt, result.completedAt);
-        table.push([
-          result.tenantName,
-          formatShippingStatus(result.status),
-          duration,
-          result.error ? chalk.red(truncate(result.error, 35)) : "-",
-        ]);
-      });
-
-      console.log(table.toString());
-      console.log();
-      console.log(chalk.gray("Demo mode - use 'agentsync demo off' to disable"));
-      return;
-    }
-
-    exitOssUnavailable("'status' tracking view", {
-      alternatives: [`agentsync deployments show ${trackingId}`],
-    });
+    );
   });
 
 // Use shipping-style status formatting for this command

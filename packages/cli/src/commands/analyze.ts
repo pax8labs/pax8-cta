@@ -15,20 +15,11 @@
  */
 
 import { Command } from "commander";
-import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
-import {
-  loadConfig,
-  filterTenantsByTags,
-  TenantConfig,
-  riskAnalyzer,
-  type RiskAnalysis,
-  type DeploymentContext,
-} from "@agentsync/core";
-import { getDemoTenants } from "./demo.js";
-import { isDemo } from "../lib/command-wrapper.js";
+import { riskAnalyzer, type RiskAnalysis, type DeploymentContext } from "@agentsync/core";
+import { withResolvedDestinations } from "../lib/command-wrapper.js";
 import { handleCommandError } from "../lib/errors.js";
 
 // Risk issue severity colors
@@ -84,122 +75,110 @@ Examples:
     }
 
     try {
-      // Check for demo mode
-      if (isDemo()) {
-        spinner.succeed("Demo fleet manifest loaded");
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
+      await withResolvedDestinations(
+        options,
+        async (destinations) => {
+          spinner.succeed("Demo fleet manifest loaded");
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
 
-        const destinations = getDemoTenants(options);
+          if (destinations.length === 0) {
+            spinner.fail(chalk.red("No destinations matched the selection criteria"));
+            process.exit(1);
+          }
 
-        if (destinations.length === 0) {
-          spinner.fail(chalk.red("No destinations matched the selection criteria"));
-          process.exit(1);
+          // Display destinations
+          console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations`));
+          console.log();
+
+          const table = new Table({
+            head: ["Destination", "Tenant ID", "Port", "Tags"],
+            style: { head: ["cyan"] },
+          });
+
+          destinations.forEach((tenant) => {
+            table.push([
+              tenant.name,
+              tenant.tenantId.slice(0, 8) + "...",
+              new URL(tenant.environmentUrl).hostname,
+              tenant.tags?.join(", ") || "-",
+            ]);
+          });
+
+          console.log(table.toString());
+          console.log();
+
+          // Run risk analysis directly via core
+          spinner.start("Running risk analysis...");
+
+          const context: DeploymentContext = {
+            tenants: destinations.map((t) => ({
+              id: t.tenantId,
+              name: t.name,
+              environmentUrl: t.environmentUrl,
+              tags: t.tags,
+            })),
+            solutionFile: options.agentPackage || options.solution,
+            isProduction: destinations.some((t) => t.tags?.includes("production")),
+          };
+
+          const analysis = await riskAnalyzer.analyze(context);
+          spinner.succeed(chalk.green("Risk analysis complete"));
+          console.log();
+
+          displayAnalysis(analysis, destinations.length, options.json);
+        },
+        async ({ destinations }) => {
+          spinner.succeed("Manifest loaded");
+
+          if (destinations.length === 0) {
+            spinner.fail(chalk.red("No destinations matched the selection criteria"));
+            process.exit(1);
+          }
+
+          // Display destinations
+          console.log();
+          console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations:`));
+
+          const table = new Table({
+            head: ["Destination", "Tenant ID", "Port", "Tags"],
+            style: { head: ["cyan"] },
+          });
+
+          destinations.forEach((tenant) => {
+            table.push([
+              tenant.name,
+              tenant.tenantId.slice(0, 8) + "...",
+              new URL(tenant.environmentUrl).hostname,
+              tenant.tags?.join(", ") || "-",
+            ]);
+          });
+
+          console.log(table.toString());
+          console.log();
+
+          // Run risk analysis directly via core
+          spinner.start("Running risk analysis...");
+
+          const agentPackagePath = options.agentPackage || options.solution;
+
+          const context: DeploymentContext = {
+            tenants: destinations.map((t) => ({
+              id: t.tenantId,
+              name: t.name,
+              environmentUrl: t.environmentUrl,
+              tags: t.tags,
+            })),
+            solutionFile: agentPackagePath,
+            isProduction: destinations.some((t) => t.tags?.includes("production")),
+          };
+
+          const analysis = await riskAnalyzer.analyze(context);
+          spinner.succeed(chalk.green("Risk analysis complete"));
+          console.log();
+
+          displayAnalysis(analysis, destinations.length, options.json);
         }
-
-        // Display destinations
-        console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations`));
-        console.log();
-
-        const table = new Table({
-          head: ["Destination", "Tenant ID", "Port", "Tags"],
-          style: { head: ["cyan"] },
-        });
-
-        destinations.forEach((tenant) => {
-          table.push([
-            tenant.name,
-            tenant.tenantId.slice(0, 8) + "...",
-            new URL(tenant.environmentUrl).hostname,
-            tenant.tags?.join(", ") || "-",
-          ]);
-        });
-
-        console.log(table.toString());
-        console.log();
-
-        // Run risk analysis directly via core
-        spinner.start("Running risk analysis...");
-
-        const context: DeploymentContext = {
-          tenants: destinations.map((t) => ({
-            id: t.tenantId,
-            name: t.name,
-            environmentUrl: t.environmentUrl,
-            tags: t.tags,
-          })),
-          solutionFile: options.agentPackage || options.solution,
-          isProduction: destinations.some((t) => t.tags?.includes("production")),
-        };
-
-        const analysis = await riskAnalyzer.analyze(context);
-
-        spinner.succeed(chalk.green("Risk analysis complete"));
-        console.log();
-
-        displayAnalysis(analysis, destinations.length, options.json);
-        return;
-      }
-
-      // Load config
-      const configPath = resolve(process.cwd(), options.config);
-      const config = await loadConfig(configPath);
-      spinner.succeed("Manifest loaded");
-
-      // Get target tenants (destinations)
-      let destinations: TenantConfig[];
-      if (options.all) {
-        destinations = config.tenants.filter((t) => t.enabled);
-      } else {
-        destinations = filterTenantsByTags(config, options.tag);
-      }
-
-      if (destinations.length === 0) {
-        spinner.fail(chalk.red("No destinations matched the selection criteria"));
-        process.exit(1);
-      }
-
-      // Display destinations
-      console.log();
-      console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations:`));
-
-      const table = new Table({
-        head: ["Destination", "Tenant ID", "Port", "Tags"],
-        style: { head: ["cyan"] },
-      });
-
-      destinations.forEach((tenant) => {
-        table.push([
-          tenant.name,
-          tenant.tenantId.slice(0, 8) + "...",
-          new URL(tenant.environmentUrl).hostname,
-          tenant.tags?.join(", ") || "-",
-        ]);
-      });
-
-      console.log(table.toString());
-      console.log();
-
-      // Run risk analysis directly via core
-      spinner.start("Running risk analysis...");
-
-      const agentPackagePath = options.agentPackage || options.solution;
-
-      const context: DeploymentContext = {
-        tenants: destinations.map((t) => ({
-          id: t.tenantId,
-          name: t.name,
-          environmentUrl: t.environmentUrl,
-          tags: t.tags,
-        })),
-        solutionFile: agentPackagePath,
-        isProduction: destinations.some((t) => t.tags?.includes("production")),
-      };
-
-      const analysis = await riskAnalyzer.analyze(context);
-      spinner.succeed(chalk.green("Risk analysis complete"));
-      console.log();
-
-      displayAnalysis(analysis, destinations.length, options.json);
+      );
     } catch (error) {
       handleCommandError(error, spinner, "Risk analysis failed");
     }

@@ -18,7 +18,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
 import { DEMO_TENANTS } from "@agentsync/core";
-import { isDemo } from "../../lib/command-wrapper.js";
+import { withDemoMode } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
 
@@ -35,47 +35,51 @@ export const enableCommand = new Command("enable")
     const spinner = createSpinner("Enabling tenant...").start();
 
     try {
-      if (isDemo()) {
-        spinner.stop();
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+      await withDemoMode(
+        () => {
+          spinner.stop();
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
-        const tenant = findTenant(DEMO_TENANTS, tenantQuery);
+          const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
-        if (!tenant) {
-          console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
-          process.exit(1);
-        }
+          if (!tenant) {
+            console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
+            process.exit(1);
+          }
 
-        if (tenant.enabled) {
-          console.log(chalk.yellow(`${tenant.name} is already enabled`));
-          return;
-        }
+          if (tenant.enabled) {
+            console.log(chalk.yellow(`${tenant.name} is already enabled`));
+            return;
+          }
 
-        if (options.json) {
+          if (options.json) {
+            console.log(
+              JSON.stringify(
+                {
+                  success: true,
+                  tenant: tenant.name,
+                  tenantId: tenant.tenantId,
+                  enabled: true,
+                },
+                null,
+                2
+              )
+            );
+            return;
+          }
+
+          console.log(chalk.green(`✔ ${tenant.name} enabled`));
+          console.log();
+          console.log(chalk.gray("This tenant will be included in future deployments."));
+        },
+        () => {
+          // Production mode - would update config file
+          spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            JSON.stringify(
-              {
-                success: true,
-                tenant: tenant.name,
-                tenantId: tenant.tenantId,
-                enabled: true,
-              },
-              null,
-              2
-            )
+            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
           );
-          return;
         }
-
-        console.log(chalk.green(`✔ ${tenant.name} enabled`));
-        console.log();
-        console.log(chalk.gray("This tenant will be included in future deployments."));
-        return;
-      }
-
-      // Production mode - would update config file
-      spinner.fail(chalk.yellow("Production mode not yet implemented"));
-      console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command."));
+      );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to enable tenant");
     }
@@ -95,52 +99,56 @@ export const disableCommand = new Command("disable")
     const spinner = createSpinner("Disabling tenant...").start();
 
     try {
-      if (isDemo()) {
-        spinner.stop();
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+      await withDemoMode(
+        () => {
+          spinner.stop();
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
-        const tenant = findTenant(DEMO_TENANTS, tenantQuery);
+          const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
-        if (!tenant) {
-          console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
-          process.exit(1);
-        }
+          if (!tenant) {
+            console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
+            process.exit(1);
+          }
 
-        if (!tenant.enabled) {
-          console.log(chalk.yellow(`${tenant.name} is already disabled`));
-          return;
-        }
+          if (!tenant.enabled) {
+            console.log(chalk.yellow(`${tenant.name} is already disabled`));
+            return;
+          }
 
-        if (options.json) {
+          if (options.json) {
+            console.log(
+              JSON.stringify(
+                {
+                  success: true,
+                  tenant: tenant.name,
+                  tenantId: tenant.tenantId,
+                  enabled: false,
+                  reason: options.reason || null,
+                },
+                null,
+                2
+              )
+            );
+            return;
+          }
+
+          console.log(chalk.green(`✔ ${tenant.name} disabled`));
+          if (options.reason) {
+            console.log(chalk.gray(`  Reason: ${options.reason}`));
+          }
+          console.log();
+          console.log(chalk.gray("This tenant will be excluded from future deployments."));
+          console.log(chalk.gray(`Use 'agentsync tenants enable ${tenantQuery}' to re-enable.`));
+        },
+        () => {
+          // Production mode - would update config file
+          spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            JSON.stringify(
-              {
-                success: true,
-                tenant: tenant.name,
-                tenantId: tenant.tenantId,
-                enabled: false,
-                reason: options.reason || null,
-              },
-              null,
-              2
-            )
+            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
           );
-          return;
         }
-
-        console.log(chalk.green(`✔ ${tenant.name} disabled`));
-        if (options.reason) {
-          console.log(chalk.gray(`  Reason: ${options.reason}`));
-        }
-        console.log();
-        console.log(chalk.gray("This tenant will be excluded from future deployments."));
-        console.log(chalk.gray(`Use 'agentsync tenants enable ${tenantQuery}' to re-enable.`));
-        return;
-      }
-
-      // Production mode - would update config file
-      spinner.fail(chalk.yellow("Production mode not yet implemented"));
-      console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command."));
+      );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to disable tenant");
     }
@@ -162,81 +170,85 @@ export const tagCommand = new Command("tag")
     const spinner = createSpinner("Updating tags...").start();
 
     try {
-      if (isDemo()) {
-        spinner.stop();
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+      await withDemoMode(
+        () => {
+          spinner.stop();
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
 
-        const tenant = findTenant(DEMO_TENANTS, tenantQuery);
+          const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
-        if (!tenant) {
-          console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
-          process.exit(1);
-        }
+          if (!tenant) {
+            console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
+            process.exit(1);
+          }
 
-        // Validate that at least one operation is specified
-        if (!options.add && !options.remove && !options.set) {
-          console.log(chalk.yellow("No tag operation specified."));
-          console.log();
-          console.log("Usage:");
-          console.log(chalk.gray("  --add <tags...>     Add tags"));
-          console.log(chalk.gray("  --remove <tags...>  Remove tags"));
-          console.log(chalk.gray("  --set <tags>        Replace all tags (comma-separated)"));
-          console.log();
-          console.log(`Current tags for ${tenant.name}: ${tenant.tags?.join(", ") || "(none)"}`);
-          return;
-        }
+          // Validate that at least one operation is specified
+          if (!options.add && !options.remove && !options.set) {
+            console.log(chalk.yellow("No tag operation specified."));
+            console.log();
+            console.log("Usage:");
+            console.log(chalk.gray("  --add <tags...>     Add tags"));
+            console.log(chalk.gray("  --remove <tags...>  Remove tags"));
+            console.log(chalk.gray("  --set <tags>        Replace all tags (comma-separated)"));
+            console.log();
+            console.log(`Current tags for ${tenant.name}: ${tenant.tags?.join(", ") || "(none)"}`);
+            return;
+          }
 
-        const beforeTags = [...(tenant.tags || [])];
-        let afterTags = [...beforeTags];
+          const beforeTags = [...(tenant.tags || [])];
+          let afterTags = [...beforeTags];
 
-        // Handle --set (replaces all)
-        if (options.set) {
-          afterTags = options.set
-            .split(",")
-            .map((t: string) => t.trim())
-            .filter(Boolean);
-        } else {
-          // Handle --add
-          if (options.add) {
-            for (const tag of options.add) {
-              if (!afterTags.includes(tag)) {
-                afterTags.push(tag);
+          // Handle --set (replaces all)
+          if (options.set) {
+            afterTags = options.set
+              .split(",")
+              .map((t: string) => t.trim())
+              .filter(Boolean);
+          } else {
+            // Handle --add
+            if (options.add) {
+              for (const tag of options.add) {
+                if (!afterTags.includes(tag)) {
+                  afterTags.push(tag);
+                }
               }
+            }
+
+            // Handle --remove
+            if (options.remove) {
+              afterTags = afterTags.filter((t) => !options.remove.includes(t));
             }
           }
 
-          // Handle --remove
-          if (options.remove) {
-            afterTags = afterTags.filter((t) => !options.remove.includes(t));
+          if (options.json) {
+            console.log(
+              JSON.stringify(
+                {
+                  success: true,
+                  tenant: tenant.name,
+                  tenantId: tenant.tenantId,
+                  before: beforeTags,
+                  after: afterTags,
+                },
+                null,
+                2
+              )
+            );
+            return;
           }
-        }
 
-        if (options.json) {
+          console.log(chalk.green(`✔ Updated tags for ${tenant.name}`));
+          console.log(`  Before: ${beforeTags.join(", ") || "(none)"}`);
+          console.log(`  After:  ${afterTags.join(", ") || "(none)"}`);
+        },
+        () => {
+          // Production mode - would update config file
+          spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            JSON.stringify(
-              {
-                success: true,
-                tenant: tenant.name,
-                tenantId: tenant.tenantId,
-                before: beforeTags,
-                after: afterTags,
-              },
-              null,
-              2
-            )
+            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
           );
-          return;
         }
-
-        console.log(chalk.green(`✔ Updated tags for ${tenant.name}`));
-        console.log(`  Before: ${beforeTags.join(", ") || "(none)"}`);
-        console.log(`  After:  ${afterTags.join(", ") || "(none)"}`);
-        return;
-      }
-
-      // Production mode - would update config file
-      spinner.fail(chalk.yellow("Production mode not yet implemented"));
-      console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command."));
+      );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to update tags");
     }

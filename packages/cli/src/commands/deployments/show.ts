@@ -18,7 +18,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
 import { generateMockDeploymentHistory } from "@agentsync/core";
-import { isDemo } from "../../lib/command-wrapper.js";
+import { withDemoMode } from "../../lib/command-wrapper.js";
 import {
   getDeploymentById,
   getDeploymentHistoryById,
@@ -44,46 +44,48 @@ Examples:
     const spinner = createSpinner("Loading deployment...").start();
 
     try {
-      if (isDemo()) {
-        const deployment = await getDeploymentById(id);
+      await withDemoMode(
+        async () => {
+          const deployment = await getDeploymentById(id);
 
-        if (!deployment) {
-          spinner.fail(chalk.yellow(`Deployment '${id}' not found`));
-          console.log();
-          console.log(chalk.gray("Available demo deployments:"));
-          const history = generateMockDeploymentHistory(5);
-          history.forEach((d) => {
-            console.log(chalk.gray(`  - ${chalk.cyan(d.id)} (${d.solutionName})`));
-          });
-          process.exit(1);
+          if (!deployment) {
+            spinner.fail(chalk.yellow(`Deployment '${id}' not found`));
+            console.log();
+            console.log(chalk.gray("Available demo deployments:"));
+            const history = generateMockDeploymentHistory(5);
+            history.forEach((d) => {
+              console.log(chalk.gray(`  - ${chalk.cyan(d.id)} (${d.solutionName})`));
+            });
+            process.exit(1);
+          }
+
+          spinner.stop();
+
+          if (options.json) {
+            console.log(JSON.stringify(deployment, null, 2));
+          } else {
+            outputDeploymentDetails(deployment);
+          }
+        },
+        async () => {
+          // Production mode
+          const entry = await getDeploymentHistoryById(id, options);
+
+          if (!entry) {
+            spinner.fail(chalk.yellow(`History entry '${id}' not found`));
+            console.log(chalk.gray("\nUse 'agentsync deployments list' to see available entries."));
+            process.exit(1);
+          }
+
+          spinner.stop();
+
+          if (options.json) {
+            console.log(JSON.stringify(entry, null, 2));
+          } else {
+            outputHistoryDetails(entry);
+          }
         }
-
-        spinner.stop();
-
-        if (options.json) {
-          console.log(JSON.stringify(deployment, null, 2));
-        } else {
-          outputDeploymentDetails(deployment);
-        }
-        return;
-      }
-
-      // Production mode
-      const entry = await getDeploymentHistoryById(id, options);
-
-      if (!entry) {
-        spinner.fail(chalk.yellow(`History entry '${id}' not found`));
-        console.log(chalk.gray("\nUse 'agentsync deployments list' to see available entries."));
-        process.exit(1);
-      }
-
-      spinner.stop();
-
-      if (options.json) {
-        console.log(JSON.stringify(entry, null, 2));
-      } else {
-        outputHistoryDetails(entry);
-      }
+      );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to load deployment");
     }

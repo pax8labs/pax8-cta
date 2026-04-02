@@ -15,12 +15,11 @@
  */
 
 import { Command } from "commander";
-import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
-import { loadConfig, DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@agentsync/core";
-import { isDemo } from "../../lib/command-wrapper.js";
+import { DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@agentsync/core";
+import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
 
@@ -45,17 +44,18 @@ Examples:
 
     try {
       // Get tenant list
-      let tenants: TenantConfig[];
-      if (isDemo()) {
-        tenants = DEMO_TENANTS;
-        spinner.stop();
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
-      } else {
-        const configPath = resolve(process.cwd(), options.config);
-        const config = await loadConfig(configPath);
-        tenants = config.tenants;
-        spinner.stop();
-      }
+      const tenants = await withResolvedConfig<TenantConfig[]>(
+        options,
+        () => {
+          spinner.stop();
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          return DEMO_TENANTS;
+        },
+        (config) => {
+          spinner.stop();
+          return config.tenants;
+        }
+      );
 
       // If specific tenant requested
       if (tenantQuery) {

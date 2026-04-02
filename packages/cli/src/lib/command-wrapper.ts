@@ -14,8 +14,14 @@
  * limitations under the License.
  */
 
-import { isDemoModeEnabled } from "../commands/demo.js";
-import { isDemoMode as isDemoModeCore } from "@agentsync/core";
+import { resolve } from "node:path";
+import {
+  filterTenantsByTags,
+  isDemoMode as isDemoModeCore,
+  loadConfig,
+  type TenantConfig,
+} from "@agentsync/core";
+import { getDemoTenants, isDemoModeEnabled } from "../commands/demo.js";
 
 /**
  * Check if demo mode is active from any source (CLI config, env var, or core).
@@ -47,4 +53,53 @@ export async function withDemoMode<T>(
     return demoHandler();
   }
   return realHandler();
+}
+
+export type LoadedConfig = Awaited<ReturnType<typeof loadConfig>>;
+
+export interface ConfigOptions {
+  config?: string;
+}
+
+export interface TenantSelectionOptions extends ConfigOptions {
+  all?: boolean;
+  tag?: string[];
+}
+
+/**
+ * Resolve config once and branch by mode in a shared wrapper.
+ */
+export async function withResolvedConfig<T>(
+  options: ConfigOptions,
+  demoHandler: () => T | Promise<T>,
+  realHandler: (config: LoadedConfig) => T | Promise<T>
+): Promise<T> {
+  if (isDemo()) {
+    return demoHandler();
+  }
+
+  const configPath = resolve(process.cwd(), options.config ?? "./config/tenants.yaml");
+  const config = await loadConfig(configPath);
+  return realHandler(config);
+}
+
+/**
+ * Resolve destinations once and pass the resolved context to command handlers.
+ */
+export async function withResolvedDestinations<T>(
+  options: TenantSelectionOptions,
+  demoHandler: (destinations: TenantConfig[]) => T | Promise<T>,
+  realHandler: (context: { config: LoadedConfig; destinations: TenantConfig[] }) => T | Promise<T>
+): Promise<T> {
+  if (isDemo()) {
+    return demoHandler(getDemoTenants(options));
+  }
+
+  const configPath = resolve(process.cwd(), options.config ?? "./config/tenants.yaml");
+  const config = await loadConfig(configPath);
+  const destinations = options.all
+    ? config.tenants.filter((tenant) => tenant.enabled)
+    : filterTenantsByTags(config, options.tag ?? []);
+
+  return realHandler({ config, destinations });
 }

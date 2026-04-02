@@ -19,7 +19,7 @@ import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import { DEMO_SOLUTIONS } from "@agentsync/core";
-import { isDemo } from "../../lib/command-wrapper.js";
+import { withDemoMode } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findSolution, getTenantDeploymentStatus } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
@@ -42,112 +42,115 @@ Examples:
     const spinner = createSpinner("Loading agent...").start();
 
     try {
-      if (isDemo()) {
-        spinner.stop();
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+      await withDemoMode(
+        () => {
+          spinner.stop();
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
-        const solution = findSolution(DEMO_SOLUTIONS, name);
+          const solution = findSolution(DEMO_SOLUTIONS, name);
 
-        if (!solution) {
-          console.log(chalk.red(`Agent '${name}' not found`));
-          console.log();
-          console.log(chalk.gray("Available agents:"));
-          DEMO_SOLUTIONS.forEach((s) => {
-            console.log(chalk.gray(`  - ${s.uniqueName} (${s.friendlyName})`));
-          });
-          process.exit(1);
-        }
-
-        // JSON output
-        if (options.json) {
-          const output: Record<string, unknown> = { ...solution };
-
-          if (options.tenants) {
-            output.tenantStatus = getTenantDeploymentStatus(solution.uniqueName);
+          if (!solution) {
+            console.log(chalk.red(`Agent '${name}' not found`));
+            console.log();
+            console.log(chalk.gray("Available agents:"));
+            DEMO_SOLUTIONS.forEach((s) => {
+              console.log(chalk.gray(`  - ${s.uniqueName} (${s.friendlyName})`));
+            });
+            process.exit(1);
           }
 
-          console.log(JSON.stringify(output, null, 2));
-          return;
-        }
+          // JSON output
+          if (options.json) {
+            const output: Record<string, unknown> = { ...solution };
 
-        // Standard output - agent details
-        console.log(chalk.bold(`${solution.friendlyName} (${solution.uniqueName})`));
-        console.log("━".repeat(60));
-        console.log(`Version:     ${solution.version}`);
-        console.log(`Category:    ${solution.category}`);
-        console.log(`Publisher:   ${solution.publisherName}`);
-        console.log(`Tags:        ${solution.tags.join(", ")}`);
-        console.log();
-        console.log(chalk.bold("Description:"));
-        console.log(`  ${solution.description}`);
-        console.log();
-        console.log(chalk.bold("Capabilities:"));
-        solution.capabilities.forEach((cap) => {
-          console.log(`  • ${cap}`);
-        });
-        console.log();
-        console.log(chalk.bold("Dependencies:"));
-        solution.dependencies.forEach((dep) => {
-          console.log(`  • ${dep}`);
-        });
-        console.log();
-        console.log(`Last Published: ${formatTimeAgo(solution.lastPublished)}`);
-
-        // Tenant deployment status
-        if (options.tenants) {
-          console.log();
-          console.log(chalk.bold(`${solution.uniqueName} - Tenant Deployment Status`));
-          console.log("━".repeat(60));
-
-          const tenantStatus = getTenantDeploymentStatus(solution.uniqueName);
-
-          const table = new Table({
-            head: ["Tenant", "Version", "Status", "Last Deployed"],
-            style: { head: ["cyan"] },
-          });
-
-          tenantStatus.forEach((t) => {
-            let statusIcon: string;
-            switch (t.status) {
-              case "current":
-                statusIcon = chalk.green("✓ current");
-                break;
-              case "outdated":
-                statusIcon = chalk.yellow("↑ outdated");
-                break;
-              case "not_deployed":
-                statusIcon = chalk.gray("✗ not deployed");
-                break;
+            if (options.tenants) {
+              output.tenantStatus = getTenantDeploymentStatus(solution.uniqueName);
             }
 
-            table.push([
-              t.tenantName,
-              t.version || "-",
-              statusIcon,
-              t.deployedAt ? formatTimeAgo(t.deployedAt) : "-",
-            ]);
-          });
+            console.log(JSON.stringify(output, null, 2));
+            return;
+          }
 
-          console.log(table.toString());
+          // Standard output - agent details
+          console.log(chalk.bold(`${solution.friendlyName} (${solution.uniqueName})`));
+          console.log("━".repeat(60));
+          console.log(`Version:     ${solution.version}`);
+          console.log(`Category:    ${solution.category}`);
+          console.log(`Publisher:   ${solution.publisherName}`);
+          console.log(`Tags:        ${solution.tags.join(", ")}`);
           console.log();
+          console.log(chalk.bold("Description:"));
+          console.log(`  ${solution.description}`);
+          console.log();
+          console.log(chalk.bold("Capabilities:"));
+          solution.capabilities.forEach((cap) => {
+            console.log(`  • ${cap}`);
+          });
+          console.log();
+          console.log(chalk.bold("Dependencies:"));
+          solution.dependencies.forEach((dep) => {
+            console.log(`  • ${dep}`);
+          });
+          console.log();
+          console.log(`Last Published: ${formatTimeAgo(solution.lastPublished)}`);
 
-          const deployed = tenantStatus.filter((t) => t.status !== "not_deployed").length;
-          const current = tenantStatus.filter((t) => t.status === "current").length;
-          const outdated = tenantStatus.filter((t) => t.status === "outdated").length;
+          // Tenant deployment status
+          if (options.tenants) {
+            console.log();
+            console.log(chalk.bold(`${solution.uniqueName} - Tenant Deployment Status`));
+            console.log("━".repeat(60));
 
+            const tenantStatus = getTenantDeploymentStatus(solution.uniqueName);
+
+            const table = new Table({
+              head: ["Tenant", "Version", "Status", "Last Deployed"],
+              style: { head: ["cyan"] },
+            });
+
+            tenantStatus.forEach((t) => {
+              let statusIcon: string;
+              switch (t.status) {
+                case "current":
+                  statusIcon = chalk.green("✓ current");
+                  break;
+                case "outdated":
+                  statusIcon = chalk.yellow("↑ outdated");
+                  break;
+                case "not_deployed":
+                  statusIcon = chalk.gray("✗ not deployed");
+                  break;
+              }
+
+              table.push([
+                t.tenantName,
+                t.version || "-",
+                statusIcon,
+                t.deployedAt ? formatTimeAgo(t.deployedAt) : "-",
+              ]);
+            });
+
+            console.log(table.toString());
+            console.log();
+
+            const deployed = tenantStatus.filter((t) => t.status !== "not_deployed").length;
+            const current = tenantStatus.filter((t) => t.status === "current").length;
+            const outdated = tenantStatus.filter((t) => t.status === "outdated").length;
+
+            console.log(
+              chalk.gray(
+                `${deployed}/${tenantStatus.length} tenants have this agent (${current} current, ${outdated} outdated)`
+              )
+            );
+          }
+        },
+        () => {
+          // Production mode
+          spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            chalk.gray(
-              `${deployed}/${tenantStatus.length} tenants have this agent (${current} current, ${outdated} outdated)`
-            )
+            chalk.gray("\nEnable demo mode with 'agentsync demo on' to see sample data.")
           );
         }
-
-        return;
-      }
-
-      // Production mode
-      spinner.fail(chalk.yellow("Production mode not yet implemented"));
-      console.log(chalk.gray("\nEnable demo mode with 'agentsync demo on' to see sample data."));
+      );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to load agent");
     }

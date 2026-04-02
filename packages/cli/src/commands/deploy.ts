@@ -23,8 +23,6 @@ import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
-  loadConfig,
-  filterTenantsByTags,
   TenantConfig,
   TokenManager,
   DataverseClient,
@@ -35,8 +33,7 @@ import {
   environmentSetupService,
   detectSolutionMode,
 } from "@agentsync/core";
-import { getDemoTenants } from "./demo.js";
-import { isDemo } from "../lib/command-wrapper.js";
+import { withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
 
@@ -96,76 +93,75 @@ Examples:
       // Treat as file path if it ends with .zip (regardless of existence - we'll validate later)
       const isFilePath = solutionArg.endsWith(".zip");
 
-      // Check for demo mode
-      if (isDemo()) {
-        spinner.succeed("Demo fleet manifest loaded");
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
+      const resolvedContext = await withResolvedDestinations<{
+        config: LoadedConfig;
+        destinations: TenantConfig[];
+      } | null>(
+        options,
+        async (resolvedDestinations) => {
+          spinner.succeed("Demo fleet manifest loaded");
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
 
-        // In demo mode, show export simulation if solution name provided
-        if (!isFilePath) {
-          console.log(chalk.bold("📤 Export Simulation:"));
-          console.log(`  Solution:      ${chalk.green(solutionArg)}`);
-          console.log(`  Version:       1.0.0.2 (demo)`);
-          console.log(`  Type:          ${options.unmanaged ? "Unmanaged" : "Managed"}`);
+          // In demo mode, show export simulation if solution name provided
+          if (!isFilePath) {
+            console.log(chalk.bold("📤 Export Simulation:"));
+            console.log(`  Solution:      ${chalk.green(solutionArg)}`);
+            console.log(`  Version:       1.0.0.2 (demo)`);
+            console.log(`  Type:          ${options.unmanaged ? "Unmanaged" : "Managed"}`);
+            console.log();
+          }
+
+          if (resolvedDestinations.length === 0) {
+            spinner.fail(chalk.red("No destinations matched the selection criteria"));
+            process.exit(1);
+          }
+
+          // Display destinations
+          console.log(chalk.bold(`📦 Shipping Destinations (${resolvedDestinations.length}):`));
           console.log();
+
+          const table = new Table({
+            head: ["Destination", "Tenant ID", "Port", "Tags"],
+            style: { head: ["cyan"] },
+          });
+
+          resolvedDestinations.forEach((tenant) => {
+            table.push([
+              tenant.name,
+              tenant.tenantId.slice(0, 8) + "...",
+              new URL(tenant.environmentUrl).hostname,
+              tenant.tags?.join(", ") || "-",
+            ]);
+          });
+
+          console.log(table.toString());
+          console.log();
+
+          const demoShipmentId = `dep-demo-${Date.now().toString(36)}`;
+
+          console.log(chalk.green("✓ Shipment dispatched successfully (demo)"));
+          console.log();
+          console.log(chalk.bold("📋 Shipment Details:"));
+          console.log(`  Tracking #:    ${chalk.cyan(demoShipmentId)}`);
+          console.log(`  Package:       ${isFilePath ? solutionArg : `${solutionArg} (exported)`}`);
+          console.log(`  Destinations:  ${resolvedDestinations.length}`);
+          console.log();
+          console.log(
+            chalk.gray(`Use 'agentsync track --shipment ${demoShipmentId}' to track progress`)
+          );
+          console.log(chalk.yellow("\nNote: In demo mode, no actual deployment occurs"));
+          return null;
+        },
+        async (context) => {
+          spinner.succeed("Manifest loaded");
+          return context;
         }
+      );
 
-        const destinations = getDemoTenants(options);
-
-        if (destinations.length === 0) {
-          spinner.fail(chalk.red("No destinations matched the selection criteria"));
-          process.exit(1);
-        }
-
-        // Display destinations
-        console.log(chalk.bold(`📦 Shipping Destinations (${destinations.length}):`));
-        console.log();
-
-        const table = new Table({
-          head: ["Destination", "Tenant ID", "Port", "Tags"],
-          style: { head: ["cyan"] },
-        });
-
-        destinations.forEach((tenant) => {
-          table.push([
-            tenant.name,
-            tenant.tenantId.slice(0, 8) + "...",
-            new URL(tenant.environmentUrl).hostname,
-            tenant.tags?.join(", ") || "-",
-          ]);
-        });
-
-        console.log(table.toString());
-        console.log();
-
-        const demoShipmentId = `dep-demo-${Date.now().toString(36)}`;
-
-        console.log(chalk.green("✓ Shipment dispatched successfully (demo)"));
-        console.log();
-        console.log(chalk.bold("📋 Shipment Details:"));
-        console.log(`  Tracking #:    ${chalk.cyan(demoShipmentId)}`);
-        console.log(`  Package:       ${isFilePath ? solutionArg : `${solutionArg} (exported)`}`);
-        console.log(`  Destinations:  ${destinations.length}`);
-        console.log();
-        console.log(
-          chalk.gray(`Use 'agentsync track --shipment ${demoShipmentId}' to track progress`)
-        );
-        console.log(chalk.yellow("\nNote: In demo mode, no actual deployment occurs"));
+      if (!resolvedContext) {
         return;
       }
-
-      // Load config
-      const configPath = resolve(process.cwd(), options.config);
-      const config = await loadConfig(configPath);
-      spinner.succeed("Manifest loaded");
-
-      // Get target tenants (destinations) - do this early to fail fast on invalid selection
-      let destinations: TenantConfig[];
-      if (options.all) {
-        destinations = config.tenants.filter((t) => t.enabled);
-      } else {
-        destinations = filterTenantsByTags(config, options.tag);
-      }
+      const { config, destinations } = resolvedContext;
 
       if (destinations.length === 0) {
         spinner.fail(chalk.red("No destinations matched the selection criteria"));
