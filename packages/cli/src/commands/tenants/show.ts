@@ -15,18 +15,16 @@
  */
 
 import { Command } from "commander";
-import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import {
-  loadConfig,
   DEMO_TENANTS,
   DEMO_SOLUTIONS,
   generateMockHealthCheck,
   TenantConfig,
 } from "@agentsync/core";
-import { isDemo } from "../../lib/command-wrapper.js";
+import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findTenant, getDeployedAgentsForTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
@@ -43,17 +41,18 @@ export const showCommand = new Command("show")
 
     try {
       // Get tenant list
-      let tenants: TenantConfig[];
-      if (isDemo()) {
-        tenants = DEMO_TENANTS;
-        spinner.stop();
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
-      } else {
-        const configPath = resolve(process.cwd(), options.config);
-        const config = await loadConfig(configPath);
-        tenants = config.tenants;
-        spinner.stop();
-      }
+      const tenants = await withResolvedConfig<TenantConfig[]>(
+        options,
+        () => {
+          spinner.stop();
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          return DEMO_TENANTS;
+        },
+        (config) => {
+          spinner.stop();
+          return config.tenants;
+        }
+      );
 
       // Find tenant by name, ID, or URL
       const tenant = findTenant(tenants, tenantQuery);

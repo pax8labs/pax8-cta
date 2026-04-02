@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import { createSpinner } from "../../lib/spinner.js";
-import { isDemo } from "../../lib/command-wrapper.js";
+import { withDemoMode } from "../../lib/command-wrapper.js";
 import {
   getDeployments,
   filterDeployments,
@@ -54,42 +54,44 @@ Examples:
     const spinner = createSpinner("Loading deployment history...").start();
 
     try {
-      // Demo mode — use mock data
-      if (isDemo()) {
-        let deployments = await getDeployments(options);
-        deployments = filterDeployments(deployments, options);
+      await withDemoMode(
+        async () => {
+          // Demo mode — use mock data
+          let deployments = await getDeployments(options);
+          deployments = filterDeployments(deployments, options);
 
-        const limit = parseInt(options.limit, 10);
-        const offset = parseInt(options.offset, 10);
-        const total = deployments.length;
-        deployments = deployments.slice(offset, offset + limit);
+          const limit = parseInt(options.limit, 10);
+          const offset = parseInt(options.offset, 10);
+          const total = deployments.length;
+          deployments = deployments.slice(offset, offset + limit);
 
-        spinner.stop();
+          spinner.stop();
 
-        if (options.json) {
-          outputJson(deployments, total, limit, offset);
-        } else {
-          outputTable(deployments, total, limit, offset);
+          if (options.json) {
+            outputJson(deployments, total, limit, offset);
+          } else {
+            outputTable(deployments, total, limit, offset);
+          }
+        },
+        async () => {
+          // Production mode — query Dataverse solution history
+          let entries = await getDeploymentHistory(options);
+          entries = filterHistory(entries, options);
+
+          const limit = parseInt(options.limit, 10);
+          const offset = parseInt(options.offset, 10);
+          const total = entries.length;
+          entries = entries.slice(offset, offset + limit);
+
+          spinner.stop();
+
+          if (options.json) {
+            outputHistoryJson(entries, total, limit, offset);
+          } else {
+            outputHistoryTable(entries, total, limit, offset);
+          }
         }
-        return;
-      }
-
-      // Production mode — query Dataverse solution history
-      let entries = await getDeploymentHistory(options);
-      entries = filterHistory(entries, options);
-
-      const limit = parseInt(options.limit, 10);
-      const offset = parseInt(options.offset, 10);
-      const total = entries.length;
-      entries = entries.slice(offset, offset + limit);
-
-      spinner.stop();
-
-      if (options.json) {
-        outputHistoryJson(entries, total, limit, offset);
-      } else {
-        outputHistoryTable(entries, total, limit, offset);
-      }
+      );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to load deployment history");
     }
