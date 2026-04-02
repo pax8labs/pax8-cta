@@ -62,8 +62,13 @@ vi.mock("ora", () => ({
 
 // Mock the shared input module (used by init instead of raw readline)
 const mockQuestion = vi.fn();
+const mockQuestionHidden = vi.fn();
 vi.mock("../lib/input.js", () => ({
   question: (...args: unknown[]) => mockQuestion(...args),
+  questionHidden: (...args: unknown[]) => {
+    mockQuestionHidden(...args);
+    return mockQuestion(...args);
+  },
   closeInput: vi.fn(),
 }));
 
@@ -254,6 +259,18 @@ describe("Init Command", () => {
       expect(containsText(output, "Partner Tenant ID")).toBe(true);
       expect(containsText(output, "App Registration Client ID")).toBe(true);
       expect(containsText(output, "Client Secret")).toBe(true);
+    });
+
+    it("should use hidden input for client secret entry", async () => {
+      mockProductionFlow();
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
+      expect(mockQuestionHidden).toHaveBeenCalledWith(expect.stringContaining("Secret Value"));
     });
 
     it("should create config file with entered credentials", async () => {

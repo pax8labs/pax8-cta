@@ -20,7 +20,7 @@ import { createSpinner } from "../lib/spinner.js";
 import { existsSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import open from "open";
-import { question } from "../lib/input.js";
+import { question, questionHidden } from "../lib/input.js";
 import { handleCommandError } from "../lib/errors.js";
 
 const DEFAULT_CONFIG_PATH = "./config/tenants.yaml";
@@ -193,14 +193,36 @@ export const initCommand = new Command("init")
 
                   secretSpinner.succeed("Client secret created");
                   console.log();
-                  console.log(
-                    chalk.yellow("⚠️  IMPORTANT: Copy this secret now - it won't be shown again!")
-                  );
-                  console.log(chalk.white(`   Secret: ${chalk.bold(secret.secretText)}`));
+                  console.log(chalk.yellow("⚠️  IMPORTANT: Secret created for this app."));
                   console.log(
                     chalk.gray(`   Expires: ${new Date(secret.endDateTime).toLocaleDateString()}`)
                   );
                   console.log();
+
+                  const canRevealSecret = process.env.CI !== "true";
+                  let secretWasRevealed = false;
+
+                  if (canRevealSecret) {
+                    const revealSecret = await question(
+                      chalk.cyan("Reveal this secret once on screen? ") +
+                        chalk.gray("(y/n, default: n) ")
+                    );
+
+                    if (
+                      revealSecret.toLowerCase() === "y" ||
+                      revealSecret.toLowerCase() === "yes"
+                    ) {
+                      console.log(chalk.white(`   Secret: ${chalk.bold(secret.secretText)}`));
+                      console.log();
+                      secretWasRevealed = true;
+                    } else {
+                      console.log(chalk.gray("   Secret kept hidden."));
+                      console.log();
+                    }
+                  } else {
+                    console.log(chalk.gray("   CI detected. Secret value will not be displayed."));
+                    console.log();
+                  }
 
                   // Offer to store in keychain
                   const wantStore = await question(
@@ -212,6 +234,12 @@ export const initCommand = new Command("init")
                     await storeCredentials(partnerClientId, secret.secretText, partnerTenantId);
                     console.log(chalk.green("✓ Secret stored in keychain"));
                     clientSecretCreated = true;
+                  } else if (!secretWasRevealed) {
+                    console.log(
+                      chalk.gray(
+                        "   Secret was not shown. You'll be prompted to enter one manually next."
+                      )
+                    );
                   }
                 } catch (error) {
                   secretSpinner.fail("Failed to create secret");
@@ -287,15 +315,14 @@ export const initCommand = new Command("init")
           chalk.gray("   The secret Value from your app registration (not the Secret ID).")
         );
 
-        // TODO: Add masked input for secret
-        let clientSecret = await question(
+        let clientSecret = await questionHidden(
           chalk.white("   Secret Value ") + chalk.gray("(or 'o' to open Azure Portal): ")
         );
 
         if (clientSecret.toLowerCase() === "o" || clientSecret.toLowerCase() === "open") {
           openUrl(secretUrl);
           console.log(chalk.green("   ✓ Opened - click 'New client secret', copy the 'Value'"));
-          clientSecret = await question(chalk.white("   Secret Value: "));
+          clientSecret = await questionHidden(chalk.white("   Secret Value: "));
         }
 
         if (clientSecret) {

@@ -193,6 +193,36 @@ describe("SolutionOperations", () => {
       });
       expect(jobId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
+
+    it("should fall back to ImportSolution when async operations are disabled", async () => {
+      vi.mocked(mockClient.executeAction)
+        .mockRejectedValueOnce(
+          new Error("Async operations are currently disabled for this organization.")
+        )
+        .mockResolvedValueOnce(undefined);
+
+      const jobId = await solutionOps.importSolutionAsync("/tmp/solution.zip", {
+        overwriteUnmanagedCustomizations: true,
+        publishWorkflows: true,
+      });
+
+      expect(mockClient.executeAction).toHaveBeenNthCalledWith(1, "ImportSolutionAsync", {
+        CustomizationFile: expect.any(String),
+        OverwriteUnmanagedCustomizations: true,
+        PublishWorkflows: true,
+        ImportJobId: expect.any(String),
+      });
+
+      expect(mockClient.executeAction).toHaveBeenNthCalledWith(2, "ImportSolution", {
+        CustomizationFile: expect.any(String),
+        OverwriteUnmanagedCustomizations: true,
+        PublishWorkflows: true,
+        ConvertToManaged: false,
+        ImportJobId: expect.any(String),
+      });
+
+      expect(jobId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    });
   });
 
   describe("checkImportStatus", () => {

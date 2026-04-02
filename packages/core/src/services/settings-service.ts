@@ -15,7 +15,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, chmodSync } from "fs";
 import { join } from "path";
 import { coreLogger } from "./logger.js";
 
@@ -98,18 +98,24 @@ const SALT_LENGTH = 32;
  */
 export class SettingsService {
   private encryptionKey: Buffer | null = null;
+  private settingsDir: string;
+  private encryptionSecretPath: string;
   private settingsFilePath: string;
   private cachedSettings: AllSettings | null = null;
 
   constructor(options?: { settingsDir?: string; encryptionSecret?: string }) {
-    const settingsDir = options?.settingsDir || process.cwd();
-    this.settingsFilePath = join(settingsDir, ".agentsync-settings.json");
+    this.settingsDir = options?.settingsDir || process.cwd();
+    this.encryptionSecretPath = join(this.settingsDir, ".agentsync-encryption-key");
+    this.settingsFilePath = join(this.settingsDir, ".agentsync-settings.json");
 
     // Derive encryption key from secret
-    const secret = options?.encryptionSecret || process.env.SETTINGS_ENCRYPTION_SECRET;
+    const secret =
+      options?.encryptionSecret ||
+      process.env.SETTINGS_ENCRYPTION_SECRET ||
+      this.getPersistedEncryptionSecret();
     if (secret) {
       // Use scrypt to derive a proper key from the secret
-      const salt = this.getOrCreateSalt(settingsDir);
+      const salt = this.getOrCreateSalt(this.settingsDir);
       this.encryptionKey = scryptSync(secret, salt, 32);
     }
   }
@@ -152,8 +158,9 @@ export class SettingsService {
   ): Promise<IntegrationSettings> {
     const settings = await this.getSettings();
 
-    // Encrypt the client secret if provided and encryption is available
-    if (updates.partnerClientSecret && this.encryptionKey) {
+    // Sensitive fields must always be encrypted at rest.
+    if (updates.partnerClientSecret) {
+      this.ensureEncryptionKeyForSensitiveWrites();
       updates.partnerClientSecret = this.encrypt(updates.partnerClientSecret);
     }
 
@@ -182,11 +189,15 @@ export class SettingsService {
   async updateAppSettings(updates: Partial<AppSettings>): Promise<AppSettings> {
     const settings = await this.getSettings();
 
-    // Encrypt webhook URLs if provided and encryption is available
-    if (updates.slackWebhookUrl && this.encryptionKey) {
+    if (updates.slackWebhookUrl || updates.teamsWebhookUrl) {
+      this.ensureEncryptionKeyForSensitiveWrites();
+    }
+
+    // Encrypt webhook URLs if provided
+    if (updates.slackWebhookUrl) {
       updates.slackWebhookUrl = this.encrypt(updates.slackWebhookUrl);
     }
-    if (updates.teamsWebhookUrl && this.encryptionKey) {
+    if (updates.teamsWebhookUrl) {
       updates.teamsWebhookUrl = this.encrypt(updates.teamsWebhookUrl);
     }
 
@@ -367,6 +378,55 @@ export class SettingsService {
       logger.warn("Failed to save encryption salt - using ephemeral salt");
     }
     return salt;
+  }
+
+  private getPersistedEncryptionSecret(): string | undefined {
+    try {
+      if (existsSync(this.encryptionSecretPath)) {
+        const secret = readFileSync(this.encryptionSecretPath, "utf-8").trim();
+        if (secret) {
+          return secret;
+        }
+      }
+    } catch {
+      logger.warn("Failed to load persisted encryption secret");
+    }
+    return undefined;
+  }
+
+  private getOrCreateEncryptionSecret(): string | undefined {
+    const persisted = this.getPersistedEncryptionSecret();
+    if (persisted) {
+      return persisted;
+    }
+
+    const secret = randomBytes(32).toString("hex");
+    try {
+      writeFileSync(this.encryptionSecretPath, secret, { mode: 0o600 });
+      if (process.platform !== "win32") {
+        chmodSync(this.encryptionSecretPath, 0o600);
+      }
+      return secret;
+    } catch {
+      logger.error("Failed to persist encryption secret for settings");
+      return undefined;
+    }
+  }
+
+  private ensureEncryptionKeyForSensitiveWrites(): void {
+    if (this.encryptionKey) {
+      return;
+    }
+
+    const secret = this.getOrCreateEncryptionSecret();
+    if (!secret) {
+      throw new Error(
+        `Cannot store sensitive settings without encryption. Set SETTINGS_ENCRYPTION_SECRET or ensure write access to ${this.encryptionSecretPath}`
+      );
+    }
+
+    const salt = this.getOrCreateSalt(this.settingsDir);
+    this.encryptionKey = scryptSync(secret, salt, 32);
   }
 
   private encrypt(text: string): string {
