@@ -31,7 +31,6 @@ export * from "./settings-service.js";
 export * from "./notification-service.js";
 export * from "./deployment-notifications.js";
 export * from "./risk-analyzer.js";
-export * from "./health-checker.js";
 export * from "./version-checker.js";
 export * from "./drift-analyzer.js";
 export * from "./auth-error-parser.js";
