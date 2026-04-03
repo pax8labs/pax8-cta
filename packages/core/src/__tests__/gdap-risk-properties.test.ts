@@ -19,7 +19,7 @@ import {
   type RiskSeverity,
   type RiskCategory,
 } from "../services/risk-analyzer.js";
-import { healthChecker, type HealthCheckContext } from "../services/health-checker.js";
+import { healthChecker, type HealthCheckContext } from "../services/health-check.js";
 
 // ============================================================================
 // Arbitraries (generators)
