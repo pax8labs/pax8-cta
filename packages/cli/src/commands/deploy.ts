@@ -23,11 +23,17 @@ import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
+  type Config,
   TenantConfig,
   TokenManager,
   DataverseClient,
   SolutionOperations,
   UrlTemplater,
+  WaveService,
+  DeploymentService,
+  getEffectiveConnectionMappings,
+  getEffectiveEnvironmentVariables,
+  resolveTenantUrls,
   type TenantUrlValues,
   type DetectedUrl,
   environmentSetupService,
@@ -44,8 +50,12 @@ export const deployCommand = new Command("deploy")
   .option("--agentPackage <path>", "Alias for --solution")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tag <tags...>", "Deploy only to tenants with these tags")
+  .option("--tenant <tenants...>", "Deploy only to specific tenant names or IDs")
+  .option("--tenants <tenants...>", "Alias for --tenant")
   .option("--all", "Deploy to all configured tenants (default)")
   .option("--dry-run", "Preview what would happen without deploying")
+  .option("--skip-validation", "Skip auth and environment checks during dry run")
+  .option("--json", "Output dry-run plan as JSON")
   .option("--managed", "Export as managed solution (default)")
   .option("--unmanaged", "Export as unmanaged solution")
   .option("--keep-package", "Keep exported zip after deployment")
@@ -65,12 +75,23 @@ Examples:
 `
   )
   .action(async (solutionArg: string | undefined, options) => {
+    const mergedTenantFilters = [...(options.tenant ?? []), ...(options.tenants ?? [])];
+    if (mergedTenantFilters.length > 0) {
+      options.tenant = Array.from(new Set(mergedTenantFilters));
+    }
+
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
       console.error(chalk.red("Error: solution name or path required."));
       console.error(chalk.gray("  Example: agentsync deploy TestDeploy --all"));
       process.exit(2);
     }
+
+    if (options.json && !options.dryRun) {
+      console.error(chalk.red("Error: --json is only supported with --dry-run."));
+      process.exit(2);
+    }
+
     // Default to --all if no tag filter
     if (!options.all && (!options.tag || options.tag.length === 0)) {
       options.all = true;
@@ -99,8 +120,29 @@ Examples:
       } | null>(
         options,
         async (resolvedDestinations) => {
+          const destinations = filterDestinationsByTenantSelections(
+            resolvedDestinations,
+            options.tenant
+          );
+
+          if (destinations.length === 0) {
+            spinner.fail(chalk.red("No destinations matched the selection criteria"));
+            process.exit(1);
+          }
+
           spinner.succeed("Demo fleet manifest loaded");
           console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
+
+          if (options.dryRun) {
+            await runDryRunPreview({
+              solutionInput: solutionArg,
+              isFilePath,
+              options,
+              destinations,
+              demoMode: true,
+            });
+            return null;
+          }
 
           // In demo mode, show export simulation if solution name provided
           if (!isFilePath) {
@@ -111,13 +153,8 @@ Examples:
             console.log();
           }
 
-          if (resolvedDestinations.length === 0) {
-            spinner.fail(chalk.red("No destinations matched the selection criteria"));
-            process.exit(1);
-          }
-
           // Display destinations
-          console.log(chalk.bold(`📦 Shipping Destinations (${resolvedDestinations.length}):`));
+          console.log(chalk.bold(`📦 Shipping Destinations (${destinations.length}):`));
           console.log();
 
           const table = new Table({
@@ -125,7 +162,7 @@ Examples:
             style: { head: ["cyan"] },
           });
 
-          resolvedDestinations.forEach((tenant) => {
+          destinations.forEach((tenant) => {
             table.push([
               tenant.name,
               tenant.tenantId.slice(0, 8) + "...",
@@ -144,7 +181,7 @@ Examples:
           console.log(chalk.bold("📋 Shipment Details:"));
           console.log(`  Tracking #:    ${chalk.cyan(demoShipmentId)}`);
           console.log(`  Package:       ${isFilePath ? solutionArg : `${solutionArg} (exported)`}`);
-          console.log(`  Destinations:  ${resolvedDestinations.length}`);
+          console.log(`  Destinations:  ${destinations.length}`);
           console.log();
           console.log(
             chalk.gray(`Use 'agentsync track --shipment ${demoShipmentId}' to track progress`)
@@ -161,11 +198,26 @@ Examples:
       if (!resolvedContext) {
         return;
       }
-      const { config, destinations } = resolvedContext;
+      const { config } = resolvedContext;
+      const destinations = filterDestinationsByTenantSelections(
+        resolvedContext.destinations,
+        options.tenant
+      );
 
       if (destinations.length === 0) {
         spinner.fail(chalk.red("No destinations matched the selection criteria"));
         process.exit(1);
+      }
+
+      if (options.dryRun) {
+        await runDryRunPreview({
+          solutionInput: solutionArg,
+          isFilePath,
+          options,
+          destinations,
+          config,
+        });
+        return;
       }
 
       // If solution name provided, export it first
@@ -321,11 +373,6 @@ Examples:
 
       console.log(table.toString());
       console.log();
-
-      if (options.dryRun) {
-        console.log(chalk.yellow("Dry run - no agent packages will be shipped"));
-        return;
-      }
 
       // Verify client secret is available
       await getClientSecretWithFallback();
@@ -513,6 +560,462 @@ Examples:
       handleCommandError(error, spinner, "Shipment failed");
     }
   });
+
+interface DryRunActionOptions {
+  json?: boolean;
+  skipValidation?: boolean;
+  skipUrlReplace?: boolean;
+}
+
+interface DryRunContext {
+  solutionInput: string;
+  isFilePath: boolean;
+  options: DryRunActionOptions;
+  destinations: TenantConfig[];
+  config?: Config;
+  demoMode?: boolean;
+}
+
+interface DryRunConnectionPreview {
+  sourceLogicalName: string;
+  targetConnectionId: string;
+  resolvedTargetConnectionId: string;
+}
+
+interface DryRunVariablePreview {
+  schemaName: string;
+  value: string | number | boolean;
+  resolvedValue: string | number | boolean;
+}
+
+interface DryRunUrlResolution {
+  template: string;
+  resolved: string;
+}
+
+interface DryRunValidation {
+  status: "pass" | "fail" | "skipped";
+  errors: string[];
+  warnings: string[];
+}
+
+interface DryRunTenantPlan {
+  tenantName: string;
+  tenantId: string;
+  environmentUrl: string;
+  waveNumber: number;
+  waveName: string;
+  connectionMappings: DryRunConnectionPreview[];
+  environmentVariables: DryRunVariablePreview[];
+  urlResolutions: DryRunUrlResolution[];
+  validation: DryRunValidation;
+}
+
+interface DryRunWavePlan {
+  waveNumber: number;
+  name: string;
+  maxParallel: number;
+  waitAfterCompletionMs?: number;
+  continueOnFailure: boolean;
+  tenants: DryRunTenantPlan[];
+}
+
+interface DryRunPlan {
+  dryRun: true;
+  generatedAt: string;
+  solution: string;
+  summary: {
+    totalTenants: number;
+    totalWaves: number;
+    validationEnabled: boolean;
+    validationFailedTenants: number;
+  };
+  waves: DryRunWavePlan[];
+}
+
+function filterDestinationsByTenantSelections(
+  destinations: TenantConfig[],
+  tenantFilters?: string[]
+): TenantConfig[] {
+  if (!tenantFilters || tenantFilters.length === 0) {
+    return destinations;
+  }
+
+  const normalizedFilters = tenantFilters.map((filter) => filter.toLowerCase());
+
+  return destinations.filter((tenant) => {
+    const tenantName = tenant.name.toLowerCase();
+    const tenantId = tenant.tenantId.toLowerCase();
+    const environmentUrl = tenant.environmentUrl.toLowerCase();
+
+    return normalizedFilters.some(
+      (filter) =>
+        tenantName.includes(filter) || tenantId === filter || environmentUrl.includes(filter)
+    );
+  });
+}
+
+async function runDryRunPreview(context: DryRunContext): Promise<void> {
+  const plan = await buildDryRunPlan(context);
+
+  if (context.options.json) {
+    console.log(JSON.stringify(plan, null, 2));
+  } else {
+    displayDryRunPlan(plan);
+  }
+
+  if (plan.summary.validationFailedTenants > 0) {
+    process.exit(1);
+  }
+}
+
+async function buildDryRunPlan(context: DryRunContext): Promise<DryRunPlan> {
+  const templater = new UrlTemplater();
+  const detectedTemplatePatterns = await detectTemplatePatternsFromPackage(
+    context.solutionInput,
+    context.isFilePath,
+    context.options.skipUrlReplace === true
+  );
+
+  const validationByTenant = new Map<string, DryRunValidation>();
+
+  if (context.demoMode) {
+    for (const tenant of context.destinations) {
+      validationByTenant.set(tenant.tenantId, {
+        status: "skipped",
+        errors: [],
+        warnings: ["Skipped in demo mode"],
+      });
+    }
+  } else if (context.options.skipValidation) {
+    for (const tenant of context.destinations) {
+      validationByTenant.set(tenant.tenantId, {
+        status: "skipped",
+        errors: [],
+        warnings: ["Skipped (--skip-validation)"],
+      });
+    }
+  } else if (context.config) {
+    let deploymentService: DeploymentService | null = null;
+    let bootstrapError: string | null = null;
+
+    try {
+      const clientSecret = await getClientSecretWithFallback();
+      deploymentService = new DeploymentService({
+        tenantId: context.config.partner.tenantId,
+        clientId: context.config.partner.clientId,
+        clientSecret,
+      });
+    } catch (error) {
+      bootstrapError = error instanceof Error ? error.message : String(error);
+    }
+
+    if (bootstrapError) {
+      for (const tenant of context.destinations) {
+        validationByTenant.set(tenant.tenantId, {
+          status: "fail",
+          errors: [bootstrapError],
+          warnings: [],
+        });
+      }
+    } else if (deploymentService) {
+      for (const tenant of context.destinations) {
+        const effectiveMappings = getEffectiveConnectionMappings(context.config, tenant);
+        const effectiveVariables = getEffectiveEnvironmentVariables(context.config, tenant);
+        const validationResult = await deploymentService.validateTenant({
+          tenantId: tenant.tenantId,
+          tenantName: tenant.name,
+          environmentUrl: tenant.environmentUrl,
+          connectionMappings: effectiveMappings,
+          environmentVariables: effectiveVariables,
+          autoSetup: tenant.autoSetup,
+        });
+
+        validationByTenant.set(tenant.tenantId, {
+          status: validationResult.valid ? "pass" : "fail",
+          errors: validationResult.errors,
+          warnings: validationResult.warnings,
+        });
+      }
+    }
+  }
+
+  const waveService = new WaveService();
+  const executionPlan = context.config
+    ? waveService.createExecutionPlan(context.config, context.destinations)
+    : {
+        waves: [
+          {
+            waveNumber: 1,
+            name: "Default",
+            tenants: context.destinations,
+            continueOnFailure: false,
+          },
+        ],
+        totalTenants: context.destinations.length,
+      };
+
+  const waves: DryRunWavePlan[] = executionPlan.waves.map((wave) => {
+    const tenants: DryRunTenantPlan[] = wave.tenants.map((tenant) => {
+      const tenantUrls = resolveTenantUrls(tenant);
+      const connectionMappings = context.config
+        ? getEffectiveConnectionMappings(context.config, tenant)
+        : tenant.connectionMappings || [];
+      const environmentVariables = context.config
+        ? getEffectiveEnvironmentVariables(context.config, tenant)
+        : tenant.environmentVariables || [];
+
+      const connectionPreviews = connectionMappings.map((mapping) => ({
+        sourceLogicalName: mapping.sourceLogicalName,
+        targetConnectionId: mapping.targetConnectionId,
+        resolvedTargetConnectionId: templater.resolveTemplate(
+          mapping.targetConnectionId,
+          tenantUrls
+        ),
+      }));
+
+      const variablePreviews = environmentVariables.map((variable) => ({
+        schemaName: variable.schemaName,
+        value: variable.value,
+        resolvedValue:
+          typeof variable.value === "string"
+            ? templater.resolveTemplate(variable.value, tenantUrls)
+            : variable.value,
+      }));
+
+      const templatePatterns = collectTemplatePatterns(
+        detectedTemplatePatterns,
+        connectionPreviews,
+        variablePreviews
+      );
+
+      const urlResolutions =
+        templatePatterns.length > 0
+          ? templatePatterns.map((template) => ({
+              template,
+              resolved: templater.resolveTemplate(template, tenantUrls),
+            }))
+          : [
+              { template: "{tenant}", resolved: tenantUrls.tenant },
+              { template: "{tenant}.sharepoint.com", resolved: tenantUrls.sharepoint },
+              { template: "{tenant}.onmicrosoft.com", resolved: tenantUrls.onmicrosoft },
+            ];
+
+      return {
+        tenantName: tenant.name,
+        tenantId: tenant.tenantId,
+        environmentUrl: tenant.environmentUrl,
+        waveNumber: wave.waveNumber,
+        waveName: wave.name,
+        connectionMappings: connectionPreviews,
+        environmentVariables: variablePreviews,
+        urlResolutions,
+        validation: validationByTenant.get(tenant.tenantId) || {
+          status: "skipped",
+          errors: [],
+          warnings: ["Validation unavailable"],
+        },
+      };
+    });
+
+    return {
+      waveNumber: wave.waveNumber,
+      name: wave.name,
+      maxParallel: wave.maxParallel ?? 1,
+      waitAfterCompletionMs: wave.waitAfterCompletion,
+      continueOnFailure: wave.continueOnFailure,
+      tenants,
+    };
+  });
+
+  return {
+    dryRun: true,
+    generatedAt: new Date().toISOString(),
+    solution: context.solutionInput,
+    summary: {
+      totalTenants: context.destinations.length,
+      totalWaves: waves.length,
+      validationEnabled: !(context.options.skipValidation || context.demoMode),
+      validationFailedTenants: waves.reduce(
+        (count, wave) =>
+          count + wave.tenants.filter((tenant) => tenant.validation.status === "fail").length,
+        0
+      ),
+    },
+    waves,
+  };
+}
+
+async function detectTemplatePatternsFromPackage(
+  solutionInput: string,
+  isFilePath: boolean,
+  skipUrlReplace: boolean
+): Promise<string[]> {
+  if (!isFilePath || skipUrlReplace) {
+    return [];
+  }
+
+  const packagePath = resolve(solutionInput);
+  if (!existsSync(packagePath)) {
+    return [];
+  }
+
+  try {
+    const JSZip = (await import("jszip")).default;
+    const zipBuffer = readFileSync(packagePath);
+    const zip = await JSZip.loadAsync(zipBuffer);
+    const templater = new UrlTemplater();
+    const detectedUrls = await templater.scanSolution(zip);
+    return Array.from(new Set(detectedUrls.map((url) => url.templatePattern)));
+  } catch {
+    return [];
+  }
+}
+
+function collectTemplatePatterns(
+  detectedPatterns: string[],
+  connectionPreviews: DryRunConnectionPreview[],
+  variablePreviews: DryRunVariablePreview[]
+): string[] {
+  const patterns = new Set<string>(detectedPatterns);
+
+  for (const mapping of connectionPreviews) {
+    if (mapping.targetConnectionId.includes("{tenant}")) {
+      patterns.add(mapping.targetConnectionId);
+    }
+  }
+
+  for (const variable of variablePreviews) {
+    if (typeof variable.value === "string" && variable.value.includes("{tenant}")) {
+      patterns.add(variable.value);
+    }
+  }
+
+  return Array.from(patterns);
+}
+
+function displayDryRunPlan(plan: DryRunPlan): void {
+  const solutionLabel = plan.solution.endsWith(".zip") ? resolve(plan.solution) : plan.solution;
+  const tenantSuffix = plan.summary.totalTenants === 1 ? "" : "s";
+
+  console.log(
+    chalk.bold(
+      `Dry run: deploy ${chalk.green(solutionLabel)} to ${plan.summary.totalTenants} tenant${tenantSuffix}`
+    )
+  );
+  console.log();
+
+  for (const wave of plan.waves) {
+    const waitNote = wave.waitAfterCompletionMs
+      ? `, wait after: ${formatDuration(wave.waitAfterCompletionMs)}`
+      : "";
+    console.log(
+      chalk.bold(
+        `Wave ${wave.waveNumber} (${wave.name}) - max parallel: ${wave.maxParallel}${waitNote}`
+      )
+    );
+
+    const table = new Table({
+      head: ["Tenant", "Environment", "Connections", "Variables", "URL Templates", "Validation"],
+      style: { head: ["cyan"] },
+      wordWrap: true,
+    });
+
+    for (const tenant of wave.tenants) {
+      table.push([
+        tenant.tenantName,
+        new URL(tenant.environmentUrl).hostname,
+        formatConnections(tenant.connectionMappings),
+        formatVariables(tenant.environmentVariables),
+        formatUrlResolutions(tenant.urlResolutions),
+        formatValidation(tenant.validation),
+      ]);
+    }
+
+    console.log(table.toString());
+    console.log();
+  }
+
+  if (plan.summary.validationFailedTenants > 0) {
+    console.log(
+      chalk.red(
+        `Validation failed for ${plan.summary.validationFailedTenants} tenant(s). Review errors above before deploying.`
+      )
+    );
+    console.log();
+  }
+
+  console.log(chalk.yellow("No changes were made."));
+}
+
+function formatConnections(connectionMappings: DryRunConnectionPreview[]): string {
+  if (connectionMappings.length === 0) {
+    return "-";
+  }
+
+  return connectionMappings
+    .map((mapping) => {
+      if (mapping.targetConnectionId === mapping.resolvedTargetConnectionId) {
+        return `${mapping.sourceLogicalName} -> ${mapping.resolvedTargetConnectionId}`;
+      }
+      return `${mapping.sourceLogicalName} -> ${mapping.resolvedTargetConnectionId} (from ${mapping.targetConnectionId})`;
+    })
+    .join("\n");
+}
+
+function formatVariables(environmentVariables: DryRunVariablePreview[]): string {
+  if (environmentVariables.length === 0) {
+    return "-";
+  }
+
+  return environmentVariables
+    .map((variable) => {
+      const original = String(variable.value);
+      const resolved = String(variable.resolvedValue);
+      if (original === resolved) {
+        return `${variable.schemaName} -> ${resolved}`;
+      }
+      return `${variable.schemaName} -> ${resolved} (from ${original})`;
+    })
+    .join("\n");
+}
+
+function formatUrlResolutions(urlResolutions: DryRunUrlResolution[]): string {
+  if (urlResolutions.length === 0) {
+    return "-";
+  }
+
+  return urlResolutions
+    .map((resolution) => `${resolution.template} -> ${resolution.resolved}`)
+    .join("\n");
+}
+
+function formatValidation(validation: DryRunValidation): string {
+  if (validation.status === "pass") {
+    const warningSuffix =
+      validation.warnings.length > 0 ? ` (${validation.warnings.length} warning)` : "";
+    return `PASS${warningSuffix}`;
+  }
+
+  if (validation.status === "skipped") {
+    return "SKIPPED";
+  }
+
+  return `FAIL (${validation.errors.length} error)`;
+}
+
+function formatDuration(durationMs: number): string {
+  if (durationMs % (60 * 60 * 1000) === 0) {
+    return `${durationMs / (60 * 60 * 1000)}h`;
+  }
+  if (durationMs % (60 * 1000) === 0) {
+    return `${durationMs / (60 * 1000)}m`;
+  }
+  if (durationMs % 1000 === 0) {
+    return `${durationMs / 1000}s`;
+  }
+  return `${durationMs}ms`;
+}
 
 /**
  * Apply URL replacements to a solution ZIP for a specific target tenant.

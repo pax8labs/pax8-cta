@@ -260,6 +260,29 @@ describe("Deploy Command (ship)", () => {
       expect(dryRunOption).toBeDefined();
     });
 
+    it("should support --tenant filter", async () => {
+      const { deployCommand } = await import("../commands/deploy.js");
+
+      const tenantOption = deployCommand.options.find((opt) => opt.long === "--tenant");
+      expect(tenantOption).toBeDefined();
+    });
+
+    it("should support --skip-validation flag", async () => {
+      const { deployCommand } = await import("../commands/deploy.js");
+
+      const skipValidationOption = deployCommand.options.find(
+        (opt) => opt.long === "--skip-validation"
+      );
+      expect(skipValidationOption).toBeDefined();
+    });
+
+    it("should support --json dry-run output", async () => {
+      const { deployCommand } = await import("../commands/deploy.js");
+
+      const jsonOption = deployCommand.options.find((opt) => opt.long === "--json");
+      expect(jsonOption).toBeDefined();
+    });
+
     it("should use default config path", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
 

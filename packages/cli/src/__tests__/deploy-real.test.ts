@@ -25,7 +25,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { runCli, containsText, stripAnsi } from "./test-utils.js";
+import { runCli, containsText, stripAnsi, expectJson } from "./test-utils.js";
 
 // Create a temporary directory with a test config
 const TEST_DIR = join(tmpdir(), `agentsync-deploy-test-${Date.now()}`);
@@ -46,6 +46,13 @@ tenants:
   - name: "Deploy Test Alpha"
     tenantId: "11111111-1111-1111-1111-111111111111"
     environmentUrl: "https://alpha.crm.dynamics.com"
+    connectionMappings:
+      - sourceLogicalName: "bot-connection"
+        targetConnectionId: "conn-{tenant}"
+    environmentVariables:
+      - schemaName: "TENANT_PORTAL_URL"
+        value: "https://portal.{tenant}.example.com"
+        type: "String"
     tags:
       - enterprise
       - priority
@@ -62,6 +69,24 @@ tenants:
     tags:
       - enterprise
     enabled: false
+settings:
+  defaultConnectionMappings:
+    - sourceLogicalName: "shared-sp"
+      targetConnectionId: "sp-{tenant}"
+  defaultEnvironmentVariables:
+    - schemaName: "API_URL"
+      value: "https://api.{tenant}.example.com"
+      type: "String"
+  waves:
+    - name: "Pilot"
+      order: 1
+      tenants: ["enterprise"]
+      maxParallel: 2
+      continueOnFailure: false
+    - name: "Main"
+      order: 2
+      tenants: ["smb"]
+      continueOnFailure: true
 `;
 
 describe("Deploy Command (Real Mode - Config File)", () => {
@@ -87,7 +112,15 @@ describe("Deploy Command (Real Mode - Config File)", () => {
   describe("required options validation", () => {
     it("should auto-default to --all when neither --all nor --tag is specified", async () => {
       const result = await runCli(
-        ["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH, "--dry-run"],
+        [
+          "deploy",
+          "--solution",
+          "./test.zip",
+          "--config",
+          CONFIG_PATH,
+          "--dry-run",
+          "--skip-validation",
+        ],
         {
           env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
@@ -97,14 +130,23 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       // Should auto-default to --all and show all enabled tenants
       const cleanOutput = stripAnsi(result.output);
       expect(containsText(cleanOutput, "Dry run")).toBe(true);
-      expect(containsText(cleanOutput, "(2)")).toBe(true);
+      expect(containsText(cleanOutput, "to 2 tenants")).toBe(true);
     });
   });
 
   describe("dry-run mode", () => {
     it("should show preview with --all and --dry-run", async () => {
       const result = await runCli(
-        ["deploy", "--solution", "./test.zip", "--config", CONFIG_PATH, "--all", "--dry-run"],
+        [
+          "deploy",
+          "--solution",
+          "./test.zip",
+          "--config",
+          CONFIG_PATH,
+          "--all",
+          "--dry-run",
+          "--skip-validation",
+        ],
         {
           env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
@@ -120,9 +162,13 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       expect(containsText(cleanOutput, "Dry run")).toBe(true);
 
       // Should show enabled tenants (2 enabled: Alpha and Beta)
-      expect(containsText(cleanOutput, "(2)")).toBe(true);
+      expect(containsText(cleanOutput, "to 2 tenants")).toBe(true);
       expect(containsText(cleanOutput, "Deploy Test Alpha")).toBe(true);
       expect(containsText(cleanOutput, "Deploy Test Beta")).toBe(true);
+      expect(containsText(cleanOutput, "Wave 1 (Pilot)")).toBe(true);
+      expect(containsText(cleanOutput, "Wave 2 (Main)")).toBe(true);
+      expect(containsText(cleanOutput, "bot-connection")).toBe(true);
+      expect(containsText(cleanOutput, "API_URL")).toBe(true);
     });
 
     it("should filter tenants by tag in dry-run", async () => {
@@ -136,6 +182,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "--tag",
           "enterprise",
           "--dry-run",
+          "--skip-validation",
         ],
         {
           env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
@@ -148,7 +195,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       // Only Alpha has enterprise tag and is enabled
       expect(containsText(cleanOutput, "Deploy Test Alpha")).toBe(true);
       // Should show count of 1
-      expect(containsText(cleanOutput, "(1)")).toBe(true);
+      expect(containsText(cleanOutput, "to 1 tenant")).toBe(true);
     });
 
     it("should filter tenants by multiple tags in dry-run", async () => {
@@ -163,6 +210,7 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "enterprise",
           "smb",
           "--dry-run",
+          "--skip-validation",
         ],
         {
           env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
@@ -175,6 +223,58 @@ describe("Deploy Command (Real Mode - Config File)", () => {
       // Should include both enterprise (Alpha) and smb (Beta)
       expect(containsText(cleanOutput, "Deploy Test Alpha")).toBe(true);
       expect(containsText(cleanOutput, "Deploy Test Beta")).toBe(true);
+    });
+
+    it("should filter tenants by --tenant in dry-run", async () => {
+      const result = await runCli(
+        [
+          "deploy",
+          "--solution",
+          "./test.zip",
+          "--config",
+          CONFIG_PATH,
+          "--tenant",
+          "Deploy Test Beta",
+          "--dry-run",
+          "--skip-validation",
+        ],
+        {
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+          cwd: TEST_DIR,
+        }
+      );
+
+      const cleanOutput = stripAnsi(result.output);
+      expect(result.exitCode).toBe(0);
+      expect(containsText(cleanOutput, "Deploy Test Beta")).toBe(true);
+      expect(containsText(cleanOutput, "Deploy Test Alpha")).toBe(false);
+    });
+
+    it("should emit JSON dry-run output", async () => {
+      const result = await runCli(
+        [
+          "deploy",
+          "--solution",
+          "./test.zip",
+          "--config",
+          CONFIG_PATH,
+          "--all",
+          "--dry-run",
+          "--skip-validation",
+          "--json",
+        ],
+        {
+          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+          cwd: TEST_DIR,
+        }
+      );
+
+      const json = expectJson<any>(result.output);
+      expect(result.exitCode).toBe(0);
+      expect(json.dryRun).toBe(true);
+      expect(json.summary.totalTenants).toBe(2);
+      expect(json.summary.totalWaves).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(json.waves)).toBe(true);
     });
 
     it("should error when no tenants match tag filter", async () => {
@@ -194,7 +294,15 @@ describe("Deploy Command (Real Mode - Config File)", () => {
   describe("positional argument", () => {
     it("should accept solution as positional argument", async () => {
       const result = await runCli(
-        ["deploy", "./test.zip", "--config", CONFIG_PATH, "--all", "--dry-run"],
+        [
+          "deploy",
+          "./test.zip",
+          "--config",
+          CONFIG_PATH,
+          "--all",
+          "--dry-run",
+          "--skip-validation",
+        ],
         {
           env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
           cwd: TEST_DIR,
