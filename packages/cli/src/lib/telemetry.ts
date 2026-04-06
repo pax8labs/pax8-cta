@@ -66,7 +66,7 @@ const config = new Conf<{
 }>({
   projectName: "agentsync-cli",
   defaults: {
-    telemetryEnabled: false, // Opt-in: disabled by default, enable with `agentsync telemetry on`
+    telemetryEnabled: true, // Enabled by default, opt out with `agentsync telemetry off`
     diagnosticTelemetryEnabled: false, // Separate opt-in for richer error data
     firstRunShown: false,
     machineId: "",
@@ -540,10 +540,12 @@ export async function promptAndSendReport(report: DiagnosticReport): Promise<boo
 export function getFirstRunNotice(): string {
   return `
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  AgentSync CLI can collect anonymous usage data to help improve the tool.  │
+│  AgentSync CLI collects anonymous usage data to help improve the tool.    │
 │                                                                           │
-│  Telemetry is disabled by default. To opt in:                             │
-│  • Run 'agentsync telemetry on'                                           │
+│  Telemetry is enabled by default. To opt out:                             │
+│  • Run 'agentsync telemetry off'                                          │
+│  • Or set AGENTSYNC_TELEMETRY_DISABLED=1                                  │
+│  • Or set DO_NOT_TRACK=1                                                  │
 │  • Learn more: github.com/pax8labs/agentsync/tree/main/packages/cli       │
 └────────────────────────────────────────────────────────────────────────────┘
 `;

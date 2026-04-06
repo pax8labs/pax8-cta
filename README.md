@@ -555,17 +555,11 @@ sequenceDiagram
 
 ## Telemetry
 
-AgentSync can collect anonymous usage telemetry to help improve the tool. Telemetry is **disabled by default** and must be explicitly opted into.
+AgentSync collects anonymous usage telemetry to help improve the tool. Telemetry is **enabled by default**.
 
-**What's collected (when enabled):** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
+**What's collected:** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
 
 **What's never collected:** tenant IDs, solution names, file paths, environment URLs, error messages, or any personally identifiable information.
-
-**Opt in:**
-
-```bash
-agentsync telemetry on
-```
 
 **Opt out:**
 
@@ -573,9 +567,11 @@ agentsync telemetry on
 agentsync telemetry off
 # or
 export AGENTSYNC_TELEMETRY_DISABLED=1
+# or
+export DO_NOT_TRACK=1
 ```
 
-Telemetry is also automatically disabled in CI environments (`CI=true`) and respects the [`DO_NOT_TRACK`](https://consoledonottrack.com/) standard.
+Telemetry is automatically disabled in CI environments (`CI=true`) and respects the [`DO_NOT_TRACK`](https://consoledonottrack.com/) standard.
 
 ---
 
