@@ -11,8 +11,11 @@ dist/
 !.env.example
 !.env.sandbox.example
 
-# Config with secrets (keep example)
+# Config with secrets (keep examples only)
 config/tenants.yaml
+config/tenants.*.yaml
+!config/tenants.example.yaml
+!config/tenants.sandbox.example.yaml
 
 # IDE
 .vscode/
@@ -58,8 +61,11 @@ data/
 # Playwright
 playwright-report/
 test-results/
-config/tenants.sandbox.yaml
 test-solutions/
+
+# Internal docs that should not be published
+pax8-*.md
+TEST_PLAN.md
 
 # MSW recorded fixtures (may contain real API responses)
 *.recorded.json

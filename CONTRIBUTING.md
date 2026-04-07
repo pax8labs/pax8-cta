@@ -71,6 +71,10 @@ For context when reading the codebase:
 - Commit messages use imperative mood ("Add feature" not "Added feature")
 - Branch prefixes: `feature/`, `fix/`, `docs/`, `refactor/`, `test/`
 
+## Credentials and Secrets
+
+**Never commit real credentials, tenant IDs, client secrets, or environment URLs.** Use the provided `.env.example` and `config/tenants.example.yaml` as templates. See [SECURITY.md](SECURITY.md#credential-and-configuration-safety) for details on what files are blocked and how to handle secrets safely.
+
 ## Security Issues
 
 **Do not open a public issue for security vulnerabilities.** Please report them responsibly by following the process described in [SECURITY.md](SECURITY.md).

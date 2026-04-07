@@ -68,7 +68,6 @@ The following are within scope for security vulnerability reports:
 - Core deployment and configuration services
 - Authentication and authorization mechanisms
 - MCP (Model Context Protocol) server implementation
-- Web dashboard interface
 - API endpoints and data handling
 - Configuration file parsing and validation
 
@@ -83,15 +82,31 @@ The following are outside the scope of this security policy:
 - **Denial of Service**: DoS or DDoS attacks
 - **Physical Security**: Physical access to systems
 
+## Credential and Configuration Safety
+
+The following files contain or may contain real credentials and **must never be committed**:
+
+- `.env`, `.env.sandbox`, `.env.local`, or any `.env.*` file (except `.env.example`)
+- `config/tenants.yaml` or any tenant config with real tenant IDs, client secrets, or environment URLs
+- `TEST_PLAN.md` or internal docs referencing real Azure AD infrastructure
+
+Use the provided example files as templates:
+
+- `.env.example` — placeholder credentials
+- `config/tenants.example.yaml` — example tenant configuration
+
+If you discover committed credentials or secrets in the repository (including git history), please report it immediately via the vulnerability reporting process above.
+
 ## Security Best Practices
 
 When using AgentSync, we recommend following these security best practices:
 
-1. **Credentials Management**: Store credentials securely using environment variables or secure credential management systems
-2. **Access Control**: Follow the principle of least privilege when configuring service accounts
-3. **Updates**: Keep AgentSync and its dependencies up to date
-4. **Audit Logging**: Enable and regularly review audit logs
-5. **Network Security**: Use secure network connections and restrict access to deployment systems
+1. **Credentials Management**: Store credentials securely using environment variables or secure credential management systems. Never hardcode secrets in source files.
+2. **Access Control**: Follow the principle of least privilege when configuring GDAP relationships and service accounts
+3. **Secret Rotation**: Rotate Azure AD client secrets regularly and immediately if exposed
+4. **Updates**: Keep AgentSync and its dependencies up to date
+5. **Audit Logging**: Enable and regularly review audit logs
+6. **Network Security**: Use secure network connections and restrict access to deployment systems
 
 ## Contact
 
