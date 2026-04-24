@@ -14,7 +14,16 @@
   "bin": {
     "agentsync": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "prepack": "npm run build",
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",

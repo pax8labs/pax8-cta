@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-const SERVICE_NAME = "agentsync";
+import { KEYCHAIN_SERVICE } from "@agentsync/core";
+
+const SERVICE_NAME = KEYCHAIN_SERVICE;
 const ACCOUNT_NAME = "client-secret";
 
 /**

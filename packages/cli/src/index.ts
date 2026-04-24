@@ -53,6 +53,7 @@ if (existsSync(envPath)) {
 }
 
 import { Command } from "commander";
+import { CLI_NAME, PRODUCT_NAME } from "@agentsync/core";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
 import { analyzeCommand } from "./commands/analyze.js";
@@ -88,8 +89,8 @@ export function createProgram(): Command {
   const program = new Command();
 
   program
-    .name("agentsync")
-    .description("AgentSync - Deploy and manage Power Platform agents across tenants")
+    .name(CLI_NAME)
+    .description(`${PRODUCT_NAME} - Deploy and manage Power Platform agents across tenants`)
     .version(VERSION)
     .option("--verbose", "Enable verbose output for debugging")
     .hook("preAction", (thisCommand) => {

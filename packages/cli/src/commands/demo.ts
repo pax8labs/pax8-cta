@@ -20,9 +20,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
-import { DEMO_TENANTS, type TenantConfig } from "@agentsync/core";
+import { DEMO_TENANTS, CONFIG_DIR_NAME, type TenantConfig } from "@agentsync/core";
 
-const CONFIG_DIR = join(homedir(), ".agentsync");
+const CONFIG_DIR = join(homedir(), CONFIG_DIR_NAME);
 const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
 
 // Demo script - sequence of commands to showcase CLI capabilities

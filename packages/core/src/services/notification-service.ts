@@ -16,6 +16,7 @@
 
 import { coreLogger } from "./logger.js";
 import { getSettingsService } from "./settings-service.js";
+import { PRODUCT_NAME, PRODUCT_DOMAIN } from "../constants.js";
 
 const logger = coreLogger.child({ service: "notifications" });
 
@@ -81,8 +82,8 @@ export class NotificationService {
           title: payload.title,
           text: payload.message,
           title_link: payload.url,
-          footer: "AgentSync",
-          footer_icon: "https://agentsync.app/logo.png",
+          footer: PRODUCT_NAME,
+          footer_icon: `https://${PRODUCT_DOMAIN}/logo.png`,
           ts: Math.floor(Date.now() / 1000),
         },
       ],
@@ -173,8 +174,8 @@ export class NotificationService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const testPayload: NotificationPayload = {
-        title: "AgentSync Test Notification",
-        message: `This is a test notification from AgentSync. If you see this, your ${channel} integration is working correctly!`,
+        title: `${PRODUCT_NAME} Test Notification`,
+        message: `This is a test notification from ${PRODUCT_NAME}. If you see this, your ${channel} integration is working correctly!`,
         color: "info",
       };
 

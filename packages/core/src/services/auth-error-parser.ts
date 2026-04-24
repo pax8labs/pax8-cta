@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { CLI_NAME } from "../constants.js";
+
 /**
  * Auth Error Parser
  *
@@ -75,7 +77,7 @@ export function parseAuthError(errorMsg: string): ParsedAuthError {
   ) {
     return {
       message: "App not registered in environment",
-      fix: "Create app user in Power Platform Admin Center, or run 'agentsync setup --all'",
+      fix: `Create app user in Power Platform Admin Center, or run '${CLI_NAME} setup --all'`,
     };
   }
 
@@ -104,7 +106,7 @@ export function parseAuthError(errorMsg: string): ParsedAuthError {
     }
     return {
       message: "Authentication failed",
-      fix: "Check client credentials. Run 'agentsync auth status' to verify configuration.",
+      fix: `Check client credentials. Run '${CLI_NAME} auth status' to verify configuration.`,
     };
   }
 

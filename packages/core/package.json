@@ -11,6 +11,14 @@
   },
   "description": "Core logic for AgentSync - sync and track agent deployments",
   "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -24,6 +32,7 @@
     }
   },
   "scripts": {
+    "prepack": "npm run build",
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src/",

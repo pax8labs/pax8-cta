@@ -18,6 +18,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypt
 import { readFileSync, writeFileSync, existsSync, chmodSync } from "fs";
 import { join } from "path";
 import { coreLogger } from "./logger.js";
+import { FILE_PREFIX } from "../constants.js";
 
 const logger = coreLogger.child({ service: "settings" });
 
@@ -105,8 +106,8 @@ export class SettingsService {
 
   constructor(options?: { settingsDir?: string; encryptionSecret?: string }) {
     this.settingsDir = options?.settingsDir || process.cwd();
-    this.encryptionSecretPath = join(this.settingsDir, ".agentsync-encryption-key");
-    this.settingsFilePath = join(this.settingsDir, ".agentsync-settings.json");
+    this.encryptionSecretPath = join(this.settingsDir, `.${FILE_PREFIX}-encryption-key`);
+    this.settingsFilePath = join(this.settingsDir, `.${FILE_PREFIX}-settings.json`);
 
     // Derive encryption key from secret
     const secret =
@@ -361,7 +362,7 @@ export class SettingsService {
   }
 
   private getOrCreateSalt(settingsDir: string): Buffer {
-    const saltPath = join(settingsDir, ".agentsync-salt");
+    const saltPath = join(settingsDir, `.${FILE_PREFIX}-salt`);
     try {
       if (existsSync(saltPath)) {
         return Buffer.from(readFileSync(saltPath, "utf-8"), "hex");

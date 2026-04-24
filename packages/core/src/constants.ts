@@ -22,6 +22,35 @@
  */
 
 // ============================================================================
+// PRODUCT BRANDING
+// Change these constants when renaming the product.
+// ============================================================================
+
+/** CLI command name (lowercase, used for bin entry and Commander .name()) */
+export const CLI_NAME = "agentsync";
+
+/** Display name for UI, banners, and help text */
+export const PRODUCT_NAME = "AgentSync";
+
+/** Hidden config directory under $HOME (e.g. ~/.agentsync/) */
+export const CONFIG_DIR_NAME = ".agentsync";
+
+/** Filename prefix for settings/encryption files */
+export const FILE_PREFIX = "agentsync";
+
+/** OS keychain service name for credential storage */
+export const KEYCHAIN_SERVICE = "agentsync";
+
+/** Conf library project name (for telemetry preferences store) */
+export const CONF_PROJECT_NAME = "agentsync-cli";
+
+/** Product website domain */
+export const PRODUCT_DOMAIN = "agentsync.app";
+
+/** Environment variable prefix (e.g. AGENTSYNC_TELEMETRY_DISABLED) */
+export const ENV_PREFIX = "AGENTSYNC";
+
+// ============================================================================
 // TIME CONSTANTS (in milliseconds)
 // ============================================================================
 

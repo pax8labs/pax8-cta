@@ -46,6 +46,7 @@ import { PostHog } from "posthog-node";
 import Conf from "conf";
 import { createHash } from "crypto";
 import { hostname } from "os";
+import { CONF_PROJECT_NAME, CLI_NAME, ENV_PREFIX, PRODUCT_NAME } from "@agentsync/core";
 
 // ============================================================================
 // Configuration
@@ -54,8 +55,9 @@ import { hostname } from "os";
 const CLI_VERSION = "0.1.0";
 
 // PostHog project key - safe to be public, only allows event ingestion
-const POSTHOG_KEY = process.env.AGENTSYNC_POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_KEY || "";
-const POSTHOG_HOST = process.env.AGENTSYNC_POSTHOG_HOST || "https://us.i.posthog.com";
+const POSTHOG_KEY =
+  process.env[`${ENV_PREFIX}_POSTHOG_KEY`] || process.env.NEXT_PUBLIC_POSTHOG_KEY || "";
+const POSTHOG_HOST = process.env[`${ENV_PREFIX}_POSTHOG_HOST`] || "https://us.i.posthog.com";
 
 // Config store for telemetry preferences
 const config = new Conf<{
@@ -64,7 +66,7 @@ const config = new Conf<{
   firstRunShown: boolean;
   machineId: string;
 }>({
-  projectName: "agentsync-cli",
+  projectName: CONF_PROJECT_NAME,
   defaults: {
     telemetryEnabled: true, // Enabled by default, opt out with `agentsync telemetry off`
     diagnosticTelemetryEnabled: false, // Separate opt-in for richer error data
@@ -104,10 +106,8 @@ function getMachineId(): string {
  */
 export function isTelemetryEnabled(): boolean {
   // Environment variable override (highest priority)
-  if (
-    process.env.AGENTSYNC_TELEMETRY_DISABLED === "1" ||
-    process.env.AGENTSYNC_TELEMETRY_DISABLED === "true"
-  ) {
+  const disabledEnv = process.env[`${ENV_PREFIX}_TELEMETRY_DISABLED`];
+  if (disabledEnv === "1" || disabledEnv === "true") {
     return false;
   }
 
@@ -515,7 +515,7 @@ export async function promptAndSendReport(report: DiagnosticReport): Promise<boo
       enableDiagnosticTelemetry();
       await sendDiagnosticReport(report);
       console.error("Report sent. Future errors will be reported automatically.");
-      console.error("Disable anytime: agentsync telemetry diagnostics off");
+      console.error(`Disable anytime: ${CLI_NAME} telemetry diagnostics off`);
       return true;
     } else if (choice === "y" || choice === "yes") {
       await sendDiagnosticReport(report);
@@ -540,11 +540,11 @@ export async function promptAndSendReport(report: DiagnosticReport): Promise<boo
 export function getFirstRunNotice(): string {
   return `
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  AgentSync CLI collects anonymous usage data to help improve the tool.    │
+│  ${PRODUCT_NAME} CLI collects anonymous usage data to help improve the tool.${" ".repeat(Math.max(0, 4 - PRODUCT_NAME.length))}│
 │                                                                           │
 │  Telemetry is enabled by default. To opt out:                             │
-│  • Run 'agentsync telemetry off'                                          │
-│  • Or set AGENTSYNC_TELEMETRY_DISABLED=1                                  │
+│  • Run '${CLI_NAME} telemetry off'${" ".repeat(Math.max(0, 46 - CLI_NAME.length))}│
+│  • Or set ${ENV_PREFIX}_TELEMETRY_DISABLED=1${" ".repeat(Math.max(0, 37 - ENV_PREFIX.length))}│
 │  • Or set DO_NOT_TRACK=1                                                  │
 │  • Learn more: github.com/pax8labs/agentsync/tree/main/packages/cli       │
 └────────────────────────────────────────────────────────────────────────────┘

@@ -20,7 +20,9 @@ import open from "open";
 import chalk from "chalk";
 import { storeSecret } from "./credentials.js";
 
-const KEYTAR_SERVICE = "agentsync-cli";
+import { CONF_PROJECT_NAME } from "@agentsync/core";
+
+const KEYTAR_SERVICE = CONF_PROJECT_NAME;
 
 /**
  * Lazily load keytar (optional dependency — may not be installed if native
