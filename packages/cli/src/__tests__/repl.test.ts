@@ -158,5 +158,59 @@ describe("REPL Module", () => {
       const output = consoleCapture.getAllOutput();
       expect(containsText(output, "Something went wrong")).toBe(true);
     });
+
+    it("should strip a leading agentsync prefix from input", async () => {
+      const actionFn = vi.fn();
+
+      function createProgramWithSpy(): Command {
+        const program = new Command();
+        program.command("test-cmd").action(actionFn);
+        return program;
+      }
+
+      mockQuestion.mockResolvedValueOnce("agentsync test-cmd");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createProgramWithSpy);
+
+      expect(actionFn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should strip a leading AGENTSYNC prefix case-insensitively", async () => {
+      const actionFn = vi.fn();
+
+      function createProgramWithSpy(): Command {
+        const program = new Command();
+        program.command("test-cmd").action(actionFn);
+        return program;
+      }
+
+      mockQuestion.mockResolvedValueOnce("AgentSync test-cmd");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createProgramWithSpy);
+
+      expect(actionFn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should treat bare 'agentsync' input as an empty command", async () => {
+      const actionFn = vi.fn();
+
+      function createProgramWithSpy(): Command {
+        const program = new Command();
+        program.command("test-cmd").action(actionFn);
+        return program;
+      }
+
+      mockQuestion.mockResolvedValueOnce("agentsync");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createProgramWithSpy);
+
+      expect(actionFn).not.toHaveBeenCalled();
+      const output = consoleCapture.getAllOutput();
+      // Should NOT show "Unknown command" — bare prefix is treated as no-op
+      expect(containsText(output, "Unknown command")).toBe(false);
+    });
   });
 });

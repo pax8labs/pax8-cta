@@ -24,6 +24,7 @@ import {
   enableDiagnosticTelemetry,
   disableDiagnosticTelemetry,
 } from "../lib/telemetry.js";
+import { formatCommandExample } from "../lib/spinner.js";
 
 export const telemetryCommand = new Command("telemetry")
   .description("Manage anonymous usage telemetry")
@@ -60,7 +61,9 @@ telemetryCommand
     console.log(chalk.yellow("✓ Telemetry disabled"));
     console.log();
     console.log(chalk.gray("No usage data will be collected."));
-    console.log(chalk.gray("You can re-enable anytime with 'agentsync telemetry on'"));
+    console.log(
+      chalk.gray(`You can re-enable anytime with '${formatCommandExample("telemetry on")}'`)
+    );
   });
 
 const diagnosticsCmd = telemetryCommand
@@ -136,12 +139,16 @@ function showStatus(): void {
   console.log();
 
   if (enabled) {
-    console.log(chalk.gray("To disable: agentsync telemetry off"));
+    console.log(chalk.gray("To disable: " + formatCommandExample("telemetry off")));
     console.log(chalk.gray("  Or set: AGENTSYNC_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1"));
   } else {
-    console.log(chalk.gray("To enable: agentsync telemetry on"));
+    console.log(chalk.gray("To enable: " + formatCommandExample("telemetry on")));
   }
   if (!diagnosticsEnabled) {
-    console.log(chalk.gray("To enable auto error reports: agentsync telemetry diagnostics on"));
+    console.log(
+      chalk.gray(
+        "To enable auto error reports: " + formatCommandExample("telemetry diagnostics on")
+      )
+    );
   }
 }

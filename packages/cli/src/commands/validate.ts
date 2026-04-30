@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import {
   loadConfig,
   TenantConfig,
@@ -68,7 +68,7 @@ Examples:
         name: "Config file",
         status: "fail",
         message: `File not found: ${configPath}`,
-        fix: "Run 'agentsync init' to create a configuration file",
+        fix: `Run '${formatCommandExample("init")}' to create a configuration file`,
       });
       hasErrors = true;
       spinner.fail("Configuration file not found");
@@ -89,7 +89,7 @@ Examples:
         );
         if (!tenant) {
           throw new CliError(
-            `Tenant '${options.tenant}' not found in configuration or not enabled. Run 'agentsync tenants list' to see available tenants.`
+            `Tenant '${options.tenant}' not found in configuration or not enabled. Run '${formatCommandExample("tenants list")}' to see available tenants.`
           );
         }
         enabledTenants = [tenant];
@@ -187,7 +187,7 @@ Examples:
             name: `${tenant.name}`,
             status: "fail",
             message: "App user not found in environment",
-            fix: `Run 'agentsync setup --tenant "${tenant.name}"'`,
+            fix: `Run '${formatCommandExample(`setup --tenant "${tenant.name}"`)}'`,
           });
           hasErrors = true;
           tenantSpinner.fail(chalk.red(`${tenant.name}: App user missing`));
@@ -196,7 +196,7 @@ Examples:
             name: `${tenant.name}`,
             status: "fail",
             message: "App user exists but System Administrator role not assigned",
-            fix: `Run 'agentsync setup --tenant "${tenant.name}"'`,
+            fix: `Run '${formatCommandExample(`setup --tenant "${tenant.name}"`)}'`,
           });
           hasErrors = true;
           tenantSpinner.fail(chalk.red(`${tenant.name}: Missing System Administrator role`));

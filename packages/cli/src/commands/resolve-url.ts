@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import { resolve, join } from "node:path";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
   loadConfig,
@@ -150,7 +150,11 @@ export const resolveUrlCommand = new Command("resolve-url")
       console.log(`  Type:      ${managed ? "Managed" : "Unmanaged"}`);
       console.log(`  Output:    ${chalk.cyan(outputPath)}`);
       console.log();
-      console.log(chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`));
+      console.log(
+        chalk.gray(
+          `Use '${formatCommandExample("deploy <solution> --all")}' to deploy to your tenants`
+        )
+      );
     } catch (error) {
       handleCommandError(error, spinner, "URL resolution failed");
     }

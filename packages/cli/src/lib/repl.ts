@@ -16,7 +16,7 @@
 
 import chalk from "chalk";
 import type { Command } from "commander";
-import { PRODUCT_NAME } from "@agentsync/core";
+import { CLI_NAME, PRODUCT_NAME } from "@agentsync/core";
 import { question, closeInput } from "./input.js";
 import { setReplMode } from "./spinner.js";
 
@@ -49,6 +49,15 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
     try {
       // Parse the input as commander arguments
       const args = parseCommandLine(input);
+
+      // Allow users to paste copy-pasted commands like `agentsync deploy --all`
+      // by stripping a leading bin-name token.
+      if (args.length > 0 && args[0].toLowerCase() === CLI_NAME) {
+        args.shift();
+        if (args.length === 0) {
+          continue;
+        }
+      }
 
       // Create a fresh program instance for this command
       const program = createProgram();

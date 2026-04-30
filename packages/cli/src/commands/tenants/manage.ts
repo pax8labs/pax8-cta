@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../../lib/spinner.js";
 import { DEMO_TENANTS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
@@ -76,7 +76,9 @@ export const enableCommand = new Command("enable")
           // Production mode - would update config file
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
+            chalk.gray(
+              `\nEnable demo mode with '${formatCommandExample("demo on")}' to test this command.`
+            )
           );
         }
       );
@@ -139,13 +141,19 @@ export const disableCommand = new Command("disable")
           }
           console.log();
           console.log(chalk.gray("This tenant will be excluded from future deployments."));
-          console.log(chalk.gray(`Use 'agentsync tenants enable ${tenantQuery}' to re-enable.`));
+          console.log(
+            chalk.gray(
+              `Use '${formatCommandExample(`tenants enable ${tenantQuery}`)}' to re-enable.`
+            )
+          );
         },
         () => {
           // Production mode - would update config file
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
+            chalk.gray(
+              `\nEnable demo mode with '${formatCommandExample("demo on")}' to test this command.`
+            )
           );
         }
       );
@@ -245,7 +253,9 @@ export const tagCommand = new Command("tag")
           // Production mode - would update config file
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
+            chalk.gray(
+              `\nEnable demo mode with '${formatCommandExample("demo on")}' to test this command.`
+            )
           );
         }
       );

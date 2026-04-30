@@ -20,7 +20,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
   type Config,
@@ -83,7 +83,7 @@ Examples:
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
       console.error(chalk.red("Error: solution name or path required."));
-      console.error(chalk.gray("  Example: agentsync deploy TestDeploy --all"));
+      console.error(chalk.gray("  Example: " + formatCommandExample("deploy TestDeploy --all")));
       process.exit(2);
     }
 
@@ -184,7 +184,9 @@ Examples:
           console.log(`  Destinations:  ${destinations.length}`);
           console.log();
           console.log(
-            chalk.gray(`Use 'agentsync track --shipment ${demoShipmentId}' to track progress`)
+            chalk.gray(
+              `Use '${formatCommandExample(`track --shipment ${demoShipmentId}`)}' to track progress`
+            )
           );
           console.log(chalk.yellow("\nNote: In demo mode, no actual deployment occurs"));
           return null;

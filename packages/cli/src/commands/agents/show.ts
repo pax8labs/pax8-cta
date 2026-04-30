@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import { DEMO_SOLUTIONS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
@@ -147,7 +147,9 @@ Examples:
           // Production mode
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
           console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to see sample data.")
+            chalk.gray(
+              `\nEnable demo mode with '${formatCommandExample("demo on")}' to see sample data.`
+            )
           );
         }
       );

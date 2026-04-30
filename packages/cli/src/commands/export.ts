@@ -19,7 +19,7 @@ import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { copyFileSync, mkdirSync, existsSync } from "node:fs";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import { TokenManager, DataverseClient, SolutionOperations } from "@agentsync/core";
 import { withResolvedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
@@ -48,7 +48,7 @@ Examples:
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
       console.error(chalk.red("Error: solution name required."));
-      console.error(chalk.gray("  Example: agentsync export TestDeploy"));
+      console.error(chalk.gray("  Example: " + formatCommandExample("export TestDeploy")));
       process.exit(2);
     }
     const spinner = createSpinner("Loading manifest...").start();
@@ -97,7 +97,9 @@ Examples:
           console.log(`  Package:  ${chalk.cyan(outputPath)}`);
           console.log();
           console.log(
-            chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`)
+            chalk.gray(
+              `Use '${formatCommandExample("deploy <solution> --all")}' to deploy to your tenants`
+            )
           );
         },
         async (config) => {
@@ -153,7 +155,9 @@ Examples:
           console.log(`  Agent package:    ${chalk.cyan(outputPath)}`);
           console.log();
           console.log(
-            chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`)
+            chalk.gray(
+              `Use '${formatCommandExample("deploy <solution> --all")}' to deploy to your tenants`
+            )
           );
         }
       );

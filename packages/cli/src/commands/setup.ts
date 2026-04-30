@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import Table from "cli-table3";
 import {
   loadConfig,
@@ -53,7 +53,7 @@ Examples:
       if (!options.check && !options.all && !options.tenant) {
         spinner.stop();
         throw new UsageError(
-          "Must specify --check, --all, or --tenant <name>. Run 'agentsync setup --help' for usage."
+          `Must specify --check, --all, or --tenant <name>. Run '${formatCommandExample("setup --help")}' for usage.`
         );
       }
 
@@ -73,7 +73,7 @@ Examples:
         if (!tenant) {
           spinner.stop();
           throw new CliError(
-            `Tenant '${options.tenant}' not found in configuration. Run 'agentsync tenants list' to see available tenants.`
+            `Tenant '${options.tenant}' not found in configuration. Run '${formatCommandExample("tenants list")}' to see available tenants.`
           );
         }
         targets = [tenant];
@@ -128,7 +128,7 @@ Examples:
           console.log();
           console.log(
             chalk.yellow(
-              `${needsSetup} environment(s) need setup. Run 'agentsync setup --all' to configure them.`
+              `${needsSetup} environment(s) need setup. Run '${formatCommandExample("setup --all")}' to configure them.`
             )
           );
         }

@@ -27,6 +27,7 @@ import {
   type SolutionHistoryRecord,
 } from "@agentsync/core";
 import { isDemo } from "../../lib/command-wrapper.js";
+import { formatCommandExample } from "../../lib/spinner.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import {
   formatStatus,
@@ -317,7 +318,9 @@ export function outputHistoryTable(
 ): void {
   if (entries.length === 0) {
     console.log(chalk.yellow("No solution history found."));
-    console.log(chalk.gray("Deploy a solution first: agentsync deploy TestDeploy --all"));
+    console.log(
+      chalk.gray("Deploy a solution first: " + formatCommandExample("deploy TestDeploy --all"))
+    );
     return;
   }
 

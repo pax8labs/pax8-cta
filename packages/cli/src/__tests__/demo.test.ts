@@ -319,5 +319,96 @@ describe("Demo Command", () => {
       // Should return true from env var, not false from config
       expect(isDemoModeEnabled()).toBe(true);
     });
+
+    it("should auto-disable when credentials are set and demo mode is not explicit", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({ PARTNER_CLIENT_SECRET: "secret-value" });
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue('{"demoMode": true}');
+
+      const { isDemoModeEnabled } = await import("../commands/demo.js");
+
+      expect(isDemoModeEnabled()).toBe(false);
+
+      // Should warn the user once
+      const output = consoleCapture.getAllOutput();
+      expect(containsText(output, "Demo mode auto-disabled")).toBe(true);
+    });
+
+    it("should NOT auto-disable when credentials are set and demo mode is explicit", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({ PARTNER_CLIENT_SECRET: "secret-value" });
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue('{"demoMode": true, "demoModeExplicit": true}');
+
+      const { isDemoModeEnabled } = await import("../commands/demo.js");
+
+      expect(isDemoModeEnabled()).toBe(true);
+
+      // No auto-disable warning should appear
+      const output = consoleCapture.getAllOutput();
+      expect(containsText(output, "Demo mode auto-disabled")).toBe(false);
+    });
+
+    it("should warn only once per process about auto-disable", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({ PARTNER_CLIENT_SECRET: "secret-value" });
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue('{"demoMode": true}');
+
+      const { isDemoModeEnabled } = await import("../commands/demo.js");
+
+      isDemoModeEnabled();
+      isDemoModeEnabled();
+      isDemoModeEnabled();
+
+      const output = consoleCapture.getAllOutput();
+      const matches = output.match(/Demo mode auto-disabled/g) ?? [];
+      expect(matches.length).toBe(1);
+    });
+  });
+
+  describe("explicit toggle persistence", () => {
+    it('should persist demoModeExplicit:true when running "demo on"', async () => {
+      const { demoCommand } = await import("../commands/demo.js");
+      const program = new Command();
+      program.addCommand(demoCommand);
+
+      await program.parseAsync(["node", "test", "demo", "on"]);
+
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        CONFIG_FILE,
+        expect.stringContaining('"demoModeExplicit": true')
+      );
+    });
+
+    it('should persist demoModeExplicit:true when running "demo off"', async () => {
+      const { demoCommand } = await import("../commands/demo.js");
+      const program = new Command();
+      program.addCommand(demoCommand);
+
+      await program.parseAsync(["node", "test", "demo", "off"]);
+
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        CONFIG_FILE,
+        expect.stringContaining('"demoModeExplicit": true')
+      );
+    });
+
+    it('should persist demoModeExplicit:true when toggling via bare "demo"', async () => {
+      const { demoCommand } = await import("../commands/demo.js");
+      const program = new Command();
+      program.addCommand(demoCommand);
+
+      await program.parseAsync(["node", "test", "demo"]);
+
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        CONFIG_FILE,
+        expect.stringContaining('"demoModeExplicit": true')
+      );
+    });
   });
 });

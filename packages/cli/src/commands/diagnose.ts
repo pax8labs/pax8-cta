@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import {
   loadConfig,
   TenantConfig,
@@ -67,7 +67,9 @@ Examples:
     const configPath = resolve(process.cwd(), options.config);
     if (!existsSync(configPath)) {
       console.log(chalk.red("✗ Config file not found: " + configPath));
-      console.log(chalk.gray("  Run 'agentsync init' to create a configuration file"));
+      console.log(
+        chalk.gray(`  Run '${formatCommandExample("init")}' to create a configuration file`)
+      );
       process.exit(1);
     }
 
@@ -292,7 +294,7 @@ Examples:
             name: "App user & permissions",
             status: "fail",
             message: "App user not registered in environment",
-            detail: `Run 'agentsync setup --tenant "${tenant.name}"' to create it`,
+            detail: `Run '${formatCommandExample(`setup --tenant "${tenant.name}"`)}' to create it`,
             durationMs: Date.now() - permStart,
           });
           permSpinner.fail("Step 5/5: App user missing");
@@ -301,7 +303,7 @@ Examples:
             name: "App user & permissions",
             status: "fail",
             message: "App user exists but missing System Administrator role",
-            detail: `Run 'agentsync setup --tenant "${tenant.name}"' to fix`,
+            detail: `Run '${formatCommandExample(`setup --tenant "${tenant.name}"`)}' to fix`,
             durationMs: Date.now() - permStart,
           });
           permSpinner.fail("Step 5/5: Missing System Administrator role");
@@ -379,7 +381,7 @@ Examples:
       console.log(
         chalk.yellow(
           "Fix the first failing step and re-run: " +
-            chalk.bold(`agentsync diagnose "${tenant.name}"`)
+            chalk.bold(formatCommandExample(`diagnose "${tenant.name}"`))
         )
       );
 

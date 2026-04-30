@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../../lib/spinner.js";
 import { generateMockDeploymentHistory } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import {
@@ -73,7 +73,11 @@ Examples:
 
           if (!entry) {
             spinner.fail(chalk.yellow(`History entry '${id}' not found`));
-            console.log(chalk.gray("\nUse 'agentsync deployments list' to see available entries."));
+            console.log(
+              chalk.gray(
+                `\nUse '${formatCommandExample("deployments list")}' to see available entries.`
+              )
+            );
             process.exit(1);
           }
 

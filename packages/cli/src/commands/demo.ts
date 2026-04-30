@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { DEMO_TENANTS, CONFIG_DIR_NAME, type TenantConfig } from "@agentsync/core";
+import { formatCommandExample } from "../lib/spinner.js";
 
 const CONFIG_DIR = join(homedir(), CONFIG_DIR_NAME);
 const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
@@ -90,6 +91,10 @@ interface DemoStep {
 
 interface CliConfig {
   demoMode?: boolean;
+  // True when the user explicitly toggled demo mode (via `demo on/off/toggle`).
+  // When true, isDemoModeEnabled() will not auto-disable demo mode just because
+  // PARTNER_CLIENT_SECRET happens to be set — the user's intent wins.
+  demoModeExplicit?: boolean;
 }
 
 function loadCliConfig(): CliConfig {
@@ -121,6 +126,7 @@ export const demoCommand = new Command("demo")
       // Toggle mode
       const newMode = !currentMode;
       config.demoMode = newMode;
+      config.demoModeExplicit = true;
       saveCliConfig(config);
 
       if (newMode) {
@@ -129,19 +135,21 @@ export const demoCommand = new Command("demo")
         console.log(chalk.gray("  You can now use all commands without credentials."));
         console.log(chalk.gray("  Mock data will be used for demonstrations."));
         console.log();
-        console.log(chalk.cyan("  Try:"), "agentsync tenants list");
+        console.log(chalk.cyan("  Try:"), formatCommandExample("tenants list"));
       } else {
         console.log(chalk.yellow("✓ Demo mode disabled"));
         console.log();
         console.log(chalk.gray("  Real credentials required for operations."));
-        console.log(chalk.gray("  Configure with: agentsync init"));
+        console.log(chalk.gray("  Configure with: " + formatCommandExample("init")));
       }
     } else if (action === "on" || action === "enable") {
       config.demoMode = true;
+      config.demoModeExplicit = true;
       saveCliConfig(config);
       console.log(chalk.green("✓ Demo mode enabled"));
     } else if (action === "off" || action === "disable") {
       config.demoMode = false;
+      config.demoModeExplicit = true;
       saveCliConfig(config);
       console.log(chalk.yellow("✓ Demo mode disabled"));
     } else if (action === "status") {
@@ -178,11 +186,15 @@ export const demoCommand = new Command("demo")
       // Show how to change
       if (effectiveMode) {
         console.log(chalk.bold("  To disable:"));
-        console.log(chalk.gray("    agentsync demo off          # Update config file"));
+        console.log(
+          chalk.gray("    " + formatCommandExample("demo off").padEnd(28) + "# Update config file")
+        );
         console.log(chalk.gray("    DEMO_MODE=false agentsync   # Override for one command"));
       } else {
         console.log(chalk.bold("  To enable:"));
-        console.log(chalk.gray("    agentsync demo on           # Update config file"));
+        console.log(
+          chalk.gray("    " + formatCommandExample("demo on").padEnd(28) + "# Update config file")
+        );
         console.log(chalk.gray("    DEMO_MODE=true agentsync    # Override for one command"));
       }
     } else {
@@ -191,6 +203,10 @@ export const demoCommand = new Command("demo")
       process.exit(1);
     }
   });
+
+// Tracks whether we've already warned about an auto-disable in this process so
+// we don't spam the user across multiple command invocations within one REPL session.
+let warnedAutoDisable = false;
 
 // Export helper to check if demo mode is enabled
 export function isDemoModeEnabled(): boolean {
@@ -204,15 +220,30 @@ export function isDemoModeEnabled(): boolean {
     return false;
   }
 
-  // If real credentials are available, auto-disable demo mode
-  // regardless of stored config (prevents stale demoMode: true trap)
-  if (process.env.PARTNER_CLIENT_SECRET || process.env.AGENTSYNC_CLIENT_SECRET) {
+  const config = loadCliConfig();
+  const stored = config.demoMode ?? false;
+  const explicit = config.demoModeExplicit ?? false;
+  const hasCredential = !!(
+    process.env.PARTNER_CLIENT_SECRET || process.env.AGENTSYNC_CLIENT_SECRET
+  );
+
+  // If credentials are present and the user did not explicitly opt into demo mode,
+  // auto-disable. This prevents a stale demoMode:true config from silently masking
+  // real auth attempts. When the user has explicitly run `demo on`, their intent wins.
+  if (hasCredential && stored && !explicit) {
+    if (!warnedAutoDisable) {
+      warnedAutoDisable = true;
+      console.error(
+        chalk.yellow(
+          "Demo mode auto-disabled because PARTNER_CLIENT_SECRET is set. " +
+            `Run \`${formatCommandExample("demo on")}\` to keep demo mode on, or set DEMO_MODE=true to override.`
+        )
+      );
+    }
     return false;
   }
 
-  // Fall back to stored config
-  const config = loadCliConfig();
-  return config.demoMode ?? false;
+  return stored;
 }
 
 /**
@@ -317,7 +348,11 @@ demoCommand
       console.log();
       console.log(chalk.green.bold("  ✓ Demo complete!"));
       console.log();
-      console.log(chalk.gray("  Demo mode is still enabled. Disable with: agentsync demo off"));
+      console.log(
+        chalk.gray(
+          "  Demo mode is still enabled. Disable with: " + formatCommandExample("demo off")
+        )
+      );
       console.log();
     } finally {
       process.removeListener("SIGINT", exitHandler);

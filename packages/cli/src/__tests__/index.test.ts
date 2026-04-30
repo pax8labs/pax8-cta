@@ -102,8 +102,8 @@ describe("CLI Entry Point", () => {
 
       const program = createProgram();
 
-      // Should have 14 commands registered
-      expect(program.commands.length).toBe(14);
+      // Should have 15 commands registered
+      expect(program.commands.length).toBe(15);
     });
 
     it("should have version set", async () => {

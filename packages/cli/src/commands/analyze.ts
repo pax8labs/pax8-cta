@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { riskAnalyzer, type RiskAnalysis, type DeploymentContext } from "@agentsync/core";
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
@@ -65,7 +65,7 @@ Examples:
 
     if (!options.solution) {
       spinner.fail(chalk.red("Solution name or path required."));
-      console.error(chalk.gray("  Example: agentsync analyze TestDeploy"));
+      console.error(chalk.gray("  Example: " + formatCommandExample("analyze TestDeploy")));
       process.exit(2);
     }
 
@@ -324,9 +324,13 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
 
   // Next steps
   if (analysis.canProceed) {
-    console.log(chalk.gray("Next step: agentsync deploy <solution> --all"));
+    console.log(chalk.gray("Next step: " + formatCommandExample("deploy <solution> --all")));
   } else {
-    console.log(chalk.gray("Fix the blockers listed above, then run 'agentsync analyze' again"));
+    console.log(
+      chalk.gray(
+        `Fix the blockers listed above, then run '${formatCommandExample("analyze")}' again`
+      )
+    );
   }
   console.log();
 }

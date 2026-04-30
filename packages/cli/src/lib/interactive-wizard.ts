@@ -19,6 +19,7 @@ import chalk from "chalk";
 import ora, { Ora } from "ora";
 import { interactiveLogin, storeCredentials } from "./auth.js";
 import { GraphClient } from "./graph-client.js";
+import { formatCommandExample } from "./spinner.js";
 import {
   TenantDiscoveryService,
   TokenManager,
@@ -577,7 +578,7 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
 
     if (!ctx.clientSecret) {
       console.log(chalk.white(`${stepNumber}. Store your client secret securely:`));
-      console.log(chalk.gray(`   agentsync auth login`));
+      console.log(chalk.gray(`   ${formatCommandExample("auth login")}`));
       console.log(
         chalk.gray(
           `   (or set environment variable: export AGENTSYNC_CLIENT_SECRET="your-secret")\n`
@@ -603,11 +604,11 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
     }
 
     console.log(chalk.white(`${stepNumber}. Test your setup:`));
-    console.log(chalk.gray("   agentsync tenants list\n"));
+    console.log(chalk.gray(`   ${formatCommandExample("tenants list")}\n`));
 
     if (selectedEnvironments.length > 0 || selectedTenants.length > 0) {
       console.log(chalk.white("You can now deploy agents with:"));
-      console.log(chalk.gray("   agentsync deploy <agent-name>\n"));
+      console.log(chalk.gray(`   ${formatCommandExample("deploy <agent-name>")}\n`));
     }
 
     console.log(chalk.dim("Need help? Visit: https://github.com/pax8labs/agentsync\n"));

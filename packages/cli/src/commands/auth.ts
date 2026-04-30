@@ -19,6 +19,7 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import { storeSecret, deleteSecret, getStoredSecret } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
+import { formatCommandExample } from "../lib/spinner.js";
 
 export const authCommand = new Command("auth")
   .description("Store or remove your client secret in the OS keychain")
@@ -78,8 +79,14 @@ authCommand
       console.log(chalk.gray("used automatically by AgentSync commands."));
       console.log();
       console.log(chalk.cyan("Next steps:"));
-      console.log(chalk.white("  agentsync auth status  ") + chalk.dim("# Verify credentials"));
-      console.log(chalk.white("  agentsync tenants list ") + chalk.dim("# Test authentication"));
+      console.log(
+        chalk.white("  " + formatCommandExample("auth status").padEnd(23)) +
+          chalk.dim("# Verify credentials")
+      );
+      console.log(
+        chalk.white("  " + formatCommandExample("tenants list").padEnd(23)) +
+          chalk.dim("# Test authentication")
+      );
       console.log();
     } catch (error) {
       handleCommandError(error, null, "Failed to store secret");
@@ -99,7 +106,7 @@ authCommand
       if (!existingSecret) {
         console.log(chalk.yellow("No credentials found in keychain."));
         console.log();
-        console.log(chalk.gray("To store credentials, use: agentsync auth login"));
+        console.log(chalk.gray("To store credentials, use: " + formatCommandExample("auth login")));
         return;
       }
 
@@ -171,7 +178,7 @@ authCommand
         console.log(chalk.gray("You can authenticate using either method:"));
         console.log();
         console.log(chalk.cyan("Option 1: OS Keychain (Recommended)"));
-        console.log(chalk.white("  agentsync auth login"));
+        console.log(chalk.white("  " + formatCommandExample("auth login")));
         console.log();
         console.log(chalk.cyan("Option 2: Environment Variable"));
         console.log(chalk.white('  export PARTNER_CLIENT_SECRET="your-secret"'));

@@ -15,6 +15,7 @@
  */
 
 import chalk from "chalk";
+import { formatCommandExample } from "./spinner.js";
 import {
   AgentSyncError as CoreError,
   AuthError,
@@ -34,12 +35,14 @@ const LEGACY_QUEUE_ERROR_CAUSES = [
   "The CLI now deploys directly and does not use a queue",
   "An outdated command or environment variable is still pointing at Redis",
 ];
-const LEGACY_QUEUE_ERROR_RECOVERY = [
-  "Remove any legacy queue-related flags or configuration",
-  "Use the direct deployment flow instead:",
-  "  agentsync deploy --direct --all --solution ./agent.zip",
-  "If this is coming from older automation, update it to call the direct CLI",
-];
+function legacyQueueErrorRecovery(): string[] {
+  return [
+    "Remove any legacy queue-related flags or configuration",
+    "Use the direct deployment flow instead:",
+    `  ${formatCommandExample("deploy --direct --all --solution ./agent.zip")}`,
+    "If this is coming from older automation, update it to call the direct CLI",
+  ];
+}
 
 /**
  * Structured CLI error with recovery guidance.
@@ -196,7 +199,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
           ? `Verify the solution name '${ctx.solutionName}' is correct`
           : "Verify the solution name is correct and matches exactly (case-sensitive)",
         "List available solutions in the source environment:",
-        "  agentsync agents list",
+        `  ${formatCommandExample("agents list")}`,
         "Check that you're connected to the correct source environment",
         "Ensure the solution is published and visible in the source environment",
         "Retry with the correct solution name",
@@ -218,7 +221,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
       [
         "Verify the agent URL is correct and the agent is published",
         "List available agents in the source environment:",
-        "  agentsync agents list",
+        `  ${formatCommandExample("agents list")}`,
         "Try using the solution name directly instead of the agent URL",
       ],
       ctx
@@ -282,9 +285,9 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
         "Check if the configuration file exists:",
         "  ls -la ./config/tenants.yaml",
         "If the config file doesn't exist, initialize a new configuration:",
-        "  agentsync init",
+        `  ${formatCommandExample("init")}`,
         "Specify a custom config path with --config flag if needed:",
-        "  agentsync deploy --config /path/to/config.yaml ...",
+        `  ${formatCommandExample("deploy --config /path/to/config.yaml ...")}`,
       ],
       ctx
     );
@@ -296,7 +299,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
       "ERROR_QUEUE_CONNECTION",
       LEGACY_QUEUE_ERROR_MESSAGE,
       LEGACY_QUEUE_ERROR_CAUSES,
-      LEGACY_QUEUE_ERROR_RECOVERY,
+      legacyQueueErrorRecovery(),
       ctx
     );
   }
@@ -446,7 +449,7 @@ function formatByRegex(error: unknown): AgentSyncError {
           ? `Verify the solution name '${context.solutionName}' is correct`
           : "Verify the solution name is correct and matches exactly (case-sensitive)",
         "List available solutions in the source environment:",
-        "  agentsync solutions list",
+        `  ${formatCommandExample("solutions list")}`,
         "Check that you're connected to the correct source environment",
         "Ensure the solution is published and visible in the source environment",
         "Retry with the correct solution name",
@@ -510,9 +513,9 @@ function formatByRegex(error: unknown): AgentSyncError {
         "Check if the configuration file exists:",
         "  ls -la ./config/tenants.yaml",
         "If the config file doesn't exist, initialize a new configuration:",
-        "  agentsync init",
+        `  ${formatCommandExample("init")}`,
         "Specify a custom config path with --config flag if needed:",
-        "  agentsync deploy --config /path/to/config.yaml ...",
+        `  ${formatCommandExample("deploy --config /path/to/config.yaml ...")}`,
       ],
       context
     );
@@ -528,7 +531,7 @@ function formatByRegex(error: unknown): AgentSyncError {
       "ERROR_QUEUE_CONNECTION",
       LEGACY_QUEUE_ERROR_MESSAGE,
       LEGACY_QUEUE_ERROR_CAUSES,
-      LEGACY_QUEUE_ERROR_RECOVERY,
+      legacyQueueErrorRecovery(),
       context
     );
   }

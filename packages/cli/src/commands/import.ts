@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve, join } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, formatCommandExample } from "../lib/spinner.js";
 import {
   loadConfig,
   findTenant,
@@ -61,7 +61,7 @@ Examples:
       const destination = findTenant(config, destinationId);
       if (!destination) {
         throw new CliError(
-          `Destination '${destinationId}' not found in manifest. Run 'agentsync tenants list' to see available tenants.`
+          `Destination '${destinationId}' not found in manifest. Run '${formatCommandExample("tenants list")}' to see available tenants.`
         );
       }
       spinner.succeed(`Manifest loaded - Destination: ${destination.name}`);
@@ -153,6 +153,6 @@ function resolveAgentPackage(input: string): string {
   }
 
   throw new CliError(
-    `Solution '${input}' not found.\nNo matching zips in 'agent packages/'.\nTip: Export first with 'agentsync export ${input}', then retry.`
+    `Solution '${input}' not found.\nNo matching zips in 'agent packages/'.\nTip: Export first with '${formatCommandExample(`export ${input}`)}', then retry.`
   );
 }

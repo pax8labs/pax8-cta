@@ -16,6 +16,14 @@ export function setReplMode(enabled: boolean): void {
   replMode = enabled;
 }
 
+export function isReplMode(): boolean {
+  return replMode;
+}
+
+export function formatCommandExample(suffix: string): string {
+  return replMode ? suffix : `agentsync ${suffix}`;
+}
+
 export interface Spinner {
   text: string;
   start(text?: string): Spinner;
