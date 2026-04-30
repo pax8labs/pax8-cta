@@ -22,10 +22,6 @@ agentsync import ./Solution.zip -t <tenant>     # Import zip to one tenant
 agentsync deployments list                      # List recent deployments
 agentsync deployments list -s failed --since 7d # Failed deployments last 7 days
 agentsync deployments show <id>                 # Deployment details
-agentsync deployments watch <id>                # Watch progress live
-agentsync deployments retry <id>                # Retry failed tenants
-agentsync deployments cancel <id>               # Cancel in-progress
-agentsync deployments rollback <id>             # Rollback to previous version
 
 agentsync tenants list                          # List all tenants
 agentsync tenants inspect                       # Validate connectivity & permissions
@@ -51,7 +47,6 @@ agentsync demo on|off|status                    # Toggle demo mode (no credentia
 - "why did it fail" → `agentsync deployments show <id>` then explain the error
 - "is tenant X healthy" → `agentsync tenants health <X>`
 - "what versions are running" → `agentsync solutions drift`
-- "retry the failed deployment" → `agentsync deployments retry <id>`
 
 ## Common errors and what they mean
 

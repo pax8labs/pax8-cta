@@ -131,8 +131,7 @@ Run `agentsync` with no arguments to enter interactive REPL mode, or use command
 | `agentsync validate`    | Verify GDAP access and connectivity for all tenants  |
 | `agentsync analyze`     | Analyze a solution package before deployment         |
 | `agentsync tenants`     | List, inspect, and manage customer tenants           |
-| `agentsync solutions`   | List solutions in the source environment             |
-| `agentsync agents`      | List agents and analyze drift across tenants         |
+| `agentsync solutions`   | List, inspect, and compare solutions across tenants  |
 | `agentsync deployments` | View deployment history and status                   |
 | `agentsync auth`        | Test authentication and token acquisition            |
 | `agentsync setup`       | Configure credentials interactively                  |
@@ -214,25 +213,20 @@ agentsync tenants health <tenant-id>
 
 ### Solutions
 
-List solutions available in the source environment.
+List, inspect, and compare solutions across environments.
 
 ```bash
+# List solutions in the source environment
 agentsync solutions list
-```
 
-### Agents
+# Show solution details and where it's deployed
+agentsync solutions show <name>
 
-View deployed agents and analyze drift across tenants.
+# Find version drift across tenants
+agentsync solutions drift
 
-```bash
-# List agents
-agentsync agents list
-
-# Show agent details
-agentsync agents show <agent-id>
-
-# Analyze agent drift across tenants
-agentsync agents drift
+# Remove a solution from a tenant
+agentsync solutions remove <name> --tenant <tenant-id>
 ```
 
 ### JSON Output
