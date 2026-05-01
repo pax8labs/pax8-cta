@@ -16,6 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AgentSyncError, formatError, printError } from "../lib/error-handler.js";
+import { handleCommandError, isJsonOutputMode, CliError, UsageError } from "../lib/errors.js";
 import {
   AuthError,
   GdapError,
@@ -345,6 +346,223 @@ describe("Error Handler", () => {
       const calls = consoleErrorSpy.mock.calls.flat();
       const output = calls.join(" ");
       expect(output).not.toContain("Context:");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // isJsonOutputMode
+  // ---------------------------------------------------------------------------
+
+  describe("isJsonOutputMode", () => {
+    const originalArgv = process.argv;
+    const originalIsTTY = process.stdout.isTTY;
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: originalIsTTY,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it("returns true when --json is in argv", () => {
+      process.argv = ["node", "agentsync", "tenants", "list", "--json"];
+      expect(isJsonOutputMode()).toBe(true);
+    });
+
+    it("returns true when stdout is not a TTY (piped)", () => {
+      process.argv = ["node", "agentsync", "tenants", "list"];
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: false,
+        writable: true,
+        configurable: true,
+      });
+      expect(isJsonOutputMode()).toBe(true);
+    });
+
+    it("returns false when no --json and stdout is a TTY", () => {
+      process.argv = ["node", "agentsync", "tenants", "list"];
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+      expect(isJsonOutputMode()).toBe(false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // handleCommandError — JSON mode output shape
+  // ---------------------------------------------------------------------------
+
+  describe("handleCommandError JSON mode", () => {
+    let stderrChunks: string[];
+    let originalWrite: typeof process.stderr.write;
+    let exitSpy: ReturnType<typeof vi.spyOn>;
+    let originalArgv: string[];
+    let originalIsTTY: boolean | undefined;
+
+    beforeEach(() => {
+      originalArgv = process.argv;
+      originalIsTTY = process.stdout.isTTY;
+
+      // Force JSON mode via --json argv
+      process.argv = ["node", "agentsync", "tenants", "list", "--json"];
+
+      stderrChunks = [];
+      originalWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = vi.fn((chunk: any) => {
+        stderrChunks.push(typeof chunk === "string" ? chunk : chunk.toString());
+        return true;
+      }) as any;
+
+      exitSpy = vi.spyOn(process, "exit").mockImplementation((_code?: any) => {
+        throw new Error("process.exit called");
+      }) as any;
+    });
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: originalIsTTY,
+        writable: true,
+        configurable: true,
+      });
+      process.stderr.write = originalWrite;
+      exitSpy.mockRestore();
+    });
+
+    function capturedJson(): unknown {
+      const raw = stderrChunks.join("");
+      return JSON.parse(raw.trim());
+    }
+
+    it("emits JSON with code/message/causes/recovery for a ConfigValidationError", () => {
+      const coreErr = new ConfigValidationError(
+        ErrorCode.CONFIG_NOT_FOUND,
+        "tenants.yaml not found"
+      );
+
+      expect(() => handleCommandError(coreErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload).toHaveProperty("error");
+      expect(payload.error.code).toBe("ERROR_CONFIG_NOT_FOUND");
+      expect(typeof payload.error.message).toBe("string");
+      expect(Array.isArray(payload.error.causes)).toBe(true);
+      expect(payload.error.causes.length).toBeGreaterThan(0);
+      expect(Array.isArray(payload.error.recovery)).toBe(true);
+      expect(payload.error.recovery.length).toBeGreaterThan(0);
+      // No stack traces — stack frames look like "    at Object.<anonymous> (file:..."
+      expect(JSON.stringify(payload)).not.toMatch(/at Object\.|at new |at async /);
+    });
+
+    it("emits JSON for a GdapError", () => {
+      const coreErr = new GdapError(ErrorCode.GDAP_MISSING, "GDAP inactive", {
+        tenantName: "Contoso",
+        clientId: "abc-123",
+      });
+
+      expect(() => handleCommandError(coreErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload.error.code).toBe("ERROR_GDAP_MISSING");
+      expect(payload.error.causes).toBeDefined();
+      expect(payload.error.recovery).toBeDefined();
+    });
+
+    it("emits JSON for an AuthError", () => {
+      const coreErr = new AuthError(ErrorCode.AUTH_TOKEN_EXPIRED, "Token expired");
+
+      expect(() => handleCommandError(coreErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload.error.code).toBe("ERROR_AUTH_FAILED");
+    });
+
+    it("emits JSON for a NetworkError", () => {
+      const coreErr = new NetworkError(ErrorCode.NETWORK_TIMEOUT, "Timed out", {
+        environmentUrl: "https://contoso.crm.dynamics.com",
+      });
+
+      expect(() => handleCommandError(coreErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload.error.code).toBe("ERROR_NETWORK");
+      expect(payload.error.context?.environmentUrl).toBe("https://contoso.crm.dynamics.com");
+    });
+
+    it("emits JSON for a SolutionError with context", () => {
+      const coreErr = new SolutionError(ErrorCode.SOLUTION_NOT_FOUND, "Solution missing", {
+        solutionName: "MyCopilot",
+      });
+
+      expect(() => handleCommandError(coreErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload.error.code).toBe("ERROR_SOLUTION_NOT_FOUND");
+      expect(payload.error.context?.solutionName).toBe("MyCopilot");
+    });
+
+    it("emits JSON for a plain Error (fallback shape)", () => {
+      const err = new Error("Something went wrong unexpectedly");
+
+      expect(() => handleCommandError(err)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload).toHaveProperty("error");
+      // plain Error falls through to formatError which sets code + message
+      expect(typeof payload.error.message).toBe("string");
+      // Must not include stack traces — stack frames look like "    at Object.<anonymous> (file:..."
+      expect(JSON.stringify(payload)).not.toMatch(/at Object\.|at new |at async /);
+    });
+
+    it("emits JSON for a ZodError (duck-typed)", () => {
+      // Construct a ZodError-shaped object without importing zod directly,
+      // since zod is not a direct CLI dependency.
+      const zodLikeErr = Object.assign(new Error("Validation failed"), {
+        name: "ZodError",
+        errors: [
+          { path: ["tenantId"], message: "Required" },
+          { path: ["environmentUrl"], message: "Invalid url" },
+        ],
+      });
+
+      expect(() => handleCommandError(zodLikeErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload.error.code).toBe("ERROR_VALIDATION");
+      expect(Array.isArray(payload.error.causes)).toBe(true);
+      expect(payload.error.causes).toContain("tenantId: Required");
+    });
+
+    it("emits JSON for a CliError and exits with its exitCode", () => {
+      const cliErr = new CliError("Config path is wrong", 1);
+
+      expect(() => handleCommandError(cliErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload).toHaveProperty("error");
+      expect(typeof payload.error.message).toBe("string");
+      expect(exitSpy).toHaveBeenCalledWith(1);
+    });
+
+    it("emits JSON for a UsageError and exits with code 2", () => {
+      const usageErr = new UsageError("Missing required --solution flag");
+
+      expect(() => handleCommandError(usageErr)).toThrow("process.exit called");
+
+      const payload = capturedJson() as any;
+      expect(payload).toHaveProperty("error");
+      expect(exitSpy).toHaveBeenCalledWith(2);
+    });
+
+    it("emits valid JSON (parseable without error)", () => {
+      const err = new Error("any error");
+      expect(() => handleCommandError(err)).toThrow("process.exit called");
+
+      expect(() => capturedJson()).not.toThrow();
     });
   });
 });
