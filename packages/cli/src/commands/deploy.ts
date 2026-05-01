@@ -42,6 +42,7 @@ import {
 import { withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
+import { isPirateMode, pirate, pirateSuccessQuip, pirateFailureQuip } from "../lib/theme.js";
 
 export const deployCommand = new Command("deploy")
   .description("Export a solution from source and import it to target tenants")
@@ -530,11 +531,16 @@ Examples:
       }
 
       console.log();
-      console.log(chalk.bold("Deployment Summary:"));
-      console.log(`  Total:     ${destinations.length}`);
-      console.log(`  ${chalk.green("Success:")}  ${successCount}`);
+      console.log(chalk.bold(pirate("Deployment Summary:")));
+      console.log(`  ${pirate("Total:")}     ${destinations.length}`);
+      console.log(`  ${chalk.green(pirate("Success:"))}  ${successCount}`);
       if (failCount > 0) {
-        console.log(`  ${chalk.red("Failed:")}   ${failCount}`);
+        console.log(`  ${chalk.red(pirate("Failed:"))}   ${failCount}`);
+      }
+
+      if (isPirateMode()) {
+        console.log();
+        console.log(chalk.yellow(`  ${failCount > 0 ? pirateFailureQuip() : pirateSuccessQuip()}`));
       }
 
       if (failCount > 0) {

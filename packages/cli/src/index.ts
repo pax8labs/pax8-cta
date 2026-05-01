@@ -70,6 +70,7 @@ import { validateCommand } from "./commands/validate.js";
 import { statusCommand } from "./commands/status.js";
 import { diagnoseCommand } from "./commands/diagnose.js";
 import { showBanner, showWelcome } from "./lib/banner.js";
+import { isPirateMode, setPirateMode, showPirateBanner, showPirateWelcome } from "./lib/theme.js";
 import { startRepl } from "./lib/repl.js";
 import {
   isTelemetryEnabled,
@@ -132,10 +133,27 @@ const hasCommand = args.some((arg) => knownCommands.includes(arg));
 const isTopLevelHelp = (args.includes("--help") || args.includes("-h")) && !hasCommand;
 const shouldShowBanner = args.length === 0 || isTopLevelHelp;
 
+// Easter egg: PIRATE_MODE=true swaps banner, spinner messages, and farewell
+// to pirate-speak. Toggle at runtime in the REPL with `pirate` or `yarr`.
+if (
+  process.env.PIRATE_MODE === "true" ||
+  process.env.PIRATE_MODE === "1" ||
+  process.env.PIRATE_MODE === "yarr"
+) {
+  setPirateMode(true);
+}
+
 if (shouldShowBanner) {
-  showBanner(VERSION);
-  if (args.length === 0) {
-    showWelcome();
+  if (isPirateMode()) {
+    showPirateBanner(VERSION);
+    if (args.length === 0) {
+      showPirateWelcome();
+    }
+  } else {
+    showBanner(VERSION);
+    if (args.length === 0) {
+      showWelcome();
+    }
   }
 }
 

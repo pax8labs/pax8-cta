@@ -19,6 +19,7 @@ import type { Command } from "commander";
 import { CLI_NAME, PRODUCT_NAME } from "@agentsync/core";
 import { question, closeInput } from "./input.js";
 import { setReplMode } from "./spinner.js";
+import { isPirateMode, pirateFarewell, setPirateMode, showPirateCompactBanner } from "./theme.js";
 
 class ReplExitIntercepted extends Error {
   constructor(public code: number) {
@@ -41,9 +42,25 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
     }
 
     if (input === "exit" || input === "quit") {
-      console.log(chalk.gray("Goodbye!"));
+      console.log(chalk.gray(isPirateMode() ? pirateFarewell() : "Goodbye!"));
       closeInput();
       break;
+    }
+
+    // Hidden easter egg: toggle pirate mode at runtime
+    const lowered = input.toLowerCase();
+    if (lowered === "yarr" || lowered === "pirate" || lowered === "pirate on") {
+      setPirateMode(true);
+      showPirateCompactBanner();
+      console.log(chalk.yellow("  Pirate mode engaged. Yarr! 🏴‍☠️"));
+      console.log();
+      continue;
+    }
+    if (lowered === "pirate off" || lowered === "landlubber") {
+      setPirateMode(false);
+      console.log(chalk.gray("  Pirate mode disengaged. Back to landlubber speak."));
+      console.log();
+      continue;
     }
 
     try {
