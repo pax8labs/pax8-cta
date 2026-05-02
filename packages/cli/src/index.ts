@@ -52,6 +52,13 @@ if (existsSync(envPath)) {
   }
 }
 
+// Detect TTY early so subcommands can read getDefaultFormat() consistently.
+// Unit tests run in non-TTY vitest workers but should still default to "table";
+// only set this when actually invoked as a CLI binary subprocess.
+if (!process.env.AGENTSYNC_DEFAULT_FORMAT) {
+  process.env.AGENTSYNC_DEFAULT_FORMAT = process.stdout.isTTY ? "table" : "json";
+}
+
 import { Command } from "commander";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
@@ -91,6 +98,8 @@ export function createProgram(): Command {
     .description("AgentSync - Deploy and manage Power Platform agents across tenants")
     .version(VERSION)
     .option("--verbose", "Enable verbose output for debugging")
+    .option("--json", "Output as JSON (default when stdout is not a TTY)")
+    .option("--quiet", "Suppress all output (exit code only)")
     .hook("preAction", (thisCommand) => {
       if (thisCommand.opts().verbose) {
         process.env.LOG_LEVEL = "debug";

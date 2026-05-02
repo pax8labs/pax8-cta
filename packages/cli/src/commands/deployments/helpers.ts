@@ -35,6 +35,7 @@ import {
   truncate,
   truncateId,
 } from "../../lib/formatters.js";
+import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
 
 // ============================================================================
 // Unified history record (works for both real and demo data)
@@ -309,6 +310,35 @@ export function outputHistoryJson(
   );
 }
 
+interface HistoryRow {
+  solutionName: string;
+  solutionVersion: string;
+  operation: string;
+  status: string;
+  duration: string;
+  environment: string;
+  startTime: string;
+}
+
+const HISTORY_COLUMNS: Column<HistoryRow>[] = [
+  { key: "solutionName", header: "Solution" },
+  { key: "solutionVersion", header: "Version" },
+  { key: "operation", header: "Operation" },
+  {
+    key: "status",
+    header: "Status",
+    format: (v) =>
+      v === "completed"
+        ? chalk.green("Success")
+        : v === "failed"
+          ? chalk.red("Failed")
+          : chalk.yellow("In Progress"),
+  },
+  { key: "duration", header: "Duration" },
+  { key: "environment", header: "Environment" },
+  { key: "startTime", header: "When" },
+];
+
 export function outputHistoryTable(
   entries: HistoryEntry[],
   total: number,
@@ -321,33 +351,17 @@ export function outputHistoryTable(
     return;
   }
 
-  const table = new Table({
-    head: ["Solution", "Version", "Operation", "Status", "Duration", "Environment", "When"],
-    style: { head: ["cyan"] },
-  });
+  const rows: HistoryRow[] = entries.map((e) => ({
+    solutionName: truncate(e.solutionName, 25),
+    solutionVersion: e.solutionVersion,
+    operation: e.operation,
+    status: e.status,
+    duration: e.durationSeconds != null ? formatDuration(e.durationSeconds * 1000) : "-",
+    environment: truncate(e.environment, 20),
+    startTime: formatTimeAgo(e.startTime),
+  }));
 
-  entries.forEach((e) => {
-    const statusStr =
-      e.status === "completed"
-        ? chalk.green("Success")
-        : e.status === "failed"
-          ? chalk.red("Failed")
-          : chalk.yellow("In Progress");
-
-    const duration = e.durationSeconds != null ? formatDuration(e.durationSeconds * 1000) : "-";
-
-    table.push([
-      truncate(e.solutionName, 25),
-      e.solutionVersion,
-      e.operation,
-      statusStr,
-      duration,
-      truncate(e.environment, 20),
-      formatTimeAgo(e.startTime),
-    ]);
-  });
-
-  console.log(table.toString());
+  output(rows, { format: "table", columns: HISTORY_COLUMNS });
   console.log();
 
   const showing = `Showing ${offset + 1}-${offset + entries.length} of ${total}`;
@@ -388,13 +402,50 @@ export function outputHistoryDetails(entry: HistoryEntry): void {
 // Legacy output formatting — DeploymentJob (demo mode)
 // ============================================================================
 
+interface DeploymentRow {
+  id: string;
+  solutionName: string;
+  solutionVersion: string;
+  status: string;
+  progress: string;
+  triggeredBy: string;
+  createdAt: string;
+}
+
+const DEPLOYMENT_COLUMNS: Column<DeploymentRow>[] = [
+  {
+    key: "id",
+    header: "ID",
+    format: (v) => chalk.cyan(String(v)),
+  },
+  { key: "solutionName", header: "Agent" },
+  { key: "solutionVersion", header: "Version" },
+  {
+    key: "status",
+    header: "Status",
+    format: (v) => formatStatus(String(v)),
+  },
+  { key: "progress", header: "Progress" },
+  { key: "triggeredBy", header: "Triggered" },
+  { key: "createdAt", header: "Created" },
+];
+
+export function resolveDeploymentFormat(options: {
+  json?: boolean;
+  quiet?: boolean;
+}): OutputFormat {
+  if (options.json) return "json";
+  if (options.quiet) return "quiet";
+  return getDefaultFormat();
+}
+
 export function outputJson(
   deployments: DeploymentJob[],
   total: number,
   limit: number,
   offset: number
 ): void {
-  const output = {
+  const result = {
     deployments: deployments.map((d) => ({
       id: d.id,
       solutionName: d.solutionName,
@@ -409,7 +460,7 @@ export function outputJson(
     })),
     pagination: { total, limit, offset, hasMore: offset + deployments.length < total },
   };
-  console.log(JSON.stringify(output, null, 2));
+  console.log(JSON.stringify(result, null, 2));
 }
 
 export function outputTable(
@@ -423,28 +474,23 @@ export function outputTable(
     return;
   }
 
-  const table = new Table({
-    head: ["ID", "Agent", "Version", "Status", "Progress", "Triggered", "Created"],
-    style: { head: ["cyan"] },
-  });
-
-  deployments.forEach((d) => {
+  const rows: DeploymentRow[] = deployments.map((d) => {
     const progress = `${d.completedTenants}/${d.totalTenants}`;
     const progressWithFailed =
       d.failedTenants > 0 ? `${progress} (${chalk.red(d.failedTenants + " failed")})` : progress;
 
-    table.push([
-      chalk.cyan(truncateId(d.id)),
-      d.solutionName,
-      d.solutionVersion || "-",
-      formatStatus(d.status),
-      progressWithFailed,
-      d.triggeredBy || "-",
-      formatTimeAgo(d.createdAt),
-    ]);
+    return {
+      id: truncateId(d.id),
+      solutionName: d.solutionName,
+      solutionVersion: d.solutionVersion || "-",
+      status: String(d.status),
+      progress: progressWithFailed,
+      triggeredBy: d.triggeredBy != null ? String(d.triggeredBy) : "-",
+      createdAt: formatTimeAgo(d.createdAt),
+    };
   });
 
-  console.log(table.toString());
+  output(rows, { format: "table", columns: DEPLOYMENT_COLUMNS });
   console.log();
 
   const showing = `Showing ${offset + 1}-${offset + deployments.length} of ${total}`;

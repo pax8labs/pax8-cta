@@ -55,8 +55,12 @@ Examples:
   agentsync analyze ./TestDeploy.zip              Analyze a pre-exported zip
 `
   )
-  .action(async (solutionArg: string | undefined, options) => {
+  .action(async (solutionArg: string | undefined, options, cmd) => {
     const spinner = createSpinner("Loading configuration...").start();
+
+    // Merge global options (--json may be consumed by root program in Commander v12)
+    const allOpts = cmd.optsWithGlobals();
+    const jsonOutput = !!(allOpts.json || options.json);
 
     // Allow solution as positional arg or --solution flag
     if (solutionArg && !options.solution) {
@@ -125,7 +129,7 @@ Examples:
           spinner.succeed(chalk.green("Risk analysis complete"));
           console.log();
 
-          displayAnalysis(analysis, destinations.length, options.json);
+          displayAnalysis(analysis, destinations.length, jsonOutput);
         },
         async ({ destinations }) => {
           spinner.succeed("Manifest loaded");
@@ -176,7 +180,7 @@ Examples:
           spinner.succeed(chalk.green("Risk analysis complete"));
           console.log();
 
-          displayAnalysis(analysis, destinations.length, options.json);
+          displayAnalysis(analysis, destinations.length, jsonOutput);
         }
       );
     } catch (error) {

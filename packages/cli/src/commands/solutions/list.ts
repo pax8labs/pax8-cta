@@ -18,7 +18,6 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import Table from "cli-table3";
 import {
   loadConfig,
   TokenManager,
@@ -29,6 +28,27 @@ import {
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+
+interface SolutionRow {
+  friendlyName: string;
+  version: string;
+  type: string;
+  uniqueName: string;
+}
+
+const COLUMNS: Column<SolutionRow>[] = [
+  { key: "friendlyName", header: "Solution" },
+  { key: "version", header: "Version" },
+  { key: "type", header: "Type" },
+  { key: "uniqueName", header: "Unique Name" },
+];
+
+function resolveFormat(options: { json?: boolean; quiet?: boolean }): OutputFormat {
+  if (options.json) return "json";
+  if (options.quiet) return "quiet";
+  return getDefaultFormat();
+}
 
 export const listCommand = new Command("list")
   .alias("ls")
@@ -36,6 +56,7 @@ export const listCommand = new Command("list")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tenant <name>", "Tenant name or ID to query (defaults to source environment)")
   .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output")
   .addHelpText(
     "after",
     `
@@ -58,13 +79,17 @@ Examples:
     }
   });
 
-function listSolutionsDemo(spinner: ReturnType<typeof createSpinner>, options: { json?: boolean }) {
+function listSolutionsDemo(
+  spinner: ReturnType<typeof createSpinner>,
+  options: { json?: boolean; quiet?: boolean }
+) {
   spinner.succeed(`Found ${DEMO_SOLUTIONS.length} solutions in demo environment`);
   console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
   const solutions = DEMO_SOLUTIONS;
+  const fmt = resolveFormat(options);
 
-  if (options.json) {
+  if (fmt === "json") {
     console.log(
       JSON.stringify(
         {
@@ -83,30 +108,26 @@ function listSolutionsDemo(spinner: ReturnType<typeof createSpinner>, options: {
     return;
   }
 
+  if (fmt === "quiet") return;
+
+  // table
   console.log();
 
-  const table = new Table({
-    head: ["Solution", "Version", "Type", "Unique Name"],
-    style: { head: ["cyan"] },
-  });
+  const rows: SolutionRow[] = solutions.map((s) => ({
+    friendlyName: s.friendlyName,
+    version: s.version,
+    type: s.isManaged ? "Managed" : "Unmanaged",
+    uniqueName: s.uniqueName,
+  }));
 
-  solutions.forEach((solution) => {
-    table.push([
-      solution.friendlyName,
-      solution.version,
-      solution.isManaged ? "Managed" : "Unmanaged",
-      solution.uniqueName,
-    ]);
-  });
-
-  console.log(table.toString());
+  output(rows, { format: "table", columns: COLUMNS });
   console.log();
   console.log(chalk.gray(`Total: ${solutions.length} solutions`));
 }
 
 async function listSolutionsReal(
   spinner: ReturnType<typeof createSpinner>,
-  options: { config: string; tenant?: string; json?: boolean }
+  options: { config: string; tenant?: string; json?: boolean; quiet?: boolean }
 ) {
   const configPath = resolve(process.cwd(), options.config);
   const config = await loadConfig(configPath);
@@ -155,7 +176,9 @@ async function listSolutionsReal(
   const solutions = await solutionOps.listSolutions();
   spinner.succeed(`Found ${solutions.length} solutions`);
 
-  if (options.json) {
+  const fmt = resolveFormat(options);
+
+  if (fmt === "json") {
     console.log(
       JSON.stringify(
         {
@@ -176,23 +199,19 @@ async function listSolutionsReal(
     return;
   }
 
+  if (fmt === "quiet") return;
+
+  // table
   console.log();
 
-  const table = new Table({
-    head: ["Solution", "Version", "Type", "Unique Name"],
-    style: { head: ["cyan"] },
-  });
+  const rows: SolutionRow[] = solutions.map((s) => ({
+    friendlyName: s.friendlyname,
+    version: s.version,
+    type: s.ismanaged ? "Managed" : "Unmanaged",
+    uniqueName: s.uniquename,
+  }));
 
-  solutions.forEach((solution) => {
-    table.push([
-      solution.friendlyname,
-      solution.version,
-      solution.ismanaged ? "Managed" : "Unmanaged",
-      solution.uniquename,
-    ]);
-  });
-
-  console.log(table.toString());
+  output(rows, { format: "table", columns: COLUMNS });
   console.log();
   console.log(chalk.gray(`Total: ${solutions.length} solutions in ${environmentName} environment`));
 }

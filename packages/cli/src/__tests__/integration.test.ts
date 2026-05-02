@@ -26,9 +26,6 @@ import {
   runCli,
   runCliExpectSuccess,
   runCliExpectFailure,
-  parseTable,
-  getColumn,
-  findRow,
   extractJson,
   stripAnsi,
   containsText,
@@ -89,18 +86,27 @@ describe("CLI Integration Tests", () => {
 
   describe("tenants list command", () => {
     it("should list all tenants in demo mode", async () => {
-      const result = await runCliExpectSuccess(["tenants", "list"]);
+      // Use --json since subprocess stdout is piped (non-TTY) and defaults to JSON
+      const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
       expect(containsText(result.output, "DEMO MODE")).toBe(true);
-      expect(containsText(result.output, "Destination")).toBe(true);
-      expect(containsText(result.output, "Fleet size")).toBe(true);
+      const json = extractJson<{ tenants: unknown[]; total: number; active: number }>(
+        result.stdout
+      );
+      expect(json).not.toBeNull();
+      expect(json!.tenants.length).toBeGreaterThan(0);
     });
 
     it("should show correct tenant count", async () => {
-      const result = await runCliExpectSuccess(["tenants", "list"]);
+      // Use --json since subprocess stdout is piped (non-TTY) and defaults to JSON
+      const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
       const enabledCount = DEMO_TENANTS.filter((t) => t.enabled).length;
-      expect(containsText(result.output, `${enabledCount} active`)).toBe(true);
+      const json = extractJson<{ tenants: unknown[]; total: number; active: number }>(
+        result.stdout
+      );
+      expect(json).not.toBeNull();
+      expect(json!.active).toBe(enabledCount);
     });
 
     it("should filter by tag", async () => {
@@ -113,31 +119,39 @@ describe("CLI Integration Tests", () => {
   });
 
   describe("parseTable utility", () => {
-    it("should parse CLI table output", async () => {
-      const result = await runCliExpectSuccess(["tenants", "list"]);
-      const table = parseTable(result.stdout);
+    // Note: subprocess stdout is piped (non-TTY) so agentsync defaults to JSON.
+    // These tests use --json and verify JSON structure, which also exercises extractJson.
+    it("should parse CLI JSON output for tenants list", async () => {
+      const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
-      expect(table.headers).toContain("Destination");
-      expect(table.headers).toContain("Tags");
-      expect(table.rows.length).toBeGreaterThan(0);
+      const json = extractJson<{ tenants: Array<{ name: string; tags?: string[] }> }>(
+        result.stdout
+      );
+      expect(json).not.toBeNull();
+      expect(json!.tenants.some((t) => t.name === "Contoso Corporation")).toBe(true);
+      expect(json!.tenants.some((t) => t.name === "Fabrikam Inc")).toBe(true);
     });
 
-    it("should extract column values", async () => {
-      const result = await runCliExpectSuccess(["tenants", "list"]);
-      const table = parseTable(result.stdout);
-      const destinations = getColumn(table, "Destination");
+    it("should extract column values from JSON output", async () => {
+      const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
-      expect(destinations).toContain("Contoso Corporation");
-      expect(destinations).toContain("Fabrikam Inc");
+      const json = extractJson<{ tenants: Array<{ name: string }> }>(result.stdout);
+      expect(json).not.toBeNull();
+      const names = json!.tenants.map((t) => t.name);
+      expect(names).toContain("Contoso Corporation");
+      expect(names).toContain("Fabrikam Inc");
     });
 
-    it("should find row by column value", async () => {
-      const result = await runCliExpectSuccess(["tenants", "list"]);
-      const table = parseTable(result.stdout);
-      const cohoRow = findRow(table, "Destination", "Coho");
+    it("should find tenant with specific tag from JSON output", async () => {
+      const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
-      expect(cohoRow).toBeDefined();
-      expect(cohoRow?.["Tags"]).toContain("hospitality");
+      const json = extractJson<{
+        tenants: Array<{ name: string; tags?: string[] }>;
+      }>(result.stdout);
+      expect(json).not.toBeNull();
+      const cohoTenant = json!.tenants.find((t) => t.name.includes("Coho"));
+      expect(cohoTenant).toBeDefined();
+      expect(cohoTenant!.tags).toContain("hospitality");
     });
   });
 
