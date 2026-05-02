@@ -44,7 +44,12 @@ const COLUMNS: Column<SolutionRow>[] = [
   { key: "uniqueName", header: "Unique Name" },
 ];
 
-function resolveFormat(options: { json?: boolean; quiet?: boolean }): OutputFormat {
+function resolveFormat(options: {
+  json?: boolean;
+  quiet?: boolean;
+  idsOnly?: boolean;
+}): OutputFormat {
+  if (options.idsOnly) return "ids-only";
   if (options.json) return "json";
   if (options.quiet) return "quiet";
   return getDefaultFormat();
@@ -64,15 +69,18 @@ Examples:
   agentsync solutions list                             List solutions in source environment
   agentsync solutions list -t AgentSync-Test2          List solutions in a target tenant
   agentsync solutions list --json                      Output as JSON
+  agentsync solutions list --ids-only | xargs -I{} agentsync deploy {} --all
 `
   )
-  .action(async (options) => {
+  .action(async (options, cmd) => {
+    // Merge local options with global flags (e.g. --ids-only from root program)
+    const opts = { ...options, ...cmd.optsWithGlobals() };
     const spinner = createSpinner("Loading configuration...").start();
 
     try {
       await withDemoMode(
-        () => listSolutionsDemo(spinner, options),
-        () => listSolutionsReal(spinner, options)
+        () => listSolutionsDemo(spinner, opts),
+        () => listSolutionsReal(spinner, opts)
       );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to list solutions");
@@ -81,7 +89,7 @@ Examples:
 
 function listSolutionsDemo(
   spinner: ReturnType<typeof createSpinner>,
-  options: { json?: boolean; quiet?: boolean }
+  options: { json?: boolean; quiet?: boolean; idsOnly?: boolean }
 ) {
   spinner.succeed(`Found ${DEMO_SOLUTIONS.length} solutions in demo environment`);
   if (!isQuietMode()) {
@@ -112,15 +120,21 @@ function listSolutionsDemo(
 
   if (fmt === "quiet") return;
 
-  // table
-  console.log();
-
   const rows: SolutionRow[] = solutions.map((s) => ({
     friendlyName: s.friendlyName,
     version: s.version,
     type: s.isManaged ? "Managed" : "Unmanaged",
+    // uniqueName is the stable identifier for deploy/import pipelines
     uniqueName: s.uniqueName,
   }));
+
+  if (fmt === "ids-only") {
+    output(rows, { format: "ids-only", columns: COLUMNS, idKey: "uniqueName" });
+    return;
+  }
+
+  // table
+  console.log();
 
   output(rows, { format: "table", columns: COLUMNS });
   console.log();
@@ -129,7 +143,7 @@ function listSolutionsDemo(
 
 async function listSolutionsReal(
   spinner: ReturnType<typeof createSpinner>,
-  options: { config: string; tenant?: string; json?: boolean; quiet?: boolean }
+  options: { config: string; tenant?: string; json?: boolean; quiet?: boolean; idsOnly?: boolean }
 ) {
   const configPath = resolve(process.cwd(), options.config);
   const config = await loadConfig(configPath);
@@ -203,15 +217,21 @@ async function listSolutionsReal(
 
   if (fmt === "quiet") return;
 
-  // table
-  console.log();
-
   const rows: SolutionRow[] = solutions.map((s) => ({
     friendlyName: s.friendlyname,
     version: s.version,
     type: s.ismanaged ? "Managed" : "Unmanaged",
+    // uniqueName is the stable identifier for deploy/import pipelines
     uniqueName: s.uniquename,
   }));
+
+  if (fmt === "ids-only") {
+    output(rows, { format: "ids-only", columns: COLUMNS, idKey: "uniqueName" });
+    return;
+  }
+
+  // table
+  console.log();
 
   output(rows, { format: "table", columns: COLUMNS });
   console.log();

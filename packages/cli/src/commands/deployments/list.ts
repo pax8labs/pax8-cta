@@ -27,8 +27,10 @@ import {
   outputHistoryJson,
   outputHistoryTable,
   resolveDeploymentFormat,
+  type HistoryEntry,
 } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { output } from "../../lib/output.js";
 
 export const listCommand = new Command("list")
   .alias("ls")
@@ -50,27 +52,33 @@ Examples:
   agentsync deployments list -t AgentSync-Test2       History for a specific tenant
   agentsync deployments list -a TestDeploy            History for a specific solution
   agentsync deployments list --since 7d               Imports in the last 7 days
+  agentsync deployments list --ids-only | xargs -I{} agentsync deployments show {}
 `
   )
-  .action(async (options) => {
+  .action(async (options, cmd) => {
+    // Merge local options with global flags (e.g. --ids-only from root program)
+    const opts = { ...options, ...cmd.optsWithGlobals() };
     const spinner = createSpinner("Loading deployment history...").start();
 
     try {
       await withDemoMode(
         async () => {
           // Demo mode — use mock data
-          let deployments = await getDeployments(options);
-          deployments = filterDeployments(deployments, options);
+          let deployments = await getDeployments(opts);
+          deployments = filterDeployments(deployments, opts);
 
-          const limit = parseInt(options.limit, 10);
-          const offset = parseInt(options.offset, 10);
+          const limit = parseInt(opts.limit, 10);
+          const offset = parseInt(opts.offset, 10);
           const total = deployments.length;
           deployments = deployments.slice(offset, offset + limit);
 
           spinner.stop();
 
-          const fmt = resolveDeploymentFormat(options);
-          if (fmt === "json") {
+          const fmt = resolveDeploymentFormat(opts);
+          if (fmt === "ids-only") {
+            // id is the deployment job ID — useful for `deployments show <id>` pipelines
+            output(deployments, { format: "ids-only", columns: [], idKey: "id" });
+          } else if (fmt === "json") {
             outputJson(deployments, total, limit, offset);
           } else if (fmt !== "quiet") {
             outputTable(deployments, total, limit, offset);
@@ -78,18 +86,21 @@ Examples:
         },
         async () => {
           // Production mode — query Dataverse solution history
-          let entries = await getDeploymentHistory(options);
-          entries = filterHistory(entries, options);
+          let entries = await getDeploymentHistory(opts);
+          entries = filterHistory(entries, opts);
 
-          const limit = parseInt(options.limit, 10);
-          const offset = parseInt(options.offset, 10);
+          const limit = parseInt(opts.limit, 10);
+          const offset = parseInt(opts.offset, 10);
           const total = entries.length;
           entries = entries.slice(offset, offset + limit);
 
           spinner.stop();
 
-          const fmt = resolveDeploymentFormat(options);
-          if (fmt === "json") {
+          const fmt = resolveDeploymentFormat(opts);
+          if (fmt === "ids-only") {
+            // id is the msdyn_solutionhistoryid — useful for querying specific history records
+            output(entries as HistoryEntry[], { format: "ids-only", columns: [], idKey: "id" });
+          } else if (fmt === "json") {
             outputHistoryJson(entries, total, limit, offset);
           } else if (fmt !== "quiet") {
             outputHistoryTable(entries, total, limit, offset);
