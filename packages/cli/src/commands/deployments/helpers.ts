@@ -436,7 +436,9 @@ const DEPLOYMENT_COLUMNS: Column<DeploymentRow>[] = [
 export function resolveDeploymentFormat(options: {
   json?: boolean;
   quiet?: boolean;
+  idsOnly?: boolean;
 }): OutputFormat {
+  if (options.idsOnly) return "ids-only";
   if (options.json) return "json";
   if (options.quiet) return "quiet";
   return getDefaultFormat();

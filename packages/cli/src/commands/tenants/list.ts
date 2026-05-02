@@ -27,6 +27,7 @@ import { isQuietMode } from "../../lib/spinner.js";
 // Row type for the tenants list table
 interface TenantRow {
   name: string;
+  tenantId: string; // full tenantId used as idKey for --ids-only pipeline use
   tenantIdShort: string;
   environmentUrl: string;
   tags: string;
@@ -61,15 +62,18 @@ Examples:
   agentsync tenants list                              List all configured tenants
   agentsync tenants list -s enabled                   Show only enabled tenants
   agentsync tenants list -t production --json         Filter by tag and output as JSON
+  agentsync tenants list --ids-only | xargs -I{} agentsync deployments list --tenant {}
 `
   )
-  .action(async (options) => {
+  .action(async (options, cmd) => {
+    // Merge local options with global flags (e.g. --ids-only, --json from root program)
+    const opts = { ...options, ...cmd.optsWithGlobals() };
     const spinner = createSpinner("Loading fleet manifest...").start();
 
     try {
       await withDemoMode(
-        () => listDemo(spinner, options),
-        () => listReal(spinner, options)
+        () => listDemo(spinner, opts),
+        () => listReal(spinner, opts)
       );
     } catch (error) {
       handleCommandError(error, spinner, "Failed to load fleet manifest");
@@ -109,7 +113,14 @@ function applyFilters(
 
 function renderOutput(
   destinations: typeof DEMO_TENANTS,
-  options: { json?: boolean; quiet?: boolean; search?: string; tag?: string[]; status?: string },
+  options: {
+    json?: boolean;
+    quiet?: boolean;
+    idsOnly?: boolean;
+    search?: string;
+    tag?: string[];
+    status?: string;
+  },
   totalActive: number
 ) {
   const fmt = resolveFormat(options);
@@ -132,16 +143,23 @@ function renderOutput(
 
   if (fmt === "quiet") return;
 
-  // table (default)
-  console.log();
-
   const rows: TenantRow[] = destinations.map((tenant) => ({
     name: tenant.name,
+    // tenantId (full) is the idKey for --ids-only; xargs pipelines consume tenant IDs
+    tenantId: tenant.tenantId,
     tenantIdShort: tenant.tenantId.slice(0, 8) + "...",
     environmentUrl: tenant.environmentUrl,
     tags: tenant.tags?.join(", ") || "-",
     active: tenant.enabled ? "Yes" : "No",
   }));
+
+  if (fmt === "ids-only") {
+    output(rows, { format: "ids-only", columns: COLUMNS, idKey: "tenantId" });
+    return;
+  }
+
+  // table (default)
+  console.log();
 
   output(rows, { format: "table", columns: COLUMNS });
   console.log();
@@ -162,7 +180,14 @@ function renderOutput(
 
 function listDemo(
   spinner: ReturnType<typeof createSpinner>,
-  options: { search?: string; tag?: string[]; status?: string; json?: boolean; quiet?: boolean }
+  options: {
+    search?: string;
+    tag?: string[];
+    status?: string;
+    json?: boolean;
+    quiet?: boolean;
+    idsOnly?: boolean;
+  }
 ) {
   spinner.succeed(`Loaded ${DEMO_TENANTS.length} destinations from demo fleet`);
   // Suppress informational hint in quiet mode; errors still go to stderr via handleCommandError.
@@ -183,6 +208,7 @@ async function listReal(
     status?: string;
     json?: boolean;
     quiet?: boolean;
+    idsOnly?: boolean;
   }
 ) {
   const configPath = resolve(process.cwd(), options.config);

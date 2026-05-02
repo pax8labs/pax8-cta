@@ -101,9 +101,23 @@ export function createProgram(): Command {
     .option("--verbose", "Enable verbose output for debugging")
     .option("--json", "Output as JSON (default when stdout is not a TTY)")
     .option("--quiet", "Suppress all output (exit code only)")
+    .option("--ids-only", "Print one ID per line (for shell pipelines and LLM agent flows)")
     .hook("preAction", (thisCommand) => {
       if (thisCommand.opts().verbose) {
         process.env.LOG_LEVEL = "debug";
+      }
+
+      // --ids-only is mutually exclusive with --json and --csv
+      const opts = thisCommand.optsWithGlobals();
+      if (opts.idsOnly) {
+        if (opts.json) {
+          console.error("Error: --ids-only and --json are mutually exclusive");
+          process.exit(1);
+        }
+        if (opts.csv) {
+          console.error("Error: --ids-only and --csv are mutually exclusive");
+          process.exit(1);
+        }
       }
     });
 
