@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../../lib/spinner.js";
 import {
   loadConfig,
   TokenManager,
@@ -84,7 +84,9 @@ function listSolutionsDemo(
   options: { json?: boolean; quiet?: boolean }
 ) {
   spinner.succeed(`Found ${DEMO_SOLUTIONS.length} solutions in demo environment`);
-  console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  if (!isQuietMode()) {
+    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  }
 
   const solutions = DEMO_SOLUTIONS;
   const fmt = resolveFormat(options);

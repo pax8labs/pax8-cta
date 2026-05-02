@@ -36,6 +36,7 @@ import {
   truncateId,
 } from "../../lib/formatters.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+import { isQuietMode } from "../../lib/spinner.js";
 
 // ============================================================================
 // Unified history record (works for both real and demo data)
@@ -195,7 +196,9 @@ export async function getDeploymentHistoryById(
 
 export async function getDeployments(_options: GetHistoryOptions): Promise<DeploymentJob[]> {
   if (isDemo()) {
-    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    if (!isQuietMode()) {
+      console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    }
     return generateMockDeploymentHistory(50);
   }
 

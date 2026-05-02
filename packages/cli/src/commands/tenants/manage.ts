@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../../lib/spinner.js";
 import { DEMO_TENANTS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
@@ -38,7 +38,9 @@ export const enableCommand = new Command("enable")
       await withDemoMode(
         () => {
           spinner.stop();
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+          }
 
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
@@ -102,7 +104,9 @@ export const disableCommand = new Command("disable")
       await withDemoMode(
         () => {
           spinner.stop();
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+          }
 
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
@@ -173,7 +177,9 @@ export const tagCommand = new Command("tag")
       await withDemoMode(
         () => {
           spinner.stop();
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+          }
 
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 

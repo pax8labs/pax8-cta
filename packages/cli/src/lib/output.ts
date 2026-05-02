@@ -26,6 +26,7 @@
  */
 
 import Table from "cli-table3";
+import { isQuietMode } from "./spinner.js";
 
 // ============================================================================
 // Public API types
@@ -61,8 +62,12 @@ export interface Column<T> {
  * Reading the env var rather than `isTTY` directly means unit tests (which run
  * in a non-TTY vitest worker) still default to "table" unless the CLI binary
  * is explicitly invoked as a subprocess.
+ *
+ * Always returns "quiet" when quiet mode is active, overriding TTY detection.
  */
 export function getDefaultFormat(): OutputFormat {
+  // Quiet mode wins over all TTY/env-based defaults.
+  if (isQuietMode()) return "quiet";
   if (process.env.AGENTSYNC_DEFAULT_FORMAT === "json") return "json";
   if (process.env.AGENTSYNC_DEFAULT_FORMAT === "table") return "table";
   // Fallback: "table" is the safe default when called in-process (unit tests,
@@ -70,6 +75,22 @@ export function getDefaultFormat(): OutputFormat {
   // AGENTSYNC_DEFAULT_FORMAT based on isTTY before any commands run, so
   // subprocess invocations that pipe stdout automatically get "json".
   return "table";
+}
+
+/**
+ * Resolve the effective output format from command option flags.
+ *
+ * Precedence (highest → lowest):
+ *   1. quiet mode (--quiet flag or AGENTSYNC_QUIET env var) — silent wins.
+ *      If both --quiet and --json are set, --quiet takes effect.
+ *   2. --json flag
+ *   3. TTY-aware default from getDefaultFormat()
+ */
+export function resolveFormat(opts: { json?: boolean; quiet?: boolean }): OutputFormat {
+  // --quiet (or env-based quiet) wins over --json. Silent wins.
+  if (opts.quiet || isQuietMode()) return "quiet";
+  if (opts.json) return "json";
+  return getDefaultFormat();
 }
 
 // ============================================================================

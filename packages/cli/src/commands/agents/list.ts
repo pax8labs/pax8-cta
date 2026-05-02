@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../../lib/spinner.js";
 import {
   DEMO_SOLUTIONS,
   TokenManager,
@@ -95,7 +95,9 @@ export const listCommand = new Command("list")
         options,
         async () => {
           spinner.stop();
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          }
 
           let solutions = [...DEMO_SOLUTIONS];
 
@@ -137,10 +139,12 @@ export const listCommand = new Command("list")
           // Production mode - query source environment
           if (!config.source || !config.source.environmentUrl) {
             spinner.fail(chalk.red("Source environment not configured"));
-            console.error(chalk.gray("\nConfigure a source environment in your config file:"));
-            console.error(chalk.gray("  source:"));
-            console.error(chalk.gray("    tenantId: <tenant-id>"));
-            console.error(chalk.gray("    environmentUrl: <environment-url>"));
+            if (!isQuietMode()) {
+              console.error(chalk.gray("\nConfigure a source environment in your config file:"));
+              console.error(chalk.gray("  source:"));
+              console.error(chalk.gray("    tenantId: <tenant-id>"));
+              console.error(chalk.gray("    environmentUrl: <environment-url>"));
+            }
             process.exit(1);
           }
 

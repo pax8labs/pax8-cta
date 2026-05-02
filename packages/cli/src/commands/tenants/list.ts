@@ -21,7 +21,8 @@ import { createSpinner } from "../../lib/spinner.js";
 import { loadConfig, DEMO_TENANTS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
-import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+import { output, resolveFormat, type Column } from "../../lib/output.js";
+import { isQuietMode } from "../../lib/spinner.js";
 
 // Row type for the tenants list table
 interface TenantRow {
@@ -104,11 +105,7 @@ function applyFilters(
   return filtered;
 }
 
-function resolveFormat(options: { json?: boolean; quiet?: boolean }): OutputFormat {
-  if (options.json) return "json";
-  if (options.quiet) return "quiet";
-  return getDefaultFormat();
-}
+// resolveFormat is imported from output.ts — see that module for precedence rules.
 
 function renderOutput(
   destinations: typeof DEMO_TENANTS,
@@ -168,7 +165,10 @@ function listDemo(
   options: { search?: string; tag?: string[]; status?: string; json?: boolean; quiet?: boolean }
 ) {
   spinner.succeed(`Loaded ${DEMO_TENANTS.length} destinations from demo fleet`);
-  console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  // Suppress informational hint in quiet mode; errors still go to stderr via handleCommandError.
+  if (!isQuietMode()) {
+    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  }
 
   const destinations = applyFilters(DEMO_TENANTS, options);
   renderOutput(destinations, options, DEMO_TENANTS.filter((t) => t.enabled).length);

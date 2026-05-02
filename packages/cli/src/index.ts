@@ -85,6 +85,7 @@ import {
   trackFirstRun,
   shutdownTelemetry,
 } from "./lib/telemetry.js";
+import { isQuietMode } from "./lib/spinner.js";
 import chalk from "chalk";
 
 const VERSION = "0.1.0";
@@ -145,8 +146,8 @@ if (shouldShowBanner) {
   }
 }
 
-// Show first-run telemetry notice (once, regardless of state, so users know the option exists)
-if (args.length > 0) {
+// Show first-run telemetry notice (once, unless in quiet mode or no args).
+if (args.length > 0 && !isQuietMode()) {
   let shouldShowFirstRunNotice = false;
 
   try {
