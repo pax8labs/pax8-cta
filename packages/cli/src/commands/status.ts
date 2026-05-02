@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { withDemoMode } from "../lib/command-wrapper.js";
 import { DEMO_TENANTS } from "@agentsync/core";
@@ -145,7 +145,9 @@ export const statusCommand = new Command("status")
     if (options.list) {
       await withDemoMode(
         () => {
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
+          }
           console.log(chalk.bold("Recent Shipments:"));
           console.log();
 
@@ -197,7 +199,9 @@ export const statusCommand = new Command("status")
 
     await withDemoMode(
       () => {
-        console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
+        if (!isQuietMode()) {
+          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
+        }
 
         const shipment = getDemoDeploymentDetails(trackingId);
 

@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import { DEMO_SOLUTIONS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
@@ -45,7 +45,9 @@ Examples:
       await withDemoMode(
         () => {
           spinner.stop();
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          }
 
           const solution = findSolution(DEMO_SOLUTIONS, name);
 

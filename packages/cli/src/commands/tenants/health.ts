@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../../lib/spinner.js";
 import Table from "cli-table3";
 import { DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@agentsync/core";
 import { withResolvedConfig } from "../../lib/command-wrapper.js";
@@ -48,7 +48,9 @@ Examples:
         options,
         () => {
           spinner.stop();
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          }
           return DEMO_TENANTS;
         },
         (config) => {
