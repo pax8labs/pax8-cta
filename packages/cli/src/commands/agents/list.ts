@@ -55,6 +55,7 @@ const DEMO_COLUMNS: Column<DemoAgentRow>[] = [
 
 interface LiveAgentRow {
   name: string;
+  botId: string; // full bot GUID used as idKey for --ids-only pipeline use
   botIdShort: string;
   solution: string;
   status: string;
@@ -73,7 +74,12 @@ const LIVE_COLUMNS: Column<LiveAgentRow>[] = [
   { key: "modifiedon", header: "Last Modified" },
 ];
 
-function resolveFormat(options: { json?: boolean; quiet?: boolean }): OutputFormat {
+function resolveFormat(options: {
+  json?: boolean;
+  quiet?: boolean;
+  idsOnly?: boolean;
+}): OutputFormat {
+  if (options.idsOnly) return "ids-only";
   if (options.json) return "json";
   if (options.quiet) return "quiet";
   return getDefaultFormat();
@@ -87,12 +93,14 @@ export const listCommand = new Command("list")
   .option("--category <category>", "Filter by category")
   .option("--json", "Output as JSON")
   .option("--quiet", "Suppress all output")
-  .action(async (options) => {
+  .action(async (options, cmd) => {
+    // Merge local options with global flags (e.g. --ids-only from root program)
+    const opts = { ...options, ...cmd.optsWithGlobals() };
     const spinner = createSpinner("Loading agents...").start();
 
     try {
       await withResolvedConfig(
-        options,
+        opts,
         async () => {
           spinner.stop();
           if (!isQuietMode()) {
@@ -102,18 +110,18 @@ export const listCommand = new Command("list")
           let solutions = [...DEMO_SOLUTIONS];
 
           // Apply tag filter
-          if (options.tag) {
-            const tag = options.tag.toLowerCase();
+          if (opts.tag) {
+            const tag = opts.tag.toLowerCase();
             solutions = solutions.filter((s) => s.tags.some((t) => t.toLowerCase().includes(tag)));
           }
 
           // Apply category filter
-          if (options.category) {
-            const cat = options.category.toLowerCase();
+          if (opts.category) {
+            const cat = opts.category.toLowerCase();
             solutions = solutions.filter((s) => s.category.toLowerCase().includes(cat));
           }
 
-          const fmt = resolveFormat(options);
+          const fmt = resolveFormat(opts);
 
           if (fmt === "json") {
             console.log(JSON.stringify(solutions, null, 2));
@@ -130,6 +138,12 @@ export const listCommand = new Command("list")
             tags: s.tags.join(", "),
             lastPublished: formatTimeAgo(s.lastPublished),
           }));
+
+          if (fmt === "ids-only") {
+            // uniqueName is the pipeline-friendly identifier for demo agents
+            output(rows, { format: "ids-only", columns: DEMO_COLUMNS, idKey: "uniqueName" });
+            return;
+          }
 
           output(rows, { format: "table", columns: DEMO_COLUMNS });
           console.log();
@@ -175,7 +189,7 @@ export const listCommand = new Command("list")
             return;
           }
 
-          const fmt = resolveFormat(options);
+          const fmt = resolveFormat(opts);
 
           if (fmt === "json") {
             console.log(JSON.stringify(botsWithSolutions, null, 2));
@@ -184,14 +198,22 @@ export const listCommand = new Command("list")
 
           if (fmt === "quiet") return;
 
-          // table
+          // table / ids-only
           const rows: LiveAgentRow[] = botsWithSolutions.map(({ bot, solution }) => ({
             name: bot.name,
+            // botIdShort shown in table; full botId used as idKey for --ids-only pipeline use
             botIdShort: bot.botid.slice(0, 8) + "...",
+            botId: bot.botid,
             solution: solution?.uniquename || "(no solution)",
             status: bot.statecode === 0 ? "Active" : "Inactive",
             modifiedon: formatTimeAgo(bot.modifiedon),
           }));
+
+          if (fmt === "ids-only") {
+            // botId is the Dataverse bot GUID — most useful for API calls downstream
+            output(rows, { format: "ids-only", columns: LIVE_COLUMNS, idKey: "botId" });
+            return;
+          }
 
           console.log();
           output(rows, { format: "table", columns: LIVE_COLUMNS });

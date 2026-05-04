@@ -83,12 +83,18 @@ export function getDefaultFormat(): OutputFormat {
  * Precedence (highest → lowest):
  *   1. quiet mode (--quiet flag or AGENTSYNC_QUIET env var) — silent wins.
  *      If both --quiet and --json are set, --quiet takes effect.
- *   2. --json flag
- *   3. TTY-aware default from getDefaultFormat()
+ *   2. --ids-only flag (mutually exclusive with --json/--csv; root program guards this)
+ *   3. --json flag
+ *   4. TTY-aware default from getDefaultFormat()
  */
-export function resolveFormat(opts: { json?: boolean; quiet?: boolean }): OutputFormat {
+export function resolveFormat(opts: {
+  json?: boolean;
+  quiet?: boolean;
+  idsOnly?: boolean;
+}): OutputFormat {
   // --quiet (or env-based quiet) wins over --json. Silent wins.
   if (opts.quiet || isQuietMode()) return "quiet";
+  if (opts.idsOnly) return "ids-only";
   if (opts.json) return "json";
   return getDefaultFormat();
 }
@@ -105,7 +111,7 @@ export function resolveFormat(opts: { json?: boolean; quiet?: boolean }): Output
  * @param opts.columns  - Column definitions (header + key + optional formatter).
  * @param opts.idKey    - Key whose value is used for "ids-only" format.
  *
- * @throws Error for "csv" and "ids-only" (reserved for #346).
+ * @throws Error for "csv" (reserved for a future issue).
  */
 export function output<T extends object>(
   rows: T[],
@@ -134,7 +140,8 @@ export function output<T extends object>(
       throw new Error("--csv not yet implemented (see #346 in the issue tracker)");
 
     case "ids-only":
-      throw new Error("--ids-only not yet implemented (see #346 in the issue tracker)");
+      outputIdsOnly(rows, opts.idKey, opts.columns);
+      break;
 
     default: {
       // TypeScript exhaustive check
@@ -150,6 +157,37 @@ export function output<T extends object>(
 
 function outputJson<T>(rows: T[]): void {
   console.log(JSON.stringify(rows, null, 2));
+}
+
+/**
+ * Print one ID per line to stdout — no headers, no chrome, no colors.
+ *
+ * Resolution order for the id field:
+ *  1. opts.idKey if provided
+ *  2. A column whose key is "id"
+ *  3. Error — caller must set idKey or add an "id" column
+ */
+function outputIdsOnly<T extends object>(
+  rows: T[],
+  idKey: (keyof T & string) | undefined,
+  columns: Column<T>[]
+): void {
+  // Resolve the key to use
+  const key: keyof T & string =
+    idKey ??
+    (columns.find((c) => c.key === "id")?.key as (keyof T & string) | undefined) ??
+    (() => {
+      throw new Error(
+        "ids-only format: no id key found. " +
+          'Either pass idKey to output() or add a column with key "id". ' +
+          'Example: output(rows, { format: "ids-only", columns, idKey: "tenantId" })'
+      );
+    })();
+
+  for (const row of rows) {
+    const value = row[key];
+    process.stdout.write((value == null ? "" : String(value)) + "\n");
+  }
 }
 
 function outputTable<T extends object>(rows: T[], columns: Column<T>[]): void {

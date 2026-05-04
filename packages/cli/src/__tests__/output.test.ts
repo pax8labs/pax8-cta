@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../lib/output.js";
 import { ConsoleCapture, stripAnsi, extractJson, runCli } from "./test-utils.js";
 
@@ -199,11 +199,102 @@ describe("output() — unimplemented formats", () => {
       /csv.*not yet implemented/i
     );
   });
+});
 
-  it("throws for ids-only", () => {
-    expect(() =>
-      output(FRUITS, { format: "ids-only" as OutputFormat, columns: FRUIT_COLUMNS })
-    ).toThrow(/ids-only.*not yet implemented/i);
+// ============================================================================
+// output() — ids-only format
+// ============================================================================
+
+interface IdRecord {
+  id: string;
+  name: string;
+}
+
+const ID_RECORDS: IdRecord[] = [
+  { id: "aaa-111", name: "Alpha" },
+  { id: "bbb-222", name: "Beta" },
+  { id: "ccc-333", name: "Gamma" },
+];
+
+const ID_COLUMNS: Column<IdRecord>[] = [
+  { key: "id", header: "ID" },
+  { key: "name", header: "Name" },
+];
+
+describe("output() — ids-only format", () => {
+  let stdoutLines: string[];
+  let originalWrite: typeof process.stdout.write;
+
+  beforeEach(() => {
+    stdoutLines = [];
+    originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = vi.fn((chunk: unknown) => {
+      stdoutLines.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+  });
+
+  afterEach(() => {
+    process.stdout.write = originalWrite;
+  });
+
+  it("prints one id per line when an 'id' column exists", () => {
+    output(ID_RECORDS, { format: "ids-only", columns: ID_COLUMNS });
+    expect(stdoutLines).toHaveLength(3);
+    expect(stdoutLines[0]).toBe("aaa-111\n");
+    expect(stdoutLines[1]).toBe("bbb-222\n");
+    expect(stdoutLines[2]).toBe("ccc-333\n");
+  });
+
+  it("uses idKey when provided instead of 'id' column", () => {
+    output(ID_RECORDS, { format: "ids-only", columns: ID_COLUMNS, idKey: "name" });
+    expect(stdoutLines).toHaveLength(3);
+    expect(stdoutLines[0]).toBe("Alpha\n");
+    expect(stdoutLines[1]).toBe("Beta\n");
+    expect(stdoutLines[2]).toBe("Gamma\n");
+  });
+
+  it("idKey takes precedence over 'id' column when both are present", () => {
+    output(ID_RECORDS, { format: "ids-only", columns: ID_COLUMNS, idKey: "name" });
+    expect(stdoutLines[0]).toBe("Alpha\n");
+  });
+
+  it("throws a clear error when no id key and no idKey are available", () => {
+    interface NoIdRow {
+      label: string;
+    }
+    const rows: NoIdRow[] = [{ label: "foo" }];
+    const cols: Column<NoIdRow>[] = [{ key: "label", header: "Label" }];
+    expect(() => output(rows, { format: "ids-only", columns: cols })).toThrow(
+      /ids-only format.*no id key found/i
+    );
+  });
+
+  it("throws error message that mentions idKey fix", () => {
+    interface NoIdRow {
+      label: string;
+    }
+    const rows: NoIdRow[] = [{ label: "foo" }];
+    const cols: Column<NoIdRow>[] = [{ key: "label", header: "Label" }];
+    expect(() => output(rows, { format: "ids-only", columns: cols })).toThrow(/idKey/);
+  });
+
+  it("handles empty array (no output)", () => {
+    output([], { format: "ids-only", columns: ID_COLUMNS });
+    expect(stdoutLines).toHaveLength(0);
+  });
+
+  it("produces no headers, no chrome, no colors", () => {
+    output(ID_RECORDS, { format: "ids-only", columns: ID_COLUMNS });
+    const all = stdoutLines.join("");
+    // No box-drawing characters (table borders)
+    expect(all).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);
+    // No ANSI escape sequences
+    // eslint-disable-next-line no-control-regex
+    expect(all).not.toMatch(/\x1B\[/);
+    // No header text
+    expect(all).not.toContain("ID");
+    expect(all).not.toContain("Name");
   });
 });
 
@@ -232,4 +323,54 @@ describe("subprocess: agentsync tenants list with piped stdout", () => {
     // No box-drawing characters (table borders)
     expect(result.stdout).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);
   }, 60000);
+});
+
+// ============================================================================
+// Subprocess test — --ids-only produces one ID per line
+// ============================================================================
+
+describe("subprocess: agentsync tenants list --ids-only", () => {
+  it(
+    "outputs one tenant ID per line, no headers, no other text, exit 0",
+    async () => {
+      const result = await runCli(["tenants", "list", "--ids-only"], {
+        env: { NO_COLOR: "1" },
+        timeout: 60000,
+      });
+
+      expect(result.exitCode).toBe(0);
+
+      // stdout must be non-empty
+      expect(result.stdout.trim().length).toBeGreaterThan(0);
+
+      // Each non-empty line should be a tenant ID (UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+      const lines = result.stdout.trim().split(/\r?\n/).filter(Boolean);
+      expect(lines.length).toBeGreaterThan(0);
+      for (const line of lines) {
+        // Demo tenant IDs are UUIDs (e.g. 11111111-1111-1111-1111-111111111111)
+        expect(line).toMatch(/^[0-9a-f-]+$/i);
+      }
+
+      // No table chrome (box drawing, headers, etc.)
+      expect(result.stdout).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);
+      expect(result.stdout).not.toContain("Destination");
+      expect(result.stdout).not.toContain("Tenant ID");
+      expect(result.stdout).not.toContain("Tags");
+    },
+    60000
+  );
+
+  it(
+    "errors when combined with --json",
+    async () => {
+      const result = await runCli(["tenants", "list", "--ids-only", "--json"], {
+        env: { NO_COLOR: "1" },
+        timeout: 60000,
+      });
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr + result.stdout).toMatch(/mutually exclusive/i);
+    },
+    60000
+  );
 });
