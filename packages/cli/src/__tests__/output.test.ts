@@ -212,28 +212,24 @@ describe("output() — unimplemented formats", () => {
 // ============================================================================
 
 describe("subprocess: agentsync tenants list with piped stdout", () => {
-  it(
-    "outputs JSON when stdout is not a TTY",
-    async () => {
-      // runCli() spawns via child_process (stdout is not a TTY by default).
-      // getDefaultFormat() detects process.stdout.isTTY === undefined and returns "json".
-      const result = await runCli(["tenants", "list"], {
-        // DEMO_MODE is already set by runCli; NO_COLOR prevents ANSI in output
-        env: { NO_COLOR: "1" },
-        timeout: 60000,
-      });
+  it("outputs JSON when stdout is not a TTY", async () => {
+    // runCli() spawns via child_process (stdout is not a TTY by default).
+    // getDefaultFormat() detects process.stdout.isTTY === undefined and returns "json".
+    const result = await runCli(["tenants", "list"], {
+      // DEMO_MODE is already set by runCli; NO_COLOR prevents ANSI in output
+      env: { NO_COLOR: "1" },
+      timeout: 60000,
+    });
 
-      expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(0);
 
-      // stdout should parse as JSON (the tenants envelope)
-      const json = extractJson<{ tenants: unknown[]; total: number }>(result.stdout);
-      expect(json).not.toBeNull();
-      expect(Array.isArray(json!.tenants)).toBe(true);
-      expect(typeof json!.total).toBe("number");
+    // stdout should parse as JSON (the tenants envelope)
+    const json = extractJson<{ tenants: unknown[]; total: number }>(result.stdout);
+    expect(json).not.toBeNull();
+    expect(Array.isArray(json!.tenants)).toBe(true);
+    expect(typeof json!.total).toBe("number");
 
-      // No box-drawing characters (table borders)
-      expect(result.stdout).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);
-    },
-    { timeout: 60000 }
-  );
+    // No box-drawing characters (table borders)
+    expect(result.stdout).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);
+  }, 60000);
 });
