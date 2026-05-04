@@ -48,12 +48,12 @@ const DEMO_SCRIPT = [
   },
   {
     comment: "Now let's check our available agents:",
-    command: "agents list",
+    command: "solutions list",
     delay: 3000,
   },
   {
     comment: "View details of a specific agent:",
-    command: "agents show CustomerServiceAgent --tenants",
+    command: "solutions show CustomerServiceAgent --tenants",
     delay: 4000,
   },
   {
