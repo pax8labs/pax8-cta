@@ -18,10 +18,31 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import Table from "cli-table3";
 import { loadConfig, DEMO_TENANTS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+
+// Row type for the tenants list table
+interface TenantRow {
+  name: string;
+  tenantIdShort: string;
+  environmentUrl: string;
+  tags: string;
+  active: string;
+}
+
+const COLUMNS: Column<TenantRow>[] = [
+  { key: "name", header: "Destination" },
+  { key: "tenantIdShort", header: "Tenant ID" },
+  { key: "environmentUrl", header: "Port (Environment)" },
+  { key: "tags", header: "Tags" },
+  {
+    key: "active",
+    header: "Active",
+    format: (v) => (v === "Yes" ? chalk.green("Yes") : chalk.red("No")),
+  },
+];
 
 export const listCommand = new Command("list")
   .alias("ls")
@@ -31,6 +52,7 @@ export const listCommand = new Command("list")
   .option("-s, --search <query>", "Search by name, ID, or environment URL")
   .option("--status <status>", "Filter by status (enabled|disabled|all)", "all")
   .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output")
   .addHelpText(
     "after",
     `
@@ -82,12 +104,21 @@ function applyFilters(
   return filtered;
 }
 
-function renderTable(
+function resolveFormat(options: { json?: boolean; quiet?: boolean }): OutputFormat {
+  if (options.json) return "json";
+  if (options.quiet) return "quiet";
+  return getDefaultFormat();
+}
+
+function renderOutput(
   destinations: typeof DEMO_TENANTS,
-  options: { json?: boolean; search?: string; tag?: string[]; status?: string },
+  options: { json?: boolean; quiet?: boolean; search?: string; tag?: string[]; status?: string },
   totalActive: number
 ) {
-  if (options.json) {
+  const fmt = resolveFormat(options);
+
+  if (fmt === "json") {
+    // Keep existing JSON envelope shape for backwards compatibility
     console.log(
       JSON.stringify(
         {
@@ -102,24 +133,20 @@ function renderTable(
     return;
   }
 
+  if (fmt === "quiet") return;
+
+  // table (default)
   console.log();
 
-  const table = new Table({
-    head: ["Destination", "Tenant ID", "Port (Environment)", "Tags", "Active"],
-    style: { head: ["cyan"] },
-  });
+  const rows: TenantRow[] = destinations.map((tenant) => ({
+    name: tenant.name,
+    tenantIdShort: tenant.tenantId.slice(0, 8) + "...",
+    environmentUrl: tenant.environmentUrl,
+    tags: tenant.tags?.join(", ") || "-",
+    active: tenant.enabled ? "Yes" : "No",
+  }));
 
-  destinations.forEach((tenant) => {
-    table.push([
-      tenant.name,
-      tenant.tenantId.slice(0, 8) + "...",
-      tenant.environmentUrl,
-      tenant.tags?.join(", ") || "-",
-      tenant.enabled ? chalk.green("Yes") : chalk.red("No"),
-    ]);
-  });
-
-  console.log(table.toString());
+  output(rows, { format: "table", columns: COLUMNS });
   console.log();
 
   const filterInfo: string[] = [];
@@ -138,23 +165,30 @@ function renderTable(
 
 function listDemo(
   spinner: ReturnType<typeof createSpinner>,
-  options: { search?: string; tag?: string[]; status?: string; json?: boolean }
+  options: { search?: string; tag?: string[]; status?: string; json?: boolean; quiet?: boolean }
 ) {
   spinner.succeed(`Loaded ${DEMO_TENANTS.length} destinations from demo fleet`);
   console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
 
   const destinations = applyFilters(DEMO_TENANTS, options);
-  renderTable(destinations, options, DEMO_TENANTS.filter((t) => t.enabled).length);
+  renderOutput(destinations, options, DEMO_TENANTS.filter((t) => t.enabled).length);
 }
 
 async function listReal(
   spinner: ReturnType<typeof createSpinner>,
-  options: { config: string; search?: string; tag?: string[]; status?: string; json?: boolean }
+  options: {
+    config: string;
+    search?: string;
+    tag?: string[];
+    status?: string;
+    json?: boolean;
+    quiet?: boolean;
+  }
 ) {
   const configPath = resolve(process.cwd(), options.config);
   const config = await loadConfig(configPath);
   spinner.succeed(`Loaded ${config.tenants.length} destinations from manifest`);
 
   const destinations = applyFilters(config.tenants, options);
-  renderTable(destinations, options, config.tenants.filter((t) => t.enabled).length);
+  renderOutput(destinations, options, config.tenants.filter((t) => t.enabled).length);
 }

@@ -24,6 +24,7 @@ import {
   getDeploymentHistoryById,
   outputDeploymentDetails,
   outputHistoryDetails,
+  resolveDeploymentFormat,
 } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
 
@@ -32,6 +33,7 @@ export const showCommand = new Command("show")
   .description("Show details of a specific deployment")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output")
   .addHelpText(
     "after",
     `
@@ -61,9 +63,10 @@ Examples:
 
           spinner.stop();
 
-          if (options.json) {
+          const fmt = resolveDeploymentFormat(options);
+          if (fmt === "json") {
             console.log(JSON.stringify(deployment, null, 2));
-          } else {
+          } else if (fmt !== "quiet") {
             outputDeploymentDetails(deployment);
           }
         },
@@ -79,9 +82,10 @@ Examples:
 
           spinner.stop();
 
-          if (options.json) {
+          const fmt = resolveDeploymentFormat(options);
+          if (fmt === "json") {
             console.log(JSON.stringify(entry, null, 2));
-          } else {
+          } else if (fmt !== "quiet") {
             outputHistoryDetails(entry);
           }
         }

@@ -231,13 +231,15 @@ describe("Tenants Command (Real Mode - Config File)", () => {
     });
 
     it("should show tenant metadata", async () => {
-      const result = await runCli(["tenants", "show", "Alpha", "--config", CONFIG_PATH], {
+      // Use --json since subprocess stdout is piped (non-TTY) and defaults to JSON.
+      // Metadata is always included in the JSON output.
+      const result = await runCli(["tenants", "show", "Alpha", "--config", CONFIG_PATH, "--json"], {
         env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
         cwd: TEST_DIR,
       });
 
       const cleanOutput = stripAnsi(result.output);
-      expect(containsText(cleanOutput, "Metadata")).toBe(true);
+      // metadata.region should be present in the JSON output
       expect(containsText(cleanOutput, "us-east")).toBe(true);
     });
 

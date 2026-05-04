@@ -26,6 +26,7 @@ import {
   outputTable,
   outputHistoryJson,
   outputHistoryTable,
+  resolveDeploymentFormat,
 } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
 
@@ -40,6 +41,7 @@ export const listCommand = new Command("list")
   .option("--since <date>", "Show history since date (ISO format or relative like '7d', '24h')")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output")
   .addHelpText(
     "after",
     `
@@ -67,9 +69,10 @@ Examples:
 
           spinner.stop();
 
-          if (options.json) {
+          const fmt = resolveDeploymentFormat(options);
+          if (fmt === "json") {
             outputJson(deployments, total, limit, offset);
-          } else {
+          } else if (fmt !== "quiet") {
             outputTable(deployments, total, limit, offset);
           }
         },
@@ -85,9 +88,10 @@ Examples:
 
           spinner.stop();
 
-          if (options.json) {
+          const fmt = resolveDeploymentFormat(options);
+          if (fmt === "json") {
             outputHistoryJson(entries, total, limit, offset);
-          } else {
+          } else if (fmt !== "quiet") {
             outputHistoryTable(entries, total, limit, offset);
           }
         }

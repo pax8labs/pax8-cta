@@ -17,7 +17,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import Table from "cli-table3";
 import {
   DEMO_TENANTS,
   DEMO_SOLUTIONS,
@@ -28,6 +27,31 @@ import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findTenant, getDeployedAgentsForTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+
+interface AgentRow {
+  name: string;
+  version: string;
+  deployedAt: string;
+  status: string;
+}
+
+const AGENT_COLUMNS: Column<AgentRow>[] = [
+  { key: "name", header: "Agent" },
+  { key: "version", header: "Version" },
+  { key: "deployedAt", header: "Deployed" },
+  {
+    key: "status",
+    header: "Status",
+    format: (v) => (v === "current" ? chalk.green("✓ current") : chalk.yellow("↑ outdated")),
+  },
+];
+
+function resolveFormat(options: { json?: boolean; quiet?: boolean }): OutputFormat {
+  if (options.json) return "json";
+  if (options.quiet) return "quiet";
+  return getDefaultFormat();
+}
 
 export const showCommand = new Command("show")
   .argument("<tenant>", "Tenant name, ID, or URL fragment")
@@ -36,6 +60,7 @@ export const showCommand = new Command("show")
   .option("--agents", "Show deployed agents")
   .option("--health", "Include health check")
   .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output")
   .action(async (tenantQuery: string, options) => {
     const spinner = createSpinner("Loading tenant...").start();
 
@@ -70,21 +95,26 @@ export const showCommand = new Command("show")
         process.exit(1);
       }
 
+      const fmt = resolveFormat(options);
+
       // JSON output
-      if (options.json) {
-        const output: Record<string, unknown> = { ...tenant };
+      if (fmt === "json") {
+        const jsonOutput: Record<string, unknown> = { ...tenant };
 
         if (options.agents) {
-          output.deployedAgents = getDeployedAgentsForTenant(tenant.tenantId);
+          jsonOutput.deployedAgents = getDeployedAgentsForTenant(tenant.tenantId);
         }
 
         if (options.health) {
-          output.health = generateMockHealthCheck(tenant.tenantId);
+          jsonOutput.health = generateMockHealthCheck(tenant.tenantId);
         }
 
-        console.log(JSON.stringify(output, null, 2));
+        console.log(JSON.stringify(jsonOutput, null, 2));
         return;
       }
+
+      // Quiet mode — no output
+      if (fmt === "quiet") return;
 
       // Standard output - tenant details
       console.log(chalk.bold(tenant.name));
@@ -118,20 +148,18 @@ export const showCommand = new Command("show")
         if (deployedAgents.length === 0) {
           console.log(chalk.gray("No agents deployed to this tenant."));
         } else {
-          const table = new Table({
-            head: ["Agent", "Version", "Deployed", "Status"],
-            style: { head: ["cyan"] },
-          });
-
-          deployedAgents.forEach((agent) => {
+          const rows: AgentRow[] = deployedAgents.map((agent) => {
             const latestVersion = DEMO_SOLUTIONS.find((s) => s.uniqueName === agent.name)?.version;
             const isCurrent = agent.version === latestVersion;
-            const status = isCurrent ? chalk.green("✓ current") : chalk.yellow("↑ outdated");
-
-            table.push([agent.name, agent.version, formatTimeAgo(agent.deployedAt), status]);
+            return {
+              name: agent.name,
+              version: agent.version,
+              deployedAt: formatTimeAgo(agent.deployedAt),
+              status: isCurrent ? "current" : "outdated",
+            };
           });
 
-          console.log(table.toString());
+          output(rows, { format: "table", columns: AGENT_COLUMNS });
           console.log();
           console.log(chalk.gray(`${deployedAgents.length} agents deployed`));
         }

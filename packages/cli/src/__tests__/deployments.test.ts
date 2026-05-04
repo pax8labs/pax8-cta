@@ -24,7 +24,6 @@ import {
   mockSpinner,
   mockProcessExit,
   runCliExpectSuccess,
-  parseTable,
   extractJson,
 } from "./test-utils.js";
 
@@ -360,7 +359,9 @@ describe("Deployments Integration Tests", () => {
     const result = await runCliExpectSuccess(["deployments", "list", "--status", "failed"]);
 
     const cleanOutput = stripAnsi(result.output);
-    expect(cleanOutput).toContain("Failed");
+    // Subprocess stdout is piped (non-TTY) so output defaults to JSON.
+    // Check the status value as it appears in JSON ("failed" lowercase).
+    expect(cleanOutput).toContain("failed");
   });
 
   it("should output JSON via CLI", async () => {
@@ -372,19 +373,28 @@ describe("Deployments Integration Tests", () => {
   });
 
   it("should show deployment details via CLI", async () => {
-    const result = await runCliExpectSuccess(["deployments", "show", "demo-hist-000"]);
+    // Pass --json since piped stdout defaults to JSON format.
+    const result = await runCliExpectSuccess(["deployments", "show", "demo-hist-000", "--json"]);
 
-    expect(containsText(result.output, "Deployment Details")).toBe(true);
     expect(containsText(result.output, "demo-hist-000")).toBe(true);
+    const json = extractJson(result.output) as any;
+    expect(json).not.toBeNull();
+    expect(json.id).toBe("demo-hist-000");
   });
 
   it("should parse deployment table correctly", async () => {
-    const result = await runCliExpectSuccess(["deployments", "list", "--limit", "5"]);
-    const table = parseTable(result.stdout);
+    // Pass --json since piped stdout defaults to JSON format.
+    const result = await runCliExpectSuccess(["deployments", "list", "--json", "--limit", "5"]);
 
-    expect(table.headers).toContain("ID");
-    expect(table.headers).toContain("Agent");
-    expect(table.headers).toContain("Status");
-    expect(table.rows.length).toBeGreaterThan(0);
+    const json = extractJson(result.output) as any;
+    expect(json).not.toBeNull();
+    expect(json.deployments).toBeDefined();
+    expect(json.deployments.length).toBeGreaterThan(0);
+    expect(json.deployments.length).toBeLessThanOrEqual(5);
+    // Verify expected keys are present in the JSON shape
+    const firstDeploy = json.deployments[0];
+    expect(firstDeploy).toHaveProperty("id");
+    expect(firstDeploy).toHaveProperty("solutionName");
+    expect(firstDeploy).toHaveProperty("status");
   });
 });
