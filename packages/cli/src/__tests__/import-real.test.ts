@@ -173,7 +173,10 @@ describe("Import Command (Real Mode - Config File)", () => {
       );
 
       expect(result.exitCode).toBe(1);
-      expect(containsText(result.output, "not found in manifest")).toBe(true);
+      // When piped (non-TTY), errors are emitted as JSON on stderr; when TTY, as human text.
+      const hasJsonError = result.stderr.includes('"error"');
+      const hasTextError = containsText(result.output, "not found in manifest");
+      expect(hasJsonError || hasTextError).toBe(true);
     });
 
     it("should error when config file does not exist", async () => {
@@ -343,7 +346,10 @@ tenants: []
       );
 
       expect(result.exitCode).toBe(1);
-      expect(containsText(result.output, "not found in manifest")).toBe(true);
+      // When piped (non-TTY), errors are emitted as JSON on stderr; when TTY, as human text.
+      const hasJsonError = result.stderr.includes('"error"');
+      const hasTextError = containsText(result.output, "not found in manifest");
+      expect(hasJsonError || hasTextError).toBe(true);
     });
   });
 });

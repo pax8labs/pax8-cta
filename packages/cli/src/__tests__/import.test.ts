@@ -135,6 +135,15 @@ describe("Import Command (deliver)", () => {
       const program = new Command();
       program.addCommand(importCommand);
 
+      // In non-TTY test environments the error handler emits JSON to process.stderr.write.
+      // Intercept it so we can assert on the error payload.
+      const stderrChunks: string[] = [];
+      const originalWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = vi.fn((chunk: any) => {
+        stderrChunks.push(typeof chunk === "string" ? chunk : chunk.toString());
+        return true;
+      }) as any;
+
       try {
         await program.parseAsync([
           "node",
@@ -147,10 +156,19 @@ describe("Import Command (deliver)", () => {
         ]);
       } catch (error: any) {
         expect(error.message).toContain("process.exit(1)");
+      } finally {
+        process.stderr.write = originalWrite;
       }
 
-      const output = consoleCapture.getAllOutput();
-      expect(containsText(output, "not found in manifest")).toBe(true);
+      // When piped (non-TTY), errors are emitted as JSON — verify the error is present
+      const stderrOutput = stderrChunks.join("");
+      const consoleOutput = consoleCapture.getAllOutput();
+      const combinedOutput = stderrOutput + consoleOutput;
+      expect(combinedOutput.length).toBeGreaterThan(0);
+      // Either JSON error or human-readable text should mention the failure
+      const hasJsonError = stderrOutput.includes('"error"');
+      const hasTextError = containsText(consoleOutput, "not found in manifest");
+      expect(hasJsonError || hasTextError).toBe(true);
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });

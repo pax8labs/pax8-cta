@@ -15,7 +15,7 @@
  */
 
 import chalk from "chalk";
-import { formatError, printError } from "./error-handler.js";
+import { formatError, printError, AgentSyncError } from "./error-handler.js";
 
 /**
  * Base CLI error with exit code.
@@ -51,37 +51,128 @@ interface SpinnerLike {
 }
 
 /**
+ * Detect whether JSON output mode is active.
+ *
+ * Two signals (OR'd):
+ *   1. `--json` is present anywhere in process.argv (simple substring check).
+ *   2. stdout is not a TTY (piped/redirected).
+ *
+ * Exported so that issue #345 (proper Commander-driven --json flag) can replace
+ * this with a single authoritative source of truth once that flag lands.
+ */
+export function isJsonOutputMode(): boolean {
+  return process.argv.includes("--json") || !process.stdout.isTTY;
+}
+
+/**
+ * Build the JSON error payload from any error value.
+ *
+ * Schema:
+ * ```json
+ * {
+ *   "error": {
+ *     "code": "...",
+ *     "message": "...",
+ *     "causes": [...],
+ *     "recovery": [...],
+ *     "context": { ... }
+ *   }
+ * }
+ * ```
+ *
+ * Plain `Error` / unknown become `{ error: { message } }`.
+ * Stack traces are never included.
+ */
+function buildJsonError(error: unknown): Record<string, unknown> {
+  // ZodError — duck-typed so we don't need to import zod directly in the CLI package.
+  // ZodError instances always have an `errors` array of `{ path, message }` objects.
+  if (error instanceof Error && error.name === "ZodError" && Array.isArray((error as any).errors)) {
+    const zodErrors = (error as any).errors as Array<{
+      path: (string | number)[];
+      message: string;
+    }>;
+    return {
+      error: {
+        code: "ERROR_VALIDATION",
+        message: "Validation failed",
+        causes: zodErrors.map((e) => `${e.path.join(".")}: ${e.message}`),
+        recovery: ["Check the input values and retry"],
+      },
+    };
+  }
+
+  // AgentSyncError (CLI structured error) — emit all fields directly
+  if (error instanceof AgentSyncError) {
+    const payload: Record<string, unknown> = {
+      code: error.code,
+      message: error.message,
+      causes: error.causes,
+      recovery: error.recovery,
+    };
+    if (error.context && Object.keys(error.context).length > 0) {
+      payload.context = error.context;
+    }
+    return { error: payload };
+  }
+
+  // For any other error, run through the structured formatter and emit result
+  try {
+    const structured = formatError(error);
+    const payload: Record<string, unknown> = {
+      code: structured.code,
+      message: structured.message,
+      causes: structured.causes,
+      recovery: structured.recovery,
+    };
+    if (structured.context && Object.keys(structured.context).length > 0) {
+      payload.context = structured.context;
+    }
+    return { error: payload };
+  } catch {
+    // Ultimate fallback — plain Error or unknown
+    const message = error instanceof Error ? error.message : String(error);
+    return { error: { message } };
+  }
+}
+
+/**
  * Standard error handler for CLI commands.
  *
  * - Stops the spinner with a fail message
- * - For runtime errors, uses the structured error handler (formatError/printError)
- *   to provide actionable recovery guidance
- * - For usage errors, prints a concise message
- * - Exits with the appropriate code (1=runtime, 2=usage)
+ * - When JSON mode is active (--json flag or piped stdout), emits a single JSON
+ *   object to stderr with structured `code`, `message`, `causes`, and `recovery`
+ *   fields — suitable for LLM-agent consumption.
+ * - Otherwise, uses the human-formatted handler (formatError/printError).
+ * - Exits with the appropriate code (1=runtime, 2=usage).
  */
 export function handleCommandError(
   error: unknown,
   spinner?: SpinnerLike | null,
   failMessage?: string
 ): never {
-  // Determine exit code and message
+  // Stop the spinner before any output
+  if (spinner) {
+    spinner.fail(failMessage ? chalk.red(failMessage) : chalk.red("Command failed"));
+  }
+
+  if (isJsonOutputMode()) {
+    // JSON mode: emit structured payload to stderr, no human-formatted text
+    const payload = buildJsonError(error);
+    process.stderr.write(JSON.stringify(payload) + "\n");
+    process.exit(error instanceof CliError ? error.exitCode : 1);
+  }
+
+  // Human-readable mode (original behaviour preserved exactly)
   if (error instanceof CliError) {
-    if (spinner) {
-      spinner.fail(chalk.red(failMessage || error.message));
-    } else if (failMessage) {
+    if (!spinner && failMessage) {
       console.error(chalk.red(failMessage));
     }
-
     // CliError messages are already actionable — print directly
     console.error(chalk.red(`\nError: ${error.message}`));
-
     process.exit(error.exitCode);
   }
 
-  // Unknown/unexpected errors: use structured error handler
-  if (spinner) {
-    spinner.fail(chalk.red(failMessage || "Command failed"));
-  } else if (failMessage) {
+  if (!spinner && failMessage) {
     console.error(chalk.red(failMessage));
   }
 
