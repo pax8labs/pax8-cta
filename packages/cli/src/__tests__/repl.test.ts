@@ -158,5 +158,49 @@ describe("REPL Module", () => {
       const output = consoleCapture.getAllOutput();
       expect(containsText(output, "Something went wrong")).toBe(true);
     });
+
+    it("should not leak option state across REPL iterations", async () => {
+      // Regression: subcommand singletons retain Commander's _optionValues
+      // between parseAsync calls. A first invocation with --flag would cause
+      // the next bare invocation to behave as if --flag were still set.
+      const calls: Array<Record<string, unknown>> = [];
+      const sub = new Command("foo")
+        .option("--flag")
+        .option("-t, --tag <name>")
+        .action((opts) => {
+          calls.push({ ...opts });
+        });
+
+      function createProgramWithStatefulSub(): Command {
+        const program = new Command();
+        program.addCommand(sub);
+        return program;
+      }
+
+      mockQuestion.mockResolvedValueOnce("foo --flag --tag enterprise");
+      mockQuestion.mockResolvedValueOnce("foo");
+      mockQuestion.mockResolvedValueOnce("foo --tag production");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createProgramWithStatefulSub);
+
+      expect(calls).toEqual([{ flag: true, tag: "enterprise" }, {}, { tag: "production" }]);
+    });
+
+    it("should tolerate a leading 'agentsync' token", async () => {
+      const actionFn = vi.fn();
+      function createProgramWithSpy(): Command {
+        const program = new Command();
+        program.command("test-cmd").action(actionFn);
+        return program;
+      }
+
+      mockQuestion.mockResolvedValueOnce("agentsync test-cmd");
+      mockQuestion.mockResolvedValueOnce("exit");
+
+      await startRepl(createProgramWithSpy);
+
+      expect(actionFn).toHaveBeenCalledTimes(1);
+    });
   });
 });
