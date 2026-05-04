@@ -28,6 +28,7 @@ import { formatTimeAgo } from "../../lib/formatters.js";
 import { findTenant, getDeployedAgentsForTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+import { isInteractivePrompt, pickFromList, printRunningCommand } from "../../lib/picker.js";
 
 interface AgentRow {
   name: string;
@@ -54,14 +55,14 @@ function resolveFormat(options: { json?: boolean; quiet?: boolean }): OutputForm
 }
 
 export const showCommand = new Command("show")
-  .argument("<tenant>", "Tenant name, ID, or URL fragment")
+  .argument("[tenant]", "Tenant name, ID, or URL fragment")
   .description("View tenant details and deployed agents")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--agents", "Show deployed agents")
   .option("--health", "Include health check")
   .option("--json", "Output as JSON")
   .option("--quiet", "Suppress all output")
-  .action(async (tenantQuery: string, options) => {
+  .action(async (tenantQuery: string | undefined, options) => {
     const spinner = createSpinner("Loading tenant...").start();
 
     try {
@@ -80,6 +81,28 @@ export const showCommand = new Command("show")
           return config.tenants;
         }
       );
+
+      // No tenant arg in an interactive terminal? Offer a picker drawn from
+      // the resolved tenant list. Scripts (--json, --quiet, non-TTY) fall
+      // through to the existing "Tenant not found" path so they fail fast
+      // rather than hang.
+      if (!tenantQuery && isInteractivePrompt({ json: options.json, quiet: options.quiet })) {
+        const picked = await pickFromList(tenants, {
+          prompt: "Pick a tenant:",
+          label: (t) => t.name,
+          hint: (t) => (t.tags?.length ? t.tags.join(", ") : undefined),
+        });
+        if (picked) {
+          tenantQuery = picked.name;
+          printRunningCommand(["tenants", "show", picked.name]);
+        }
+      }
+
+      if (!tenantQuery) {
+        console.error(chalk.red("Error: tenant name required."));
+        console.error(chalk.gray("  Example: tenants show Contoso"));
+        process.exit(2);
+      }
 
       // Find tenant by name, ID, or URL
       const tenant = findTenant(tenants, tenantQuery);
