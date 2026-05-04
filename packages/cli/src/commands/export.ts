@@ -19,7 +19,7 @@ import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { copyFileSync, mkdirSync, existsSync } from "node:fs";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../lib/spinner.js";
 import { TokenManager, DataverseClient, SolutionOperations } from "@agentsync/core";
 import { withResolvedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
@@ -48,7 +48,9 @@ Examples:
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
       console.error(chalk.red("Error: solution name required."));
-      console.error(chalk.gray("  Example: agentsync export TestDeploy"));
+      if (!isQuietMode()) {
+        console.error(chalk.gray("  Example: agentsync export TestDeploy"));
+      }
       process.exit(2);
     }
     const spinner = createSpinner("Loading manifest...").start();
@@ -58,7 +60,9 @@ Examples:
         options,
         async () => {
           spinner.succeed("Demo mode - using sample agent package");
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          }
 
           // Create output directory
           const outputDir = resolve(options.output);

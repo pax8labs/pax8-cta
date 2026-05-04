@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { riskAnalyzer, type RiskAnalysis, type DeploymentContext } from "@agentsync/core";
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
@@ -69,7 +69,9 @@ Examples:
 
     if (!options.solution) {
       spinner.fail(chalk.red("Solution name or path required."));
-      console.error(chalk.gray("  Example: agentsync analyze TestDeploy"));
+      if (!isQuietMode()) {
+        console.error(chalk.gray("  Example: agentsync analyze TestDeploy"));
+      }
       process.exit(2);
     }
 
@@ -83,7 +85,9 @@ Examples:
         options,
         async (destinations) => {
           spinner.succeed("Demo fleet manifest loaded");
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
+          }
 
           if (destinations.length === 0) {
             spinner.fail(chalk.red("No destinations matched the selection criteria"));

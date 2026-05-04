@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import Table from "cli-table3";
-import { createSpinner } from "../../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../../lib/spinner.js";
 import {
   DEMO_TENANTS,
   getDemoVersionDriftSummary,
@@ -88,7 +88,9 @@ Examples:
       await withDemoMode(
         async () => {
           spinner.stop();
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          if (!isQuietMode()) {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+          }
 
           const enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);
 
