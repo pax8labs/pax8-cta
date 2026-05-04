@@ -30,19 +30,15 @@ import { runCli } from "./test-utils.js";
 // ============================================================================
 
 describe("--quiet flag", () => {
-  it(
-    "agentsync tenants list --quiet produces zero stdout and exits 0",
-    async () => {
-      const result = await runCli(["tenants", "list", "--quiet"], {
-        env: { NO_COLOR: "1" },
-        timeout: 60000,
-      });
+  it("agentsync tenants list --quiet produces zero stdout and exits 0", async () => {
+    const result = await runCli(["tenants", "list", "--quiet"], {
+      env: { NO_COLOR: "1" },
+      timeout: 60000,
+    });
 
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toBe("");
-    },
-    { timeout: 60000 }
-  );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  }, 60000);
 });
 
 // ============================================================================
@@ -50,19 +46,15 @@ describe("--quiet flag", () => {
 // ============================================================================
 
 describe("AGENTSYNC_QUIET=1 env var", () => {
-  it(
-    "AGENTSYNC_QUIET=1 agentsync tenants list produces zero stdout and exits 0",
-    async () => {
-      const result = await runCli(["tenants", "list"], {
-        env: { NO_COLOR: "1", AGENTSYNC_QUIET: "1" },
-        timeout: 60000,
-      });
+  it("AGENTSYNC_QUIET=1 agentsync tenants list produces zero stdout and exits 0", async () => {
+    const result = await runCli(["tenants", "list"], {
+      env: { NO_COLOR: "1", AGENTSYNC_QUIET: "1" },
+      timeout: 60000,
+    });
 
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toBe("");
-    },
-    { timeout: 60000 }
-  );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  }, 60000);
 });
 
 // ============================================================================
@@ -70,26 +62,22 @@ describe("AGENTSYNC_QUIET=1 env var", () => {
 // ============================================================================
 
 describe("--quiet error path", () => {
-  it(
-    "agentsync tenants show <nonexistent> --quiet exits non-zero (errors not suppressed)",
-    async () => {
-      const result = await runCli(
-        ["tenants", "show", "nonexistent-tenant-xyz-quiet-test", "--quiet"],
-        {
-          env: { NO_COLOR: "1" },
-          timeout: 60000,
-        }
-      );
+  it("agentsync tenants show <nonexistent> --quiet exits non-zero (errors not suppressed)", async () => {
+    const result = await runCli(
+      ["tenants", "show", "nonexistent-tenant-xyz-quiet-test", "--quiet"],
+      {
+        env: { NO_COLOR: "1" },
+        timeout: 60000,
+      }
+    );
 
-      // Error exit code (1 or 2) — the command must fail even in quiet mode
-      expect(result.exitCode).not.toBe(0);
+    // Error exit code (1 or 2) — the command must fail even in quiet mode
+    expect(result.exitCode).not.toBe(0);
 
-      // Error messages in this codebase are routed through console.log (stdout)
-      // for "not found" style errors, so check combined output for the error text.
-      // (handleCommandError routes structured errors to stderr — both channels remain active.)
-      const combined = (result.stdout + result.stderr).toLowerCase();
-      expect(combined).toMatch(/not found|error/);
-    },
-    { timeout: 60000 }
-  );
+    // Error messages in this codebase are routed through console.log (stdout)
+    // for "not found" style errors, so check combined output for the error text.
+    // (handleCommandError routes structured errors to stderr — both channels remain active.)
+    const combined = (result.stdout + result.stderr).toLowerCase();
+    expect(combined).toMatch(/not found|error/);
+  }, 60000);
 });
