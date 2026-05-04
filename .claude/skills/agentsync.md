@@ -1,73 +1,129 @@
-# AgentSync CLI Reference
+---
+name: agentsync
+description: Use when the user asks to deploy, manage, audit, or troubleshoot Power Platform / Copilot Studio solutions ("agents") across multiple Microsoft 365 customer tenants. Triggers include "deploy <solution> to <tenants>", "what's deployed where", "fleet drift", "tenant health", "GDAP issues", "rollback", "preview a deploy", "is my fleet healthy". Run from a checkout of the agentsync repo or anywhere `agentsync` is on PATH. Skip for unrelated Power Platform work that doesn't involve multi-tenant fleet deployment.
+---
 
-Translate user requests into `agentsync` CLI commands. Run via `node packages/cli/dist/index.js` (or `packages/cli/agentsync` if built).
+# AgentSync CLI
 
-## Commands
+Multi-tenant deployment for Copilot Studio / Power Platform solutions, via GDAP delegation. The user has a partner Azure AD app, a fleet of customer tenants in `config/tenants.yaml`, and wants to ship the same solution to many tenants without clicking through each one. Translate natural-language requests into `agentsync` commands, run them, and interpret the output.
+
+If credentials aren't configured, suggest `agentsync demo on` first — the CLI ships with mock fleet data so the user can try every command before connecting real tenants.
+
+## Natural-language → command
+
+| User says                             | Run                                                                           |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| "deploy X to enterprise tenants"      | `agentsync deploy X --tag enterprise`                                         |
+| "preview the deploy" / "dry run"      | add `--dry-run` (and consider `--json` for structured plan)                   |
+| "deploy to one customer"              | `agentsync deploy X --tenant "Contoso"`                                       |
+| "deploy a zip I already have"         | `agentsync deploy ./MyAgent.zip --all`                                        |
+| "what tenants do I have"              | `agentsync tenants list` (filter with `--tag` / `--search` / `--status`)      |
+| "is the fleet healthy"                | `agentsync tenants health`                                                    |
+| "drill into tenant X"                 | `agentsync tenants show X --health --agents`                                  |
+| "check connectivity / permissions"    | `agentsync tenants inspect` (or per-tenant: `agentsync validate -t X --gdap`) |
+| "what's available to ship"            | `agentsync solutions list`                                                    |
+| "where is solution X deployed"        | `agentsync solutions show X --tenants`                                        |
+| "what versions are running" / "drift" | `agentsync solutions drift --risk`                                            |
+| "uninstall X from tenant Y"           | `agentsync solutions remove X -t Y`                                           |
+| "what's been deployed recently"       | `agentsync deployments list --limit 10`                                       |
+| "show failures from last week"        | `agentsync deployments list --status failed --since 7d`                       |
+| "why did deployment X fail"           | `agentsync deployments show <id>` then read the per-tenant errors             |
+| "risk-check before I ship"            | `agentsync analyze X --tag production`                                        |
+| "set up the partner app on tenant X"  | `agentsync setup -t X` (or `--all`)                                           |
+| "store my client secret"              | `agentsync auth login`                                                        |
+| "let me try without credentials"      | `agentsync demo on`                                                           |
+| "switch back to real mode"            | `agentsync demo off`                                                          |
+
+If the user is in the REPL (`agentsync` with no args), drop the `agentsync` prefix — the REPL also tolerates it if typed.
+
+## Command reference
 
 ```
-agentsync init                                  # Guided setup wizard
-agentsync validate                              # Check config, credentials, environments
-agentsync validate -t <tenant>                  # Check a specific tenant
+agentsync init [--demo] [--interactive]               Guided setup wizard
+agentsync auth login | logout | status                Manage client secret in OS keychain
+agentsync validate [-t <tenant>] [--gdap]             Check config + creds + environments
+agentsync setup --check | --all | -t <tenant>         Register the partner app as an
+                                                       application user in target tenants
 
-agentsync deploy <solution> --all --direct      # Deploy to all tenants (sequential)
-agentsync deploy <solution> --tag <tag>         # Deploy to tagged tenants only
-agentsync deploy <solution> --all --dry-run     # Preview without deploying
-agentsync deploy ./Solution.zip --all           # Deploy a pre-exported zip
+agentsync tenants list [--tag X] [--search Q] [--status enabled|disabled|all]
+agentsync tenants inspect [-t <tenant>]               Validate connectivity for each tenant
+agentsync tenants show <tenant> [--health] [--agents]
+agentsync tenants health [<tenant>]
+agentsync tenants enable | disable <tenant>
+agentsync tenants tag <tenant> --add X --remove Y
 
-agentsync export <solution>                     # Export managed solution zip
-agentsync export <solution> --unmanaged         # Export unmanaged
+agentsync solutions list [-t <tenant>]                Source env (default) or a target tenant
+agentsync solutions show <name> [--tenants]
+agentsync solutions drift [--risk] [--outdated] [--fix [--force]]
+agentsync solutions remove <solution> -t <tenant> [-y]
 
-agentsync import ./Solution.zip -t <tenant>     # Import zip to one tenant
+agentsync export <solution> [--unmanaged] [-o <dir>]
+agentsync import <zip> -t <tenant> [--no-publish] [--no-overwrite]
 
-agentsync deployments list                      # List recent deployments
-agentsync deployments list -s failed --since 7d # Failed deployments last 7 days
-agentsync deployments show <id>                 # Deployment details
-agentsync deployments watch <id>                # Watch progress live
-agentsync deployments retry <id>                # Retry failed tenants
-agentsync deployments cancel <id>               # Cancel in-progress
-agentsync deployments rollback <id>             # Rollback to previous version
+agentsync deploy <solution|zip> [--all | --tag X | --tenant Y] [--dry-run]
+                                [--unmanaged] [--keep-package] [--skip-url-replace]
+agentsync analyze <solution|zip> [--tag X | --all]    Pre-deploy risk scan
 
-agentsync tenants list                          # List all tenants
-agentsync tenants inspect                       # Validate connectivity & permissions
-agentsync tenants health                        # Health status for all tenants
-agentsync tenants health <tenant>               # Health for one tenant
-agentsync tenants show <tenant>                 # Tenant details & deployed agents
+agentsync deployments list [--status failed|success] [--since 7d] [--limit N]
+                           [-t <tenant>] [-a <solution>]
+agentsync deployments show <id>
 
-agentsync solutions list                        # List solutions in source env
-agentsync solutions show <name>                 # Solution details & where deployed
-agentsync solutions drift                       # Find version drift across tenants
+agentsync status [--list | --setup | -d <id>]         Setup/deployment status overview
 
-agentsync analyze <solution>                    # Risk analysis across tenants
-agentsync analyze <solution> --tag production   # Risk for production only
-
-agentsync demo on|off|status                    # Toggle demo mode (no credentials needed)
+agentsync demo on | off | status | toggle             Mock-data mode for credential-free use
+agentsync demo auto                                   Scripted walkthrough demo
 ```
 
-## When user asks in natural language
+`deployments` only supports `list` and `show` in the OSS CLI. `watch`, `retry`, `cancel`, `rollback` belonged to a queue-backed mode that's not part of the OSS build.
 
-- "deploy X to Y" → `agentsync deploy <X> --tag <Y> --direct` or `--all`
-- "check my tenants" / "can I access tenants" → `agentsync tenants inspect`
-- "what's deployed" / "deployment status" → `agentsync deployments list`
-- "why did it fail" → `agentsync deployments show <id>` then explain the error
-- "is tenant X healthy" → `agentsync tenants health <X>`
-- "what versions are running" → `agentsync solutions drift`
-- "retry the failed deployment" → `agentsync deployments retry <id>`
+## Composing commands (JSON & pipelines)
 
-## Common errors and what they mean
+Every command supports `--json` and most lists support `--ids-only`. Use these for parsing and pipelines rather than scraping table output:
 
-- `Missing privilege 'prvWriteContact'` → GDAP role lacks permissions. Need Power Platform Admin role added in Partner Center.
-- `No GDAP relationship` / `No shipping route` → No delegated admin relationship. Set up GDAP in Partner Center for this tenant.
-- `GDAP relationship exists but missing roles` → GDAP exists but needs Power Platform Admin role added.
-- `403 Forbidden` / permission denied → Service principal lacks required Dataverse roles. Run `agentsync setup -t <tenant>`.
-- `401 Unauthorized` / token expired → Credentials invalid or expired. Run `agentsync auth` to refresh, or check env vars.
-- `Solution not found` → Solution name doesn't match any in source environment. Run `agentsync solutions list` to see available names.
-- `Environment URL not configured` → Tenant config missing environment URL. Run `agentsync init` to auto-discover or set manually in config/tenants.yaml.
+```bash
+# Get tenant IDs as a flat list
+agentsync tenants list --tag production --ids-only
 
-## Notes
+# Drive a per-tenant action from a list
+agentsync tenants list --tag production --ids-only \
+  | xargs -I{} agentsync deployments list --tenant {} --json
 
-- Use `--direct` flag on deploy to avoid needing Redis
-- Solution arg can be a name (looked up in source env) or a path to a .zip
-- Tenant arg can be a name or ID from config
-- Config file is at `./config/tenants.yaml` by default (override with `-c`)
-- Run `agentsync demo on` first if no production credentials are configured
-- All commands support `--help` for full options
+# Parse a deployment to extract failed tenants
+agentsync deployments show <id> --json | jq '.tenants[] | select(.status=="failed")'
+
+# Dry-run plan as JSON for review by another tool
+agentsync deploy MyAgent --tag production --dry-run --json
+```
+
+Global flags (placed anywhere):
+
+- `--json` — structured output (auto-on when stdout is not a TTY)
+- `--ids-only` — one ID per line, ideal for `xargs`
+- `--quiet` — suppress stdout, exit code only (errors still go to stderr)
+- `--verbose` — debug logging
+
+## Error recipes
+
+| Symptom                                                    | Likely cause                                      | Fix                                                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `Missing privilege 'prv...'`                               | GDAP role lacks Power Platform Admin              | Add Power Platform Admin role in Partner Center for that delegated relationship                 |
+| `No GDAP relationship` / `No shipping route`               | No delegated admin link                           | Set up GDAP in Partner Center for the customer tenant                                           |
+| `403 Forbidden` on Dataverse calls                         | App user not registered in the tenant's Dataverse | `agentsync setup -t <tenant>`                                                                   |
+| `401 Unauthorized` / token expired                         | Invalid or missing client secret                  | `agentsync auth status`, then `agentsync auth login` if needed (or set `PARTNER_CLIENT_SECRET`) |
+| `Solution not found`                                       | Name mismatch (case-sensitive)                    | `agentsync solutions list` to find the exact name                                               |
+| `Environment URL not configured`                           | Tenant config missing `environmentUrl`            | Edit `config/tenants.yaml` or rerun `agentsync init`                                            |
+| `Failed to load fleet manifest` (`ERROR_CONFIG_NOT_FOUND`) | Wrong cwd or no config                            | Either `agentsync init`, `cd` to the project, or pass `-c <path>`                               |
+| `⚠️ DEMO MODE - Using mock data` banner                    | Demo mode is on (intentional)                     | Inform the user; offer `agentsync demo off` if they expected real data                          |
+
+When a deployment partially fails: `agentsync deployments show <id>` lists per-tenant status and error. Group by error class before recommending fixes — "GDAP not set up on 3 tenants" beats "deploy failed on 3 tenants."
+
+## Notes & gotchas
+
+- **Solution argument** is either a name (looked up in source env and exported on the fly) or a path to a `.zip`. Prefer the name unless the user has a pre-built zip.
+- **Tenant argument** accepts either the friendly name from `config/tenants.yaml` or the tenant GUID.
+- **Default targeting** for `deploy` is `--all`. Always check whether the user meant the full fleet or a slice — confirm before running unscoped deploys against >5 tenants.
+- **Demo mode is sticky** (`~/.agentsync/cli-config.json`). The per-command `⚠️ DEMO MODE` banner is the signal that what you just ran was mock data — don't claim real changes happened.
+- **`--dry-run` before `deploy`** is the safe default for any deployment >1 tenant. Pair with `--json` if the user wants to script approval.
+- **Config lives at `./config/tenants.yaml`** by default. Override with `-c <path>` per command.
+- **`agentsync init` writes a `config/tenants.yaml`** with example tenants and inline comments showing the schema — point users there rather than dictating the format from memory.
+- All commands accept `--help` for the full flag list; run it before guessing flag names you don't see here.
