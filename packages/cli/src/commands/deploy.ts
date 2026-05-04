@@ -74,7 +74,11 @@ Examples:
   agentsync deploy TestDeploy --all --skip-url-replace  Skip URL replacement
 `
   )
-  .action(async (solutionArg: string | undefined, options) => {
+  .action(async (solutionArg: string | undefined, options, cmd) => {
+    // Merge global flags (--json, --quiet registered on root) into local options.
+    // Without this, Commander consumes --json at the root level and deploy's
+    // options.json is undefined, breaking `deploy --dry-run --json`.
+    Object.assign(options, cmd.optsWithGlobals());
     const mergedTenantFilters = [...(options.tenant ?? []), ...(options.tenants ?? [])];
     if (mergedTenantFilters.length > 0) {
       options.tenant = Array.from(new Set(mergedTenantFilters));
