@@ -49,6 +49,12 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
       // Parse the input as commander arguments
       const args = parseCommandLine(input);
 
+      // Tolerate shell-style invocations: muscle memory from running
+      // `agentsync foo bar` outside the REPL shouldn't surface as an error.
+      if (args[0] === "agentsync") {
+        args.shift();
+      }
+
       // Create a fresh program instance for this command
       const program = createProgram();
 

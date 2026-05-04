@@ -31,8 +31,8 @@ export const inspectCommand = new Command("inspect")
     "after",
     `
 Examples:
-  agentsync tenants inspect                           Validate all enabled tenants
-  agentsync tenants inspect -t production             Validate only tenants tagged "production"
+  tenants inspect                           Validate all enabled tenants
+  tenants inspect -t production             Validate only tenants tagged "production"
 `
   )
   .action(async (options) => {

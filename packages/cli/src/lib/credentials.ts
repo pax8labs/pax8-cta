@@ -134,6 +134,6 @@ export async function getClientSecretWithFallback(): Promise<string> {
   throw new Error(
     `Client secret not found. Either:\n` +
       `  1. Set the PARTNER_CLIENT_SECRET environment variable (or add it to .env), OR\n` +
-      `  2. Store it securely using: agentsync auth login`
+      `  2. Store it securely using: auth login`
   );
 }

@@ -177,11 +177,11 @@ export const statusCommand = new Command("status")
 
           console.log(table.toString());
           console.log();
-          console.log(chalk.gray(`Use 'agentsync track --shipment <id>' to view details`));
+          console.log(chalk.gray(`Use 'track --shipment <id>' to view details`));
         },
         () => {
           exitOssUnavailable("'status --list'", {
-            alternatives: ["agentsync deployments list"],
+            alternatives: ["deployments list"],
           });
         }
       );
@@ -249,11 +249,11 @@ export const statusCommand = new Command("status")
 
         console.log(table.toString());
         console.log();
-        console.log(chalk.gray("Demo mode - use 'agentsync demo off' to disable"));
+        console.log(chalk.gray("Demo mode - use 'demo off' to disable"));
       },
       () => {
         exitOssUnavailable("'status' tracking view", {
-          alternatives: [`agentsync deployments show ${trackingId}`],
+          alternatives: [`deployments show ${trackingId}`],
         });
       }
     );
@@ -288,7 +288,7 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
       console.log();
       console.log(chalk.yellow("Next steps:"));
       console.log(`  1. Create config file at ${configPath}`);
-      console.log("  2. Then run 'agentsync status --setup' again");
+      console.log("  2. Then run 'status --setup' again");
       return;
     }
 
@@ -320,7 +320,7 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
       console.log();
       console.log(chalk.yellow("Next steps:"));
       console.log("  1. Set PARTNER_CLIENT_SECRET environment variable");
-      console.log("  2. Then run 'agentsync status --setup' again");
+      console.log("  2. Then run 'status --setup' again");
       return;
     }
 
@@ -368,14 +368,14 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
 
       if (tenantsNeedingSetup.length > 0) {
         if (tenantsNeedingSetup.length === enabledTenants.length) {
-          console.log(`  1. Run ${chalk.cyan("'agentsync setup --all'")} to create app users`);
+          console.log(`  1. Run ${chalk.cyan("'setup --all'")} to create app users`);
         } else {
           console.log("  1. Setup individual tenants:");
           tenantsNeedingSetup.forEach((s) => {
-            console.log(`     ${chalk.cyan(`agentsync setup --tenant "${s.tenantName}"`)}`);
+            console.log(`     ${chalk.cyan(`setup --tenant "${s.tenantName}"`)}`);
           });
         }
-        console.log(`  2. Then: ${chalk.cyan("agentsync deploy --all --solution ./agent.zip")}`);
+        console.log(`  2. Then: ${chalk.cyan("deploy --all --solution ./agent.zip")}`);
       }
 
       if (errorCount > 0) {

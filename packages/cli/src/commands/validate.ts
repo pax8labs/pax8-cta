@@ -49,10 +49,10 @@ export const validateCommand = new Command("validate")
     "after",
     `
 Examples:
-  agentsync validate                              Check everything
-  agentsync validate --gdap                       Also verify GDAP delegation
-  agentsync validate -t AgentSync-Test2           Check a specific tenant
-  agentsync validate --skip-source                Check only tenants, not source
+  validate                              Check everything
+  validate --gdap                       Also verify GDAP delegation
+  validate -t AgentSync-Test2           Check a specific tenant
+  validate --skip-source                Check only tenants, not source
 `
   )
   .action(async (options) => {
@@ -68,7 +68,7 @@ Examples:
         name: "Config file",
         status: "fail",
         message: `File not found: ${configPath}`,
-        fix: "Run 'agentsync init' to create a configuration file",
+        fix: "Run 'init' to create a configuration file",
       });
       hasErrors = true;
       spinner.fail("Configuration file not found");
@@ -89,7 +89,7 @@ Examples:
         );
         if (!tenant) {
           throw new CliError(
-            `Tenant '${options.tenant}' not found in configuration or not enabled. Run 'agentsync tenants list' to see available tenants.`
+            `Tenant '${options.tenant}' not found in configuration or not enabled. Run 'tenants list' to see available tenants.`
           );
         }
         enabledTenants = [tenant];
@@ -187,7 +187,7 @@ Examples:
             name: `${tenant.name}`,
             status: "fail",
             message: "App user not found in environment",
-            fix: `Run 'agentsync setup --tenant "${tenant.name}"'`,
+            fix: `Run 'setup --tenant "${tenant.name}"'`,
           });
           hasErrors = true;
           tenantSpinner.fail(chalk.red(`${tenant.name}: App user missing`));
@@ -196,7 +196,7 @@ Examples:
             name: `${tenant.name}`,
             status: "fail",
             message: "App user exists but System Administrator role not assigned",
-            fix: `Run 'agentsync setup --tenant "${tenant.name}"'`,
+            fix: `Run 'setup --tenant "${tenant.name}"'`,
           });
           hasErrors = true;
           tenantSpinner.fail(chalk.red(`${tenant.name}: Missing System Administrator role`));

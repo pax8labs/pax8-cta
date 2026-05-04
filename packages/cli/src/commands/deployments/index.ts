@@ -29,9 +29,9 @@ export const deploymentsCommand = new Command("deployments")
     "after",
     `
 Examples:
-  agentsync deployments list                          List recent deployments
-  agentsync deployments show dep_abc123               View deployment details
-  agentsync deployments list -s failed --since 7d     Show failed deployments from last 7 days
+  deployments list                          List recent deployments
+  deployments show dep_abc123               View deployment details
+  deployments list -s failed --since 7d     Show failed deployments from last 7 days
 
 Note:
   Queue management actions are not available in the open-source CLI.

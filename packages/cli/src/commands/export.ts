@@ -39,9 +39,9 @@ export const exportCommand = new Command("export")
     "after",
     `
 Examples:
-  agentsync export TestDeploy                     Export as managed solution
-  agentsync export TestDeploy --unmanaged         Export as unmanaged
-  agentsync export TestDeploy -o ./my-exports     Export to custom directory
+  export TestDeploy                     Export as managed solution
+  export TestDeploy --unmanaged         Export as unmanaged
+  export TestDeploy -o ./my-exports     Export to custom directory
 `
   )
   .action(async (solutionArg: string | undefined, options) => {
@@ -49,7 +49,7 @@ Examples:
     if (!options.solution) {
       console.error(chalk.red("Error: solution name required."));
       if (!isQuietMode()) {
-        console.error(chalk.gray("  Example: agentsync export TestDeploy"));
+        console.error(chalk.gray("  Example: export TestDeploy"));
       }
       process.exit(2);
     }
@@ -100,9 +100,7 @@ Examples:
           console.log(`  Type:     ${managed ? "Managed" : "Unmanaged"}`);
           console.log(`  Package:  ${chalk.cyan(outputPath)}`);
           console.log();
-          console.log(
-            chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`)
-          );
+          console.log(chalk.gray(`Use 'deploy <solution> --all' to deploy to your tenants`));
         },
         async (config) => {
           spinner.succeed("Manifest loaded");
@@ -156,9 +154,7 @@ Examples:
           console.log(`  Type:     ${managed ? "Managed" : "Unmanaged"}`);
           console.log(`  Agent package:    ${chalk.cyan(outputPath)}`);
           console.log();
-          console.log(
-            chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`)
-          );
+          console.log(chalk.gray(`Use 'deploy <solution> --all' to deploy to your tenants`));
         }
       );
     } catch (error) {

@@ -208,7 +208,7 @@ describe("Error Handler", () => {
       expect(formatted.code).toBe("ERROR_SOLUTION_NOT_FOUND");
       expect(formatted.message).toContain("not found");
       expect(formatted.context?.solutionName).toBe("MyAgent");
-      expect(formatted.recovery.join(" ")).toContain("agentsync solutions list");
+      expect(formatted.recovery.join(" ")).toContain("solutions list");
     });
 
     it("should map network errors - ECONNREFUSED", () => {
@@ -235,7 +235,7 @@ describe("Error Handler", () => {
 
       expect(formatted.code).toBe("ERROR_CONFIG_NOT_FOUND");
       expect(formatted.message).toContain("Configuration file");
-      expect(formatted.recovery.join(" ")).toContain("agentsync init");
+      expect(formatted.recovery.join(" ")).toContain("  init");
     });
 
     it("should map legacy queue connection errors", () => {
@@ -244,7 +244,7 @@ describe("Error Handler", () => {
 
       expect(formatted.code).toBe("ERROR_QUEUE_CONNECTION");
       expect(formatted.message).toContain("open-source CLI");
-      expect(formatted.recovery.join(" ")).toContain("agentsync deploy --direct");
+      expect(formatted.recovery.join(" ")).toContain("deploy --direct");
       expect(formatted.recovery.join(" ")).not.toContain("--redis");
     });
     it("should handle generic errors", () => {

@@ -66,10 +66,10 @@ export const listCommand = new Command("list")
     "after",
     `
 Examples:
-  agentsync solutions list                             List solutions in source environment
-  agentsync solutions list -t AgentSync-Test2          List solutions in a target tenant
-  agentsync solutions list --json                      Output as JSON
-  agentsync solutions list --ids-only | xargs -I{} agentsync deploy {} --all
+  solutions list                             List solutions in source environment
+  solutions list -t AgentSync-Test2          List solutions in a target tenant
+  solutions list --json                      Output as JSON
+  solutions list --ids-only | xargs -I{} deploy {} --all
 `
   )
   .action(async (options, cmd) => {

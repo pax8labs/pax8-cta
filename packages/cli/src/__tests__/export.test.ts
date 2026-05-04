@@ -135,7 +135,7 @@ describe("Export Command (pack)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "agentsync deploy")).toBe(true);
+      expect(containsText(output, "Use 'deploy")).toBe(true);
     });
 
     it("should create output directory if it does not exist", async () => {

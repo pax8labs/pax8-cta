@@ -26,9 +26,9 @@ export const authCommand = new Command("auth")
     "after",
     `
 Examples:
-  agentsync auth login                                Store client secret in OS keychain
-  agentsync auth logout                               Remove stored credentials
-  agentsync auth status                               Check authentication status
+  auth login                                Store client secret in OS keychain
+  auth logout                               Remove stored credentials
+  auth status                               Check authentication status
 `
   );
 
@@ -78,8 +78,8 @@ authCommand
       console.log(chalk.gray("used automatically by AgentSync commands."));
       console.log();
       console.log(chalk.cyan("Next steps:"));
-      console.log(chalk.white("  agentsync auth status  ") + chalk.dim("# Verify credentials"));
-      console.log(chalk.white("  agentsync tenants list ") + chalk.dim("# Test authentication"));
+      console.log(chalk.white("  auth status  ") + chalk.dim("# Verify credentials"));
+      console.log(chalk.white("  tenants list ") + chalk.dim("# Test authentication"));
       console.log();
     } catch (error) {
       handleCommandError(error, null, "Failed to store secret");
@@ -99,7 +99,7 @@ authCommand
       if (!existingSecret) {
         console.log(chalk.yellow("No credentials found in keychain."));
         console.log();
-        console.log(chalk.gray("To store credentials, use: agentsync auth login"));
+        console.log(chalk.gray("To store credentials, use: auth login"));
         return;
       }
 
@@ -171,7 +171,7 @@ authCommand
         console.log(chalk.gray("You can authenticate using either method:"));
         console.log();
         console.log(chalk.cyan("Option 1: OS Keychain (Recommended)"));
-        console.log(chalk.white("  agentsync auth login"));
+        console.log(chalk.white("  auth login"));
         console.log();
         console.log(chalk.cyan("Option 2: Environment Variable"));
         console.log(chalk.white('  export PARTNER_CLIENT_SECRET="your-secret"'));

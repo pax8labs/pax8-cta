@@ -50,9 +50,9 @@ export const analyzeCommand = new Command("analyze")
     "after",
     `
 Examples:
-  agentsync analyze TestDeploy                    Analyze risk across all tenants
-  agentsync analyze TestDeploy --tag production   Analyze production tenants only
-  agentsync analyze ./TestDeploy.zip              Analyze a pre-exported zip
+  analyze TestDeploy                    Analyze risk across all tenants
+  analyze TestDeploy --tag production   Analyze production tenants only
+  analyze ./TestDeploy.zip              Analyze a pre-exported zip
 `
   )
   .action(async (solutionArg: string | undefined, options, cmd) => {
@@ -70,7 +70,7 @@ Examples:
     if (!options.solution) {
       spinner.fail(chalk.red("Solution name or path required."));
       if (!isQuietMode()) {
-        console.error(chalk.gray("  Example: agentsync analyze TestDeploy"));
+        console.error(chalk.gray("  Example: analyze TestDeploy"));
       }
       process.exit(2);
     }
@@ -332,9 +332,9 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
 
   // Next steps
   if (analysis.canProceed) {
-    console.log(chalk.gray("Next step: agentsync deploy <solution> --all"));
+    console.log(chalk.gray("Next step: deploy <solution> --all"));
   } else {
-    console.log(chalk.gray("Fix the blockers listed above, then run 'agentsync analyze' again"));
+    console.log(chalk.gray("Fix the blockers listed above, then run 'analyze' again"));
   }
   console.log();
 }

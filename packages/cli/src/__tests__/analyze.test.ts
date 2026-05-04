@@ -409,9 +409,9 @@ describe("Analyze Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Should show either "agentsync deploy" or "Fix the blockers"
+      // Should show either "deploy <solution>" or "Fix the blockers"
       const hasNextStep =
-        containsText(output, "agentsync deploy") || containsText(output, "Fix the blockers");
+        containsText(output, "Next step: deploy") || containsText(output, "Fix the blockers");
 
       expect(hasNextStep).toBe(true);
     });

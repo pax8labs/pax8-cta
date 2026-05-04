@@ -85,10 +85,10 @@ export async function runInitWizard(options: InitWizardOptions): Promise<void> {
     console.log(chalk.green("✓ Setup complete!"));
     console.log();
     console.log(chalk.cyan("Try these commands:"));
-    console.log(chalk.gray("  agentsync tenants list        ") + chalk.dim("# View demo tenants"));
-    console.log(chalk.gray("  agentsync --help             ") + chalk.dim("# See all commands"));
+    console.log(chalk.gray("  tenants list        ") + chalk.dim("# View demo tenants"));
+    console.log(chalk.gray("  help                ") + chalk.dim("# See all commands"));
     console.log();
-    console.log(chalk.dim("To switch to production mode later: agentsync demo off"));
+    console.log(chalk.dim("To switch to production mode later: demo off"));
     return;
   }
 
@@ -557,10 +557,10 @@ export async function runInitWizard(options: InitWizardOptions): Promise<void> {
       console.log(chalk.gray("     " + configPath));
       console.log();
       console.log(chalk.white("  2. Verify your configuration:"));
-      console.log(chalk.gray("     agentsync tenants list -c " + options.config));
+      console.log(chalk.gray("     tenants list -c " + options.config));
       console.log();
     }
-    console.log(chalk.dim("Run 'agentsync --help' to see all available commands."));
+    console.log(chalk.dim("Run 'help' to see all available commands."));
   } catch (error) {
     handleCommandError(error, null, "Setup failed");
   }

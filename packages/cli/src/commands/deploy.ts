@@ -67,11 +67,11 @@ export const deployCommand = new Command("deploy")
     "after",
     `
 Examples:
-  agentsync deploy TestDeploy --all                Deploy to all tenants
-  agentsync deploy TestDeploy --tag production     Deploy to production tenants only
-  agentsync deploy TestDeploy --all --dry-run      Preview without deploying
-  agentsync deploy ./TestDeploy.zip --all          Deploy a pre-exported zip file
-  agentsync deploy TestDeploy --all --skip-url-replace  Skip URL replacement
+  deploy TestDeploy --all                Deploy to all tenants
+  deploy TestDeploy --tag production     Deploy to production tenants only
+  deploy TestDeploy --all --dry-run      Preview without deploying
+  deploy ./TestDeploy.zip --all          Deploy a pre-exported zip file
+  deploy TestDeploy --all --skip-url-replace  Skip URL replacement
 `
   )
   .action(async (solutionArg: string | undefined, options, cmd) => {
@@ -87,7 +87,7 @@ Examples:
     if (solutionArg && !options.solution) options.solution = solutionArg;
     if (!options.solution) {
       console.error(chalk.red("Error: solution name or path required."));
-      console.error(chalk.gray("  Example: agentsync deploy TestDeploy --all"));
+      console.error(chalk.gray("  Example: deploy TestDeploy --all"));
       process.exit(2);
     }
 
@@ -187,9 +187,7 @@ Examples:
           console.log(`  Package:       ${isFilePath ? solutionArg : `${solutionArg} (exported)`}`);
           console.log(`  Destinations:  ${destinations.length}`);
           console.log();
-          console.log(
-            chalk.gray(`Use 'agentsync track --shipment ${demoShipmentId}' to track progress`)
-          );
+          console.log(chalk.gray(`Use 'track --shipment ${demoShipmentId}' to track progress`));
           console.log(chalk.yellow("\nNote: In demo mode, no actual deployment occurs"));
           return null;
         },

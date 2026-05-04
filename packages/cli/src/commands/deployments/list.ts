@@ -48,11 +48,11 @@ export const listCommand = new Command("list")
     "after",
     `
 Examples:
-  agentsync deployments list                          Show recent import history
-  agentsync deployments list -t AgentSync-Test2       History for a specific tenant
-  agentsync deployments list -a TestDeploy            History for a specific solution
-  agentsync deployments list --since 7d               Imports in the last 7 days
-  agentsync deployments list --ids-only | xargs -I{} agentsync deployments show {}
+  deployments list                          Show recent import history
+  deployments list -t AgentSync-Test2       History for a specific tenant
+  deployments list -a TestDeploy            History for a specific solution
+  deployments list --since 7d               Imports in the last 7 days
+  deployments list --ids-only | xargs -I{} deployments show {}
 `
   )
   .action(async (options, cmd) => {

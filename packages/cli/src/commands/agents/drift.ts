@@ -72,13 +72,13 @@ export const driftCommand = new Command("drift")
     "after",
     `
 Examples:
-  agentsync solutions drift                           Show fleet-wide version drift summary
-  agentsync solutions drift -t AgentSync-Test2        Check drift for a specific tenant
-  agentsync solutions drift --outdated                Show only outdated tenants
-  agentsync solutions drift --risk                    Show drift with risk scores
-  agentsync solutions drift --risk high               Show only high-risk tenants
-  agentsync solutions drift --fix                     Fix low-risk outdated tenants
-  agentsync solutions drift --fix --force             Fix all outdated tenants
+  solutions drift                           Show fleet-wide version drift summary
+  solutions drift -t AgentSync-Test2        Check drift for a specific tenant
+  solutions drift --outdated                Show only outdated tenants
+  solutions drift --risk                    Show drift with risk scores
+  solutions drift --risk high               Show only high-risk tenants
+  solutions drift --fix                     Fix low-risk outdated tenants
+  solutions drift --fix --force             Fix all outdated tenants
 `
   )
   .action(async (options) => {

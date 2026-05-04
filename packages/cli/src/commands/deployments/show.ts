@@ -38,8 +38,8 @@ export const showCommand = new Command("show")
     "after",
     `
 Examples:
-  agentsync deployments show abc-123                  Show details for a deployment
-  agentsync deployments show abc-123 --json           Output as JSON
+  deployments show abc-123                  Show details for a deployment
+  deployments show abc-123 --json           Output as JSON
 `
   )
   .action(async (id, options) => {
@@ -76,7 +76,7 @@ Examples:
 
           if (!entry) {
             spinner.fail(chalk.yellow(`History entry '${id}' not found`));
-            console.log(chalk.gray("\nUse 'agentsync deployments list' to see available entries."));
+            console.log(chalk.gray("\nUse 'deployments list' to see available entries."));
             process.exit(1);
           }
 
