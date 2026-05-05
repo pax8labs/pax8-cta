@@ -38,7 +38,7 @@ export function showBanner(version: string = "0.1.0") {
     ["        ██║        ██║   ███████║", 33],
     ["        ██║        ██║   ██╔══██║", 33],
     ["        ╚██████╗   ██║   ██║  ██║", 33],
-    ["         ╚═════╝   ╚═╝   ╚═╝  ╚═╝", 32],
+    ["         ╚═════╝   ╚═╝   ╚═╝  ╚═╝", 33],
   ] as const;
 
   const subtitle = "                     Cross Tenant Agents";
