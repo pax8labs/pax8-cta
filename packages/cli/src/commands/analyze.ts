@@ -23,6 +23,8 @@ import {
   riskAnalyzer,
   DEMO_TENANTS,
   DEMO_SOLUTIONS,
+  WaveService,
+  confidenceQualifierLabel,
   type RiskAnalysis,
   type DeploymentContext,
   type TenantConfig,
@@ -153,6 +155,11 @@ Examples:
           // Run risk analysis directly via core
           spinner.start("Running risk analysis...");
 
+          // Demo mode has no Config to draw waves from. Use a single wave
+          // with the documented default parallelism (DEFAULT_MAX_PARALLEL=5)
+          // so the duration estimate models real deploys, not a sequential
+          // pessimization. Mirrors what `deploy --all` does at runtime when
+          // no waves are configured.
           const context: DeploymentContext = {
             tenants: destinations.map((t) => ({
               id: t.tenantId,
@@ -162,6 +169,7 @@ Examples:
             })),
             solutionFile: options.agentPackage || options.solution,
             isProduction: destinations.some((t) => t.tags?.includes("production")),
+            maxParallel: 5,
           };
 
           const analysis = await riskAnalyzer.analyze(context);
@@ -213,6 +221,12 @@ Examples:
 
           const agentPackagePath = options.agentPackage || options.solution;
 
+          // Plumb the actual wave plan through so the duration estimate
+          // matches what `deploy` will run. Mirrors `deploy.ts`'s
+          // `runDryRunPreview` flow.
+          const waveService = new WaveService();
+          const waves = waveService.createExecutionPlan(config, destinations);
+
           const context: DeploymentContext = {
             tenants: destinations.map((t) => ({
               id: t.tenantId,
@@ -222,6 +236,7 @@ Examples:
             })),
             solutionFile: agentPackagePath,
             isProduction: destinations.some((t) => t.tags?.includes("production")),
+            waves,
           };
 
           const analysis = await riskAnalyzer.analyze(context);
@@ -317,9 +332,15 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
   console.log(chalk.bold("═".repeat(70)));
   console.log();
 
+  // Surface the confidence qualifier next to the risk score so users see
+  // "LOW (limited data)" or "HIGH (high confidence)" rather than treating
+  // every risk score as equally trustworthy.
+  const qualifierLabel = confidenceQualifierLabel(analysis.confidenceQualifier);
+  const scoreLabel = `${analysis.score.toUpperCase()} (${qualifierLabel})`;
+
   console.log(chalk.bold("📊 Overall Assessment"));
   console.log("─".repeat(70));
-  console.log(`  Risk Score:           ${scoreColor(analysis.score.toUpperCase())}`);
+  console.log(`  Risk Score:           ${scoreColor(scoreLabel)}`);
   console.log(`  Confidence:           ${analysis.confidence}%`);
   console.log(`  Success Probability:  ${analysis.successProbability}%`);
   console.log(
@@ -416,6 +437,33 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
     analysis.recommendations.forEach((rec, idx) => {
       console.log(chalk.cyan(`${idx + 1}. ${rec}`));
     });
+    console.log();
+  }
+
+  // Per-tenant breakdown — gives operators a fast scan over which
+  // tenants are driving the aggregate risk.
+  if (analysis.perTenantBreakdown && analysis.perTenantBreakdown.length > 0) {
+    console.log(chalk.bold("🏢 PER-TENANT BREAKDOWN"));
+    console.log("─".repeat(70));
+    const breakdownTable = new Table({
+      head: ["Tenant", "Risk", "Top Factor"],
+      style: { head: ["cyan"] },
+      colWidths: [28, 10, 32],
+      wordWrap: true,
+    });
+    for (const row of analysis.perTenantBreakdown) {
+      const rowColor =
+        row.score === "critical" || row.score === "high"
+          ? chalk.red
+          : row.score === "medium"
+            ? chalk.yellow
+            : chalk.green;
+      const factor = row.topFactor
+        ? `[${row.topFactor.severity}] ${row.topFactor.message}`
+        : "no issues";
+      breakdownTable.push([row.tenantName, rowColor(row.score.toUpperCase()), factor]);
+    }
+    console.log(breakdownTable.toString());
     console.log();
   }
 
