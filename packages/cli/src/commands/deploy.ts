@@ -283,7 +283,7 @@ Examples:
           }
 
           const destinationRows = buildDestinationRows(destinations);
-          const demoShipmentId = `dep-demo-${Date.now().toString(36)}`;
+          const demoDeploymentId = `dep-demo-${Date.now().toString(36)}`;
           const packageLabel = isFilePath ? solutionArg : `${solutionArg} (exported)`;
 
           if (fmt === "json") {
@@ -292,7 +292,7 @@ Examples:
               JSON.stringify(
                 {
                   demo: true,
-                  shipmentId: demoShipmentId,
+                  deploymentId: demoDeploymentId,
                   package: packageLabel,
                   solution: solutionArg,
                   managed: !options.unmanaged,
@@ -316,7 +316,7 @@ Examples:
             return null;
           }
 
-          // Human-readable (table) path: keep the pirate-themed chrome.
+          // Human-readable (table) path.
           if (!isFilePath) {
             console.log(chalk.bold("📤 Export Simulation:"));
             console.log(`  Solution:      ${chalk.green(solutionArg)}`);
@@ -325,19 +325,21 @@ Examples:
             console.log();
           }
 
-          console.log(chalk.bold(`📦 Shipping Destinations (${destinations.length}):`));
+          console.log(chalk.bold(`🎯 Deployment Targets (${destinations.length}):`));
           console.log();
           output(destinationRows, { format: "table", columns: DESTINATION_COLUMNS });
           console.log();
 
-          console.log(chalk.green("✓ Shipment dispatched successfully (demo)"));
+          console.log(chalk.green("✓ Deployment dispatched successfully (demo)"));
           console.log();
-          console.log(chalk.bold("📋 Shipment Details:"));
-          console.log(`  Tracking #:    ${chalk.cyan(demoShipmentId)}`);
-          console.log(`  Package:       ${packageLabel}`);
-          console.log(`  Destinations:  ${destinations.length}`);
+          console.log(chalk.bold("📋 Deployment Details:"));
+          console.log(`  Deployment ID:  ${chalk.cyan(demoDeploymentId)}`);
+          console.log(`  Solution:       ${packageLabel}`);
+          console.log(`  Target tenants: ${destinations.length}`);
           console.log();
-          console.log(chalk.gray(`Use 'track --shipment ${demoShipmentId}' to track progress`));
+          console.log(
+            chalk.gray(`Use 'agentsync deployments show ${demoDeploymentId}' to track progress`)
+          );
           console.log(chalk.yellow("\nNote: In demo mode, no actual deployment occurs"));
           return null;
         },
@@ -516,7 +518,7 @@ Examples:
       const destinationRows = buildDestinationRows(destinations);
       if (fmt === "table") {
         console.log();
-        console.log(chalk.bold(`Shipping Destinations (${destinations.length}):`));
+        console.log(chalk.bold(`Deployment Targets (${destinations.length}):`));
         output(destinationRows, { format: "table", columns: DESTINATION_COLUMNS });
         console.log();
       }
@@ -756,7 +758,7 @@ Examples:
         }
       }
 
-      handleCommandError(error, spinner, "Shipment failed");
+      handleCommandError(error, spinner, "Deployment failed");
     }
   });
 

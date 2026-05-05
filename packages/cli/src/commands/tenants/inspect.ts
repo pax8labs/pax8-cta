@@ -62,7 +62,7 @@ Examples:
       });
 
       console.log();
-      console.log(chalk.bold("🔍 Inspecting Shipping Routes"));
+      console.log(chalk.bold("🔍 Inspecting Tenant Connectivity"));
       console.log("─".repeat(60));
 
       const results: Array<{
@@ -114,7 +114,7 @@ Examples:
               `${tenant.name}: ${chalk.yellow("Missing customs clearance (Power Platform Admin role)")}`
             );
           } else {
-            spinner.fail(`${tenant.name}: ${chalk.red("No shipping route (GDAP relationship)")}`);
+            spinner.fail(`${tenant.name}: ${chalk.red("No GDAP relationship configured")}`);
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
@@ -154,12 +154,10 @@ Examples:
 
       const passingRoutes = clearRoutes + sameTenantRoutes;
       if (passingRoutes === results.length) {
-        console.log(chalk.green("🚢 All shipping routes inspected and clear!"));
+        console.log(chalk.green("✅ All tenants inspected and ready for deployment!"));
       } else {
         console.log(
-          chalk.yellow(
-            `⚠️  ${results.length - passingRoutes} destination(s) have shipping route issues.`
-          )
+          chalk.yellow(`⚠️  ${results.length - passingRoutes} tenant(s) have connectivity issues.`)
         );
       }
     } catch (error) {

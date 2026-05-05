@@ -211,8 +211,11 @@ export const statusCommand = new Command("status")
   .alias("track")
   .description("Check deployment status")
   .option("-d, --deployment <id>", "Deployment ID to track")
-  .option("-s, --shipment <id>", "Shipment tracking number (alias for --deployment)")
-  .option("-l, --list", "List all recent shipments")
+  .option(
+    "-s, --shipment <id>",
+    "Deprecated alias for --deployment (kept for backward compatibility)"
+  )
+  .option("-l, --list", "List all recent deployments")
   .option("--setup", "Show comprehensive setup status")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--json", "Output as JSON")
@@ -247,7 +250,7 @@ export const statusCommand = new Command("status")
                 ? d.failedTenants > 0
                   ? chalk.yellow("⚠ Completed")
                   : chalk.green("✓ Completed")
-                : chalk.yellow("🚚 In Progress");
+                : chalk.yellow("● In Progress");
             return {
               id: d.id,
               agent: d.solutionName,
@@ -258,19 +261,17 @@ export const statusCommand = new Command("status")
           });
 
           if (fmt === "json") {
-            // Emit raw deployment objects (not the table-formatted rows) so
-            // scripts get structured data, not display-shaped strings.
-            console.log(JSON.stringify({ shipments: DEMO_DEPLOYMENTS }, null, 2));
+            console.log(JSON.stringify({ deployments: DEMO_DEPLOYMENTS }, null, 2));
             return;
           }
 
           if (fmt === "quiet") return;
 
-          console.log(chalk.bold("Recent Shipments:"));
+          console.log(chalk.bold("Recent Deployments:"));
           console.log();
           output(rows, { format: "table", columns: SHIPMENT_LIST_COLUMNS });
           console.log();
-          console.log(chalk.gray(`Use 'track --shipment <id>' to view details`));
+          console.log(chalk.gray(`Use 'agentsync deployments show <id>' to view details`));
         },
         () => {
           exitOssUnavailable("'status --list'", {
@@ -284,9 +285,7 @@ export const statusCommand = new Command("status")
     const trackingId = options.shipment || options.deployment;
 
     if (!trackingId) {
-      console.error(
-        chalk.red("Error: must specify --shipment or --deployment tracking number, or use --list.")
-      );
+      console.error(chalk.red("Error: must specify --deployment <id>, or use --list."));
       process.exit(2);
     }
 
@@ -296,14 +295,14 @@ export const statusCommand = new Command("status")
           console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
         }
 
-        const shipment = getDemoDeploymentDetails(trackingId);
+        const deployment = getDemoDeploymentDetails(trackingId);
 
-        if (!shipment) {
+        if (!deployment) {
           if (fmt === "json") {
             console.log(
               JSON.stringify(
                 {
-                  shipment: null,
+                  deployment: null,
                   trackingId,
                   available: DEMO_DEPLOYMENTS.map((d) => ({
                     id: d.id,
@@ -318,9 +317,9 @@ export const statusCommand = new Command("status")
           }
           if (fmt === "quiet") return;
 
-          console.log(chalk.yellow(`Shipment '${trackingId}' not found`));
+          console.log(chalk.yellow(`Deployment '${trackingId}' not found`));
           console.log();
-          console.log(chalk.gray("Available demo shipments:"));
+          console.log(chalk.gray("Available demo deployments:"));
           DEMO_DEPLOYMENTS.forEach((d) => {
             console.log(chalk.gray(`  - ${chalk.cyan(d.id)} (${d.solutionName})`));
           });
@@ -328,31 +327,32 @@ export const statusCommand = new Command("status")
         }
 
         if (fmt === "json") {
-          console.log(JSON.stringify({ shipment }, null, 2));
+          console.log(JSON.stringify({ deployment }, null, 2));
           return;
         }
 
         if (fmt === "quiet") return;
 
         // Display overall status
-        console.log(chalk.bold("📦 Shipment Tracking"));
+        console.log(chalk.bold("📋 Deployment Tracking"));
         console.log("─".repeat(50));
-        console.log(`  Tracking #:  ${shipment.id}`);
-        console.log(`  Cargo:       ${shipment.solutionName}`);
-        console.log(`  Status:      ${formatShippingStatus(shipment.status)}`);
+        console.log(`  Deployment ID:  ${deployment.id}`);
+        console.log(`  Solution:       ${deployment.solutionName}`);
+        console.log(`  Status:         ${formatTrackingStatus(deployment.status)}`);
         console.log(
-          `  Delivered:   ${shipment.completedTenants}/${shipment.totalTenants} destinations`
+          `  Completed:      ${deployment.completedTenants}/${deployment.totalTenants} target tenants`
         );
-        if (shipment.failedTenants > 0) {
-          console.log(`  Failed:      ${chalk.red(shipment.failedTenants.toString())} deliveries`);
+        if (deployment.failedTenants > 0) {
+          console.log(
+            `  Failed:         ${chalk.red(deployment.failedTenants.toString())} tenant(s)`
+          );
         }
         console.log();
 
-        // Display destination results via output() so future formatters plug in
-        // here. Per-row colouring lives in SHIPMENT_DESTINATION_COLUMNS.
-        const destRows: ShipmentDestinationRow[] = shipment.tenantResults.map((result) => ({
+        // Display per-tenant results via output() so future formatters plug in here.
+        const destRows: ShipmentDestinationRow[] = deployment.tenantResults.map((result) => ({
           destination: result.tenantName,
-          status: formatShippingStatus(result.status),
+          status: formatTrackingStatus(result.status),
           transitTime: calculateDuration(result.startedAt, result.completedAt),
           issue: result.error ?? "-",
         }));
@@ -369,8 +369,8 @@ export const statusCommand = new Command("status")
     );
   });
 
-// Use shipping-style status formatting for this command
-const formatShippingStatus = (status: string) => formatStatus(status, "shipping");
+// Tracking-style status formatting for the per-deployment view
+const formatTrackingStatus = (status: string) => formatStatus(status, "tracking");
 
 // Alias for backward compatibility
 const getTimeAgo = formatTimeAgo;

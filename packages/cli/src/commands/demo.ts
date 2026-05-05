@@ -72,7 +72,7 @@ const DEMO_SCRIPT = [
     delay: 4000,
   },
   {
-    comment: "Analyze deployment risk before shipping:",
+    comment: "Analyze deployment risk before rolling out:",
     command: "analyze --solution ./CustomerServiceAgent.zip --tag enterprise",
     delay: 5000,
   },

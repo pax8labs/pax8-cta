@@ -31,7 +31,7 @@ vi.mock("ora", () => ({
   default: vi.fn(() => mockSpinner()),
 }));
 
-describe("Deploy Command (ship)", () => {
+describe("Deploy Command", () => {
   let consoleCapture: ConsoleCapture;
   let restoreEnv: () => void;
   let exitSpy: any;
@@ -75,7 +75,7 @@ describe("Deploy Command (ship)", () => {
     });
   });
 
-  describe("demo mode - ship to all", () => {
+  describe("demo mode - deploy to all", () => {
     it("should show demo mode warning", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
       const program = new Command();
@@ -99,15 +99,15 @@ describe("Deploy Command (ship)", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      // Should show "Shipping Destinations"
-      expect(containsText(cleanOutput, "Shipping Destinations")).toBe(true);
+      // Should show "Deployment Targets"
+      expect(containsText(cleanOutput, "Deployment Targets")).toBe(true);
 
       // Should show count of enabled tenants
       const enabledCount = DEMO_TENANTS.filter((t) => t.enabled).length;
       expect(containsText(cleanOutput, `(${enabledCount})`)).toBe(true);
     });
 
-    it("should generate shipment tracking ID", async () => {
+    it("should generate deployment ID", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
       const program = new Command();
       program.addCommand(deployCommand);
@@ -117,12 +117,12 @@ describe("Deploy Command (ship)", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, "Shipment dispatched successfully")).toBe(true);
-      expect(containsText(cleanOutput, "Tracking #:")).toBe(true);
+      expect(containsText(cleanOutput, "Deployment dispatched successfully")).toBe(true);
+      expect(containsText(cleanOutput, "Deployment ID:")).toBe(true);
       expect(containsText(cleanOutput, "dep-demo-")).toBe(true);
     });
 
-    it("should show shipment details", async () => {
+    it("should show deployment details", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
       const program = new Command();
       program.addCommand(deployCommand);
@@ -132,9 +132,9 @@ describe("Deploy Command (ship)", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, "Shipment Details")).toBe(true);
-      expect(containsText(cleanOutput, "Package:")).toBe(true);
-      expect(containsText(cleanOutput, "Destinations:")).toBe(true);
+      expect(containsText(cleanOutput, "Deployment Details")).toBe(true);
+      expect(containsText(cleanOutput, "Solution:")).toBe(true);
+      expect(containsText(cleanOutput, "Target tenants:")).toBe(true);
     });
 
     it("should show tracking hint", async () => {
@@ -146,7 +146,7 @@ describe("Deploy Command (ship)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "track --shipment")).toBe(true);
+      expect(containsText(output, "agentsync deployments show")).toBe(true);
     });
 
     it("should show demo mode disclaimer", async () => {
@@ -162,7 +162,7 @@ describe("Deploy Command (ship)", () => {
     });
   });
 
-  describe("demo mode - ship by tags", () => {
+  describe("demo mode - deploy by tags", () => {
     it("should filter destinations by tag", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
       const program = new Command();
@@ -207,8 +207,8 @@ describe("Deploy Command (ship)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Should show shipment dispatched
-      expect(containsText(output, "Shipment dispatched successfully")).toBe(true);
+      // Should show deployment dispatched
+      expect(containsText(output, "Deployment dispatched successfully")).toBe(true);
     });
 
     it("should error when no destinations match tags", async () => {
@@ -367,7 +367,7 @@ describe("Deploy Command (ship)", () => {
 
       // Should NOT show export simulation for file paths
       expect(containsText(output, "Export Simulation")).toBe(false);
-      expect(containsText(output, "Shipment dispatched successfully")).toBe(true);
+      expect(containsText(output, "Deployment dispatched successfully")).toBe(true);
     });
 
     it("should show unmanaged type when --unmanaged flag is used", async () => {
