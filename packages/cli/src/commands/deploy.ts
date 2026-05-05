@@ -872,6 +872,7 @@ Examples:
 
 interface DryRunActionOptions {
   json?: boolean;
+  quiet?: boolean;
   skipValidation?: boolean;
   skipUrlReplace?: boolean;
 }
@@ -1084,7 +1085,17 @@ function filterDestinationsByTenantSelections(
 async function runDryRunPreview(context: DryRunContext): Promise<void> {
   const plan = await buildDryRunPlan(context);
 
-  if (context.options.json) {
+  // Honor --quiet, --json, and TTY-default JSON when piped (issue #357).
+  // ids-only/csv aren't meaningful for a dry-run plan; treat anything that
+  // resolves to a non-quiet/non-json format as "table" (the human path).
+  const fmt = resolveFormat({
+    json: context.options.json,
+    quiet: context.options.quiet,
+  });
+
+  if (fmt === "quiet") {
+    // No output; exit code below still reflects validation failures.
+  } else if (fmt === "json") {
     console.log(JSON.stringify(plan, null, 2));
   } else {
     displayDryRunPlan(plan);
