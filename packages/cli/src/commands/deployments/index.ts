@@ -17,6 +17,7 @@
 import { Command } from "commander";
 import { listCommand } from "./list.js";
 import { showCommand } from "./show.js";
+import { undoCommand } from "./undo.js";
 
 /**
  * Deployments command - manage and view deployments
@@ -32,15 +33,18 @@ Examples:
   deployments list                          List recent deployments
   deployments show dep_abc123               View deployment details
   deployments list -s failed --since 7d     Show failed deployments from last 7 days
+  deployments undo dep_abc123               Roll back a deployment (demo mode only — see #418)
 
 Note:
-  Queue management actions are not available in the open-source CLI.
+  Queue management actions (cancel, retry, watch) are not available in the open-source CLI.
+  Real-mode undo is tracked in #418; demo-mode undo simulates the per-tenant flow.
 `
   );
 
 // Register subcommands
 deploymentsCommand.addCommand(listCommand);
 deploymentsCommand.addCommand(showCommand);
+deploymentsCommand.addCommand(undoCommand);
 
 // Re-export helpers for backwards compatibility
 export {
