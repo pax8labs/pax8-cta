@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import { TenantConfig, generateMockDeploymentHistory, DEMO_SOLUTIONS } from "@agentsync/core";
+import {
+  TenantConfig,
+  DEMO_SOLUTIONS,
+  DEMO_TENANTS,
+  type DemoTenantMetadata,
+} from "@agentsync/core";
 
 export function findTenant(tenants: TenantConfig[], query: string): TenantConfig | undefined {
   const q = query.toLowerCase();
@@ -27,39 +32,29 @@ export function findTenant(tenants: TenantConfig[], query: string): TenantConfig
 }
 
 /**
- * Get deployed agents for a tenant from deployment history
+ * Get deployed agents for a tenant.
+ *
+ * Reads from `DEMO_TENANTS[].metadata.deployedSolutions` so the deployed-agent
+ * versions match what `solutions drift` and `solutions show --tenants` display.
  */
 export function getDeployedAgentsForTenant(tenantId: string): Array<{
   name: string;
   version: string;
   deployedAt: string;
 }> {
-  const history = generateMockDeploymentHistory(50);
+  const tenant = DEMO_TENANTS.find((t) => t.tenantId === tenantId);
+  const meta = tenant?.metadata as DemoTenantMetadata | undefined;
+  if (!meta?.deployedSolutions) {
+    return [];
+  }
 
-  // Find all completed deployments for this tenant
-  const deployedAgents = new Map<string, { name: string; version: string; deployedAt: string }>();
-
-  history
-    .filter((d) => d.status === "completed")
-    .forEach((deployment) => {
-      const tenantResult = deployment.tenantResults?.find(
-        (t) => t.tenantId === tenantId && t.status === "completed"
-      );
-
-      if (tenantResult) {
-        // Keep the most recent deployment for each agent
-        const existing = deployedAgents.get(deployment.solutionName);
-        if (!existing || new Date(deployment.createdAt) > new Date(existing.deployedAt)) {
-          deployedAgents.set(deployment.solutionName, {
-            name: deployment.solutionName,
-            version: deployment.solutionVersion || "unknown",
-            deployedAt: deployment.createdAt,
-          });
-        }
-      }
-    });
-
-  return Array.from(deployedAgents.values());
+  return meta.deployedSolutions
+    .filter((s) => s.deployedVersion !== null)
+    .map((s) => ({
+      name: s.uniqueName,
+      version: s.deployedVersion as string,
+      deployedAt: s.deployedAt ?? new Date().toISOString(),
+    }));
 }
 
 /**

@@ -510,7 +510,9 @@ describe("Agents Command", () => {
       const program = new Command();
       program.addCommand(solutionsCommand);
 
-      await program.parseAsync(["node", "test", "solutions", "drift", "--risk", "-t", "contoso"]);
+      // Use a tenant that's outdated so the per-factor breakdown is rendered.
+      // Fully-current tenants short-circuit the analyzer (factors: []).
+      await program.parseAsync(["node", "test", "solutions", "drift", "--risk", "-t", "proseware"]);
 
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);

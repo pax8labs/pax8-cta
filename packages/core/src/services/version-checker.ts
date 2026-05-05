@@ -22,7 +22,12 @@
 import { DataverseClient } from "../dataverse/client.js";
 import { TokenManager } from "../auth/token-manager.js";
 import { TenantConfig } from "../config/schema.js";
-import { DEMO_TENANTS, DEMO_SOLUTIONS } from "../mock/demo-data.js";
+import {
+  DEMO_TENANTS,
+  DEMO_SOLUTIONS,
+  type DemoTenantMetadata,
+  type DemoDeployedSolution,
+} from "../mock/demo-data.js";
 
 export interface SolutionVersionInfo {
   uniqueName: string;
@@ -308,11 +313,38 @@ export class VersionChecker {
     tenant: TenantConfig,
     expectedSolutions: Array<{ uniqueName: string; friendlyName: string; version: string }>
   ): TenantVersionStatus {
-    // Use tenant ID to deterministically generate version drift scenarios
-    const tenantIndex = parseInt(tenant.tenantId.substring(0, 8), 16);
+    // Prefer the explicit `deployedSolutions` field on tenant metadata as the
+    // single source of truth. Both `solutions drift` and `solutions show
+    // --tenants` route through here so the two views never disagree.
+    const meta = tenant.metadata as DemoTenantMetadata | undefined;
+    const deployedMap = new Map<string, DemoDeployedSolution>();
+    if (meta?.deployedSolutions) {
+      for (const ds of meta.deployedSolutions) {
+        deployedMap.set(ds.uniqueName.toLowerCase(), ds);
+      }
+    }
 
     const solutions: SolutionVersionInfo[] = expectedSolutions.map((expected, idx) => {
-      // Simulate different scenarios based on tenant and solution index
+      // Use the explicit per-tenant deployment when available.
+      if (deployedMap.size > 0) {
+        const ds = deployedMap.get(expected.uniqueName.toLowerCase());
+        const deployedVersion = ds?.deployedVersion ?? null;
+        const { status, drift } = this.diffPatchVersion(expected.version, deployedVersion);
+
+        return {
+          uniqueName: expected.uniqueName,
+          friendlyName: expected.friendlyName,
+          expectedVersion: expected.version,
+          deployedVersion,
+          isManaged: true,
+          status,
+          versionDrift: drift,
+        };
+      }
+
+      // Fallback path (kept for tenants that don't define `deployedSolutions`):
+      // deterministically generate a version drift scenario based on tenant ID.
+      const tenantIndex = parseInt(tenant.tenantId.substring(0, 8), 16);
       const scenarioSeed = (tenantIndex + idx) % 10;
 
       let deployedVersion: string | null = expected.version;
@@ -320,11 +352,9 @@ export class VersionChecker {
       let drift = 0;
 
       if (scenarioSeed === 0) {
-        // Not deployed
         deployedVersion = null;
         status = "not_deployed";
       } else if (scenarioSeed === 1 || scenarioSeed === 2) {
-        // One minor version behind
         const parts = expected.version.split(".");
         if (parts.length >= 3) {
           parts[2] = String(Math.max(0, parseInt(parts[2], 10) - 1));
@@ -333,7 +363,6 @@ export class VersionChecker {
           drift = -1;
         }
       } else if (scenarioSeed === 3) {
-        // Two versions behind
         const parts = expected.version.split(".");
         if (parts.length >= 3) {
           parts[2] = String(Math.max(0, parseInt(parts[2], 10) - 2));
@@ -342,7 +371,6 @@ export class VersionChecker {
           drift = -2;
         }
       }
-      // scenarioSeed 4-9: current version
 
       return {
         uniqueName: expected.uniqueName,
@@ -365,6 +393,49 @@ export class VersionChecker {
       overallStatus,
       lastChecked: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Compute the version-drift status by comparing the rightmost-changed
+   * version segment. Used for demo-mode classification so `versionDrift`
+   * reflects how many releases behind the deployed version is — which is
+   * what the risk analyzer's `versions_behind` factor keys off of.
+   */
+  private diffPatchVersion(
+    expected: string,
+    deployed: string | null
+  ): { status: SolutionVersionInfo["status"]; drift: number } {
+    if (!deployed) {
+      return { status: "not_deployed", drift: 0 };
+    }
+
+    const expectedParts = expected.split(".").map((p) => parseInt(p, 10) || 0);
+    const deployedParts = deployed.split(".").map((p) => parseInt(p, 10) || 0);
+    const maxLen = Math.max(expectedParts.length, deployedParts.length);
+
+    let drift = 0;
+    let isBehind = false;
+    let isAhead = false;
+    for (let i = 0; i < maxLen; i++) {
+      const e = expectedParts[i] || 0;
+      const d = deployedParts[i] || 0;
+      if (d < e) {
+        // First differing segment determines the magnitude (e.g. 1.0.0.5 vs 1.0.0.1 -> drift 4).
+        if (!isBehind && !isAhead) {
+          drift = -(e - d);
+          isBehind = true;
+        }
+      } else if (d > e) {
+        if (!isBehind && !isAhead) {
+          drift = d - e;
+          isAhead = true;
+        }
+      }
+    }
+
+    if (drift === 0) return { status: "current", drift: 0 };
+    if (isBehind) return { status: "outdated", drift };
+    return { status: "ahead", drift };
   }
 }
 

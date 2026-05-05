@@ -158,14 +158,27 @@ export const showCommand = new Command("show")
       );
       console.log(`Tags:            ${tenant.tags?.join(", ") || "-"}`);
 
-      // Metadata
+      // Metadata — only print primitive values in the table view.
+      // Nested arrays/objects (e.g. demo-mode `deployedSolutions`,
+      // `deploymentHistory`) are surfaced through dedicated views like
+      // `--agents`, so showing `[object Object]` here would just be noise.
       if (tenant.metadata && Object.keys(tenant.metadata).length > 0) {
-        console.log();
-        console.log(chalk.bold("Metadata:"));
-        for (const [key, value] of Object.entries(tenant.metadata)) {
-          const formattedKey =
-            key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
-          console.log(`  ${formattedKey}: ${value}`);
+        const primitiveEntries = Object.entries(tenant.metadata).filter(
+          ([, value]) =>
+            value === null ||
+            typeof value === "string" ||
+            typeof value === "number" ||
+            typeof value === "boolean"
+        );
+
+        if (primitiveEntries.length > 0) {
+          console.log();
+          console.log(chalk.bold("Metadata:"));
+          for (const [key, value] of primitiveEntries) {
+            const formattedKey =
+              key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1");
+            console.log(`  ${formattedKey}: ${value}`);
+          }
         }
       }
 

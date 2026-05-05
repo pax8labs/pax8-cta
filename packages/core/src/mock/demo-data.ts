@@ -78,6 +78,31 @@ export type DemoGdapStatus = "valid" | "missing_role" | "expired" | "propagating
 export type DemoConnectionStatus = "valid" | "expired" | "missing" | "expiring_certificate";
 
 /**
+ * Demo-mode tenant config. Same shape as `TenantConfig` from the YAML schema
+ * but with a stronger `metadata` type that can carry richer data than the
+ * runtime YAML loader allows (nested arrays, objects, `null`). Production
+ * `tenants.yaml` files still flow through the strict primitive-only schema.
+ */
+export type DemoTenantConfig = Omit<TenantConfig, "metadata"> & {
+  metadata?: DemoTenantMetadata;
+};
+
+/**
+ * Per-solution version status for a demo tenant.
+ * Acts as the single source of truth for both `solutions drift` and
+ * `solutions show --tenants` so the two views never contradict each other.
+ *
+ * `deployedVersion === null` means the solution has never been deployed to
+ * this tenant. Any other string is the version currently installed.
+ */
+export interface DemoDeployedSolution {
+  uniqueName: string;
+  deployedVersion: string | null;
+  /** When this version was last deployed (ISO timestamp). */
+  deployedAt?: string;
+}
+
+/**
  * Extended demo metadata for risk analysis scenarios
  */
 export interface DemoTenantMetadata {
@@ -94,6 +119,25 @@ export interface DemoTenantMetadata {
   lastSuccessfulDeployment?: string;
   lastDeploymentError?: string;
   disabledReason?: string;
+  /**
+   * Authoritative per-solution version state for this tenant.
+   * Read by both `solutions drift` and `solutions show --tenants` so the
+   * two commands always agree about which tenant is current vs outdated.
+   */
+  deployedSolutions?: DemoDeployedSolution[];
+  /**
+   * Deployment history signal for risk analysis. Used by
+   * `generateDemoDeployHistory` to derive last-deploy-result, success rate,
+   * and recency. Lets a tenant naturally land in HIGH risk without
+   * touching the algorithm.
+   */
+  deploymentHistory?: {
+    totalDeploys: number;
+    successfulDeploys: number;
+    /** Days since last deploy attempt. */
+    lastDeployDaysAgo: number;
+    lastDeployResult: "success" | "failure";
+  };
 }
 
 /**
@@ -102,22 +146,77 @@ export interface DemoTenantMetadata {
  */
 export function getDemoTenantMetadata(tenantId: string): DemoTenantMetadata | undefined {
   const tenant = DEMO_TENANTS.find((t) => t.tenantId === tenantId);
+  // Recover the typed view: DEMO_TENANTS is exposed as TenantConfig[] for
+  // downstream compatibility, but the underlying records are DemoTenantConfig.
   return tenant?.metadata as DemoTenantMetadata | undefined;
 }
 
 /**
- * Sample tenant data representing fictional MSP customers.
- * Each tenant has a distinct risk profile and scenario for comprehensive demo coverage:
- *
- * Healthy (40%):     Contoso, Fabrikam, Adventure Works, Litware
- * Test (20%):        Tailspin Toys, Coho Vineyard
- * Problematic (30%): Northwind Traders, Proseware, Datum Corp
- * Prod-Critical (10%): Woodgrove Bank
- * Disabled:          Wingtip Toys
+ * Latest published versions for each demo solution. Used as the baseline
+ * for `deployedSolutions` and the `tenantsBehind` math in drift summaries.
+ * Kept in sync with `DEMO_SOLUTIONS` below.
  */
-export const DEMO_TENANTS: TenantConfig[] = [
+const LATEST_SOLUTION_VERSIONS = {
+  CustomerServiceAgent: "1.0.0.5",
+  SalesAssistant: "2.1.0",
+  HROnboarding: "1.2.3",
+  ITHelpdesk: "3.0.1",
+} as const;
+
+/**
+ * Helper to express "all current" deployed-solution state without repeating
+ * the version literals across tenants.
+ */
+function allCurrent(deployedAt: string): DemoDeployedSolution[] {
+  return [
+    {
+      uniqueName: "CustomerServiceAgent",
+      deployedVersion: LATEST_SOLUTION_VERSIONS.CustomerServiceAgent,
+      deployedAt,
+    },
+    {
+      uniqueName: "SalesAssistant",
+      deployedVersion: LATEST_SOLUTION_VERSIONS.SalesAssistant,
+      deployedAt,
+    },
+    {
+      uniqueName: "HROnboarding",
+      deployedVersion: LATEST_SOLUTION_VERSIONS.HROnboarding,
+      deployedAt,
+    },
+    {
+      uniqueName: "ITHelpdesk",
+      deployedVersion: LATEST_SOLUTION_VERSIONS.ITHelpdesk,
+      deployedAt,
+    },
+  ];
+}
+
+/**
+ * Sample tenant data representing fictional MSP customers.
+ * Each tenant has a distinct risk profile and scenario so the drift, show,
+ * and deployments commands all have meaningful spread to display.
+ *
+ * Healthy (current):    Contoso, Northern Heights HVAC, Coho Vineyard
+ * Mildly drifted (LOW): Fabrikam, Litware, Tailspin Toys
+ * Drifted (MED):        Apex Legal LLP
+ * High risk (HIGH):     Apex Legal LLP escalation, Meridian Pediatrics, Woodgrove Bank
+ * Critical (HIGH+do not update): Proseware (chronic failures + 4 versions behind + stale)
+ * Disabled:             Crown Auto Group
+ *
+ * The `deployedSolutions` field is the single source of truth for both
+ * `solutions drift` and `solutions show --tenants` so the two commands
+ * cannot disagree about which tenant is current vs outdated.
+ */
+// Typed as `TenantConfig[]` to keep downstream consumers in CLI/core
+// unchanged. The richer `metadata` shape is opt-in via `DemoTenantMetadata`
+// casts at read time (see `getDemoTenantMetadata` and version-checker.ts).
+// The cast through `unknown` is required because TenantConfig.metadata is
+// constrained to primitive values for YAML safety, but DEMO_TENANTS in
+// memory carries arrays/objects/null that enable richer demo scenarios.
+const DEMO_TENANTS_AUTHORED: DemoTenantConfig[] = [
   // ──────────────────────────────────────────────────────────────────────
-  // Healthy tenants (40%) - Valid permissions, good history
+  // Healthy tenants - Valid permissions, current solutions, good history
   // ──────────────────────────────────────────────────────────────────────
   {
     name: "Contoso Corporation",
@@ -134,7 +233,14 @@ export const DEMO_TENANTS: TenantConfig[] = [
       gdapStatus: "valid",
       connectionStatus: "valid",
       recentFailures: 0,
-      lastSuccessfulDeployment: "2025-01-25T10:30:00Z",
+      lastSuccessfulDeployment: "2026-04-29T10:30:00Z",
+      deployedSolutions: allCurrent("2026-04-29T10:30:00Z"),
+      deploymentHistory: {
+        totalDeploys: 24,
+        successfulDeploys: 23,
+        lastDeployDaysAgo: 5,
+        lastDeployResult: "success",
+      },
     } satisfies DemoTenantMetadata,
   },
   {
@@ -152,25 +258,61 @@ export const DEMO_TENANTS: TenantConfig[] = [
       gdapStatus: "valid",
       connectionStatus: "valid",
       recentFailures: 0,
-      lastSuccessfulDeployment: "2025-01-24T14:15:00Z",
+      lastSuccessfulDeployment: "2026-04-27T14:15:00Z",
+      // 1 minor version behind on HROnboarding -> LOW risk
+      deployedSolutions: [
+        {
+          uniqueName: "CustomerServiceAgent",
+          deployedVersion: "1.0.0.5",
+          deployedAt: "2026-04-27T14:15:00Z",
+        },
+        {
+          uniqueName: "SalesAssistant",
+          deployedVersion: "2.1.0",
+          deployedAt: "2026-04-25T09:30:00Z",
+        },
+        {
+          uniqueName: "HROnboarding",
+          deployedVersion: "1.2.2",
+          deployedAt: "2026-03-12T11:00:00Z",
+        },
+        {
+          uniqueName: "ITHelpdesk",
+          deployedVersion: "3.0.1",
+          deployedAt: "2026-04-10T08:45:00Z",
+        },
+      ],
+      deploymentHistory: {
+        totalDeploys: 18,
+        successfulDeploys: 17,
+        lastDeployDaysAgo: 7,
+        lastDeployResult: "success",
+      },
     } satisfies DemoTenantMetadata,
   },
   {
-    name: "Adventure Works",
+    name: "Northern Heights HVAC",
     tenantId: "33333333-3333-3333-3333-333333333333",
-    environmentUrl: "https://adventureworks.crm.dynamics.com",
-    tags: ["smb", "midwest"],
+    environmentUrl: "https://northernheights.crm.dynamics.com",
+    tags: ["smb", "services", "midwest"],
     enabled: true,
     autoSetup: true,
     metadata: {
-      industry: "Tourism",
-      employees: 150,
+      industry: "HVAC Services",
+      employees: 120,
       contractTier: "Professional",
       riskProfile: "healthy",
       gdapStatus: "valid",
       connectionStatus: "valid",
       recentFailures: 0,
-      lastSuccessfulDeployment: "2025-01-23T09:00:00Z",
+      lastSuccessfulDeployment: "2026-04-25T09:00:00Z",
+      deployedSolutions: allCurrent("2026-04-25T09:00:00Z"),
+      deploymentHistory: {
+        totalDeploys: 12,
+        successfulDeploys: 11,
+        lastDeployDaysAgo: 9,
+        lastDeployResult: "success",
+      },
     } satisfies DemoTenantMetadata,
   },
   {
@@ -188,32 +330,90 @@ export const DEMO_TENANTS: TenantConfig[] = [
       gdapStatus: "valid",
       connectionStatus: "valid",
       recentFailures: 0,
-      lastSuccessfulDeployment: "2025-01-26T16:45:00Z",
+      lastSuccessfulDeployment: "2026-04-30T16:45:00Z",
+      // 1 minor version behind on SalesAssistant -> LOW risk
+      deployedSolutions: [
+        {
+          uniqueName: "CustomerServiceAgent",
+          deployedVersion: "1.0.0.5",
+          deployedAt: "2026-04-30T16:45:00Z",
+        },
+        {
+          uniqueName: "SalesAssistant",
+          deployedVersion: "2.0.0",
+          deployedAt: "2026-02-18T10:00:00Z",
+        },
+        {
+          uniqueName: "HROnboarding",
+          deployedVersion: "1.2.3",
+          deployedAt: "2026-04-12T13:15:00Z",
+        },
+        {
+          uniqueName: "ITHelpdesk",
+          deployedVersion: "3.0.1",
+          deployedAt: "2026-04-22T11:30:00Z",
+        },
+      ],
+      deploymentHistory: {
+        totalDeploys: 22,
+        successfulDeploys: 20,
+        lastDeployDaysAgo: 4,
+        lastDeployResult: "success",
+      },
     } satisfies DemoTenantMetadata,
   },
 
   // ──────────────────────────────────────────────────────────────────────
-  // Problematic tenants (30%) - Various issues for risk analysis
+  // Mid-risk and high-risk tenants
   // ──────────────────────────────────────────────────────────────────────
   {
-    name: "Northwind Traders",
+    name: "Apex Legal LLP",
     tenantId: "44444444-4444-4444-4444-444444444444",
-    environmentUrl: "https://northwind.crm.dynamics.com",
-    tags: ["smb", "priority"],
+    environmentUrl: "https://apexlegal.crm.dynamics.com",
+    tags: ["smb", "professional"],
     enabled: true,
     autoSetup: true,
     metadata: {
-      industry: "Food & Beverage",
-      employees: 300,
+      industry: "Legal Services",
+      employees: 280,
       contractTier: "Professional",
       riskProfile: "problematic",
       gdapStatus: "missing_role",
       gdapIssue: "Missing Power Platform Administrator role",
       connectionStatus: "expired",
       connectionIssue: "Dataverse connection expired, needs reauthentication",
-      recentFailures: 3,
-      lastSuccessfulDeployment: "2024-12-01T08:00:00Z",
+      recentFailures: 1,
+      lastSuccessfulDeployment: "2026-03-30T08:00:00Z",
       lastDeploymentError: "Connection timeout - environment unreachable",
+      // 2 versions behind on CustomerServiceAgent and HROnboarding -> MED risk
+      deployedSolutions: [
+        {
+          uniqueName: "CustomerServiceAgent",
+          deployedVersion: "1.0.0.3",
+          deployedAt: "2026-02-10T14:00:00Z",
+        },
+        {
+          uniqueName: "SalesAssistant",
+          deployedVersion: "2.1.0",
+          deployedAt: "2026-03-30T08:00:00Z",
+        },
+        {
+          uniqueName: "HROnboarding",
+          deployedVersion: "1.2.1",
+          deployedAt: "2026-01-22T09:30:00Z",
+        },
+        {
+          uniqueName: "ITHelpdesk",
+          deployedVersion: "3.0.1",
+          deployedAt: "2026-03-15T11:45:00Z",
+        },
+      ],
+      deploymentHistory: {
+        totalDeploys: 14,
+        successfulDeploys: 10, // 71% success rate -> moderate
+        lastDeployDaysAgo: 35, // -> aging_environment
+        lastDeployResult: "success",
+      },
     } satisfies DemoTenantMetadata,
   },
   {
@@ -229,39 +429,98 @@ export const DEMO_TENANTS: TenantConfig[] = [
       contractTier: "Professional",
       riskProfile: "problematic",
       gdapStatus: "expired",
-      gdapIssue: "GDAP relationship expired on 2025-01-15",
-      gdapRelationshipExpiry: "2025-01-15T00:00:00Z",
+      gdapIssue: "GDAP relationship expired on 2026-04-15",
+      gdapRelationshipExpiry: "2026-04-15T00:00:00Z",
       connectionStatus: "missing",
       connectionIssue: "SharePoint connection never configured",
       recentFailures: 5,
-      lastSuccessfulDeployment: "2024-11-20T11:00:00Z",
+      lastSuccessfulDeployment: "2026-01-15T11:00:00Z",
       lastDeploymentError: "Solution import failed: missing required connection reference",
+      // 4 versions behind on CustomerServiceAgent + chronic failures -> HIGH (do_not_update)
+      deployedSolutions: [
+        {
+          uniqueName: "CustomerServiceAgent",
+          deployedVersion: "1.0.0.1",
+          deployedAt: "2025-11-08T11:00:00Z",
+        },
+        {
+          uniqueName: "SalesAssistant",
+          deployedVersion: "2.0.0",
+          deployedAt: "2025-12-20T13:00:00Z",
+        },
+        {
+          uniqueName: "HROnboarding",
+          deployedVersion: "1.2.0",
+          deployedAt: "2025-10-15T10:00:00Z",
+        },
+        {
+          uniqueName: "ITHelpdesk",
+          deployedVersion: null,
+          deployedAt: undefined,
+        },
+      ],
+      deploymentHistory: {
+        totalDeploys: 10,
+        successfulDeploys: 3, // 30% -> low_success_rate (high severity)
+        lastDeployDaysAgo: 105, // -> stale_environment (high severity)
+        lastDeployResult: "failure",
+      },
     } satisfies DemoTenantMetadata,
   },
   {
-    name: "Datum Corp",
+    name: "Meridian Pediatrics",
     tenantId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-    environmentUrl: "https://datum.crm.dynamics.com",
+    environmentUrl: "https://meridianpeds.crm.dynamics.com",
     tags: ["smb", "healthcare"],
     enabled: true,
     autoSetup: true,
     metadata: {
       industry: "Healthcare",
-      employees: 400,
+      employees: 95,
       contractTier: "Professional",
       riskProfile: "problematic",
       gdapStatus: "propagating",
       gdapIssue: "GDAP relationship created 12 hours ago, still propagating",
       connectionStatus: "expiring_certificate",
       connectionIssue: "OAuth certificate expires in 15 days",
-      recentFailures: 1,
-      lastSuccessfulDeployment: "2025-01-20T13:30:00Z",
+      recentFailures: 2,
+      lastSuccessfulDeployment: "2026-03-25T13:30:00Z",
       lastDeploymentError: "Permission denied: insufficient privileges",
+      // CSA never deployed + 2 versions behind elsewhere + last failure -> HIGH
+      deployedSolutions: [
+        {
+          uniqueName: "CustomerServiceAgent",
+          deployedVersion: null,
+          deployedAt: undefined,
+        },
+        {
+          uniqueName: "SalesAssistant",
+          deployedVersion: "2.1.0",
+          deployedAt: "2026-03-25T13:30:00Z",
+        },
+        {
+          uniqueName: "HROnboarding",
+          deployedVersion: "1.2.1",
+          deployedAt: "2026-02-28T09:00:00Z",
+        },
+        {
+          uniqueName: "ITHelpdesk",
+          deployedVersion: "3.0.0",
+          deployedAt: "2026-03-10T14:20:00Z",
+        },
+      ],
+      deploymentHistory: {
+        totalDeploys: 9,
+        successfulDeploys: 4, // 44% -> low_success_rate (high severity)
+        lastDeployDaysAgo: 40, // -> aging_environment
+        lastDeployResult: "failure",
+      },
     } satisfies DemoTenantMetadata,
   },
 
   // ──────────────────────────────────────────────────────────────────────
-  // Production-critical tenant (10%) - High stakes, requires approval
+  // Production-critical tenant - High stakes; outdated state shows the
+  // production-tag multiplier escalating risk into HIGH territory.
   // ──────────────────────────────────────────────────────────────────────
   {
     name: "Woodgrove Bank",
@@ -279,13 +538,44 @@ export const DEMO_TENANTS: TenantConfig[] = [
       gdapIssue: "GDAP relationship expires in 5 days",
       gdapRelationshipExpiry: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
       connectionStatus: "valid",
-      recentFailures: 0,
-      lastSuccessfulDeployment: "2025-01-22T02:30:00Z",
+      recentFailures: 1,
+      lastSuccessfulDeployment: "2026-03-30T02:30:00Z",
+      lastDeploymentError:
+        "Import timeout after 300s - large solution exceeded maximum import duration",
+      // 3 versions behind on CSA + production-tag escalation -> HIGH risk
+      deployedSolutions: [
+        {
+          uniqueName: "CustomerServiceAgent",
+          deployedVersion: "1.0.0.2",
+          deployedAt: "2026-01-10T02:30:00Z",
+        },
+        {
+          uniqueName: "SalesAssistant",
+          deployedVersion: "2.0.0",
+          deployedAt: "2025-12-18T03:00:00Z",
+        },
+        {
+          uniqueName: "HROnboarding",
+          deployedVersion: "1.2.3",
+          deployedAt: "2026-02-22T02:15:00Z",
+        },
+        {
+          uniqueName: "ITHelpdesk",
+          deployedVersion: "3.0.1",
+          deployedAt: "2026-04-05T02:45:00Z",
+        },
+      ],
+      deploymentHistory: {
+        totalDeploys: 20,
+        successfulDeploys: 16, // 80% -> moderate
+        lastDeployDaysAgo: 35, // -> aging_environment
+        lastDeployResult: "failure",
+      },
     } satisfies DemoTenantMetadata,
   },
 
   // ──────────────────────────────────────────────────────────────────────
-  // Test tenants (20%) - Lower risk even with minor issues
+  // Test tenants - Lower blast radius even with minor drift
   // ──────────────────────────────────────────────────────────────────────
   {
     name: "Tailspin Toys",
@@ -302,8 +592,37 @@ export const DEMO_TENANTS: TenantConfig[] = [
       gdapStatus: "valid",
       connectionStatus: "valid",
       recentFailures: 1,
-      lastSuccessfulDeployment: "2025-01-25T08:00:00Z",
+      lastSuccessfulDeployment: "2026-05-01T08:00:00Z",
       lastDeploymentError: "Timeout after 120s - retried successfully",
+      // 1 patch version behind on CSA -> LOW
+      deployedSolutions: [
+        {
+          uniqueName: "CustomerServiceAgent",
+          deployedVersion: "1.0.0.4",
+          deployedAt: "2026-04-12T08:00:00Z",
+        },
+        {
+          uniqueName: "SalesAssistant",
+          deployedVersion: "2.1.0",
+          deployedAt: "2026-04-22T08:00:00Z",
+        },
+        {
+          uniqueName: "HROnboarding",
+          deployedVersion: "1.2.3",
+          deployedAt: "2026-04-30T08:00:00Z",
+        },
+        {
+          uniqueName: "ITHelpdesk",
+          deployedVersion: "3.0.1",
+          deployedAt: "2026-05-01T08:00:00Z",
+        },
+      ],
+      deploymentHistory: {
+        totalDeploys: 15,
+        successfulDeploys: 14,
+        lastDeployDaysAgo: 3,
+        lastDeployResult: "success",
+      },
     } satisfies DemoTenantMetadata,
   },
   {
@@ -321,6 +640,14 @@ export const DEMO_TENANTS: TenantConfig[] = [
       gdapStatus: "valid",
       connectionStatus: "valid",
       recentFailures: 0,
+      lastSuccessfulDeployment: "2026-04-28T10:00:00Z",
+      deployedSolutions: allCurrent("2026-04-28T10:00:00Z"),
+      deploymentHistory: {
+        totalDeploys: 8,
+        successfulDeploys: 8,
+        lastDeployDaysAgo: 6,
+        lastDeployResult: "success",
+      },
     } satisfies DemoTenantMetadata,
   },
 
@@ -328,15 +655,15 @@ export const DEMO_TENANTS: TenantConfig[] = [
   // Disabled tenant - Contract renewal pending
   // ──────────────────────────────────────────────────────────────────────
   {
-    name: "Wingtip Toys",
+    name: "Crown Auto Group",
     tenantId: "77777777-7777-7777-7777-777777777777",
-    environmentUrl: "https://wingtip.crm.dynamics.com",
+    environmentUrl: "https://crownauto.crm.dynamics.com",
     tags: ["smb", "retail"],
     enabled: false,
     autoSetup: true,
     metadata: {
-      industry: "Retail",
-      employees: 50,
+      industry: "Auto Retail",
+      employees: 60,
       contractTier: "Starter",
       riskProfile: "problematic",
       gdapStatus: "expired",
@@ -348,6 +675,13 @@ export const DEMO_TENANTS: TenantConfig[] = [
     } satisfies DemoTenantMetadata,
   },
 ];
+
+/**
+ * `DEMO_TENANTS` exposed as `TenantConfig[]` for compatibility with all
+ * downstream callers. The metadata still carries the rich `DemoTenantMetadata`
+ * shape — read it via `getDemoTenantMetadata()` to recover the typed view.
+ */
+export const DEMO_TENANTS: TenantConfig[] = DEMO_TENANTS_AUTHORED as unknown as TenantConfig[];
 
 /**
  * Demo configuration
@@ -422,6 +756,18 @@ export function generateMockDeployment(overrides?: Partial<DeploymentJob>): Depl
     ? new Date(overrides.createdAt).getTime()
     : Date.now() - 3600000;
 
+  // Pre-compute realistic failure counts so MSP demos don't show 50% failure rates.
+  // Most failed deployments only have 1-2 failed tenants — that's still a meaningful
+  // incident without making the operator look incompetent.
+  // Roughly 20% of failed deployments are "bad days" with 3 failures.
+  const enabledCount = DEMO_TENANTS.filter((t) => t.enabled).length;
+  const failureCountForFailedDeploy = (() => {
+    const r = random();
+    if (r < 0.55) return 1;
+    if (r < 0.8) return 2;
+    return Math.min(3, enabledCount); // bad day, capped
+  })();
+
   const tenantResults: TenantDeploymentResult[] = DEMO_TENANTS.filter((t) => t.enabled).map(
     (tenant, index) => {
       let status: DeploymentStatus;
@@ -436,7 +782,9 @@ export function generateMockDeployment(overrides?: Partial<DeploymentJob>): Depl
         else if (index === 3) status = "in_progress";
         else status = "pending";
       } else if (randomStatus === "failed") {
-        status = index < 5 ? "completed" : "failed";
+        // Place failures at the end so they're visible in the table without
+        // dominating the deployment. e.g. 1 of 10 fails, not 5 of 10.
+        status = index < enabledCount - failureCountForFailedDeploy ? "completed" : "failed";
       } else {
         status = "pending";
       }
@@ -530,8 +878,10 @@ export function generateMockDeploymentHistory(count: number = 10): DeploymentJob
 
   const deployments: DeploymentJob[] = [];
 
-  // Use a fixed base timestamp for consistent history
-  const baseTimestamp = new Date("2025-01-27T00:00:00Z").getTime();
+  // Anchor history to "now" so deployments feel recent regardless of when
+  // the demo is run. A fixed historical date worked when the demo data was
+  // first authored, but it gradually rotted into "463d ago" timestamps.
+  const baseTimestamp = Date.now();
 
   for (let i = 0; i < count; i++) {
     const solution = solutions[i % solutions.length];

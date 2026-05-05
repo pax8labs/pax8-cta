@@ -100,7 +100,7 @@ describe("UnmanagedCustomizationDetector", () => {
         }),
         createTestTenant({
           tenantId: "33333333-3333-3333-3333-333333333333",
-          name: "Adventure Works",
+          name: "Northern Heights HVAC",
         }),
       ];
 
@@ -109,7 +109,7 @@ describe("UnmanagedCustomizationDetector", () => {
       expect(results).toHaveLength(2);
       expect(results[0].tenantName).toBe("Contoso Corporation");
       expect(results[0].totalCustomizations).toBeGreaterThan(0);
-      expect(results[1].tenantName).toBe("Adventure Works");
+      expect(results[1].tenantName).toBe("Northern Heights HVAC");
       expect(results[1].totalCustomizations).toBe(0);
     });
   });
@@ -229,13 +229,13 @@ describe("getDemoUnmanagedCustomizations", () => {
     expect(result.customizations.length).toBeGreaterThan(0);
   });
 
-  it("should return no customizations for Adventure Works (clean tenant)", () => {
+  it("should return no customizations for Northern Heights HVAC (clean tenant)", () => {
     const result = getDemoUnmanagedCustomizations(
       "33333333-3333-3333-3333-333333333333",
       "CustomerServiceAgent"
     );
 
-    expect(result.tenantName).toBe("Adventure Works");
+    expect(result.tenantName).toBe("Northern Heights HVAC");
     expect(result.totalCustomizations).toBe(0);
     expect(result.riskLevel).toBe("none");
   });
@@ -297,10 +297,10 @@ describe("getDemoCustomizationSummary", () => {
     expect(summary.highRiskTenants).toContain("Woodgrove Bank");
   });
 
-  it("should not include disabled tenants (Wingtip Toys)", () => {
+  it("should not include disabled tenants (Crown Auto Group)", () => {
     const summary = getDemoCustomizationSummary("CustomerServiceAgent");
 
     const tenantNames = summary.results.map((r) => r.tenantName);
-    expect(tenantNames).not.toContain("Wingtip Toys");
+    expect(tenantNames).not.toContain("Crown Auto Group");
   });
 });
