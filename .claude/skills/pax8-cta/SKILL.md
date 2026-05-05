@@ -1,6 +1,7 @@
 ---
 name: pax8-cta
 description: Use when the user asks to deploy, manage, audit, or troubleshoot Power Platform / Copilot Studio solutions ("agents") across multiple Microsoft 365 customer tenants — the tool is branded "Pax8 CTA" but the CLI binary is `agentsync`. Triggers include "deploy <solution> to <tenants>", "what's deployed where", "fleet drift", "tenant health", "GDAP issues", "rollback", "preview a deploy", "is my fleet healthy", and direct mentions of "agentsync", "pax8-cta", "pax8 cta", or the REPL prompt `pax8-cta>`. Run from a checkout of the agentsync repo or anywhere `agentsync` is on PATH. Skip for unrelated Power Platform work that doesn't involve multi-tenant fleet deployment.
+tools: Bash, Read, Grep, Glob
 ---
 
 # Pax8 CTA CLI (`agentsync`)
