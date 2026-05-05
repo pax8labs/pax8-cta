@@ -242,7 +242,7 @@ export async function testCredentialsAndGdap(
           console.log();
           console.log(
             chalk.yellow(
-              `   ${unconfigured.length} customer(s) not yet in your config. Run 'tenants discover' to add them.`
+              `   ${unconfigured.length} customer(s) not yet in your config. Re-run 'init' to add them.`
             )
           );
         }

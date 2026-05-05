@@ -138,7 +138,7 @@ partner:
 ${sourceYaml}
 
 # Target tenants (where agents will be deployed)
-# Add tenants here or use 'agentsync tenants discover' to find them
+# Add tenants here or re-run 'agentsync init' to discover them via GDAP
 tenants:${tenantsYaml || " []"}
 # Example:
 #   - tenantId: "customer-tenant-guid"
