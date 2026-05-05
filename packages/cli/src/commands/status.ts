@@ -235,6 +235,20 @@ export const statusCommand = new Command("status")
       await handleSetupStatus(options, fmt);
       return;
     }
+
+    // Default to --list behavior when no specific flag is provided.
+    // "agentsync status" with no args is the natural way users ask
+    // "what's running" — treating it as an error (issue #384) was hostile.
+    const trackingId = options.shipment || options.deployment;
+    if (!options.list && !trackingId) {
+      if (!isQuietMode() && !structured) {
+        console.error(
+          chalk.gray("(no flags given — showing recent deployments; use --help for options)")
+        );
+      }
+      options.list = true;
+    }
+
     // Handle --list flag
     if (options.list) {
       await withDemoMode(
@@ -282,8 +296,8 @@ export const statusCommand = new Command("status")
       return;
     }
 
-    const trackingId = options.shipment || options.deployment;
-
+    // Defensive: with the default-to-list branch above this is unreachable,
+    // but keep the guard so a future refactor can't silently fall through.
     if (!trackingId) {
       console.error(chalk.red("Error: must specify --deployment <id>, or use --list."));
       process.exit(2);
