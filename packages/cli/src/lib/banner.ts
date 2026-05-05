@@ -23,33 +23,36 @@ export function showBanner(version: string = "0.1.0") {
     chalk.cyan.bold("║") + color(text) + " ".repeat(W - visibleLen) + chalk.cyan.bold("║");
   const empty = row("", 0, (s) => s);
 
-  const agentArt = [
-    ["     █████╗  ██████╗ ███████╗███╗   ██╗████████╗", 48],
-    ["    ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝", 48],
-    ["    ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║", 45],
-    ["    ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║", 45],
-    ["    ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║", 45],
-    ["    ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝", 45],
+  const pax8Art = [
+    ["     ██████╗  █████╗ ██╗  ██╗ █████╗", 36],
+    ["     ██╔══██╗██╔══██╗╚██╗██╔╝██╔══██╗", 37],
+    ["     ██████╔╝███████║ ╚███╔╝ ╚█████╔╝", 37],
+    ["     ██╔═══╝ ██╔══██║ ██╔██╗ ██╔══██╗", 37],
+    ["     ██║     ██║  ██║██╔╝ ██╗╚█████╔╝", 37],
+    ["     ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝ ╚════╝", 36],
   ] as const;
 
-  const syncArt = [
-    ["        ███████╗██╗   ██╗███╗   ██╗ ██████╗", 43],
-    ["        ██╔════╝╚██╗ ██╔╝████╗  ██║██╔════╝", 43],
-    ["        ███████╗ ╚████╔╝ ██╔██╗ ██║██║", 38],
-    ["        ╚════██║  ╚██╔╝  ██║╚██╗██║██║", 38],
-    ["        ███████║   ██║   ██║ ╚████║╚██████╗", 43],
-    ["        ╚══════╝   ╚═╝   ╚═╝  ╚═══╝ ╚═════╝", 43],
+  const ctaArt = [
+    ["         ██████╗████████╗ █████╗", 32],
+    ["        ██╔════╝╚══██╔══╝██╔══██╗", 33],
+    ["        ██║        ██║   ███████║", 33],
+    ["        ██║        ██║   ██╔══██║", 33],
+    ["        ╚██████╗   ██║   ██║  ██║", 33],
+    ["         ╚═════╝   ╚═╝   ╚═╝  ╚═╝", 32],
   ] as const;
 
-  const tagline = "   Sync your Copilot Studio agents to all your tenants";
-  const versionLine = `   Version ${version} • Multi-tenant deployment automation`;
+  const subtitle = "                     Cross Tenant Agents";
+  const tagline = "   Deploy Copilot Studio agents to customer tenants via GDAP";
+  const versionLine = `   Version ${version}`;
 
   const lines = [
     chalk.cyan.bold("╔" + border + "╗"),
     empty,
-    ...agentArt.map(([text, len]) => row(text, len, chalk.blue.bold)),
+    ...pax8Art.map(([text, len]) => row(text, len, chalk.blue.bold)),
     empty,
-    ...syncArt.map(([text, len]) => row(text, len, chalk.magenta.bold)),
+    ...ctaArt.map(([text, len]) => row(text, len, chalk.magenta.bold)),
+    empty,
+    row(subtitle, subtitle.length, chalk.white.bold),
     empty,
     row(tagline, tagline.length, chalk.white),
     row(versionLine, versionLine.length, chalk.gray),
@@ -79,8 +82,8 @@ export function showCompactBanner() {
   console.log(chalk.cyan.bold("  ╔═══════════════════════════════════════╗"));
   console.log(
     chalk.cyan.bold("  ║  ") +
-      chalk.blue.bold("Agent") +
-      chalk.magenta.bold("Sync") +
+      chalk.blue.bold("Pax8") +
+      chalk.magenta.bold(" CTA") +
       chalk.cyan.bold(" • Multi-Tenant Deployment  ║")
   );
   console.log(chalk.cyan.bold("  ╚═══════════════════════════════════════╝"));

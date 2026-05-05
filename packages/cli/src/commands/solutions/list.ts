@@ -29,6 +29,7 @@ import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 interface SolutionRow {
   friendlyName: string;
@@ -93,7 +94,7 @@ function listSolutionsDemo(
 ) {
   spinner.succeed(`Found ${DEMO_SOLUTIONS.length} solutions in demo environment`);
   if (!isQuietMode()) {
-    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    showDemoBanner();
   }
 
   const solutions = DEMO_SOLUTIONS;

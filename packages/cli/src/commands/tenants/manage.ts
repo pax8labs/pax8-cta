@@ -21,6 +21,7 @@ import { DEMO_TENANTS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 // ============================================================================
 // tenants enable
@@ -39,7 +40,7 @@ export const enableCommand = new Command("enable")
         () => {
           spinner.stop();
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+            showDemoBanner();
           }
 
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
@@ -103,7 +104,7 @@ export const disableCommand = new Command("disable")
         () => {
           spinner.stop();
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+            showDemoBanner();
           }
 
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
@@ -174,7 +175,7 @@ export const tagCommand = new Command("tag")
         () => {
           spinner.stop();
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Changes are not persisted\n"));
+            showDemoBanner();
           }
 
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);

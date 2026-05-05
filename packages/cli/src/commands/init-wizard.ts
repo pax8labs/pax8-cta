@@ -51,8 +51,10 @@ function openUrl(url: string): void {
 export async function runInitWizard(options: InitWizardOptions): Promise<void> {
   console.log(chalk.cyan.bold("\n🚀 AgentSync Setup Wizard\n"));
 
-  // Check if config already exists
-  const configPath = resolve(process.cwd(), options.config);
+  // Check if config already exists. options.config can be undefined when
+  // the REPL state-reset wipes Commander's option defaults between
+  // iterations — fall back to the same default Commander declares.
+  const configPath = resolve(process.cwd(), options.config ?? "./config/tenants.yaml");
 
   if (existsSync(configPath)) {
     console.log(chalk.yellow(`⚠️  Configuration already exists: ${configPath}\n`));

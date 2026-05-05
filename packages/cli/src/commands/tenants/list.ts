@@ -23,6 +23,7 @@ import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { output, resolveFormat, type Column } from "../../lib/output.js";
 import { isQuietMode } from "../../lib/spinner.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 // Row type for the tenants list table
 interface TenantRow {
@@ -192,7 +193,7 @@ function listDemo(
   spinner.succeed(`Loaded ${DEMO_TENANTS.length} destinations from demo fleet`);
   // Suppress informational hint in quiet mode; errors still go to stderr via handleCommandError.
   if (!isQuietMode()) {
-    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    showDemoBanner();
   }
 
   const destinations = applyFilters(DEMO_TENANTS, options);

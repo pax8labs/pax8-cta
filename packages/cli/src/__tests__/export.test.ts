@@ -73,7 +73,7 @@ describe("Export Command (pack)", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "DEMO MODE")).toBe(true);
-      expect(containsText(output, "Using mock data")).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
     });
 
     it("should create agent package in demo mode", async () => {

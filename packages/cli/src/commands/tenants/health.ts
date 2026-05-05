@@ -22,6 +22,7 @@ import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";
 import { output, resolveFormat, type Column } from "../../lib/output.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 // Row type for the fleet-wide health table
 interface HealthRow {
@@ -87,7 +88,7 @@ Examples:
         () => {
           spinner.stop();
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+            showDemoBanner();
           }
           return DEMO_TENANTS;
         },

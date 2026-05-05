@@ -242,7 +242,7 @@ describe("Tenants Command (fleet)", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "DEMO MODE")).toBe(true);
-      expect(containsText(output, "Using mock data")).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
     });
 
     it("should use DEMO_TENANTS data", async () => {

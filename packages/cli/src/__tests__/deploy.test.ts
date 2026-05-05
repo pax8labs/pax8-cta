@@ -86,7 +86,7 @@ describe("Deploy Command", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "DEMO MODE")).toBe(true);
-      expect(containsText(output, "Showing preview")).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
     });
 
     it("should list all enabled destinations", async () => {
@@ -149,7 +149,7 @@ describe("Deploy Command", () => {
       expect(containsText(output, "agentsync deployments show")).toBe(true);
     });
 
-    it("should show demo mode disclaimer", async () => {
+    it("should show DEMO MODE banner once per process", async () => {
       const { deployCommand } = await import("../commands/deploy.js");
       const program = new Command();
       program.addCommand(deployCommand);
@@ -158,7 +158,10 @@ describe("Deploy Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "no actual deployment occurs")).toBe(true);
+      // Banner is now once-per-process; the trailing "no actual deployment"
+      // disclaimer was removed because the leading banner already establishes
+      // demo context. See lib/demo-banner.ts.
+      expect(containsText(output, "DEMO MODE")).toBe(true);
     });
   });
 

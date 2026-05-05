@@ -124,9 +124,19 @@ function resetCommandState(cmd: Command): void {
   const internal = cmd as unknown as {
     _optionValues: Record<string, unknown>;
     processedArgs: unknown[];
+    options: Array<{ attributeName: () => string; defaultValue?: unknown }>;
   };
   internal._optionValues = {};
   internal.processedArgs = [];
+  // Re-apply Commander option defaults. Wiping _optionValues drops not just
+  // user-set values but also the defaults that were applied at .option() time,
+  // so options like `-c, --config <path>` arrive as undefined inside actions
+  // unless we restore them here.
+  for (const opt of internal.options) {
+    if (opt.defaultValue !== undefined) {
+      internal._optionValues[opt.attributeName()] = opt.defaultValue;
+    }
+  }
   for (const sub of cmd.commands) {
     resetCommandState(sub);
   }

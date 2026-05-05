@@ -56,6 +56,7 @@ import {
   generateDemoDeployHistory,
   selectOutdated,
 } from "./drift-analysis.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 // ============================================================================
 // Fleet drift risk row schema (issue #401)
@@ -184,7 +185,7 @@ Examples:
         async () => {
           spinner.stop();
           if (fmt === "table") {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+            showDemoBanner();
           }
 
           const enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);

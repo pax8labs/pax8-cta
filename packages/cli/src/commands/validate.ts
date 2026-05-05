@@ -34,6 +34,7 @@ import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError } from "../lib/errors.js";
 import { isDemo } from "../lib/command-wrapper.js";
 import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
+import { showDemoBanner } from "../lib/demo-banner.js";
 
 interface ValidationCheck {
   name: string;
@@ -479,7 +480,7 @@ function runDemoValidation(
   structured: boolean
 ): void {
   if (!structured && !isQuietMode()) {
-    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    showDemoBanner();
   }
 
   const checks: ValidationCheck[] = [];

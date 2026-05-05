@@ -29,6 +29,7 @@ import { findTenant, getDeployedAgentsForTenant } from "./helpers.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../../lib/picker.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 interface AgentRow {
   name: string;
@@ -72,7 +73,7 @@ export const showCommand = new Command("show")
         () => {
           spinner.stop();
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+            showDemoBanner();
           }
           return DEMO_TENANTS;
         },

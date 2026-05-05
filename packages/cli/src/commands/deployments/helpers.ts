@@ -37,6 +37,7 @@ import {
 } from "../../lib/formatters.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
 import { isQuietMode } from "../../lib/spinner.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 // ============================================================================
 // Unified history record (works for both real and demo data)
@@ -197,7 +198,7 @@ export async function getDeploymentHistoryById(
 export async function getDeployments(_options: GetHistoryOptions): Promise<DeploymentJob[]> {
   if (isDemo()) {
     if (!isQuietMode()) {
-      console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+      showDemoBanner();
     }
     // Reads from the in-process demo store — which is seeded with the canned
     // `generateMockDeploymentHistory()` set on first access AND includes any

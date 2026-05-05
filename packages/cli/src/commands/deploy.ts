@@ -27,7 +27,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
 import {
@@ -54,6 +54,7 @@ import { isDemo, withResolvedDestinations, type LoadedConfig } from "../lib/comm
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
+import { showDemoBanner } from "../lib/demo-banner.js";
 
 // ---------------------------------------------------------------------------
 // Output schema — used by output()/resolveFormat() so --quiet, --json, and
@@ -109,6 +110,32 @@ function buildDestinationRows(destinations: TenantConfig[]): DestinationRow[] {
     hostname: new URL(tenant.environmentUrl).hostname,
     tags: tenant.tags?.join(", ") || "-",
   }));
+}
+
+/**
+ * Walk through visible "what real mode does" stages in demo mode so the
+ * deploy doesn't feel instantaneous. ~3 seconds total — short enough not to
+ * stall a live demo, long enough to read.
+ */
+async function simulateDemoDeployProgress(tenantNames: string[]): Promise<void> {
+  if (isQuietMode() || !process.stdout.isTTY) return;
+
+  const stages: Array<{ label: string; ms: number }> = [
+    { label: "Authenticating to Microsoft Graph (GDAP delegation)", ms: 600 },
+    {
+      label: `Resolving ${tenantNames.length} target environment(s) via Power Platform admin`,
+      ms: 500,
+    },
+    { label: "Importing solution to Dataverse Web API", ms: 900 },
+    { label: "Activating workflows and publishing customizations", ms: 700 },
+  ];
+
+  for (const stage of stages) {
+    const sp = createSpinner(stage.label).start();
+    await new Promise((r) => setTimeout(r, stage.ms));
+    sp.succeed(stage.label);
+  }
+  console.log();
 }
 
 /**
@@ -332,7 +359,7 @@ Examples:
           // suppress under --quiet/--json (callers piping JSON shouldn't see
           // unstructured noise on either stream during automated runs).
           if (fmt === "table") {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
+            showDemoBanner();
           }
 
           if (options.dryRun) {
@@ -407,6 +434,11 @@ Examples:
           output(destinationRows, { format: "table", columns: DESTINATION_COLUMNS });
           console.log();
 
+          // Simulate the deploy work so the demo doesn't feel instantaneous.
+          // Real deploys hit Microsoft Graph + Dataverse Web API per tenant —
+          // this mirrors that activity at a watchable pace.
+          await simulateDemoDeployProgress(destinations.map((t) => t.name));
+
           console.log(chalk.green("✓ Deployment dispatched successfully (demo)"));
           console.log();
           console.log(chalk.bold("📋 Deployment Details:"));
@@ -417,7 +449,6 @@ Examples:
           console.log(
             chalk.gray(`Use 'agentsync deployments show ${demoDeploymentId}' to track progress`)
           );
-          console.log(chalk.yellow("\nNote: In demo mode, no actual deployment occurs"));
           return null;
         },
         async (context) => {
