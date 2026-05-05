@@ -42,7 +42,7 @@
  * More info: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry
  */
 
-import { PostHog } from "posthog-node";
+import type { PostHog } from "posthog-node";
 import Conf from "conf";
 import { createHash } from "crypto";
 import { hostname } from "os";
@@ -181,21 +181,40 @@ export function markFirstRunNoticeShown(): void {
 // ============================================================================
 
 let client: PostHog | null = null;
+let clientPromise: Promise<PostHog | null> | null = null;
 
-function getClient(): PostHog | null {
+async function getClient(): Promise<PostHog | null> {
   if (!isTelemetryEnabled()) {
     return null;
   }
 
-  if (!client) {
-    client = new PostHog(POSTHOG_KEY, {
-      host: POSTHOG_HOST,
-      flushAt: 10,
-      flushInterval: 30000, // 30 seconds
-    });
+  if (client) {
+    return client;
   }
 
-  return client;
+  // De-duplicate concurrent initializations
+  if (!clientPromise) {
+    clientPromise = (async () => {
+      try {
+        // Lazy-load posthog-node so the dependency isn't pulled into
+        // every cold start (telemetry is opt-in; most invocations skip this).
+        const mod = await import("posthog-node");
+        const PostHogCtor = mod.PostHog;
+        client = new PostHogCtor(POSTHOG_KEY, {
+          host: POSTHOG_HOST,
+          flushAt: 10,
+          flushInterval: 30000, // 30 seconds
+        });
+        return client;
+      } catch {
+        // posthog-node may not be installed (e.g. trimmed bundle).
+        // Telemetry should silently no-op rather than break the CLI.
+        return null;
+      }
+    })();
+  }
+
+  return clientPromise;
 }
 
 /**
@@ -203,10 +222,15 @@ function getClient(): PostHog | null {
  */
 export async function shutdownTelemetry(): Promise<void> {
   try {
+    // If a client init is still in flight, wait for it so we can flush.
+    if (clientPromise) {
+      await clientPromise;
+    }
     if (client) {
       await client.shutdown();
       client = null;
     }
+    clientPromise = null;
   } catch {
     // Telemetry should never affect CLI functionality
   }
@@ -232,29 +256,34 @@ export interface CommandContext {
  * Track a CLI command execution
  */
 export function trackCommand(ctx: CommandContext): void {
-  try {
-    const posthog = getClient();
-    if (!posthog) return;
+  // Fast-path: avoid even kicking off the dynamic import if telemetry is off.
+  if (!isTelemetryEnabled()) return;
 
-    posthog.capture({
-      distinctId: getMachineId(),
-      event: "cli_command",
-      properties: {
-        command: ctx.command,
-        subcommand: ctx.subcommand,
-        flags: ctx.flags,
-        success: ctx.success,
-        duration_ms: ctx.durationMs,
-        error_type: ctx.errorType,
-        demo_mode: ctx.demoMode,
-        cli_version: CLI_VERSION,
-        os: process.platform,
-        node_version: process.version,
-      },
-    });
-  } catch {
-    // Telemetry should never affect CLI functionality
-  }
+  void (async () => {
+    try {
+      const posthog = await getClient();
+      if (!posthog) return;
+
+      posthog.capture({
+        distinctId: getMachineId(),
+        event: "cli_command",
+        properties: {
+          command: ctx.command,
+          subcommand: ctx.subcommand,
+          flags: ctx.flags,
+          success: ctx.success,
+          duration_ms: ctx.durationMs,
+          error_type: ctx.errorType,
+          demo_mode: ctx.demoMode,
+          cli_version: CLI_VERSION,
+          os: process.platform,
+          node_version: process.version,
+        },
+      });
+    } catch {
+      // Telemetry should never affect CLI functionality
+    }
+  })();
 }
 
 /**
@@ -264,70 +293,84 @@ export function trackNotFound(
   resource: "tenant" | "deployment" | "agent" | "command",
   query: string
 ): void {
-  try {
-    const posthog = getClient();
-    if (!posthog) return;
+  if (!isTelemetryEnabled()) return;
 
-    // Don't track the actual query value for privacy - just the resource type
-    posthog.capture({
-      distinctId: getMachineId(),
-      event: "cli_not_found",
-      properties: {
-        resource_type: resource,
-        // Hash the query so we can see patterns without seeing actual values
-        query_hash: createHash("sha256").update(query).digest("hex").substring(0, 8),
-        cli_version: CLI_VERSION,
-        os: process.platform,
-      },
-    });
-  } catch {
-    // Telemetry should never affect CLI functionality
-  }
+  // Hash the query synchronously so we don't hold a reference to the raw value.
+  const queryHash = createHash("sha256").update(query).digest("hex").substring(0, 8);
+
+  void (async () => {
+    try {
+      const posthog = await getClient();
+      if (!posthog) return;
+
+      // Don't track the actual query value for privacy - just the resource type
+      posthog.capture({
+        distinctId: getMachineId(),
+        event: "cli_not_found",
+        properties: {
+          resource_type: resource,
+          query_hash: queryHash,
+          cli_version: CLI_VERSION,
+          os: process.platform,
+        },
+      });
+    } catch {
+      // Telemetry should never affect CLI functionality
+    }
+  })();
 }
 
 /**
  * Track an error (without sensitive details)
  */
 export function trackError(errorType: string, command?: string): void {
-  try {
-    const posthog = getClient();
-    if (!posthog) return;
+  if (!isTelemetryEnabled()) return;
 
-    posthog.capture({
-      distinctId: getMachineId(),
-      event: "cli_error",
-      properties: {
-        error_type: errorType,
-        command,
-        cli_version: CLI_VERSION,
-        os: process.platform,
-      },
-    });
-  } catch {
-    // Telemetry should never affect CLI functionality
-  }
+  void (async () => {
+    try {
+      const posthog = await getClient();
+      if (!posthog) return;
+
+      posthog.capture({
+        distinctId: getMachineId(),
+        event: "cli_error",
+        properties: {
+          error_type: errorType,
+          command,
+          cli_version: CLI_VERSION,
+          os: process.platform,
+        },
+      });
+    } catch {
+      // Telemetry should never affect CLI functionality
+    }
+  })();
 }
 
 /**
  * Track first run
  */
 export function trackFirstRun(): void {
-  try {
-    const posthog = getClient();
-    if (!posthog) return;
+  if (!isTelemetryEnabled()) return;
 
-    posthog.capture({
-      distinctId: getMachineId(),
-      event: "cli_first_run",
-      properties: {
-        cli_version: CLI_VERSION,
-        os: process.platform,
-        node_version: process.version,
-      },
-    });
-  } catch {
-    // Telemetry should never affect CLI functionality
-  }
+  void (async () => {
+    try {
+      const posthog = await getClient();
+      if (!posthog) return;
+
+      posthog.capture({
+        distinctId: getMachineId(),
+        event: "cli_first_run",
+        properties: {
+          cli_version: CLI_VERSION,
+          os: process.platform,
+          node_version: process.version,
+        },
+      });
+    } catch {
+      // Telemetry should never affect CLI functionality
+    }
+  })();
 }
 
 // ============================================================================

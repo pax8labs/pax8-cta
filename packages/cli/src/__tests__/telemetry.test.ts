@@ -266,5 +266,27 @@ describe("Telemetry", () => {
       // Should not throw
       await expect(shutdownTelemetry()).resolves.not.toThrow();
     });
+
+    it("should silently no-op if posthog-node fails to load", async () => {
+      // Telemetry is opt-in and lazy-loads posthog-node. If the dynamic
+      // import throws (e.g. trimmed bundle, broken install), tracking
+      // should still complete without surfacing an error to the CLI.
+      restoreEnv();
+      restoreEnv = mockEnv({ AGENTSYNC_POSTHOG_KEY: "phc_test_lazy_load" });
+      mockStore.telemetryEnabled = true;
+
+      vi.resetModules();
+      vi.doMock("posthog-node", () => {
+        throw new Error("simulated install failure");
+      });
+
+      const { trackCommand, shutdownTelemetry } = await import("../lib/telemetry.js");
+
+      expect(() => trackCommand({ command: "test", success: true, durationMs: 10 })).not.toThrow();
+
+      await expect(shutdownTelemetry()).resolves.not.toThrow();
+
+      vi.doUnmock("posthog-node");
+    });
   });
 });
