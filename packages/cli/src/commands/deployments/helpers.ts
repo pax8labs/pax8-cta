@@ -414,6 +414,7 @@ interface DeploymentRow {
   solutionVersion: string;
   status: string;
   progress: string;
+  tenants: string;
   triggeredBy: string;
   createdAt: string;
 }
@@ -432,9 +433,23 @@ const DEPLOYMENT_COLUMNS: Column<DeploymentRow>[] = [
     format: (v) => formatStatus(String(v)),
   },
   { key: "progress", header: "Progress" },
+  { key: "tenants", header: "Tenants" },
   { key: "triggeredBy", header: "Triggered" },
   { key: "createdAt", header: "Created" },
 ];
+
+/**
+ * Compact display of the targets a deployment ran against.
+ * 1 tenant → full name; 2 → both; 3+ → first two + "+N more".
+ * Falls back to a count when names aren't available (older records).
+ */
+function summarizeTenants(d: DeploymentJob): string {
+  const names = d.tenantResults?.map((r) => r.tenantName).filter(Boolean) ?? [];
+  if (names.length === 0) return `${d.totalTenants} tenants`;
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]}, ${names[1]}`;
+  return `${names[0]}, ${names[1]}, +${names.length - 2} more`;
+}
 
 export function resolveDeploymentFormat(options: {
   json?: boolean;
@@ -493,6 +508,7 @@ export function outputTable(
       solutionVersion: d.solutionVersion || "-",
       status: String(d.status),
       progress: progressWithFailed,
+      tenants: summarizeTenants(d),
       triggeredBy: d.triggeredBy != null ? String(d.triggeredBy) : "-",
       createdAt: formatTimeAgo(d.createdAt),
     };
