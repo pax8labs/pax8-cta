@@ -31,6 +31,7 @@ import {
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError } from "../lib/errors.js";
+import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
 
 interface ValidationCheck {
   name: string;
@@ -39,12 +40,47 @@ interface ValidationCheck {
   fix?: string;
 }
 
+// Issue #358: validate now flows its results through output() so --quiet,
+// --json, and TTY-default behave consistently with `tenants list` /
+// `deployments list`. The columns drive the human table; --json emits a
+// structured envelope (results + summary) instead.
+const VALIDATION_COLUMNS: Column<ValidationCheck>[] = [
+  {
+    key: "status",
+    header: "Status",
+    format: (v) => {
+      if (v === "pass") return chalk.green("✓ pass");
+      if (v === "fail") return chalk.red("✗ fail");
+      return chalk.yellow("⚠ warn");
+    },
+  },
+  { key: "name", header: "Check" },
+  { key: "message", header: "Message" },
+  {
+    key: "fix",
+    header: "Fix",
+    format: (v) => (v ? chalk.gray(String(v)) : ""),
+  },
+];
+
+/**
+ * True when the resolved format is something other than table — that is, the
+ * caller is a script/agent (--json) or wants silence (--quiet). In those
+ * modes the per-section banner / spinner output is suppressed because it
+ * would interleave with structured output or violate quiet-mode guarantees.
+ */
+function isStructured(fmt: OutputFormat): boolean {
+  return fmt !== "table";
+}
+
 export const validateCommand = new Command("validate")
   .description("Check that your config, credentials, and environments are working")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tenant <name>", "Validate a specific tenant only")
   .option("--skip-source", "Skip source environment check")
   .option("--gdap", "Also check GDAP relationships and Power Platform Admin role")
+  .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output (exit code only)")
   .addHelpText(
     "after",
     `
@@ -53,9 +89,19 @@ Examples:
   validate --gdap                       Also verify GDAP delegation
   validate -t AgentSync-Test2           Check a specific tenant
   validate --skip-source                Check only tenants, not source
+  validate --json                       Emit structured results for scripts/agents
 `
   )
-  .action(async (options) => {
+  .action(async (options, cmd) => {
+    // Merge global flags (--json, --quiet, etc. registered on root program)
+    // into local options. Without this, Commander consumes --json/--quiet at
+    // the root level and validate's options.json/quiet are undefined.
+    Object.assign(options, cmd.optsWithGlobals());
+    const fmt: OutputFormat = resolveFormat({
+      json: options.json,
+      quiet: options.quiet,
+    });
+    const structured = isStructured(fmt);
     const checks: ValidationCheck[] = [];
     let hasErrors = false;
 
@@ -72,7 +118,7 @@ Examples:
       });
       hasErrors = true;
       spinner.fail("Configuration file not found");
-      displayResults(checks);
+      displayResults(checks, fmt);
       process.exit(1);
     }
 
@@ -110,7 +156,7 @@ Examples:
         });
         hasErrors = true;
         spinner.fail(error.message);
-        displayResults(checks);
+        displayResults(checks, fmt);
         process.exit(error.exitCode);
       }
 
@@ -123,7 +169,7 @@ Examples:
       });
       hasErrors = true;
       spinner.fail("Configuration file invalid");
-      displayResults(checks);
+      displayResults(checks, fmt);
       process.exit(1);
     }
 
@@ -146,14 +192,16 @@ Examples:
       });
       hasErrors = true;
       spinner.fail("Client secret missing");
-      displayResults(checks);
+      displayResults(checks, fmt);
       process.exit(1);
     }
 
     // Check 3: Validate each enabled tenant
-    console.log();
-    console.log(chalk.bold(`Validating ${enabledTenants.length} tenant(s)...`));
-    console.log();
+    if (!structured) {
+      console.log();
+      console.log(chalk.bold(`Validating ${enabledTenants.length} tenant(s)...`));
+      console.log();
+    }
 
     for (const tenant of enabledTenants) {
       const tenantSpinner = createSpinner(`Checking ${tenant.name}...`).start();
@@ -218,9 +266,11 @@ Examples:
 
     // Check 4: GDAP relationships (if --gdap flag is set)
     if (options.gdap) {
-      console.log();
-      console.log(chalk.bold("Checking GDAP relationships..."));
-      console.log();
+      if (!structured) {
+        console.log();
+        console.log(chalk.bold("Checking GDAP relationships..."));
+        console.log();
+      }
 
       try {
         const clientSecret = await getClientSecretWithFallback();
@@ -343,7 +393,7 @@ Examples:
 
     // Check 5: Source environment (if configured and not skipped)
     if (!options.skipSource && config.source) {
-      console.log();
+      if (!structured) console.log();
       const sourceSpinner = createSpinner("Checking source environment...").start();
 
       try {
@@ -390,9 +440,12 @@ Examples:
       });
     }
 
-    // Display final results
-    console.log();
-    displayResults(checks);
+    // Display final results — displayResults is no-op in quiet mode and emits
+    // a JSON envelope when --json or pipe-default is active.
+    if (!structured) {
+      console.log();
+    }
+    displayResults(checks, fmt);
 
     if (hasErrors) {
       process.exit(1);
@@ -400,32 +453,43 @@ Examples:
   });
 
 /**
- * Display validation results in a formatted output
+ * Display validation results in the resolved output format.
+ *
+ * - "table" (TTY default): preserves the original human-readable rendering.
+ * - "json": emits a single envelope `{ checks, summary }` to stdout.
+ * - "quiet": no output (exit code carries the result).
+ * - "ids-only" / "csv": fall back to table rendering for now (no natural id).
  */
-function displayResults(checks: ValidationCheck[]): void {
-  console.log(chalk.bold("\nValidation Results:"));
-  console.log("─".repeat(80));
-
-  for (const check of checks) {
-    const icon =
-      check.status === "pass"
-        ? chalk.green("✓")
-        : check.status === "fail"
-          ? chalk.red("✗")
-          : chalk.yellow("⚠");
-    const name = check.name.padEnd(25);
-    console.log(`${icon} ${name} ${check.message}`);
-
-    if (check.fix) {
-      console.log(chalk.gray(`  Fix: ${check.fix}`));
-    }
-  }
-
-  console.log();
-
-  // Count errors and warnings
+function displayResults(checks: ValidationCheck[], fmt: OutputFormat): void {
   const errorCount = checks.filter((c) => c.status === "fail").length;
   const warnCount = checks.filter((c) => c.status === "warn").length;
+  const passCount = checks.filter((c) => c.status === "pass").length;
+
+  if (fmt === "quiet") return;
+
+  if (fmt === "json") {
+    // Emit a structured envelope. We use a stable shape so scripts can rely
+    // on `checks[]` and the `summary` aggregate without parsing chrome.
+    const envelope = {
+      checks,
+      summary: {
+        total: checks.length,
+        passed: passCount,
+        failed: errorCount,
+        warnings: warnCount,
+        ok: errorCount === 0,
+      },
+    };
+    console.log(JSON.stringify(envelope, null, 2));
+    return;
+  }
+
+  // Human (table) rendering — preserved from the previous bespoke layout but
+  // routed through output() so future formatters (e.g. CSV) plug in here.
+  console.log(chalk.bold("\nValidation Results:"));
+  console.log("─".repeat(80));
+  output(checks, { format: "table", columns: VALIDATION_COLUMNS });
+  console.log();
 
   if (errorCount > 0 || warnCount > 0) {
     console.log(
