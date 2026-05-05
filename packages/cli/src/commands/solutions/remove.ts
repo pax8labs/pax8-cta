@@ -17,11 +17,20 @@
 import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import { createSpinner } from "../../lib/spinner.js";
-import { loadConfig, TokenManager, DataverseClient, SolutionOperations } from "@agentsync/core";
+import { createSpinner, isQuietMode } from "../../lib/spinner.js";
+import {
+  DEMO_TENANTS,
+  loadConfig,
+  TokenManager,
+  DataverseClient,
+  SolutionOperations,
+  type TenantConfig,
+} from "@agentsync/core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { question } from "../../lib/input.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { isDemo } from "../../lib/command-wrapper.js";
+import { resolveFormat } from "../../lib/output.js";
 
 export const removeCommand = new Command("remove")
   .alias("uninstall")
@@ -30,6 +39,8 @@ export const removeCommand = new Command("remove")
   .requiredOption("-t, --tenant <name>", "Target tenant name or ID")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-y, --yes", "Skip confirmation prompt")
+  .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output (exit code only)")
   .addHelpText(
     "after",
     `
@@ -38,10 +49,20 @@ Examples:
   solutions remove TestDeploy -t AgentSync-Test2 -y    Uninstall without confirmation
 `
   )
-  .action(async (solutionName: string, options) => {
+  .action(async (solutionName: string, options, cmd) => {
+    // Merge global flags (--json, --quiet) registered on root program.
+    Object.assign(options, cmd.optsWithGlobals());
+
     const spinner = createSpinner("Loading configuration...").start();
 
     try {
+      // Issue #385: in demo mode, simulate the removal so the command works
+      // without ./config/tenants.yaml or real Dataverse credentials.
+      if (isDemo()) {
+        await runDemoRemove(spinner, solutionName, options);
+        return;
+      }
+
       const configPath = resolve(process.cwd(), options.config);
       const config = await loadConfig(configPath);
 
@@ -95,3 +116,59 @@ Examples:
       handleCommandError(error, spinner, "Failed to remove solution");
     }
   });
+
+/**
+ * Demo-mode removal — looks up the requested tenant in DEMO_TENANTS and prints
+ * what *would* happen. Honors --json (machine-readable envelope) and --quiet
+ * (zero output, exit 0).
+ */
+async function runDemoRemove(
+  spinner: ReturnType<typeof createSpinner>,
+  solutionName: string,
+  options: { tenant: string; yes?: boolean; json?: boolean; quiet?: boolean }
+): Promise<void> {
+  const fmt = resolveFormat({ json: options.json, quiet: options.quiet });
+  const tenant: TenantConfig | undefined = DEMO_TENANTS.find(
+    (t) =>
+      t.name.toLowerCase() === options.tenant.toLowerCase() ||
+      t.tenantId.toLowerCase() === options.tenant.toLowerCase()
+  );
+
+  if (!tenant) {
+    spinner.fail(chalk.red(`Tenant '${options.tenant}' not found in demo fleet`));
+    process.exit(1);
+  }
+
+  spinner.succeed(`Target: ${tenant.name} (${tenant.environmentUrl})`);
+
+  // In demo mode we skip the interactive prompt entirely — simulating real I/O
+  // doesn't require destructive intent confirmation. Quiet/JSON callers (LLM
+  // agents, scripts) wouldn't be able to answer the prompt anyway.
+  if (fmt === "json") {
+    console.log(
+      JSON.stringify(
+        {
+          demo: true,
+          action: "would-remove",
+          solution: solutionName,
+          tenant: { name: tenant.name, tenantId: tenant.tenantId },
+          message: `Would uninstall '${solutionName}' from ${tenant.name}`,
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  if (fmt === "quiet") {
+    return;
+  }
+
+  if (!isQuietMode()) {
+    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  }
+  console.log(
+    chalk.gray(`  Would uninstall '${solutionName}' from ${tenant.name} (no real changes made).`)
+  );
+}
