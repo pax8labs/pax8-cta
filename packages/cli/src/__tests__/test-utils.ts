@@ -27,7 +27,7 @@
 
 import { vi } from "vitest";
 import { createRequire } from "node:module";
-import { resolve, dirname } from "path";
+import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,22 +36,91 @@ const CLI_BUILD_TIMEOUT = 120000;
 let cliBuildPromise: Promise<void> | null = null;
 const require = createRequire(import.meta.url);
 const { spawn } = require("node:child_process") as typeof import("node:child_process");
-const { existsSync } = require("node:fs") as typeof import("node:fs");
+const { existsSync, statSync, readdirSync } = require("node:fs") as typeof import("node:fs");
 
+/**
+ * Find the most recent mtime in a directory tree, scoped to source files we
+ * actually compile. Returns 0 if the directory does not exist.
+ */
+function newestMtime(dir: string, extensions: ReadonlyArray<string>): number {
+  if (!existsSync(dir)) return 0;
+  let newest = 0;
+  const stack: string[] = [dir];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    let entries;
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      // Skip __tests__ — test edits should not trigger an expensive rebuild;
+      // the runner re-imports test sources directly through vite-node.
+      if (entry.isDirectory()) {
+        if (entry.name === "__tests__" || entry.name === "node_modules") continue;
+        stack.push(join(current, entry.name));
+        continue;
+      }
+      if (!extensions.some((ext) => entry.name.endsWith(ext))) continue;
+      try {
+        const stat = statSync(join(current, entry.name));
+        if (stat.mtimeMs > newest) newest = stat.mtimeMs;
+      } catch {
+        // ignore unreadable entries
+      }
+    }
+  }
+  return newest;
+}
+
+/**
+ * The CLI subprocess tests exercise `dist/index.js`, so any change to a
+ * compiled source file (`src/`) must be reflected there before tests run. A
+ * stale `dist/` produced before recent source changes silently invalidates
+ * subprocess assertions (see issue #364). We rebuild when either:
+ *   1. `dist/index.js` is missing entirely, or
+ *   2. any `src/**` source file is newer than `dist/index.js`.
+ *
+ * Rebuilds also include `packages/core` because the CLI imports compiled core
+ * artifacts at runtime.
+ */
 async function ensureCliBuilt(): Promise<void> {
   const cliDistPath = resolve(CLI_PACKAGE_ROOT, "dist/index.js");
+  const cliSrcDir = resolve(CLI_PACKAGE_ROOT, "src");
+  const coreSrcDir = resolve(CLI_PACKAGE_ROOT, "../core/src");
 
-  if (existsSync(cliDistPath)) {
+  let needsBuild = !existsSync(cliDistPath);
+  if (!needsBuild) {
+    const distMtime = statSync(cliDistPath).mtimeMs;
+    const newestSrc = Math.max(
+      newestMtime(cliSrcDir, [".ts", ".tsx"]),
+      newestMtime(coreSrcDir, [".ts", ".tsx"])
+    );
+    if (newestSrc > distMtime) {
+      needsBuild = true;
+    }
+  }
+
+  if (!needsBuild) {
     return;
   }
 
   if (!cliBuildPromise) {
     cliBuildPromise = new Promise<void>((resolveBuild, rejectBuild) => {
       const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-      const proc = spawn(pnpmCommand, ["build"], {
-        cwd: CLI_PACKAGE_ROOT,
-        env: process.env,
-      });
+      // Build core first (CLI imports compiled artifacts from `@agentsync/core`),
+      // then build CLI. Using `-r build` from the workspace root would do both,
+      // but we drive them sequentially here so an error in core surfaces clearly.
+      const workspaceRoot = resolve(CLI_PACKAGE_ROOT, "../..");
+      const proc = spawn(
+        pnpmCommand,
+        ["-r", "--filter", "@agentsync/core", "--filter", "@agentsync/cli", "build"],
+        {
+          cwd: workspaceRoot,
+          env: process.env,
+        }
+      );
 
       let stdout = "";
       let stderr = "";
