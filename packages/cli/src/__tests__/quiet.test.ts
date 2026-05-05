@@ -100,8 +100,13 @@ describe("validate command (issue #358)", () => {
   }, 60000);
 
   it("agentsync validate --json emits a parseable envelope on stdout", async () => {
+    // Force real-mode validation: with DEMO_MODE off and no config in cwd,
+    // validate should fail at the config-file check and emit a structured
+    // failure envelope. (Issue #385 changed the default test env to demo
+    // mode; explicitly disable it here to preserve the original assertion
+    // that the failure path still produces a parseable envelope.)
     const result = await runCli(["validate"], {
-      env: { NO_COLOR: "1" },
+      env: { NO_COLOR: "1", DEMO_MODE: "false" },
       timeout: 60000,
     });
 

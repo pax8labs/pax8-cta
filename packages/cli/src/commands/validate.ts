@@ -18,8 +18,9 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
-import { createSpinner } from "../lib/spinner.js";
+import { createSpinner, isQuietMode } from "../lib/spinner.js";
 import {
+  DEMO_TENANTS,
   loadConfig,
   TenantConfig,
   TokenManager,
@@ -31,6 +32,7 @@ import {
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError } from "../lib/errors.js";
+import { isDemo } from "../lib/command-wrapper.js";
 import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
 
 interface ValidationCheck {
@@ -102,6 +104,16 @@ Examples:
       quiet: options.quiet,
     });
     const structured = isStructured(fmt);
+
+    // Demo mode short-circuits all real I/O — no config file, no Azure auth,
+    // no GDAP probe. Issue #385: validate previously called loadConfig() up
+    // front and failed with ERROR_CONFIG_NOT_FOUND when DEMO_MODE=true and
+    // ./config/tenants.yaml didn't exist.
+    if (isDemo()) {
+      runDemoValidation(options, fmt, structured);
+      return;
+    }
+
     const checks: ValidationCheck[] = [];
     let hasErrors = false;
 
@@ -451,6 +463,102 @@ Examples:
       process.exit(1);
     }
   });
+
+/**
+ * Demo-mode validation. Synthesizes a green report from DEMO_TENANTS without
+ * touching disk, partner credentials, or Microsoft Graph. Mirrors the real
+ * command's section ordering (config → secret → tenants → source) so the
+ * output shape stays familiar.
+ *
+ * Issue #385: previously this command always loaded ./config/tenants.yaml and
+ * threw ERROR_CONFIG_NOT_FOUND in demo mode.
+ */
+function runDemoValidation(
+  options: { tenant?: string; gdap?: boolean; skipSource?: boolean },
+  fmt: OutputFormat,
+  structured: boolean
+): void {
+  if (!structured && !isQuietMode()) {
+    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+  }
+
+  const checks: ValidationCheck[] = [];
+  let demoTenants: TenantConfig[] = DEMO_TENANTS.filter((t) => t.enabled);
+
+  if (options.tenant) {
+    const match = demoTenants.find((t) => t.name.toLowerCase() === options.tenant!.toLowerCase());
+    if (!match) {
+      checks.push({
+        name: "Tenant filter",
+        status: "fail",
+        message: `Tenant '${options.tenant}' not found in demo fleet.`,
+        fix: "Run 'tenants list' to see available demo tenants.",
+      });
+      displayResults(checks, fmt);
+      process.exit(1);
+    }
+    demoTenants = [match];
+  }
+
+  checks.push({
+    name: "Config file",
+    status: "pass",
+    message: `Demo fleet (${demoTenants.length} tenant${demoTenants.length === 1 ? "" : "s"})`,
+  });
+
+  checks.push({
+    name: "Client secret",
+    status: "pass",
+    message: "Skipped (demo mode)",
+  });
+
+  for (const tenant of demoTenants) {
+    // Use the riskProfile metadata to add a touch of realism — "problematic"
+    // tenants warn so the report demonstrates the warn path.
+    const meta = (tenant.metadata ?? {}) as { riskProfile?: string };
+    if (meta.riskProfile === "problematic") {
+      checks.push({
+        name: tenant.name,
+        status: "warn",
+        message: "Demo tenant flagged as problematic",
+        fix: "This is mock data — no action needed.",
+      });
+    } else {
+      checks.push({
+        name: tenant.name,
+        status: "pass",
+        message: "App user configured (demo)",
+      });
+    }
+  }
+
+  if (options.gdap) {
+    for (const tenant of demoTenants) {
+      checks.push({
+        name: `GDAP: ${tenant.name}`,
+        status: "pass",
+        message: "Active with Power Platform Admin (demo)",
+      });
+    }
+  }
+
+  if (!options.skipSource) {
+    checks.push({
+      name: "Source environment",
+      status: "pass",
+      message: "Reachable (demo)",
+    });
+  } else {
+    checks.push({
+      name: "Source environment",
+      status: "warn",
+      message: "Skipped (--skip-source flag)",
+    });
+  }
+
+  displayResults(checks, fmt);
+  // Demo validation is always "green enough" — warnings don't fail the run.
+}
 
 /**
  * Display validation results in the resolved output format.
