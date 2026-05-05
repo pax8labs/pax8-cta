@@ -51,6 +51,27 @@ function openUrl(url: string): void {
 export async function runInitWizard(options: InitWizardOptions): Promise<void> {
   console.log(chalk.cyan.bold("\n🚀 AgentSync Setup Wizard\n"));
 
+  // If the user is currently in demo mode and didn't pass --demo, confirm
+  // before switching them to a real-mode setup. Real init writes Azure AD
+  // credentials and disables demo, so users may get here unintentionally
+  // (e.g. expecting to refresh their demo).
+  if (!options.demo) {
+    const { isDemoModeEnabled } = await import("./demo.js");
+    if (isDemoModeEnabled()) {
+      console.log(chalk.yellow("ℹ️  You're currently in demo mode."));
+      console.log(chalk.gray("`init` sets up real Azure AD credentials and will exit demo mode."));
+      const confirm = await question(chalk.cyan("Continue? ") + chalk.gray("(y/N) "));
+      if (!/^(y|yes)$/i.test(confirm.trim())) {
+        console.log();
+        console.log(chalk.gray("Setup cancelled."));
+        console.log(chalk.gray("  • To refresh demo setup:    init --demo"));
+        console.log(chalk.gray("  • To exit demo manually:    demo off"));
+        return;
+      }
+      console.log();
+    }
+  }
+
   // Check if config already exists. options.config can be undefined when
   // the REPL state-reset wipes Commander's option defaults between
   // iterations — fall back to the same default Commander declares.

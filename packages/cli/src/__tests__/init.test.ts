@@ -73,8 +73,10 @@ vi.mock("../lib/input.js", () => ({
 }));
 
 // Mock demo config
+const mockIsDemoModeEnabled = vi.fn(() => false);
 vi.mock("../commands/demo.js", () => ({
   saveCliConfig: vi.fn(),
+  isDemoModeEnabled: () => mockIsDemoModeEnabled(),
 }));
 
 // Mock credentials
@@ -142,6 +144,9 @@ describe("Init Command", () => {
 
     // Default mock - directory doesn't exist
     vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    // Default - not in demo mode
+    mockIsDemoModeEnabled.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -480,6 +485,67 @@ describe("Init Command", () => {
 
       const gdapOption = initCommand.options.find((opt) => opt.long === "--no-gdap");
       expect(gdapOption).toBeDefined();
+    });
+  });
+
+  describe("demo-to-real mode confirmation", () => {
+    it("should prompt and exit cleanly when user declines switching from demo mode", async () => {
+      mockIsDemoModeEnabled.mockReturnValue(true);
+      mockQuestion.mockResolvedValueOnce("n"); // decline switch
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init"]);
+
+      const output = consoleCapture.getAllOutput();
+
+      expect(containsText(output, "currently in demo mode")).toBe(true);
+      expect(containsText(output, "Setup cancelled")).toBe(true);
+      // No config writes when user declines
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      // Only the confirmation prompt was asked
+      expect(mockQuestion).toHaveBeenCalledTimes(1);
+    });
+
+    it("should proceed with the wizard when user confirms switching from demo mode", async () => {
+      mockIsDemoModeEnabled.mockReturnValue(true);
+
+      // First answer = confirm switch, then standard production flow
+      mockQuestion.mockResolvedValueOnce("y");
+      mockProductionFlow();
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
+      const output = consoleCapture.getAllOutput();
+
+      expect(containsText(output, "currently in demo mode")).toBe(true);
+      expect(containsText(output, "Setup complete")).toBe(true);
+      // Wizard proceeded to write config
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+
+    it("should not prompt when demo mode is off", async () => {
+      mockIsDemoModeEnabled.mockReturnValue(false);
+      mockProductionFlow();
+
+      const { initCommand } = await import("../commands/init.js");
+      const program = new Command();
+      program.addCommand(initCommand);
+
+      await program.parseAsync(["node", "test", "init", "--no-gdap"]);
+
+      const output = consoleCapture.getAllOutput();
+
+      // No demo-mode warning shown
+      expect(containsText(output, "currently in demo mode")).toBe(false);
+      // Wizard ran normally
+      expect(fs.writeFileSync).toHaveBeenCalled();
     });
   });
 
