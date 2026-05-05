@@ -400,6 +400,44 @@ describe("Analyze Command", () => {
       expect(containsText(cleanOutput, "Analyzed Tenants:")).toBe(true);
     });
 
+    it("should render a confidence qualifier label next to the risk score", async () => {
+      const { analyzeCommand } = await import("../commands/analyze.js");
+      const program = new Command();
+      program.addCommand(analyzeCommand);
+
+      await program.parseAsync(["node", "test", "analyze", "--solution", "./test.zip", "--all"]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      // One of the three qualifier labels must appear next to the risk score.
+      const hasQualifier =
+        containsText(cleanOutput, "(limited data)") ||
+        containsText(cleanOutput, "(moderate confidence)") ||
+        containsText(cleanOutput, "(high confidence)");
+      expect(hasQualifier).toBe(true);
+    });
+
+    it("--json output includes confidence_qualifier and perTenantBreakdown", async () => {
+      const { analyzeCommand } = await import("../commands/analyze.js");
+      const program = new Command();
+      program.addCommand(analyzeCommand);
+
+      await program.parseAsync([
+        "node",
+        "test",
+        "analyze",
+        "--solution",
+        "./test.zip",
+        "--all",
+        "--json",
+      ]);
+
+      const output = consoleCapture.getAllOutput();
+      expect(output).toContain('"confidence_qualifier"');
+      expect(output).toContain('"perTenantBreakdown"');
+    });
+
     it("should show next steps hint", async () => {
       const { analyzeCommand } = await import("../commands/analyze.js");
       const program = new Command();
