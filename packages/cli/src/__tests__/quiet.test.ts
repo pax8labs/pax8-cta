@@ -160,6 +160,61 @@ describe("status command (issue #358)", () => {
     expect(envelope.deployment.id).toBe("dep-demo-success");
     expect(Array.isArray(envelope.deployment.tenantResults)).toBe(true);
   }, 60000);
+
+  // Issue #384: bare `agentsync status` should default to --list rather than
+  // erroring with "must specify --deployment or --list". This test asserts the
+  // shape matches `status --list --json` exactly so users (and scripts) can
+  // rely on the default behaviour.
+  it("agentsync status (no args) defaults to --list and emits the same JSON envelope", async () => {
+    const noArgs = await runCli(["status", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+    const explicitList = await runCli(["status", "--list", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(noArgs.exitCode).toBe(0);
+    expect(explicitList.exitCode).toBe(0);
+
+    const noArgsEnvelope = JSON.parse(noArgs.stdout) as {
+      deployments: Array<{ id: string }>;
+    };
+    const explicitEnvelope = JSON.parse(explicitList.stdout) as {
+      deployments: Array<{ id: string }>;
+    };
+    expect(noArgsEnvelope.deployments.map((d) => d.id)).toEqual(
+      explicitEnvelope.deployments.map((d) => d.id)
+    );
+  }, 120000);
+});
+
+// ============================================================================
+// Issue #383: `pnpm cli -- --version` (and other -- prefixed flag forwarding)
+// must reach Commander as the actual flag rather than being interpreted as an
+// unknown command. We exercise the binary directly with a leading `--` token
+// to mirror what nested pnpm wrappers forward to us.
+// ============================================================================
+
+describe("argv -- separator handling (issue #383)", () => {
+  it("CLI strips a leading -- token before parsing (--version)", async () => {
+    const result = await runCli(["--", "--version"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 30000,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  }, 30000);
+
+  it("CLI strips a leading -- token before parsing (subcommand)", async () => {
+    const result = await runCli(["--", "tenants", "list", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+  }, 60000);
 });
 
 // ============================================================================

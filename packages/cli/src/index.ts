@@ -148,6 +148,14 @@ export function createProgram(): Command {
   return program;
 }
 
+// Strip a leading "--" token from argv. POSIX shells already drop the first
+// "--", but `pnpm cli -- <args>` (and similar nested-script wrappers) forward
+// the literal "--" through to us, where Commander would otherwise treat it as
+// an unknown command (issue #383).
+if (process.argv[2] === "--") {
+  process.argv.splice(2, 1);
+}
+
 // Show banner if no arguments provided OR showing top-level help (not command-specific help)
 const args = process.argv.slice(2);
 const knownCommands = createProgram().commands.flatMap((cmd) => [cmd.name(), ...cmd.aliases()]);
