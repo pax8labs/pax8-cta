@@ -70,6 +70,7 @@ import { solutionsCommand } from "./commands/solutions/index.js";
 import { initCommand } from "./commands/init.js";
 import { demoCommand } from "./commands/demo.js";
 import { telemetryCommand } from "./commands/telemetry.js";
+import { configCommand } from "./commands/config.js";
 import { setupCommand } from "./commands/setup.js";
 import { authCommand } from "./commands/auth.js";
 import { validateCommand } from "./commands/validate.js";
@@ -142,6 +143,7 @@ export function createProgram(): Command {
   // Utilities
   program.addCommand(demoCommand);
   program.addCommand(telemetryCommand);
+  program.addCommand(configCommand);
 
   return program;
 }

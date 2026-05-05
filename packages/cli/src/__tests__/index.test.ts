@@ -95,6 +95,7 @@ describe("CLI Entry Point", () => {
       expect(commandNames).toContain("validate");
       expect(commandNames).toContain("setup");
       expect(commandNames).toContain("status");
+      expect(commandNames).toContain("config");
     });
 
     it("should have correct number of commands", async () => {
@@ -102,8 +103,8 @@ describe("CLI Entry Point", () => {
 
       const program = createProgram();
 
-      // Should have 14 commands registered
-      expect(program.commands.length).toBe(14);
+      // Should have 15 commands registered (added: config — issue #309)
+      expect(program.commands.length).toBe(15);
     });
 
     it("should have version set", async () => {

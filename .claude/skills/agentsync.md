@@ -33,6 +33,7 @@ If credentials aren't configured, suggest `agentsync demo on` first — the CLI 
 | "store my client secret"              | `agentsync auth login`                                                        |
 | "let me try without credentials"      | `agentsync demo on`                                                           |
 | "switch back to real mode"            | `agentsync demo off`                                                          |
+| "what's my config" / "show settings"  | `agentsync config` (add `--json` for machine-readable)                        |
 
 If the user is in the REPL (`agentsync` with no args), drop the `agentsync` prefix — the REPL also tolerates it if typed.
 
@@ -72,6 +73,8 @@ agentsync status [--list | --setup | -d <id>]         Setup/deployment status ov
 
 agentsync demo on | off | status | toggle             Mock-data mode for credential-free use
 agentsync demo auto                                   Scripted walkthrough demo
+agentsync config [--json]                             Show effective settings: demo mode,
+                                                       credentials presence, telemetry, paths
 ```
 
 `deployments` only supports `list` and `show` in the OSS CLI. `watch`, `retry`, `cancel`, `rollback` belonged to a queue-backed mode that's not part of the OSS build.
