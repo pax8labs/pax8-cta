@@ -117,6 +117,43 @@ Global flags (placed anywhere):
 
 When a deployment partially fails: `agentsync deployments show <id>` lists per-tenant status and error. Group by error class before recommending fixes — "GDAP not set up on 3 tenants" beats "deploy failed on 3 tenants."
 
+## Confirmation policy
+
+Don't ask the user before every command — that's noise. Ask only when an action would change real-world state in a way that's hard to reverse, or has a wide blast radius. The shape of the right behaviour:
+
+**Run without asking** (read-only or self-contained):
+
+- `tenants list | show | health | inspect`
+- `solutions list | show | drift` (without `--fix`)
+- `deployments list | show`
+- `analyze` (with or without `--tag` / `--all`)
+- `validate`, `status`
+- `demo status`, `auth status`
+- Any `--dry-run`
+- Any `--help`
+
+**Confirm first, paraphrasing the impact** (mutates real tenants, infra, or credentials):
+
+- `deploy` without `--dry-run` — _especially_ anything `--all` or `--tag <wide-tag>`. Always summarize: "this will deploy <solution> to <N> tenants matching <selector> — proceed?"
+- `solutions remove` — uninstalls a managed solution from a target tenant; recoverable but disruptive.
+- `solutions drift --fix` — issues real updates across the fleet.
+- `setup` (any form) — registers an application user inside customer tenants.
+- `auth login | logout` — touches the OS keychain.
+- `tenants enable | disable | tag` — config edits that change future deploy scope.
+- `import` — modifies a target tenant's solution state.
+- `export` — usually safe (writes to local `agent packages/`), but mention if it'd overwrite an existing zip.
+- `init` — writes a config file; always confirm if one already exists.
+- `demo on | off` — flips the user's mode globally; not destructive but surprising if they didn't ask.
+
+**Hard rules regardless of category:**
+
+- Before any deploy that would touch >5 tenants, restate the targets and ask. Even if the user said "yes" to deploys generally earlier in the session.
+- A user approving one destructive action does not approve the next one. Re-confirm per action.
+- If a command is in demo mode (the `⚠️ DEMO MODE` banner is showing), skip confirmation — nothing real happens. But do tell the user demo mode is on so they know why.
+- If the user explicitly says "just do it" / "run everything" / "stop asking," respect that for the rest of the conversation, but still draw the line at admin-bypass-style operations (force pushes, mass deletions, dropping production resources).
+
+When in doubt, prefer asking once over a stuck deployment. The cost of a redundant prompt is small; the cost of an unwanted production change is large.
+
 ## Notes & gotchas
 
 - **Solution argument** is either a name (looked up in source env and exported on the fly) or a path to a `.zip`. Prefer the name unless the user has a pre-built zip.
