@@ -289,10 +289,9 @@ describe("tenants health command (issue #382)", () => {
 
 describe("solutions drift after-action hint (issue #377)", () => {
   it("solutions drift --risk --json suppresses the after-action hint and picker", async () => {
-    // Note: the pre-existing drift command renders the risk table even when
-    // --json is set at root level (separate compatibility concern). What
-    // this test pins is that the new after-action hint and picker are
-    // suppressed for any `--json` caller (root-level or local).
+    // The drift command now routes through the structured output() helper
+    // (issue #401), so --json emits a JSON envelope instead of the table.
+    // Either way, the new after-action hint and picker stay suppressed.
     const result = await runCli(["solutions", "drift", "--risk", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -304,9 +303,8 @@ describe("solutions drift after-action hint (issue #377)", () => {
   }, 60000);
 
   it("solutions drift --risk --quiet suppresses the after-action hint and picker", async () => {
-    // Note: drift's pre-existing table renderer doesn't currently honor
-    // --quiet (separate concern, tracked elsewhere). This test only asserts
-    // that the new hint and the picker stay silent under --quiet.
+    // After issue #401 --quiet produces zero stdout for the drift report
+    // itself; the after-action hint and picker also stay silent.
     const result = await runCli(["solutions", "drift", "--risk", "--quiet"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -317,20 +315,19 @@ describe("solutions drift after-action hint (issue #377)", () => {
     expect(result.stdout).not.toContain("Update an outdated tenant now?");
   }, 60000);
 
-  it("solutions drift --risk in non-TTY (piped) prints hint but does NOT prompt", async () => {
-    // Subprocess stdout is non-TTY by default → isInteractivePrompt() returns
-    // false → the picker must not fire. The after-action hint should still
-    // render (it's just a console.log, not a prompt).
+  it("solutions drift --risk in non-TTY (piped) emits JSON, no hint, no prompt", async () => {
+    // Issue #401: subprocess stdout is non-TTY → drift defaults to JSON
+    // (matching tenants/list and other migrated commands). The after-action
+    // hint and picker must stay suppressed since the caller is parsing JSON.
     const result = await runCli(["solutions", "drift", "--risk"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Fleet Drift Risk Analysis");
-    // Hint renders for the demo fleet (which has outdated tenants by design).
-    expect(result.stdout).toMatch(/Suggested next action|Fleet is current/);
-    // Picker never fires in non-TTY.
+    // Stdout is the JSON envelope only — no human-readable chrome.
+    expect(result.stdout).not.toContain("Fleet Drift Risk Analysis");
+    expect(result.stdout).not.toContain("Suggested next action");
     expect(result.stdout).not.toContain("Update an outdated tenant now?");
   }, 60000);
 
@@ -346,6 +343,122 @@ describe("solutions drift after-action hint (issue #377)", () => {
     // --fix can exit 0 or non-zero depending on demo data; we only care that
     // the new picker doesn't render.
     expect(result.stdout).not.toContain("Update an outdated tenant now?");
+  }, 60000);
+});
+
+// ============================================================================
+// Issue #401: solutions drift now honors --json / --quiet / TTY-default
+// behavior, matching the contract used by tenants list, tenants health,
+// validate, etc. Last list-style command routed through output() helper.
+// ============================================================================
+
+describe("solutions drift command (issue #401)", () => {
+  it("agentsync solutions drift --quiet produces zero stdout and exits 0", async () => {
+    const result = await runCli(["solutions", "drift", "--quiet"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  }, 60000);
+
+  it("agentsync solutions drift --risk --quiet produces zero stdout and exits 0", async () => {
+    const result = await runCli(["solutions", "drift", "--risk", "--quiet"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  }, 60000);
+
+  it("agentsync solutions drift --json emits a parseable summary envelope", async () => {
+    const result = await runCli(["solutions", "drift", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    // Parses as JSON — stdout contains only the envelope.
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+    const envelope = JSON.parse(result.stdout) as {
+      totalTenants: number;
+      currentTenants: number;
+      outdatedTenants: number;
+      solutionSummary: unknown[];
+    };
+    expect(typeof envelope.totalTenants).toBe("number");
+    expect(envelope.totalTenants).toBeGreaterThan(0);
+    expect(Array.isArray(envelope.solutionSummary)).toBe(true);
+  }, 60000);
+
+  it("agentsync solutions drift --risk --json emits a parseable fleet-risk envelope", async () => {
+    const result = await runCli(["solutions", "drift", "--risk", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+    const envelope = JSON.parse(result.stdout) as {
+      tenants: Array<{
+        tenantName: string;
+        tenantId: string;
+        score: number;
+        risk: string;
+        recommendation: string;
+        topFactor: string;
+      }>;
+      summary: {
+        total: number;
+        current: number;
+        safeToUpdate: number;
+        reviewRecommended: number;
+        risky: number;
+        doNotUpdate: number;
+      };
+    };
+    expect(Array.isArray(envelope.tenants)).toBe(true);
+    expect(envelope.tenants.length).toBeGreaterThan(0);
+    expect(envelope.tenants[0]).toHaveProperty("tenantName");
+    expect(envelope.tenants[0]).toHaveProperty("score");
+    expect(envelope.tenants[0]).toHaveProperty("risk");
+    expect(envelope.tenants[0]).toHaveProperty("recommendation");
+    expect(envelope.tenants[0]).toHaveProperty("topFactor");
+    expect(envelope.summary).toBeTruthy();
+    expect(typeof envelope.summary.total).toBe("number");
+    expect(envelope.summary.total).toBe(envelope.tenants.length);
+  }, 60000);
+
+  it("agentsync solutions drift in non-TTY defaults to JSON (matches piped stdout convention)", async () => {
+    // Subprocess stdout is non-TTY → drift defaults to JSON without an
+    // explicit --json flag. Mirrors tenants list / tenants health behavior.
+    const result = await runCli(["solutions", "drift"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+    const envelope = JSON.parse(result.stdout) as { totalTenants: number };
+    expect(typeof envelope.totalTenants).toBe("number");
+  }, 60000);
+
+  it("agentsync solutions drift --risk in non-TTY defaults to JSON envelope", async () => {
+    const result = await runCli(["solutions", "drift", "--risk"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+    const envelope = JSON.parse(result.stdout) as {
+      tenants: unknown[];
+      summary: { total: number };
+    };
+    expect(Array.isArray(envelope.tenants)).toBe(true);
+    expect(typeof envelope.summary.total).toBe("number");
   }, 60000);
 });
 

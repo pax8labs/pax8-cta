@@ -41,6 +41,7 @@ import { handleCommandError } from "../../lib/errors.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { isInteractivePrompt, printRunningCommand } from "../../lib/picker.js";
 import { question } from "../../lib/input.js";
+import { resolveFormat, type OutputFormat } from "../../lib/output.js";
 import { type DriftRiskLevel, riskLevelValue, formatRiskLevel } from "./risk-calculator.js";
 import { buildDriftFixPlan, type DriftFixResult } from "./fix-planner.js";
 import {
@@ -56,6 +57,77 @@ import {
   selectOutdated,
 } from "./drift-analysis.js";
 
+// ============================================================================
+// Fleet drift risk row schema (issue #401)
+// ----------------------------------------------------------------------------
+// The fleet `--risk` view is the headline list-style output of the drift
+// command. We expose it as a typed row so the JSON envelope is stable and
+// machine-parseable for agent / pipeline callers, mirroring the Column<Row>
+// pattern used by tenants/list.ts and tenants/health.ts.
+// ============================================================================
+
+interface DriftRow {
+  tenantName: string;
+  tenantId: string;
+  score: number;
+  risk: DriftRiskLevel;
+  recommendation: string;
+  topFactor: string;
+}
+
+function buildDriftRows(analyses: TenantDriftAnalysis[]): DriftRow[] {
+  return analyses.map((a) => {
+    const topFactor =
+      a.factors.length > 0
+        ? a.factors.filter((f) => f.level !== "low").sort((x, y) => y.weight - x.weight)[0]
+            ?.description || "Minor risk"
+        : "-";
+
+    return {
+      tenantName: a.tenantName,
+      tenantId: a.tenantId,
+      score: a.riskScore,
+      risk: a.riskLevel,
+      recommendation: a.recommendation,
+      topFactor,
+    };
+  });
+}
+
+/**
+ * Apply the same filter + ordering used by `displayFleetRiskAnalysis` so the
+ * JSON envelope's `tenants[]` matches what the human-readable table shows.
+ */
+function shapeFleetForOutput(
+  fleet: FleetDriftAnalysis,
+  riskFilter: string | true | undefined
+): TenantDriftAnalysis[] {
+  let analyses = fleet.tenants;
+  if (typeof riskFilter === "string") {
+    const level = riskFilter.toLowerCase();
+    analyses = analyses.filter((a) => a.riskLevel === level);
+  }
+  const recOrder: Record<string, number> = {
+    do_not_update: 0,
+    update_risky: 1,
+    review_recommended: 2,
+    safe_to_update: 3,
+    current: 4,
+  };
+  return [...analyses].sort(
+    (a, b) => (recOrder[a.recommendation] ?? 5) - (recOrder[b.recommendation] ?? 5)
+  );
+}
+
+function emitFleetRiskJson(fleet: FleetDriftAnalysis, riskFilter: string | true | undefined): void {
+  const ordered = shapeFleetForOutput(fleet, riskFilter);
+  const envelope = {
+    tenants: buildDriftRows(ordered),
+    summary: fleet.summary,
+  };
+  console.log(JSON.stringify(envelope, null, 2));
+}
+
 const driftAnalyzer = new DriftAnalyzer();
 
 export const driftCommand = new Command("drift")
@@ -65,6 +137,7 @@ export const driftCommand = new Command("drift")
   .option("--outdated", "Show only outdated tenants")
   .option("--risk [level]", "Show risk analysis (optionally filter by: low, medium, high)")
   .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output (exit code only)")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("--fix", "Deploy current version to outdated tenants (risk-gated)")
   .option(
@@ -89,14 +162,20 @@ Examples:
 `
   )
   .action(async (options, cmd) => {
-    // --json is a root-level global flag in this CLI (see index.ts), so the
-    // local opts bag may not see it when typed at the program level
-    // (`agentsync solutions drift --risk --json`). The new after-action hint
-    // and picker must honor that; we pass the merged value through the
-    // post-report path without touching the existing branches that rely on
-    // the local `options.json` for backward compatibility.
-    const globalOpts = cmd.optsWithGlobals();
-    const jsonOutput = !!(options.json || globalOpts.json);
+    // Merge local opts with globals so root-level `--json` / `--quiet`
+    // (`agentsync --json solutions drift ...`) reach this command. Then
+    // resolve the effective output format up-front so every branch below
+    // can branch on a single `fmt` value (issue #401).
+    const merged = { ...options, ...cmd.optsWithGlobals() };
+    const fmt: OutputFormat = resolveFormat({
+      json: !!merged.json,
+      quiet: !!merged.quiet,
+    });
+    // Back-compat shim for the after-action helper, which only inspects
+    // `options.json`. Treat `fmt === "json"` as "JSON requested" so piped
+    // (non-TTY) callers also suppress the picker chrome.
+    const jsonOutput = fmt === "json" || fmt === "quiet";
+    options = { ...options, json: jsonOutput };
 
     const spinner = createSpinner("Checking version drift...").start();
 
@@ -104,7 +183,7 @@ Examples:
       await withDemoMode(
         async () => {
           spinner.stop();
-          if (!isQuietMode()) {
+          if (fmt === "table") {
             console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
           }
 
@@ -210,7 +289,7 @@ Examples:
                 (willSkip.length > 0 ? ` ${willSkip.length} skipped (risk above ${maxRisk}).` : "")
             );
 
-            if (options.json) {
+            if (fmt === "json") {
               console.log(
                 JSON.stringify(
                   {
@@ -332,21 +411,23 @@ Examples:
               const history = generateDemoDeployHistory(tenant.tenantId);
               const analysis = driftAnalyzer.analyzeTenant(tenant, status, history);
 
-              if (options.json) {
+              if (fmt === "json") {
                 console.log(JSON.stringify(analysis, null, 2));
                 return;
               }
+              if (fmt === "quiet") return;
 
               displayTenantRiskAnalysis(analysis);
               return;
             }
 
-            if (options.json) {
+            if (fmt === "json") {
               console.log(
                 JSON.stringify({ ...status, customizations: customizationResult }, null, 2)
               );
               return;
             }
+            if (fmt === "quiet") return;
 
             displayTenantStatus(status);
 
@@ -364,10 +445,11 @@ Examples:
             }
             const fleetAnalysis = driftAnalyzer.analyzeFleet(enabledTenants, statuses, histories);
 
-            if (options.json) {
-              console.log(JSON.stringify(fleetAnalysis, null, 2));
+            if (fmt === "json") {
+              emitFleetRiskJson(fleetAnalysis, options.risk);
               return;
             }
+            if (fmt === "quiet") return;
 
             displayFleetRiskAnalysis(fleetAnalysis, options.risk);
             await afterDriftReport(
@@ -382,12 +464,13 @@ Examples:
           const summary = getDemoVersionDriftSummary();
           const customizationSummary = getDemoCustomizationSummary("CustomerServiceAgent");
 
-          if (options.json) {
+          if (fmt === "json") {
             console.log(
               JSON.stringify({ ...summary, customizations: customizationSummary }, null, 2)
             );
             return;
           }
+          if (fmt === "quiet") return;
 
           console.log(chalk.bold("Version Drift Summary"));
           console.log("━".repeat(60));
@@ -559,10 +642,11 @@ Examples:
                 histories.get(tenants[0].tenantId)
               );
 
-              if (options.json) {
+              if (fmt === "json") {
                 console.log(JSON.stringify(analysis, null, 2));
                 return;
               }
+              if (fmt === "quiet") return;
 
               displayTenantRiskAnalysis(analysis);
               return;
@@ -570,10 +654,11 @@ Examples:
 
             const fleetAnalysis = driftAnalyzer.analyzeFleet(tenants, statuses, histories);
 
-            if (options.json) {
-              console.log(JSON.stringify(fleetAnalysis, null, 2));
+            if (fmt === "json") {
+              emitFleetRiskJson(fleetAnalysis, options.risk);
               return;
             }
+            if (fmt === "quiet") return;
 
             displayFleetRiskAnalysis(fleetAnalysis, options.risk);
             await afterDriftReport(
@@ -587,10 +672,11 @@ Examples:
           // Single tenant mode (no risk)
           if (options.tenant && statuses.length === 1) {
             const status = statuses[0];
-            if (options.json) {
+            if (fmt === "json") {
               console.log(JSON.stringify(status, null, 2));
               return;
             }
+            if (fmt === "quiet") return;
             displayTenantStatus(status);
             return;
           }
@@ -598,10 +684,11 @@ Examples:
           // Fleet-wide summary (no risk)
           const summary = buildSummary(statuses, expectedSolutions);
 
-          if (options.json) {
+          if (fmt === "json") {
             console.log(JSON.stringify(summary, null, 2));
             return;
           }
+          if (fmt === "quiet") return;
 
           displayFleetSummary(summary, options, tenants, statuses, checker, expectedSolutions);
         }
