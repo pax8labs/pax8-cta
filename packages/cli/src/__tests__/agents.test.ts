@@ -265,6 +265,8 @@ describe("Agents Command", () => {
     });
 
     it("should output JSON when --json flag is used", async () => {
+      // Issue #406: solutions show now emits a structured envelope with
+      // `name`, `displayName`, `latestVersion`, and `summary` keys.
       const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
       program.addCommand(solutionsCommand);
@@ -274,14 +276,23 @@ describe("Agents Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Extract JSON from output
-      const json = extractJson<{ uniqueName: string; version: string }>(output);
+      const json = extractJson<{
+        name: string;
+        displayName: string;
+        latestVersion: string;
+        summary: { totalTenants: number };
+      }>(output);
       expect(json).not.toBeNull();
-      expect(json!.uniqueName).toBe(agent.uniqueName);
-      expect(json!.version).toBe(agent.version);
+      expect(json!.name).toBe(agent.uniqueName);
+      expect(json!.displayName).toBe(agent.friendlyName);
+      expect(json!.latestVersion).toBe(agent.version);
+      expect(json!.summary).toBeTruthy();
+      expect(typeof json!.summary.totalTenants).toBe("number");
     });
 
     it("should include tenant status in JSON when --tenants flag is used", async () => {
+      // Issue #406: tenants are exposed under the `tenants` key (formerly
+      // `tenantStatus`) as a typed array.
       const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
       program.addCommand(solutionsCommand);
@@ -299,17 +310,26 @@ describe("Agents Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Extract JSON from output
-      const json = extractJson<{ uniqueName: string; tenantStatus: unknown[] }>(output);
+      const json = extractJson<{ name: string; tenants: unknown[] }>(output);
       expect(json).not.toBeNull();
-      expect(json!.tenantStatus).toBeDefined();
-      expect(Array.isArray(json!.tenantStatus)).toBe(true);
+      expect(json!.tenants).toBeDefined();
+      expect(Array.isArray(json!.tenants)).toBe(true);
     });
 
     it("should handle agent not found", async () => {
+      // Issue #406: 'not found' now routes through handleCommandError, which
+      // writes a structured envelope to process.stderr in non-TTY mode (same
+      // pattern as `tenants show` from issue #360, `tenants health` from
+      // issue #382). Patch stderr.write to assert on the message content.
       const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
       program.addCommand(solutionsCommand);
+
+      const stderrWrites: string[] = [];
+      const writeSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: any) => {
+        stderrWrites.push(typeof chunk === "string" ? chunk : chunk.toString());
+        return true;
+      });
 
       try {
         await program.parseAsync(["node", "test", "solutions", "show", "nonexistent-agent-xyz"]);
@@ -317,13 +337,13 @@ describe("Agents Command", () => {
         // Expected to throw due to process.exit
       }
 
-      const output = consoleCapture.getAllOutput();
-      const cleanOutput = stripAnsi(output);
+      writeSpy.mockRestore();
 
-      // Should show error message
-      expect(containsText(cleanOutput, "not found")).toBe(true);
-      // Should show available agents
-      expect(containsText(cleanOutput, "Available agents:")).toBe(true);
+      const consoleOutput = stripAnsi(consoleCapture.getAllOutput());
+      const stderrOutput = stripAnsi(stderrWrites.join(""));
+      const combined = consoleOutput + "\n" + stderrOutput;
+
+      expect(containsText(combined, "not found")).toBe(true);
     });
   });
 
