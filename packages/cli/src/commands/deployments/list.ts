@@ -67,8 +67,12 @@ Examples:
           let deployments = await getDeployments(opts);
           deployments = filterDeployments(deployments, opts);
 
-          const limit = parseInt(opts.limit, 10);
-          const offset = parseInt(opts.offset, 10);
+          // parseInt(undefined, 10) is NaN, and slice(NaN, NaN+limit) returns
+          // []. The Commander option defaults ("20"/"0") cover normal CLI
+          // invocations, but REPL state-resets and programmatic callers can
+          // leave these undefined — fall back to safe numbers.
+          const limit = Number.parseInt(opts.limit, 10) || 20;
+          const offset = Number.parseInt(opts.offset, 10) || 0;
           const total = deployments.length;
           deployments = deployments.slice(offset, offset + limit);
 
@@ -89,8 +93,8 @@ Examples:
           let entries = await getDeploymentHistory(opts);
           entries = filterHistory(entries, opts);
 
-          const limit = parseInt(opts.limit, 10);
-          const offset = parseInt(opts.offset, 10);
+          const limit = Number.parseInt(opts.limit, 10) || 20;
+          const offset = Number.parseInt(opts.offset, 10) || 0;
           const total = entries.length;
           entries = entries.slice(offset, offset + limit);
 

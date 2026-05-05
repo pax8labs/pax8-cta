@@ -40,7 +40,7 @@ import { stripAnsi } from "./test-utils.js";
 
 interface DemoDeployJsonEnvelope {
   demo: boolean;
-  shipmentId: string;
+  deploymentId: string;
   package: string;
   solution: string;
   destinations: Array<{ name: string; tenantId: string }>;
@@ -197,17 +197,17 @@ describe("demo deploy → deployments list (in-process store)", () => {
 
     const deployEnvelope = JSON.parse(envelopes[0]) as DemoDeployJsonEnvelope;
     expect(deployEnvelope.demo).toBe(true);
-    expect(deployEnvelope.shipmentId).toMatch(/^dep-demo-/);
+    expect(deployEnvelope.deploymentId).toMatch(/^dep-demo-/);
 
     const listEnvelope = JSON.parse(envelopes[1]) as DemoListJsonEnvelope;
     expect(Array.isArray(listEnvelope.deployments)).toBe(true);
 
     const ids = listEnvelope.deployments.map((d) => d.id);
     // Core regression guard: the bug had `ids` not contain the new shipment.
-    expect(ids).toContain(deployEnvelope.shipmentId);
+    expect(ids).toContain(deployEnvelope.deploymentId);
 
     // Newest record lands at the top so the user sees it first.
-    expect(listEnvelope.deployments[0]?.id).toBe(deployEnvelope.shipmentId);
+    expect(listEnvelope.deployments[0]?.id).toBe(deployEnvelope.deploymentId);
   }, 60000);
 
   it("the canned demo history is still surfaced alongside the new entry", async () => {
@@ -257,7 +257,7 @@ describe("demo deploy → deployments show <id>", () => {
 
     // Recorded deploy lands at the top of the in-process store (proves
     // record() works through deploy.ts).
-    expect(listEnvelope.deployments[0]?.id).toBe(deployEnvelope.shipmentId);
+    expect(listEnvelope.deployments[0]?.id).toBe(deployEnvelope.deploymentId);
 
     // `deployments show <id>` reads from the same store. We assert against a
     // known seeded id so the test doesn't have to interpolate the
