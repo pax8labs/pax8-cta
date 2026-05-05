@@ -29,6 +29,7 @@ import {
 } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { UsageError, CliError, handleCommandError } from "../lib/errors.js";
+import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
 
 export const setupCommand = new Command("setup")
   .description("Register your app as an application user in tenant environments")
@@ -45,11 +46,52 @@ Examples:
   setup -t AgentSync-Test2                  Setup a specific tenant environment
 `
   )
-  .action(async (options) => {
+  .action(async (options, cmd) => {
+    // Pull global flags (--json, --quiet) so the interactive picker check
+    // doesn't fire when the caller explicitly opted out of prompts.
+    const globalOpts = cmd?.optsWithGlobals?.() ?? {};
+    const interactiveOpts = { json: globalOpts.json, quiet: globalOpts.quiet };
+
     const spinner = createSpinner("Loading configuration...").start();
 
     try {
-      // Validate options
+      const configPath = resolve(process.cwd(), options.config);
+      let config: Awaited<ReturnType<typeof loadConfig>> | undefined;
+
+      // No selector flag in an interactive terminal? Try to load the config
+      // and offer a picker drawn from the enabled tenants. Scripts (--json,
+      // --quiet, non-TTY) fall through to the existing UsageError below so
+      // they fail fast instead of hanging on stdin.
+      if (
+        !options.check &&
+        !options.all &&
+        !options.tenant &&
+        isInteractivePrompt(interactiveOpts)
+      ) {
+        try {
+          config = await loadConfig(configPath);
+          spinner.succeed("Configuration loaded");
+        } catch {
+          // No config available — let validation below produce the friendly
+          // UsageError instead of a config-not-found error.
+          spinner.stop();
+        }
+
+        if (config) {
+          const enabledTenants = config.tenants.filter((t) => t.enabled);
+          const picked = await pickFromList(enabledTenants, {
+            prompt: "Pick a tenant to set up:",
+            label: (t) => t.name,
+            hint: (t) => (t.tags?.length ? t.tags.join(", ") : undefined),
+          });
+          if (picked) {
+            options.tenant = picked.name;
+            printRunningCommand(["setup", "--tenant", picked.name]);
+          }
+        }
+      }
+
+      // Validate options (after the picker has had a chance to populate them).
       if (!options.check && !options.all && !options.tenant) {
         spinner.stop();
         throw new UsageError(
@@ -57,10 +99,11 @@ Examples:
         );
       }
 
-      // Load config
-      const configPath = resolve(process.cwd(), options.config);
-      const config = await loadConfig(configPath);
-      spinner.succeed("Configuration loaded");
+      // Load config if the picker didn't already.
+      if (!config) {
+        config = await loadConfig(configPath);
+        spinner.succeed("Configuration loaded");
+      }
 
       // Get target tenants
       let targets: TenantConfig[];

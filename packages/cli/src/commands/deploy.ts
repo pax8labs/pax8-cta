@@ -17,7 +17,14 @@
 import { Command } from "commander";
 import { resolve, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { existsSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
@@ -31,17 +38,20 @@ import {
   UrlTemplater,
   WaveService,
   DeploymentService,
+  DEMO_SOLUTIONS,
   getEffectiveConnectionMappings,
   getEffectiveEnvironmentVariables,
+  loadConfig,
   resolveTenantUrls,
   type TenantUrlValues,
   type DetectedUrl,
   environmentSetupService,
   detectSolutionMode,
 } from "@agentsync/core";
-import { withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
+import { isDemo, withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
+import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
 
 export const deployCommand = new Command("deploy")
   .description("Export a solution from source and import it to target tenants")
@@ -85,6 +95,18 @@ Examples:
     }
 
     if (solutionArg && !options.solution) options.solution = solutionArg;
+
+    // No solution provided? In an interactive terminal, offer a picker drawn
+    // from `./agent packages/*.zip` (and DEMO_SOLUTIONS in demo mode).
+    // Scripts/pipelines (--json, --quiet, non-TTY) skip the picker and get
+    // the existing usage error so they fail fast instead of hanging.
+    if (!options.solution && isInteractivePrompt({ json: options.json, quiet: options.quiet })) {
+      const picked = await pickSolutionInteractively();
+      if (picked) {
+        options.solution = picked;
+      }
+    }
+
     if (!options.solution) {
       console.error(chalk.red("Error: solution name or path required."));
       console.error(chalk.gray("  Example: deploy TestDeploy --all"));
@@ -94,6 +116,27 @@ Examples:
     if (options.json && !options.dryRun) {
       console.error(chalk.red("Error: --json is only supported with --dry-run."));
       process.exit(2);
+    }
+
+    // No target selection? In an interactive terminal, offer a picker
+    // (tags from the fleet plus an "all" sentinel). Same TTY guard as above.
+    if (
+      !options.all &&
+      (!options.tag || options.tag.length === 0) &&
+      (!options.tenant || options.tenant.length === 0) &&
+      isInteractivePrompt({ json: options.json, quiet: options.quiet })
+    ) {
+      const picked = await pickTargetInteractively(options.config);
+      if (picked === "all") {
+        options.all = true;
+      } else if (picked) {
+        options.tag = [picked];
+      }
+
+      if (options.solution && (options.all || options.tag?.length)) {
+        const targetFlag = options.all ? "--all" : `--tag ${options.tag![0]}`;
+        printRunningCommand(["deploy", options.solution, ...targetFlag.split(" ")]);
+      }
     }
 
     // Default to --all if no tag filter
@@ -633,6 +676,123 @@ interface DryRunPlan {
     validationFailedTenants: number;
   };
   waves: DryRunWavePlan[];
+}
+
+interface SolutionPickItem {
+  display: string;
+  value: string;
+  hint?: string;
+}
+
+/**
+ * Build the candidate list for the solution picker:
+ *   - Every `*.zip` under `./agent packages/` (most-recent first).
+ *   - In demo mode, also surface the synthetic DEMO_SOLUTIONS by uniqueName
+ *     so users exploring without real exports still have something to pick.
+ */
+function gatherSolutionCandidates(): SolutionPickItem[] {
+  const items: SolutionPickItem[] = [];
+  const agentPackagesDir = resolve(process.cwd(), "agent packages");
+
+  if (existsSync(agentPackagesDir)) {
+    try {
+      const zips = readdirSync(agentPackagesDir)
+        .filter((f) => f.endsWith(".zip"))
+        .map((f) => {
+          const path = join(agentPackagesDir, f);
+          return { name: f, path, mtime: statSync(path).mtimeMs };
+        })
+        .sort((a, b) => b.mtime - a.mtime);
+
+      for (const zip of zips) {
+        items.push({
+          display: zip.name,
+          value: zip.path,
+          hint: "agent packages/",
+        });
+      }
+    } catch {
+      // Directory unreadable — silently skip; user can still type a path.
+    }
+  }
+
+  if (isDemo()) {
+    for (const demo of DEMO_SOLUTIONS) {
+      // Skip if already represented by a real zip with the same base name.
+      if (items.some((it) => it.display.startsWith(demo.uniqueName))) continue;
+      items.push({
+        display: demo.uniqueName,
+        value: demo.uniqueName,
+        hint: "demo",
+      });
+    }
+  }
+
+  return items;
+}
+
+async function pickSolutionInteractively(): Promise<string | undefined> {
+  const candidates = gatherSolutionCandidates();
+  if (candidates.length === 0) return undefined;
+
+  const chosen = await pickFromList(candidates, {
+    prompt: "Pick a solution to deploy:",
+    label: (it) => it.display,
+    hint: (it) => it.hint,
+  });
+  return chosen?.value;
+}
+
+/**
+ * Build the target picker — distinct tags drawn from the fleet plus an
+ * "all" sentinel for "deploy everywhere". Returns the selected tag string,
+ * the literal `"all"`, or undefined if the user skipped.
+ */
+async function pickTargetInteractively(
+  configPath: string | undefined
+): Promise<string | undefined> {
+  let tenants: TenantConfig[] = [];
+  try {
+    if (isDemo()) {
+      const { getDemoTenants } = await import("./demo.js");
+      tenants = getDemoTenants({ all: true });
+    } else {
+      const path = resolve(process.cwd(), configPath ?? "./config/tenants.yaml");
+      const config = await loadConfig(path);
+      tenants = config.tenants.filter((t) => t.enabled);
+    }
+  } catch {
+    // Config unavailable — let the caller fall through to the default --all.
+    return undefined;
+  }
+
+  const tagSet = new Set<string>();
+  for (const t of tenants) {
+    for (const tag of t.tags ?? []) tagSet.add(tag);
+  }
+
+  const items: { display: string; value: string; hint?: string }[] = [
+    { display: "all tenants", value: "all", hint: `${tenants.length} enabled` },
+    ...Array.from(tagSet)
+      .sort()
+      .map((tag) => ({
+        display: `--tag ${tag}`,
+        value: tag,
+        hint: `${tenants.filter((t) => t.tags?.includes(tag)).length} tenant(s)`,
+      })),
+  ];
+
+  if (items.length === 1) {
+    // Only "all" is available — no point prompting; the default kicks in.
+    return undefined;
+  }
+
+  const chosen = await pickFromList(items, {
+    prompt: "Pick a deployment target:",
+    label: (it) => it.display,
+    hint: (it) => it.hint,
+  });
+  return chosen?.value;
 }
 
 function filterDestinationsByTenantSelections(
