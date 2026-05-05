@@ -15,7 +15,8 @@ AI-powered deployment management for AgentSync using Claude Code. Manage your Co
 
 ```bash
 # Already installed if you cloned the agentsync repo!
-# The skill is in .claude/skills/agentsync.md
+# The skill is in .claude/skills/pax8-cta.md (skill name: pax8-cta;
+# CLI binary is still `agentsync` — see the skill body for the rebrand notes)
 ```
 
 **Option 2: Copy Slash Commands** (Optional)
@@ -117,7 +118,7 @@ See main [AgentSync README](../README.md) for full configuration details.
 
 ## 📚 What the Skill Provides
 
-The skill (`agentsync.md`) provides Claude with:
+The skill (`pax8-cta.md`) provides Claude with:
 
 - **CLI Command Reference** - All agentsync commands and options
 - **Common Workflows** - Step-by-step patterns for typical tasks
@@ -153,8 +154,8 @@ Or use the full path:
 
 Make sure the skill file is in the right location:
 
-- **From repo:** `.claude/skills/agentsync.md`
-- **Global:** `~/.claude/skills/agentsync.md`
+- **From repo:** `.claude/skills/pax8-cta.md`
+- **Global:** `~/.claude/skills/pax8-cta.md`
 
 ## 🔗 Resources
 
