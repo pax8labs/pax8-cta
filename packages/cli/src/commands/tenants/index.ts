@@ -20,6 +20,7 @@ import { inspectCommand } from "./inspect.js";
 import { showCommand } from "./show.js";
 import { healthCommand } from "./health.js";
 import { enableCommand, disableCommand, tagCommand } from "./manage.js";
+import { createDriftCommand } from "../solutions/drift.js";
 
 export const tenantsCommand = new Command("tenants").description(
   "Manage target tenants where agents are deployed"
@@ -33,6 +34,11 @@ tenantsCommand.addCommand(healthCommand);
 tenantsCommand.addCommand(enableCommand);
 tenantsCommand.addCommand(disableCommand);
 tenantsCommand.addCommand(tagCommand);
+// `drift` is the canonical name for the per-tenant update-readiness view.
+// `solutions drift` remains as a legacy alias (same handler). The deeper
+// split — actual per-solution drift under `solutions`, tenant-health checks
+// under `tenants health` — is tracked in issue #422.
+tenantsCommand.addCommand(createDriftCommand());
 
 // Re-export for backwards compatibility
 export { findTenant, getDeployedAgentsForTenant } from "./helpers.js";

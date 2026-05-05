@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { listCommand } from "./list.js";
 import { removeCommand } from "./remove.js";
 import { showCommand } from "./show.js";
-import { driftCommand } from "./drift.js";
+import { createDriftCommand } from "./drift.js";
 
 export const solutionsCommand = new Command("solutions").description(
   "List, inspect, and compare solutions across environments"
@@ -27,5 +27,8 @@ export const solutionsCommand = new Command("solutions").description(
 // Register subcommands
 solutionsCommand.addCommand(listCommand);
 solutionsCommand.addCommand(showCommand);
-solutionsCommand.addCommand(driftCommand);
+// `drift` is also exposed as `tenants drift` (canonical, since the output
+// is primarily per-tenant). This registration keeps the legacy
+// `solutions drift` invocation working. See issue #422.
+solutionsCommand.addCommand(createDriftCommand());
 solutionsCommand.addCommand(removeCommand);
