@@ -511,16 +511,29 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
+      // Issue #382: "not found" now routes through handleCommandError, which
+      // writes a structured envelope to process.stderr in non-TTY mode (same
+      // pattern as `tenants show` from issue #360). Patch stderr.write to
+      // assert on the message content.
+      const stderrWrites: string[] = [];
+      const writeSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: any) => {
+        stderrWrites.push(typeof chunk === "string" ? chunk : chunk.toString());
+        return true;
+      });
+
       try {
         await program.parseAsync(["node", "test", "tenants", "health", "nonexistent-tenant"]);
       } catch {
         // Expected to throw due to process.exit
       }
 
-      const output = consoleCapture.getAllOutput();
-      const cleanOutput = stripAnsi(output);
+      writeSpy.mockRestore();
 
-      expect(containsText(cleanOutput, "not found")).toBe(true);
+      const consoleOutput = stripAnsi(consoleCapture.getAllOutput());
+      const stderrOutput = stripAnsi(stderrWrites.join(""));
+      const combined = consoleOutput + "\n" + stderrOutput;
+
+      expect(containsText(combined, "not found")).toBe(true);
     });
   });
 
