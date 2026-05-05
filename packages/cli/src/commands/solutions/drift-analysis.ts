@@ -31,6 +31,61 @@ import { DEMO_TENANTS } from "@agentsync/core";
 import type { UnmanagedCustomizationResult } from "@agentsync/core";
 import { formatRecommendation, formatRiskLevel } from "./risk-calculator.js";
 
+/**
+ * The set of tenants in a fleet drift analysis that are "outdated" — i.e. the
+ * report's actionable rows. We treat anything that isn't `current` as
+ * outdated; this matches what the table-mode renderer surfaces and what
+ * `--fix` would touch.
+ */
+export function selectOutdated(fleet: FleetDriftAnalysis): TenantDriftAnalysis[] {
+  return fleet.tenants.filter((t) => t.recommendation !== "current");
+}
+
+/**
+ * Build the after-action hint shown beneath the drift table.
+ *
+ * Mirrors the analyze → test-deploy nudge: a one-paragraph "what should I do
+ * about this?" string driven by the result shape. Returns an empty string
+ * when there is nothing to suggest, so the caller can `if (hint) console.log`.
+ *
+ * Pure / side-effect-free so the unit tests can pin the wording without
+ * shelling out.
+ *
+ * @param solutionLabel  The solution name to interpolate into per-tenant
+ *                       suggestions. When the drift run wasn't scoped to a
+ *                       single solution we fall back to `<solution>` so the
+ *                       user knows to substitute.
+ */
+export function buildAfterActionHint(
+  outdated: TenantDriftAnalysis[],
+  solutionLabel: string = "<solution>"
+): string {
+  const count = outdated.length;
+  if (count === 0) {
+    return "Fleet is current. Nothing to do.";
+  }
+
+  const hasHighRisk = outdated.some((t) => t.riskLevel === "high");
+  const lines: string[] = [];
+
+  if (count <= 3) {
+    lines.push("Suggested next action:");
+    lines.push(`  agentsync deploy ${solutionLabel} --tenant <name>`);
+    lines.push("or 'agentsync solutions drift --fix' to update them all.");
+  } else {
+    lines.push("Suggested next action: agentsync solutions drift --fix");
+    lines.push("(review the list above first; --fix will deploy to every outdated tenant).");
+  }
+
+  if (hasHighRisk) {
+    lines.push(
+      `Drill into risk before updating: agentsync analyze ${solutionLabel} --tenant <name>`
+    );
+  }
+
+  return lines.join("\n");
+}
+
 export function displayTenantStatus(status: TenantVersionStatus): void {
   console.log(chalk.bold(`${status.tenantName} - Version Status`));
   console.log("━".repeat(60));
