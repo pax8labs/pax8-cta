@@ -2,6 +2,14 @@
 
 Sync your Copilot Studio agents to all your tenants from the command line.
 
+## Try it in 30 seconds (no install)
+
+```bash
+npx -y @agentsync/cli demo on && npx -y @agentsync/cli tenants list
+```
+
+Mock-data mode, no credentials, no Azure setup. Then run `npx -y @agentsync/cli --help` to explore every command.
+
 ## Quick Start
 
 ```bash

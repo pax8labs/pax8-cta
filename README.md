@@ -8,6 +8,16 @@ Multi-tenant Copilot Studio deployment tool for MSPs.
 
 ---
 
+## Try it in 30 seconds (no install)
+
+```bash
+npx -y @agentsync/cli demo on && npx -y @agentsync/cli tenants list
+```
+
+That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y @agentsync/cli --help` shows every command.
+
+---
+
 ## What It Does
 
 AgentSync exports Power Platform solutions (Copilot Studio agents) from a source Dataverse environment and imports them into customer tenants via GDAP (Granular Delegated Admin Privileges). It handles authentication, connection reference mapping, environment variables, staged rollouts, and rollback -- so you can deploy one agent to hundreds of customer environments in minutes.

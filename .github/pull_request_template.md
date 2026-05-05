@@ -1,62 +1,26 @@
-## What does this PR do?
+## Summary
 
-<!-- Brief description of what this PR accomplishes -->
+<!-- 1-3 bullets explaining what this PR does and *why*. Mirror the style of recent merged PRs. -->
 
-## Related Issue
+## Test plan
+
+<!-- Check off what you ran. Add new bullets for any manual verification steps. -->
+
+- [ ] `pnpm --filter @agentsync/cli build` clean
+- [ ] `pnpm --filter @agentsync/cli test` green
+- [ ] `pnpm --filter @agentsync/core test` green (if core changed)
+- [ ] Manual verification (describe below)
+
+<!-- Manual verification notes, screenshots of CLI output, etc. -->
+
+## Related issues
+
+<!-- e.g. Closes #123, Refs #456. Use "Closes" so GitHub auto-closes the issue on merge. -->
 
 Closes #
 
-## Changes Made
+## Breaking changes
 
-## <!-- List the key changes in this PR -->
+<!-- Delete this section if no breaking changes. Otherwise list them and the migration path. -->
 
--
--
-
-## Testing Done
-
-- [ ] Unit tests pass (`pnpm test`)
-- [ ] Build succeeds (`pnpm build`)
-- [ ] Manual testing completed
-- [ ] No console errors or warnings
-- [ ] Tested in demo mode (if applicable)
-
-## Security Considerations
-
-<!-- Especially important for issues #11-15 (auth, validation, CSP, rate limiting) -->
-
-- [ ] No hardcoded credentials or secrets
-- [ ] Input validation added where needed
-- [ ] Authorization checks in place
-- [ ] No sensitive data logged
-- [ ] SQL injection prevention verified
-
-## Database Changes
-
-<!-- If this PR modifies the database schema or queries -->
-
-- [ ] Migration created (if schema changes)
-- [ ] Indexes added for new queries
-- [ ] Backward compatible
-
-## Screenshots (if UI changes)
-
-<!-- Add screenshots or screen recordings if this changes the UI -->
-
-## Deployment Notes
-
-<!-- Any special considerations for deploying this change? -->
-
-## Checklist
-
-- [ ] Tests added or updated
-- [ ] Documentation updated (README, code comments)
-- [ ] Error handling implemented
-- [ ] Logging added for debugging
-- [ ] Code follows project style
-- [ ] No unnecessary dependencies added
-- [ ] Reviewed my own code
-
-## Additional Context
-
-<!-- Any other context, links, or information reviewers should know -->
+- [ ] This PR introduces a breaking change (CLI flag rename, removed command, config schema change, etc.)
