@@ -163,6 +163,65 @@ describe("status command (issue #358)", () => {
 });
 
 // ============================================================================
+// Issue #382: tenants health honors --json / --quiet / TTY-default behavior,
+// matching the contract used by tenants list, deployments list, validate, etc.
+// ============================================================================
+
+describe("tenants health command (issue #382)", () => {
+  it("agentsync tenants health --quiet produces zero stdout and exits 0", async () => {
+    const result = await runCli(["tenants", "health", "--quiet"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  }, 60000);
+
+  it("agentsync tenants health --json emits a parseable fleet envelope", async () => {
+    const result = await runCli(["tenants", "health", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+
+    // The fleet envelope is the only thing on stdout; demo-mode notice goes
+    // to stderr. Parse stdout directly.
+    const envelope = JSON.parse(result.stdout) as {
+      summary: { total: number; healthy: number; unhealthy: number };
+      tenants: Array<{ name: string; tenantId: string; healthy: boolean; checks: unknown[] }>;
+    };
+    expect(envelope.summary).toBeTruthy();
+    expect(typeof envelope.summary.total).toBe("number");
+    expect(envelope.summary.total).toBeGreaterThan(0);
+    expect(Array.isArray(envelope.tenants)).toBe(true);
+    expect(envelope.tenants.length).toBe(envelope.summary.total);
+    expect(envelope.tenants[0]).toHaveProperty("tenantId");
+    expect(envelope.tenants[0]).toHaveProperty("checks");
+  }, 60000);
+
+  it("agentsync tenants health <name> --json emits a parseable per-tenant envelope", async () => {
+    const result = await runCli(["tenants", "health", "Contoso", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.stdout) as {
+      tenant: string;
+      healthy: boolean;
+      checks: Array<{ name: string; passed: boolean }>;
+    };
+    expect(envelope.tenant.toLowerCase()).toContain("contoso");
+    expect(typeof envelope.healthy).toBe("boolean");
+    expect(Array.isArray(envelope.checks)).toBe(true);
+    expect(envelope.checks.length).toBeGreaterThan(0);
+  }, 60000);
+});
+
+// ============================================================================
 // Issue #360: tenants show <not-found> emits a JSON error envelope (not bare
 // colored text) and exits non-zero.
 // ============================================================================
