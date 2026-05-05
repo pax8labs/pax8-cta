@@ -56,6 +56,28 @@ export async function getStoredSecret(): Promise<string | null> {
 }
 
 /**
+ * Probe whether the OS keychain is available without revealing the secret.
+ *
+ * Useful for status / config commands that need to report whether a stored
+ * credential exists. Returns one of:
+ *   - "set"         — keychain available and a secret is stored
+ *   - "not-set"     — keychain available but no secret stored
+ *   - "unavailable" — keytar not installed or keychain unreadable
+ *
+ * Never returns or logs the secret value.
+ */
+export async function probeStoredSecret(): Promise<"set" | "not-set" | "unavailable"> {
+  const keytar = await getKeytar();
+  if (!keytar) return "unavailable";
+  try {
+    const value = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+    return value ? "set" : "not-set";
+  } catch {
+    return "unavailable";
+  }
+}
+
+/**
  * Store secret in OS keychain
  */
 export async function storeSecret(secret: string): Promise<void> {

@@ -176,6 +176,61 @@ export function markFirstRunNoticeShown(): void {
   }
 }
 
+/**
+ * Filesystem path to the Conf-managed telemetry preferences file.
+ * Used by `agentsync config` to surface where preferences live.
+ */
+export function getTelemetryConfigPath(): string {
+  return config.path;
+}
+
+/**
+ * Stored telemetry preference (ignores env-var overrides).
+ *
+ * `isTelemetryEnabled()` factors in env-var opt-outs (DO_NOT_TRACK,
+ * AGENTSYNC_TELEMETRY_DISABLED, CI, missing PostHog key). This raw getter
+ * lets `config` distinguish a user's saved choice from a runtime override.
+ */
+export function getStoredTelemetryPreference(): boolean {
+  try {
+    return config.get("telemetryEnabled");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reason telemetry is currently disabled, if it is.
+ *
+ * Mirrors the precedence inside `isTelemetryEnabled()`:
+ *   1. AGENTSYNC_TELEMETRY_DISABLED env var
+ *   2. DO_NOT_TRACK env var
+ *   3. CI env var
+ *   4. Missing PostHog key
+ *   5. User preference (config file)
+ *
+ * Returns `null` when telemetry is enabled.
+ */
+export function getTelemetryDisabledSource():
+  | "env"
+  | "do-not-track"
+  | "ci"
+  | "no-key"
+  | "config"
+  | null {
+  if (
+    process.env.AGENTSYNC_TELEMETRY_DISABLED === "1" ||
+    process.env.AGENTSYNC_TELEMETRY_DISABLED === "true"
+  ) {
+    return "env";
+  }
+  if (process.env.DO_NOT_TRACK === "1") return "do-not-track";
+  if (process.env.CI === "true" || process.env.CI === "1") return "ci";
+  if (!POSTHOG_KEY) return "no-key";
+  if (!getStoredTelemetryPreference()) return "config";
+  return null;
+}
+
 // ============================================================================
 // PostHog Client
 // ============================================================================
