@@ -90,7 +90,7 @@ interface ReplResult {
 
 /**
  * Spawn the CLI in REPL mode and feed it `lines` one at a time, waiting for
- * the "AgentSync> " prompt to reappear before sending the next line. This
+ * the "pax8-cta> " prompt to reappear before sending the next line. This
  * avoids the race where readline closes before subsequent queued commands
  * have a chance to run.
  */
@@ -119,14 +119,14 @@ async function driveRepl(lines: string[], timeoutMs = 60000): Promise<ReplResult
     proc.on("close", (code) => resolveClose(code));
   });
 
-  const promptRegex = /AgentSync>\s/g;
+  const promptRegex = /pax8-cta>\s/g;
   let promptCount = 0;
 
   function waitForPrompt(target: number, deadline: number): Promise<void> {
     return new Promise((resolveWait, rejectWait) => {
       const check = () => {
         promptRegex.lastIndex = 0;
-        const matches = stripAnsi(stdout).match(/AgentSync>\s/g);
+        const matches = stripAnsi(stdout).match(/pax8-cta>\s/g);
         const count = matches?.length ?? 0;
         if (count >= target) {
           promptCount = count;

@@ -77,7 +77,7 @@ const DEMO_SCRIPT = [
     delay: 5000,
   },
   {
-    comment: "That's the AgentSync CLI! Type 'help' for all commands.",
+    comment: "That's the Pax8 CTA CLI! Type 'help' for all commands.",
     delay: 2000,
   },
 ];
@@ -275,7 +275,7 @@ demoCommand
     console.log(chalk.cyan.bold("  ╔═══════════════════════════════════════════════════════════╗"));
     console.log(
       chalk.cyan.bold("  ║") +
-        chalk.white.bold("           AgentSync CLI - Interactive Demo              ") +
+        chalk.white.bold("           Pax8 CTA CLI - Interactive Demo              ") +
         chalk.cyan.bold("║")
     );
     console.log(chalk.cyan.bold("  ╚═══════════════════════════════════════════════════════════╝"));
