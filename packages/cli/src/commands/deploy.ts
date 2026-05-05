@@ -40,6 +40,7 @@ import {
   WaveService,
   DeploymentService,
   DEMO_SOLUTIONS,
+  demoDeploymentStore,
   getEffectiveConnectionMappings,
   getEffectiveEnvironmentVariables,
   loadConfig,
@@ -108,6 +109,69 @@ function buildDestinationRows(destinations: TenantConfig[]): DestinationRow[] {
     hostname: new URL(tenant.environmentUrl).hostname,
     tags: tenant.tags?.join(", ") || "-",
   }));
+}
+
+/**
+ * Persist a demo-mode deploy to the in-process `demoDeploymentStore` so
+ * `deployments list` / `deployments show <id>` immediately surface the same
+ * tracking ID the user just saw printed.
+ *
+ * The shape mirrors `generateMockDeployment` (a `DeploymentJob`): one
+ * tenant-result entry per destination, all marked `completed`, with start/end
+ * timestamps clustered around `now` so duration calculations look reasonable.
+ */
+function recordDemoDeployment(opts: {
+  shipmentId: string;
+  solutionInput: string;
+  isFilePath: boolean;
+  destinations: TenantConfig[];
+  managed: boolean;
+}): void {
+  const now = Date.now();
+  const startedAtIso = new Date(now).toISOString();
+  // Stagger per-tenant completion so the table shows a tiny ramp instead of
+  // every tenant finishing at the exact same instant.
+  const tenantResults = opts.destinations.map((tenant, index) => ({
+    tenantId: tenant.tenantId,
+    tenantName: tenant.name,
+    status: "completed" as const,
+    startedAt: new Date(now + index * 1000).toISOString(),
+    completedAt: new Date(now + (index + 1) * 5000).toISOString(),
+    solutionImportJobId: `import-${tenant.tenantId.slice(0, 8)}-demo`,
+    attemptNumber: 1,
+  }));
+
+  const totalTenants = tenantResults.length;
+  const durationMs = totalTenants * 5000;
+  const completedAtIso = new Date(now + durationMs).toISOString();
+
+  // Solution name: derive from the input. For zip paths, strip the directory
+  // and `.zip` suffix so the listing shows something readable.
+  const solutionName = opts.isFilePath
+    ? opts.solutionInput
+        .split(/[\\/]/)
+        .pop()
+        ?.replace(/\.zip$/i, "") || opts.solutionInput
+    : opts.solutionInput;
+
+  demoDeploymentStore.record({
+    id: opts.shipmentId,
+    solutionPath: opts.isFilePath ? opts.solutionInput : `./solutions/${opts.solutionInput}.zip`,
+    solutionName,
+    solutionVersion: "1.0.0.2",
+    status: "completed",
+    createdAt: startedAtIso,
+    updatedAt: completedAtIso,
+    startedAt: startedAtIso,
+    completedAt: completedAtIso,
+    tenantResults,
+    totalTenants,
+    completedTenants: totalTenants,
+    failedTenants: 0,
+    triggeredBy: "cli",
+    durationMs,
+    canRollback: true,
+  });
 }
 
 export const deployCommand = new Command("deploy")
@@ -285,6 +349,19 @@ Examples:
           const destinationRows = buildDestinationRows(destinations);
           const demoDeploymentId = `dep-demo-${Date.now().toString(36)}`;
           const packageLabel = isFilePath ? solutionArg : `${solutionArg} (exported)`;
+
+          // Record the demo deploy in the in-process store so a follow-up
+          // `deployments list` / `deployments show <id>` finds the tracking ID
+          // we just printed. Without this, the natural
+          // "I just deployed → show me what landed" demo beat broke because
+          // the listing came purely from canned `generateMockDeploymentHistory`.
+          recordDemoDeployment({
+            shipmentId: demoShipmentId,
+            solutionInput: solutionArg,
+            isFilePath,
+            destinations,
+            managed: !options.unmanaged,
+          });
 
           if (fmt === "json") {
             // Demo success envelope — distinct from the dry-run plan shape.

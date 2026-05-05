@@ -18,7 +18,7 @@ import { resolve } from "node:path";
 import chalk from "chalk";
 import Table from "cli-table3";
 import {
-  generateMockDeploymentHistory,
+  demoDeploymentStore,
   DeploymentJob,
   loadConfig,
   TokenManager,
@@ -199,7 +199,10 @@ export async function getDeployments(_options: GetHistoryOptions): Promise<Deplo
     if (!isQuietMode()) {
       console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
     }
-    return generateMockDeploymentHistory(50);
+    // Reads from the in-process demo store — which is seeded with the canned
+    // `generateMockDeploymentHistory()` set on first access AND includes any
+    // deploys recorded earlier in this process (e.g. from the REPL session).
+    return demoDeploymentStore.list();
   }
 
   // Not used in production anymore — getDeploymentHistory is used instead
@@ -208,8 +211,7 @@ export async function getDeployments(_options: GetHistoryOptions): Promise<Deplo
 
 export async function getDeploymentById(id: string): Promise<DeploymentJob | null> {
   if (isDemo()) {
-    const history = generateMockDeploymentHistory(50);
-    return history.find((d) => d.id === id) || null;
+    return demoDeploymentStore.findById(id) || null;
   }
 
   throw new Error("Use getDeploymentHistoryById for production mode");

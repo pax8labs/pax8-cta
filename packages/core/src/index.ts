@@ -40,6 +40,7 @@ export * from "./services/index.js";
 
 // Mock/Demo data
 export * from "./mock/demo-data.js";
+export * from "./mock/demo-deployment-store.js";
 
 // Test utilities are available at:
 // import { createMockTokenManager, ... } from '@agentsync/core/dist/__tests__/test-utils.js'

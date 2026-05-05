@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import { generateMockDeploymentHistory } from "@agentsync/core";
+import { demoDeploymentStore } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import {
   getDeploymentById,
@@ -54,7 +54,9 @@ Examples:
             spinner.fail(chalk.yellow(`Deployment '${id}' not found`));
             console.log();
             console.log(chalk.gray("Available demo deployments:"));
-            const history = generateMockDeploymentHistory(5);
+            // Pull the first few from the in-process store so freshly-recorded
+            // demo deploys also appear in the "did you mean" suggestions.
+            const history = demoDeploymentStore.list().slice(0, 5);
             history.forEach((d) => {
               console.log(chalk.gray(`  - ${chalk.cyan(d.id)} (${d.solutionName})`));
             });
