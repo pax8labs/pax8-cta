@@ -115,6 +115,19 @@ function buildJsonError(error: unknown): Record<string, unknown> {
     return { error: payload };
   }
 
+  // CliError / UsageError — already actionable (message authored by the
+  // caller). Emit the message verbatim instead of running it through the
+  // regex formatter, which can mis-classify "X not found" messages as a
+  // generic ERROR_CONFIG_NOT_FOUND. (Issue #360.)
+  if (error instanceof CliError) {
+    return {
+      error: {
+        code: error.exitCode === 2 ? "ERROR_USAGE" : "ERROR_CLI",
+        message: error.message,
+      },
+    };
+  }
+
   // For any other error, run through the structured formatter and emit result
   try {
     const structured = formatError(error);

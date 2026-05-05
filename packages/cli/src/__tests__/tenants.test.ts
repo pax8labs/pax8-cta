@@ -396,6 +396,17 @@ describe("Tenants Command (fleet)", () => {
       const program = new Command();
       program.addCommand(tenantsCommand);
 
+      // Issue #360: "not found" now flows through handleCommandError, which
+      // writes a structured JSON envelope to process.stderr (in JSON mode /
+      // non-TTY) or a chalk-formatted message via console.error (TTY). Tests
+      // run in non-TTY by default, so stderr.write captures the envelope —
+      // patch it to assert on the message content.
+      const stderrWrites: string[] = [];
+      const writeSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: any) => {
+        stderrWrites.push(typeof chunk === "string" ? chunk : chunk.toString());
+        return true;
+      });
+
       // Use a non-existent tenant name
       try {
         await program.parseAsync(["node", "test", "tenants", "show", "nonexistent-tenant-xyz"]);
@@ -403,11 +414,14 @@ describe("Tenants Command (fleet)", () => {
         // Expected to throw due to process.exit
       }
 
-      const output = consoleCapture.getAllOutput();
-      const cleanOutput = stripAnsi(output);
+      writeSpy.mockRestore();
 
-      // Should show error message
-      expect(containsText(cleanOutput, "not found")).toBe(true);
+      const consoleOutput = stripAnsi(consoleCapture.getAllOutput());
+      const stderrOutput = stripAnsi(stderrWrites.join(""));
+      const combined = consoleOutput + "\n" + stderrOutput;
+
+      // Should show error message in either console capture or stderr writes
+      expect(containsText(combined, "not found")).toBe(true);
     });
   });
 

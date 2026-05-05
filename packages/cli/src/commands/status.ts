@@ -19,7 +19,6 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../lib/spinner.js";
-import Table from "cli-table3";
 import { withDemoMode } from "../lib/command-wrapper.js";
 import { DEMO_TENANTS } from "@agentsync/core";
 import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib/formatters.js";
@@ -27,6 +26,7 @@ import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@agents
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
 import { exitOssUnavailable } from "../lib/oss-surface.js";
+import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
 
 // Mock deployment data for demo mode
 const DEMO_DEPLOYMENTS = [
@@ -127,6 +127,86 @@ interface SecurityRole {
   name: string;
 }
 
+// ---------------------------------------------------------------------------
+// Issue #358: route status output through output() so --quiet / --json /
+// TTY-default behave consistently across all three rendering paths
+// (--list shipments, shipment details, --setup).
+// ---------------------------------------------------------------------------
+
+interface ShipmentListRow {
+  id: string;
+  agent: string;
+  status: string;
+  progress: string;
+  created: string;
+}
+
+const SHIPMENT_LIST_COLUMNS: Column<ShipmentListRow>[] = [
+  { key: "id", header: "Tracking #", format: (v) => chalk.cyan(String(v)) },
+  { key: "agent", header: "Agent" },
+  { key: "status", header: "Status" },
+  { key: "progress", header: "Progress" },
+  { key: "created", header: "Created", format: (v) => chalk.gray(String(v)) },
+];
+
+interface ShipmentDestinationRow {
+  destination: string;
+  status: string;
+  transitTime: string;
+  issue: string;
+}
+
+const SHIPMENT_DESTINATION_COLUMNS: Column<ShipmentDestinationRow>[] = [
+  { key: "destination", header: "Destination" },
+  { key: "status", header: "Status" },
+  { key: "transitTime", header: "Transit Time" },
+  {
+    key: "issue",
+    header: "Issue",
+    format: (v) => (v && v !== "-" ? chalk.red(truncate(String(v), 35)) : "-"),
+  },
+];
+
+interface SetupStatusRow {
+  tenant: string;
+  appRegistered: string;
+  systemAdminRole: string;
+  status: string;
+}
+
+const SETUP_STATUS_COLUMNS: Column<SetupStatusRow>[] = [
+  { key: "tenant", header: "Tenant" },
+  {
+    key: "appRegistered",
+    header: "App Registered",
+    format: (v) => (v === "Yes" ? chalk.green("Yes") : chalk.red("No")),
+  },
+  {
+    key: "systemAdminRole",
+    header: "System Admin Role",
+    format: (v) => {
+      if (v === "Yes") return chalk.green("Yes");
+      if (v === "No") return chalk.yellow("No");
+      return chalk.gray("-");
+    },
+  },
+  {
+    key: "status",
+    header: "Status",
+    format: (v) => {
+      if (v === "Ready") return chalk.green("Ready");
+      if (v === "Needs Setup") return chalk.yellow("Needs Setup");
+      if (v === "Needs Role") return chalk.yellow("Needs Role");
+      return chalk.red("Error");
+    },
+  },
+];
+
+/** True when format is something other than the human "table" rendering. */
+function isStructured(fmt: OutputFormat): boolean {
+  return fmt !== "table";
+}
+
 export const statusCommand = new Command("status")
   .alias("track")
   .description("Check deployment status")
@@ -135,28 +215,32 @@ export const statusCommand = new Command("status")
   .option("-l, --list", "List all recent shipments")
   .option("--setup", "Show comprehensive setup status")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
-  .action(async (options) => {
+  .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output (exit code only)")
+  .action(async (options, cmd) => {
+    // Merge global flags (--json, --quiet, --ids-only registered on root) into
+    // local options so callers using either form work identically.
+    Object.assign(options, cmd.optsWithGlobals());
+    const fmt: OutputFormat = resolveFormat({
+      json: options.json,
+      quiet: options.quiet,
+    });
+    const structured = isStructured(fmt);
+
     // Handle --setup flag
     if (options.setup) {
-      await handleSetupStatus(options);
+      await handleSetupStatus(options, fmt);
       return;
     }
     // Handle --list flag
     if (options.list) {
       await withDemoMode(
         () => {
-          if (!isQuietMode()) {
+          if (!isQuietMode() && !structured) {
             console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
           }
-          console.log(chalk.bold("Recent Shipments:"));
-          console.log();
 
-          const table = new Table({
-            head: ["Tracking #", "Agent", "Status", "Progress", "Created"],
-            style: { head: ["cyan"] },
-          });
-
-          DEMO_DEPLOYMENTS.forEach((d) => {
+          const rows: ShipmentListRow[] = DEMO_DEPLOYMENTS.map((d) => {
             const progress = `${d.completedTenants}/${d.totalTenants}`;
             const statusText =
               d.status === "completed"
@@ -164,18 +248,27 @@ export const statusCommand = new Command("status")
                   ? chalk.yellow("⚠ Completed")
                   : chalk.green("✓ Completed")
                 : chalk.yellow("🚚 In Progress");
-            const timeAgo = getTimeAgo(d.createdAt);
-
-            table.push([
-              chalk.cyan(d.id),
-              d.solutionName,
-              statusText,
-              d.failedTenants > 0 ? `${progress} (${d.failedTenants} failed)` : progress,
-              chalk.gray(timeAgo),
-            ]);
+            return {
+              id: d.id,
+              agent: d.solutionName,
+              status: statusText,
+              progress: d.failedTenants > 0 ? `${progress} (${d.failedTenants} failed)` : progress,
+              created: getTimeAgo(d.createdAt),
+            };
           });
 
-          console.log(table.toString());
+          if (fmt === "json") {
+            // Emit raw deployment objects (not the table-formatted rows) so
+            // scripts get structured data, not display-shaped strings.
+            console.log(JSON.stringify({ shipments: DEMO_DEPLOYMENTS }, null, 2));
+            return;
+          }
+
+          if (fmt === "quiet") return;
+
+          console.log(chalk.bold("Recent Shipments:"));
+          console.log();
+          output(rows, { format: "table", columns: SHIPMENT_LIST_COLUMNS });
           console.log();
           console.log(chalk.gray(`Use 'track --shipment <id>' to view details`));
         },
@@ -199,13 +292,32 @@ export const statusCommand = new Command("status")
 
     await withDemoMode(
       () => {
-        if (!isQuietMode()) {
+        if (!isQuietMode() && !structured) {
           console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
         }
 
         const shipment = getDemoDeploymentDetails(trackingId);
 
         if (!shipment) {
+          if (fmt === "json") {
+            console.log(
+              JSON.stringify(
+                {
+                  shipment: null,
+                  trackingId,
+                  available: DEMO_DEPLOYMENTS.map((d) => ({
+                    id: d.id,
+                    solutionName: d.solutionName,
+                  })),
+                },
+                null,
+                2
+              )
+            );
+            return;
+          }
+          if (fmt === "quiet") return;
+
           console.log(chalk.yellow(`Shipment '${trackingId}' not found`));
           console.log();
           console.log(chalk.gray("Available demo shipments:"));
@@ -214,6 +326,13 @@ export const statusCommand = new Command("status")
           });
           return;
         }
+
+        if (fmt === "json") {
+          console.log(JSON.stringify({ shipment }, null, 2));
+          return;
+        }
+
+        if (fmt === "quiet") return;
 
         // Display overall status
         console.log(chalk.bold("📦 Shipment Tracking"));
@@ -229,25 +348,16 @@ export const statusCommand = new Command("status")
         }
         console.log();
 
-        // Display destination results
-        const table = new Table({
-          head: ["Destination", "Status", "Transit Time", "Issue"],
-          style: { head: ["cyan"] },
-          colWidths: [25, 15, 12, 40],
-          wordWrap: true,
-        });
+        // Display destination results via output() so future formatters plug in
+        // here. Per-row colouring lives in SHIPMENT_DESTINATION_COLUMNS.
+        const destRows: ShipmentDestinationRow[] = shipment.tenantResults.map((result) => ({
+          destination: result.tenantName,
+          status: formatShippingStatus(result.status),
+          transitTime: calculateDuration(result.startedAt, result.completedAt),
+          issue: result.error ?? "-",
+        }));
 
-        shipment.tenantResults.forEach((result) => {
-          const duration = calculateDuration(result.startedAt, result.completedAt);
-          table.push([
-            result.tenantName,
-            formatShippingStatus(result.status),
-            duration,
-            result.error ? chalk.red(truncate(result.error, 35)) : "-",
-          ]);
-        });
-
-        console.log(table.toString());
+        output(destRows, { format: "table", columns: SHIPMENT_DESTINATION_COLUMNS });
         console.log();
         console.log(chalk.gray("Demo mode - use 'demo off' to disable"));
       },
@@ -266,9 +376,14 @@ const formatShippingStatus = (status: string) => formatStatus(status, "shipping"
 const getTimeAgo = formatTimeAgo;
 
 /**
- * Handle --setup flag to show comprehensive setup status
+ * Handle --setup flag to show comprehensive setup status.
+ *
+ * In structured (--json / --quiet / pipe-default) modes the human banners
+ * and intermediate "Checking ..." prints are suppressed; the final state is
+ * emitted as a single JSON envelope (or nothing for --quiet).
  */
-async function handleSetupStatus(options: { config: string }): Promise<void> {
+async function handleSetupStatus(options: { config: string }, fmt: OutputFormat): Promise<void> {
+  const structured = isStructured(fmt);
   const spinner = createSpinner("Loading configuration...").start();
 
   try {
@@ -276,20 +391,39 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
     const configPath = resolve(process.cwd(), options.config);
     const configExists = existsSync(configPath);
 
-    console.log();
-    console.log(chalk.bold("Configuration Status"));
-    console.log("─".repeat(50));
+    if (!structured) {
+      console.log();
+      console.log(chalk.bold("Configuration Status"));
+      console.log("─".repeat(50));
+    }
 
-    if (configExists) {
-      console.log(`  Config file:     ${chalk.green("✓")} Found at ${configPath}`);
-    } else {
-      console.log(`  Config file:     ${chalk.red("✗")} Not found at ${configPath}`);
+    if (!configExists) {
       spinner.stop();
+      if (fmt === "json") {
+        console.log(
+          JSON.stringify(
+            {
+              configFile: { exists: false, path: configPath },
+              tenants: [],
+              summary: { ready: 0, total: 0 },
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
+      if (fmt === "quiet") return;
+      console.log(`  Config file:     ${chalk.red("✗")} Not found at ${configPath}`);
       console.log();
       console.log(chalk.yellow("Next steps:"));
       console.log(`  1. Create config file at ${configPath}`);
       console.log("  2. Then run 'status --setup' again");
       return;
+    }
+
+    if (!structured) {
+      console.log(`  Config file:     ${chalk.green("✓")} Found at ${configPath}`);
     }
 
     // Load config
@@ -301,20 +435,42 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
     try {
       await getClientSecretWithFallback();
       hasClientSecret = true;
-      console.log(`  Client secret:   ${chalk.green("✓")} Found (environment or keychain)`);
+      if (!structured) {
+        console.log(`  Client secret:   ${chalk.green("✓")} Found (environment or keychain)`);
+      }
     } catch {
-      console.log(`  Client secret:   ${chalk.red("✗")} Not found in environment or keychain`);
+      if (!structured) {
+        console.log(`  Client secret:   ${chalk.red("✗")} Not found in environment or keychain`);
+      }
     }
 
     // Show source environment info
-    if (config.source) {
+    if (!structured && config.source) {
       console.log(`  Source env:      ${chalk.green("✓")} ${config.source.environmentUrl}`);
     }
 
-    console.log();
+    if (!structured) {
+      console.log();
+    }
     spinner.succeed("Configuration loaded");
 
     if (!hasClientSecret) {
+      if (fmt === "json") {
+        console.log(
+          JSON.stringify(
+            {
+              configFile: { exists: true, path: configPath },
+              clientSecret: false,
+              tenants: [],
+              summary: { ready: 0, total: 0 },
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
+      if (fmt === "quiet") return;
       console.log();
       console.log(chalk.yellow("Cannot check tenant setup without client secret."));
       console.log();
@@ -328,14 +484,32 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
     const enabledTenants = config.tenants.filter((t) => t.enabled);
 
     if (enabledTenants.length === 0) {
+      if (fmt === "json") {
+        console.log(
+          JSON.stringify(
+            {
+              configFile: { exists: true, path: configPath },
+              clientSecret: true,
+              tenants: [],
+              summary: { ready: 0, total: 0 },
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
+      if (fmt === "quiet") return;
       console.log();
       console.log(chalk.yellow("No enabled tenants found in configuration."));
       return;
     }
 
-    console.log();
-    console.log(chalk.bold(`Checking ${enabledTenants.length} tenant(s)...`));
-    console.log();
+    if (!structured) {
+      console.log();
+      console.log(chalk.bold(`Checking ${enabledTenants.length} tenant(s)...`));
+      console.log();
+    }
 
     // Check setup status for each tenant
     const statuses: SetupStatus[] = [];
@@ -344,15 +518,38 @@ async function handleSetupStatus(options: { config: string }): Promise<void> {
       statuses.push(status);
     }
 
-    // Display per-tenant status
-    displaySetupStatus(statuses);
-
-    // Calculate summary
+    // Calculate summary up-front; reused by both human and JSON paths.
     const readyCount = statuses.filter((s) => s.status === "ready").length;
     const needsSetupCount = statuses.filter(
       (s) => s.status === "needs_setup" || s.status === "partial"
     ).length;
     const errorCount = statuses.filter((s) => s.status === "error").length;
+
+    if (fmt === "json") {
+      console.log(
+        JSON.stringify(
+          {
+            configFile: { exists: true, path: configPath },
+            clientSecret: true,
+            tenants: statuses,
+            summary: {
+              total: statuses.length,
+              ready: readyCount,
+              needsSetup: needsSetupCount,
+              errors: errorCount,
+            },
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    if (fmt === "quiet") return;
+
+    // Display per-tenant status (table mode)
+    displaySetupStatus(statuses);
 
     console.log();
     console.log(chalk.bold("Overall Readiness:"));
@@ -486,40 +683,27 @@ async function checkSetupStatus(
 }
 
 /**
- * Display setup status in a table
- * (Reused from setup.ts)
+ * Display setup status in a table — routed through output() so the same
+ * column schema feeds future formatters (CSV, etc.). Per-cell colouring
+ * lives in SETUP_STATUS_COLUMNS so the raw status strings here stay simple.
  */
 function displaySetupStatus(statuses: SetupStatus[]): void {
-  const table = new Table({
-    head: ["Tenant", "App Registered", "System Admin Role", "Status"],
-    style: { head: ["cyan"] },
+  const rows: SetupStatusRow[] = statuses.map((status) => {
+    let statusLabel: string;
+    if (status.status === "ready") statusLabel = "Ready";
+    else if (status.status === "needs_setup") statusLabel = "Needs Setup";
+    else if (status.status === "partial") statusLabel = "Needs Role";
+    else statusLabel = "Error";
+
+    return {
+      tenant: status.tenantName,
+      appRegistered: status.appRegistered ? "Yes" : "No",
+      systemAdminRole: status.roleAssigned ? "Yes" : status.appRegistered ? "No" : "-",
+      status: statusLabel,
+    };
   });
 
-  for (const status of statuses) {
-    const appRegistered = status.appRegistered ? chalk.green("Yes") : chalk.red("No");
-    const roleAssigned = status.roleAssigned
-      ? chalk.green("Yes")
-      : status.appRegistered
-        ? chalk.yellow("No")
-        : chalk.gray("-");
-
-    let statusText: string;
-    if (status.status === "ready") {
-      statusText = chalk.green("Ready");
-    } else if (status.status === "needs_setup") {
-      statusText = chalk.yellow("Needs Setup");
-    } else if (status.status === "partial") {
-      statusText = chalk.yellow("Needs Role");
-    } else {
-      statusText = chalk.red("Error");
-    }
-
-    const row = [status.tenantName, appRegistered, roleAssigned, statusText];
-
-    table.push(row);
-  }
-
-  console.log(table.toString());
+  output(rows, { format: "table", columns: SETUP_STATUS_COLUMNS });
 
   // Show errors if any
   const errors = statuses.filter((s) => s.error);

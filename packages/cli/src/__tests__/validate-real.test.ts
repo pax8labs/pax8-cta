@@ -261,9 +261,19 @@ tenants:
         cwd: TEST_DIR,
       });
 
-      const output = stripAnsi(result.output);
-      // Should show validation results section
-      expect(containsText(output, "Validation Results")).toBe(true);
+      // Issue #358: validate now defaults to JSON when stdout is piped
+      // (non-TTY). The structured envelope contains a `checks` array and a
+      // `summary` aggregate — assert against the JSON shape rather than
+      // the bespoke human "Validation Results" header.
+      const stdout = stripAnsi(result.stdout);
+      // Strip ANSI from stdout and parse the trailing JSON envelope.
+      const envelope = JSON.parse(stdout) as {
+        checks: Array<{ name: string; status: string }>;
+        summary: { total: number; ok: boolean };
+      };
+      expect(Array.isArray(envelope.checks)).toBe(true);
+      expect(envelope.summary).toBeTruthy();
+      expect(envelope.checks.some((c) => c.name === "Config file")).toBe(true);
     });
 
     it("should show error count in summary when validation fails", async () => {

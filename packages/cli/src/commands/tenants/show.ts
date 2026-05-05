@@ -26,7 +26,7 @@ import {
 import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findTenant, getDeployedAgentsForTenant } from "./helpers.js";
-import { handleCommandError } from "../../lib/errors.js";
+import { CliError, handleCommandError } from "../../lib/errors.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../../lib/picker.js";
 
@@ -108,16 +108,23 @@ export const showCommand = new Command("show")
       const tenant = findTenant(tenants, tenantQuery);
 
       if (!tenant) {
-        console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
-        console.log();
-        console.log(chalk.gray("Available tenants:"));
-        tenants.slice(0, 5).forEach((t) => {
-          console.log(chalk.gray(`  - ${t.name} (${t.tenantId.slice(0, 8)}...)`));
-        });
+        // Issue #360: route the "not found" path through handleCommandError
+        // (via CliError) so --json callers get the structured envelope
+        // (`{ error: { code, message, causes, recovery } }`) instead of
+        // ANSI-coloured stdout text. The "available tenants" hint moves into
+        // the error message itself so it survives the JSON envelope.
+        const availableHint = tenants
+          .slice(0, 5)
+          .map((t) => `${t.name} (${t.tenantId.slice(0, 8)}...)`);
         if (tenants.length > 5) {
-          console.log(chalk.gray(`  ... and ${tenants.length - 5} more`));
+          availableHint.push(`... and ${tenants.length - 5} more`);
         }
-        process.exit(1);
+
+        const message =
+          `Tenant '${tenantQuery}' not found.` +
+          (availableHint.length > 0 ? ` Available tenants: ${availableHint.join(", ")}.` : "") +
+          ` Run 'tenants list' to see all configured tenants.`;
+        throw new CliError(message);
       }
 
       const fmt = resolveFormat(options);
