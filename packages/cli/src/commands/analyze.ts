@@ -22,12 +22,13 @@ import Table from "cli-table3";
 import {
   riskAnalyzer,
   DEMO_TENANTS,
+  DEMO_SOLUTIONS,
   type RiskAnalysis,
   type DeploymentContext,
   type TenantConfig,
 } from "@agentsync/core";
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
-import { handleCommandError } from "../lib/errors.js";
+import { CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
 
 // Risk issue severity colors
@@ -95,6 +96,32 @@ Examples:
           spinner.succeed("Demo fleet manifest loaded");
           if (!isQuietMode()) {
             console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
+          }
+
+          // Validate the solution argument against the demo catalog before we
+          // run a synthetic risk analysis. Without this, demo mode happily
+          // analyzes typo'd solution names (e.g. "CusteomrServiceAgent") and
+          // prints a confident "READY TO DEPLOY" verdict — which is dangerous
+          // during demos where a typo is the whole point of the exercise.
+          // Mirrors the deploy fix in #379. ZIP path inputs ("./foo.zip")
+          // still pretend-bypass without file existence checks (the existing
+          // demo contract for paths).
+          const solutionInput: string = options.agentPackage || options.solution;
+          const isFilePath = solutionInput.endsWith(".zip");
+          if (!isFilePath) {
+            const knownDemoNames = DEMO_SOLUTIONS.map((sol) => sol.uniqueName);
+            // Case-sensitive match — the CLI is case-sensitive about solution
+            // names elsewhere (export/import use the uniqueName verbatim).
+            if (!knownDemoNames.includes(solutionInput)) {
+              const preview = knownDemoNames.slice(0, 5);
+              const lines = [
+                `Solution '${solutionInput}' not found in the demo catalog.`,
+                "Available demo solutions:",
+                ...preview.map((name) => `  - ${name}`),
+                "Run 'solutions list' to see all available demo solutions.",
+              ];
+              throw new CliError(lines.join("\n"));
+            }
           }
 
           if (destinations.length === 0) {
