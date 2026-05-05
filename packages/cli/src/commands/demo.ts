@@ -77,7 +77,7 @@ const DEMO_SCRIPT = [
     delay: 5000,
   },
   {
-    comment: "That's the AgentSync CLI! Type 'agentsync --help' for all commands.",
+    comment: "That's the AgentSync CLI! Type 'help' for all commands.",
     delay: 2000,
   },
 ];
@@ -128,18 +128,28 @@ export const demoCommand = new Command("demo")
         console.log();
         console.log(chalk.gray("  You can now use all commands without credentials."));
         console.log(chalk.gray("  Mock data will be used for demonstrations."));
+        if (hasRealCredentials()) {
+          console.log(
+            chalk.yellow("  Note: real credentials in env will be ignored while demo is on.")
+          );
+        }
         console.log();
-        console.log(chalk.cyan("  Try:"), "agentsync tenants list");
+        console.log(chalk.cyan("  Try:"), "tenants list");
       } else {
         console.log(chalk.yellow("✓ Demo mode disabled"));
         console.log();
         console.log(chalk.gray("  Real credentials required for operations."));
-        console.log(chalk.gray("  Configure with: agentsync init"));
+        console.log(chalk.gray("  Configure with: init"));
       }
     } else if (action === "on" || action === "enable") {
       config.demoMode = true;
       saveCliConfig(config);
       console.log(chalk.green("✓ Demo mode enabled"));
+      if (hasRealCredentials()) {
+        console.log(
+          chalk.yellow("  Note: real credentials in env will be ignored while demo is on.")
+        );
+      }
     } else if (action === "off" || action === "disable") {
       config.demoMode = false;
       saveCliConfig(config);
@@ -173,16 +183,22 @@ export const demoCommand = new Command("demo")
         `    Config file:       ${configMode ? chalk.green("enabled") : chalk.gray("disabled")}`
       );
       console.log(`    Path:              ${chalk.gray(CONFIG_FILE)}`);
+      if (hasRealCredentials()) {
+        const note = effectiveMode
+          ? chalk.yellow("(present, ignored while demo is on)")
+          : chalk.gray("(present)");
+        console.log(`    Real credentials:  ${note}`);
+      }
       console.log();
 
       // Show how to change
       if (effectiveMode) {
         console.log(chalk.bold("  To disable:"));
-        console.log(chalk.gray("    agentsync demo off          # Update config file"));
+        console.log(chalk.gray("    demo off          # Update config file"));
         console.log(chalk.gray("    DEMO_MODE=false agentsync   # Override for one command"));
       } else {
         console.log(chalk.bold("  To enable:"));
-        console.log(chalk.gray("    agentsync demo on           # Update config file"));
+        console.log(chalk.gray("    demo on           # Update config file"));
         console.log(chalk.gray("    DEMO_MODE=true agentsync    # Override for one command"));
       }
     } else {
@@ -204,15 +220,16 @@ export function isDemoModeEnabled(): boolean {
     return false;
   }
 
-  // If real credentials are available, auto-disable demo mode
-  // regardless of stored config (prevents stale demoMode: true trap)
-  if (process.env.PARTNER_CLIENT_SECRET || process.env.AGENTSYNC_CLIENT_SECRET) {
-    return false;
-  }
-
-  // Fall back to stored config
+  // Fall back to stored config. Credentials in env do NOT auto-disable —
+  // the per-command "⚠️ DEMO MODE - Using mock data" banner is the safety
+  // net for stale-config cases, and an explicit `demo on` toggle deserves
+  // to be honored even when creds happen to be loaded.
   const config = loadCliConfig();
   return config.demoMode ?? false;
+}
+
+function hasRealCredentials(): boolean {
+  return Boolean(process.env.PARTNER_CLIENT_SECRET || process.env.AGENTSYNC_CLIENT_SECRET);
 }
 
 /**
@@ -317,7 +334,7 @@ demoCommand
       console.log();
       console.log(chalk.green.bold("  ✓ Demo complete!"));
       console.log();
-      console.log(chalk.gray("  Demo mode is still enabled. Disable with: agentsync demo off"));
+      console.log(chalk.gray("  Demo mode is still enabled. Disable with: demo off"));
       console.log();
     } finally {
       process.removeListener("SIGINT", exitHandler);

@@ -37,7 +37,7 @@ const LEGACY_QUEUE_ERROR_CAUSES = [
 const LEGACY_QUEUE_ERROR_RECOVERY = [
   "Remove any legacy queue-related flags or configuration",
   "Use the direct deployment flow instead:",
-  "  agentsync deploy --direct --all --solution ./agent.zip",
+  "  deploy --direct --all --solution ./agent.zip",
   "If this is coming from older automation, update it to call the direct CLI",
 ];
 
@@ -196,7 +196,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
           ? `Verify the solution name '${ctx.solutionName}' is correct`
           : "Verify the solution name is correct and matches exactly (case-sensitive)",
         "List available solutions in the source environment:",
-        "  agentsync agents list",
+        "  agents list",
         "Check that you're connected to the correct source environment",
         "Ensure the solution is published and visible in the source environment",
         "Retry with the correct solution name",
@@ -218,7 +218,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
       [
         "Verify the agent URL is correct and the agent is published",
         "List available agents in the source environment:",
-        "  agentsync agents list",
+        "  agents list",
         "Try using the solution name directly instead of the agent URL",
       ],
       ctx
@@ -282,9 +282,9 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
         "Check if the configuration file exists:",
         "  ls -la ./config/tenants.yaml",
         "If the config file doesn't exist, initialize a new configuration:",
-        "  agentsync init",
+        "  init",
         "Specify a custom config path with --config flag if needed:",
-        "  agentsync deploy --config /path/to/config.yaml ...",
+        "  deploy --config /path/to/config.yaml ...",
       ],
       ctx
     );
@@ -446,7 +446,7 @@ function formatByRegex(error: unknown): AgentSyncError {
           ? `Verify the solution name '${context.solutionName}' is correct`
           : "Verify the solution name is correct and matches exactly (case-sensitive)",
         "List available solutions in the source environment:",
-        "  agentsync solutions list",
+        "  solutions list",
         "Check that you're connected to the correct source environment",
         "Ensure the solution is published and visible in the source environment",
         "Retry with the correct solution name",
@@ -510,9 +510,9 @@ function formatByRegex(error: unknown): AgentSyncError {
         "Check if the configuration file exists:",
         "  ls -la ./config/tenants.yaml",
         "If the config file doesn't exist, initialize a new configuration:",
-        "  agentsync init",
+        "  init",
         "Specify a custom config path with --config flag if needed:",
-        "  agentsync deploy --config /path/to/config.yaml ...",
+        "  deploy --config /path/to/config.yaml ...",
       ],
       context
     );

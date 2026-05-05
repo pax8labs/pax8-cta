@@ -146,7 +146,7 @@ describe("Deploy Command (ship)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "agentsync track --shipment")).toBe(true);
+      expect(containsText(output, "track --shipment")).toBe(true);
     });
 
     it("should show demo mode disclaimer", async () => {

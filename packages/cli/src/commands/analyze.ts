@@ -15,12 +15,20 @@
  */
 
 import { Command } from "commander";
+import { spawn } from "node:child_process";
 import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../lib/spinner.js";
 import Table from "cli-table3";
-import { riskAnalyzer, type RiskAnalysis, type DeploymentContext } from "@agentsync/core";
+import {
+  riskAnalyzer,
+  DEMO_TENANTS,
+  type RiskAnalysis,
+  type DeploymentContext,
+  type TenantConfig,
+} from "@agentsync/core";
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
 import { handleCommandError } from "../lib/errors.js";
+import { question } from "../lib/input.js";
 
 // Risk issue severity colors
 const SEVERITY_COLORS = {
@@ -50,9 +58,9 @@ export const analyzeCommand = new Command("analyze")
     "after",
     `
 Examples:
-  agentsync analyze TestDeploy                    Analyze risk across all tenants
-  agentsync analyze TestDeploy --tag production   Analyze production tenants only
-  agentsync analyze ./TestDeploy.zip              Analyze a pre-exported zip
+  analyze TestDeploy                    Analyze risk across all tenants
+  analyze TestDeploy --tag production   Analyze production tenants only
+  analyze ./TestDeploy.zip              Analyze a pre-exported zip
 `
   )
   .action(async (solutionArg: string | undefined, options, cmd) => {
@@ -70,7 +78,7 @@ Examples:
     if (!options.solution) {
       spinner.fail(chalk.red("Solution name or path required."));
       if (!isQuietMode()) {
-        console.error(chalk.gray("  Example: agentsync analyze TestDeploy"));
+        console.error(chalk.gray("  Example: analyze TestDeploy"));
       }
       process.exit(2);
     }
@@ -134,8 +142,17 @@ Examples:
           console.log();
 
           displayAnalysis(analysis, destinations.length, jsonOutput);
+
+          if (analysis.canProceed) {
+            await maybePromptTestDeploy({
+              solution: options.agentPackage || options.solution,
+              fullFleet: DEMO_TENANTS,
+              isDemo: true,
+              json: jsonOutput,
+            });
+          }
         },
-        async ({ destinations }) => {
+        async ({ config, destinations }) => {
           spinner.succeed("Manifest loaded");
 
           if (destinations.length === 0) {
@@ -185,12 +202,105 @@ Examples:
           console.log();
 
           displayAnalysis(analysis, destinations.length, jsonOutput);
+
+          if (analysis.canProceed) {
+            await maybePromptTestDeploy({
+              solution: agentPackagePath,
+              fullFleet: config.tenants,
+              isDemo: false,
+              json: jsonOutput,
+            });
+          }
         }
       );
     } catch (error) {
       handleCommandError(error, spinner, "Risk analysis failed");
     }
   });
+
+interface TestDeployPromptOptions {
+  solution: string;
+  fullFleet: TenantConfig[];
+  isDemo: boolean;
+  json: boolean;
+}
+
+/**
+ * Offer to run a test deploy on a tenant tagged "test" right after a successful
+ * analysis. Skipped when output is non-interactive (--json, --quiet, non-TTY)
+ * so scripts and pipelines never hang waiting for input.
+ */
+async function maybePromptTestDeploy(opts: TestDeployPromptOptions): Promise<void> {
+  if (opts.json || isQuietMode() || !process.stdout.isTTY || !process.stdin.isTTY) {
+    return;
+  }
+
+  const testTenants = opts.fullFleet.filter((t) => t.enabled && t.tags?.includes("test"));
+  if (testTenants.length === 0) {
+    return;
+  }
+
+  let target: TenantConfig | undefined;
+
+  if (testTenants.length === 1) {
+    const only = testTenants[0];
+    const answer = await question(
+      chalk.cyan(`Try a test deploy to ${chalk.bold(only.name)} first? [y/N] `)
+    );
+    if (!isAffirmative(answer)) return;
+    target = only;
+  } else {
+    console.log(chalk.cyan("Try a test deploy first? Pick a tenant:"));
+    testTenants.forEach((t, i) => {
+      const tagsHint = t.tags?.length ? chalk.gray(`  [${t.tags.join(", ")}]`) : "";
+      console.log(`  ${i + 1}) ${t.name}${tagsHint}`);
+    });
+    console.log(chalk.gray("  0) skip"));
+    const answer = await question(chalk.cyan("> "));
+    const choice = parseInt(answer.trim(), 10);
+    if (!Number.isInteger(choice) || choice < 1 || choice > testTenants.length) {
+      return;
+    }
+    target = testTenants[choice - 1];
+  }
+
+  if (!target) return;
+
+  console.log(
+    chalk.gray(
+      `\nrunning: deploy ${quoteIfNeeded(opts.solution)} --tenant ${quoteIfNeeded(target.name)}\n`
+    )
+  );
+
+  await runDeploy(opts.solution, target.name, opts.isDemo);
+}
+
+function isAffirmative(input: string): boolean {
+  return /^(y|yes)$/i.test(input.trim());
+}
+
+function quoteIfNeeded(value: string): string {
+  return /\s/.test(value) ? `"${value}"` : value;
+}
+
+async function runDeploy(solution: string, tenantName: string, isDemo: boolean): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const args = ["deploy", solution, "--tenant", tenantName];
+    const isBundled = !process.argv[1] || process.argv[1] === process.execPath;
+    const spawnArgs = isBundled ? args : [process.argv[1], ...args];
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    if (isDemo) env.DEMO_MODE = "true";
+    // stdin ignored so the subprocess doesn't fight with the parent REPL's
+    // shared readline; deploy doesn't need interactive input in the
+    // analyze → test-deploy flow.
+    const proc = spawn(process.execPath, spawnArgs, {
+      stdio: ["ignore", "inherit", "inherit"],
+      env,
+    });
+    proc.on("close", () => resolve());
+    proc.on("error", reject);
+  });
+}
 
 function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput: boolean) {
   if (jsonOutput) {
@@ -332,9 +442,9 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
 
   // Next steps
   if (analysis.canProceed) {
-    console.log(chalk.gray("Next step: agentsync deploy <solution> --all"));
+    console.log(chalk.gray("Next step: deploy <solution> --all"));
   } else {
-    console.log(chalk.gray("Fix the blockers listed above, then run 'agentsync analyze' again"));
+    console.log(chalk.gray("Fix the blockers listed above, then run 'analyze' again"));
   }
   console.log();
 }

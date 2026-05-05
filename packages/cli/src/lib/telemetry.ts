@@ -343,7 +343,7 @@ export function getFirstRunNotice(): string {
 │  AgentSync CLI can collect anonymous usage data to help improve the tool.  │
 │                                                                           │
 │  Telemetry is disabled by default. To opt in:                             │
-│  • Run 'agentsync telemetry on'                                           │
+│  • Run 'telemetry on'                                                     │
 │  • Learn more: github.com/pax8labs/agentsync/tree/main/packages/cli       │
 └────────────────────────────────────────────────────────────────────────────┘
 `;

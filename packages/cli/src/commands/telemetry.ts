@@ -53,7 +53,7 @@ telemetryCommand
     console.log(chalk.yellow("✓ Telemetry disabled"));
     console.log();
     console.log(chalk.gray("No usage data will be collected."));
-    console.log(chalk.gray("You can re-enable anytime with 'agentsync telemetry on'"));
+    console.log(chalk.gray("You can re-enable anytime with 'telemetry on'"));
   });
 
 function showStatus(): void {
@@ -88,9 +88,9 @@ function showStatus(): void {
   console.log();
 
   if (enabled) {
-    console.log(chalk.gray("To disable: agentsync telemetry off"));
+    console.log(chalk.gray("To disable: telemetry off"));
     console.log(chalk.gray("  Or set: AGENTSYNC_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1"));
   } else {
-    console.log(chalk.gray("To enable: agentsync telemetry on"));
+    console.log(chalk.gray("To enable: telemetry on"));
   }
 }

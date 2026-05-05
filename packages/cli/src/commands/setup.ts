@@ -40,9 +40,9 @@ export const setupCommand = new Command("setup")
     "after",
     `
 Examples:
-  agentsync setup --check                             Check setup status without making changes
-  agentsync setup --all                               Register app user in all environments
-  agentsync setup -t AgentSync-Test2                  Setup a specific tenant environment
+  setup --check                             Check setup status without making changes
+  setup --all                               Register app user in all environments
+  setup -t AgentSync-Test2                  Setup a specific tenant environment
 `
   )
   .action(async (options) => {
@@ -53,7 +53,7 @@ Examples:
       if (!options.check && !options.all && !options.tenant) {
         spinner.stop();
         throw new UsageError(
-          "Must specify --check, --all, or --tenant <name>. Run 'agentsync setup --help' for usage."
+          "Must specify --check, --all, or --tenant <name>. Run 'setup --help' for usage."
         );
       }
 
@@ -73,7 +73,7 @@ Examples:
         if (!tenant) {
           spinner.stop();
           throw new CliError(
-            `Tenant '${options.tenant}' not found in configuration. Run 'agentsync tenants list' to see available tenants.`
+            `Tenant '${options.tenant}' not found in configuration. Run 'tenants list' to see available tenants.`
           );
         }
         targets = [tenant];
@@ -128,7 +128,7 @@ Examples:
           console.log();
           console.log(
             chalk.yellow(
-              `${needsSetup} environment(s) need setup. Run 'agentsync setup --all' to configure them.`
+              `${needsSetup} environment(s) need setup. Run 'setup --all' to configure them.`
             )
           );
         }

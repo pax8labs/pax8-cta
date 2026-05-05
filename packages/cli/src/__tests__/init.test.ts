@@ -176,8 +176,8 @@ describe("Init Command", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "Try these commands")).toBe(true);
-      expect(containsText(output, "agentsync tenants list")).toBe(true);
-      expect(containsText(output, "agentsync demo off")).toBe(true);
+      expect(containsText(output, "tenants list")).toBe(true);
+      expect(containsText(output, "demo off")).toBe(true);
     });
 
     it("should not prompt for credentials in demo mode", async () => {

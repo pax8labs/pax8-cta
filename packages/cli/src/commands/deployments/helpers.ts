@@ -350,7 +350,7 @@ export function outputHistoryTable(
 ): void {
   if (entries.length === 0) {
     console.log(chalk.yellow("No solution history found."));
-    console.log(chalk.gray("Deploy a solution first: agentsync deploy TestDeploy --all"));
+    console.log(chalk.gray("Deploy a solution first: deploy TestDeploy --all"));
     return;
   }
 

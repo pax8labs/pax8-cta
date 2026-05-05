@@ -33,9 +33,9 @@ export const showCommand = new Command("show")
     "after",
     `
 Examples:
-  agentsync solutions show TestDeploy                 View solution details
-  agentsync solutions show TestDeploy --tenants       Show tenant deployment status
-  agentsync solutions show TestDeploy --json          Output as JSON
+  solutions show TestDeploy                 View solution details
+  solutions show TestDeploy --tenants       Show tenant deployment status
+  solutions show TestDeploy --json          Output as JSON
 `
   )
   .action(async (name: string, options) => {
@@ -148,9 +148,7 @@ Examples:
         () => {
           // Production mode
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
-          console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to see sample data.")
-          );
+          console.log(chalk.gray("\nEnable demo mode with 'demo on' to see sample data."));
         }
       );
     } catch (error) {

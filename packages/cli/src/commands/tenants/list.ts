@@ -59,10 +59,10 @@ export const listCommand = new Command("list")
     "after",
     `
 Examples:
-  agentsync tenants list                              List all configured tenants
-  agentsync tenants list -s enabled                   Show only enabled tenants
-  agentsync tenants list -t production --json         Filter by tag and output as JSON
-  agentsync tenants list --ids-only | xargs -I{} agentsync deployments list --tenant {}
+  tenants list                              List all configured tenants
+  tenants list -s enabled                   Show only enabled tenants
+  tenants list -t production --json         Filter by tag and output as JSON
+  tenants list --ids-only | xargs -I{} deployments list --tenant {}
 `
   )
   .action(async (options, cmd) => {

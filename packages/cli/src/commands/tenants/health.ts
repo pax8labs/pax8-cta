@@ -34,9 +34,9 @@ export const healthCommand = new Command("health")
     "after",
     `
 Examples:
-  agentsync tenants health                            Show fleet-wide health summary
-  agentsync tenants health AgentSync-Test2            Check health for a specific tenant
-  agentsync tenants health --json                     Output health data as JSON
+  tenants health                            Show fleet-wide health summary
+  tenants health AgentSync-Test2            Check health for a specific tenant
+  tenants health --json                     Output health data as JSON
 `
   )
   .action(async (tenantQuery: string | undefined, options) => {

@@ -86,7 +86,7 @@ describe("Demo Command", () => {
       // Should show enabled message
       expect(containsText(output, "Demo mode enabled")).toBe(true);
       expect(containsText(output, "You can now use all commands without credentials")).toBe(true);
-      expect(containsText(output, "agentsync tenants list")).toBe(true);
+      expect(containsText(output, "tenants list")).toBe(true);
 
       // Should write config
       expect(fs.writeFileSync).toHaveBeenCalledWith(
@@ -111,7 +111,7 @@ describe("Demo Command", () => {
       // Should show disabled message
       expect(containsText(output, "Demo mode disabled")).toBe(true);
       expect(containsText(output, "Real credentials required")).toBe(true);
-      expect(containsText(output, "agentsync init")).toBe(true);
+      expect(containsText(output, "Configure with: init")).toBe(true);
 
       // Should write config
       expect(fs.writeFileSync).toHaveBeenCalledWith(
@@ -213,7 +213,7 @@ describe("Demo Command", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "Status: ENABLED")).toBe(true);
-      expect(containsText(output, "agentsync demo off")).toBe(true);
+      expect(containsText(output, "demo off")).toBe(true);
 
       // Should NOT write config
       expect(fs.writeFileSync).not.toHaveBeenCalled();
@@ -232,7 +232,7 @@ describe("Demo Command", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "Status: DISABLED")).toBe(true);
-      expect(containsText(output, "agentsync demo on")).toBe(true);
+      expect(containsText(output, "demo on")).toBe(true);
 
       // Should NOT write config
       expect(fs.writeFileSync).not.toHaveBeenCalled();
@@ -317,6 +317,21 @@ describe("Demo Command", () => {
       const { isDemoModeEnabled } = await import("../commands/demo.js");
 
       // Should return true from env var, not false from config
+      expect(isDemoModeEnabled()).toBe(true);
+    });
+
+    it("should honor demoMode: true even when real credentials are in env", async () => {
+      // Regression: previously, PARTNER_CLIENT_SECRET silently auto-disabled demo
+      // mode, so `demo on` printed "✓ enabled" but the next command still hit
+      // real config and failed.
+      restoreEnv();
+      restoreEnv = mockEnv({ PARTNER_CLIENT_SECRET: "real-secret" });
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue('{"demoMode": true}');
+
+      const { isDemoModeEnabled } = await import("../commands/demo.js");
+
       expect(isDemoModeEnabled()).toBe(true);
     });
   });

@@ -159,33 +159,19 @@ export async function showEnvironmentSummary(
     console.log(chalk.white("  Quick Start"));
     console.log(chalk.gray("  ─".repeat(28)));
     if (tenants.length > 0) {
-      console.log(
-        chalk.gray("  agentsync solutions list        ") + chalk.dim("# See your solutions")
-      );
-      console.log(
-        chalk.gray("  agentsync solutions drift --risk") + chalk.dim("# Check drift & risk")
-      );
-      console.log(
-        chalk.gray("  agentsync deploy <name> --all   ") + chalk.dim("# Deploy to all tenants")
-      );
+      console.log(chalk.gray("  solutions list        ") + chalk.dim("# See your solutions"));
+      console.log(chalk.gray("  solutions drift --risk") + chalk.dim("# Check drift & risk"));
+      console.log(chalk.gray("  deploy <name> --all   ") + chalk.dim("# Deploy to all tenants"));
     } else {
-      console.log(
-        chalk.gray("  agentsync solutions list        ") + chalk.dim("# See your solutions")
-      );
-      console.log(
-        chalk.gray("  agentsync validate              ") + chalk.dim("# Verify configuration")
-      );
+      console.log(chalk.gray("  solutions list        ") + chalk.dim("# See your solutions"));
+      console.log(chalk.gray("  validate              ") + chalk.dim("# Verify configuration"));
     }
     console.log();
   } catch {
     // If anything fails, just show static next steps
     console.log(chalk.cyan("Next steps:"));
-    console.log(
-      chalk.gray("  agentsync validate              ") + chalk.dim("# Verify configuration")
-    );
-    console.log(
-      chalk.gray("  agentsync solutions list        ") + chalk.dim("# See your solutions")
-    );
+    console.log(chalk.gray("  validate              ") + chalk.dim("# Verify configuration"));
+    console.log(chalk.gray("  solutions list        ") + chalk.dim("# See your solutions"));
     console.log();
   }
 }
@@ -256,7 +242,7 @@ export async function testCredentialsAndGdap(
           console.log();
           console.log(
             chalk.yellow(
-              `   ${unconfigured.length} customer(s) not yet in your config. Run 'agentsync tenants discover' to add them.`
+              `   ${unconfigured.length} customer(s) not yet in your config. Run 'tenants discover' to add them.`
             )
           );
         }
@@ -302,7 +288,7 @@ export async function testCredentialsAndGdap(
           const errMsg = tenantError instanceof Error ? tenantError.message : String(tenantError);
           if (errMsg.includes("not a member") || errMsg.includes("AADSTS50020")) {
             console.log(chalk.red(`   ✖ ${tenant.name}: App user not registered`));
-            console.log(chalk.gray(`      Run: agentsync setup --tenant "${tenant.name}"`));
+            console.log(chalk.gray(`      Run: setup --tenant "${tenant.name}"`));
           } else if (errMsg.includes("403") || errMsg.includes("privilege")) {
             console.log(chalk.red(`   ✖ ${tenant.name}: Missing permissions`));
             console.log(chalk.gray("      App user needs System Administrator role"));
@@ -331,7 +317,7 @@ export async function testCredentialsAndGdap(
     }
 
     console.log();
-    console.log(chalk.yellow("You can fix these issues and run 'agentsync validate' later."));
+    console.log(chalk.yellow("You can fix these issues and run 'validate' later."));
   }
 }
 

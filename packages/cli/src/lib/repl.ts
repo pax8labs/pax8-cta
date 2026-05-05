@@ -49,8 +49,19 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
       // Parse the input as commander arguments
       const args = parseCommandLine(input);
 
+      // Tolerate shell-style invocations: muscle memory from running
+      // `agentsync foo bar` outside the REPL shouldn't surface as an error.
+      if (args[0] === "agentsync") {
+        args.shift();
+      }
+
       // Create a fresh program instance for this command
       const program = createProgram();
+
+      // Subcommand instances are module-level singletons, so Commander's
+      // parsed option/arg state from a previous REPL iteration leaks into
+      // the next parse. Clear it before each command runs.
+      resetCommandState(program);
 
       // Prevent commander from calling process.exit() on help/errors.
       // exitOverride must be set on all subcommands too.
@@ -103,6 +114,21 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
     }
 
     console.log();
+  }
+}
+
+function resetCommandState(cmd: Command): void {
+  // Commander stores parsed values on the Command instance; with shared
+  // subcommand singletons, those values persist across parseAsync calls.
+  // Cast through unknown to reach the private fields without `any`.
+  const internal = cmd as unknown as {
+    _optionValues: Record<string, unknown>;
+    processedArgs: unknown[];
+  };
+  internal._optionValues = {};
+  internal.processedArgs = [];
+  for (const sub of cmd.commands) {
+    resetCommandState(sub);
   }
 }
 

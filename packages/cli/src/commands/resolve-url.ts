@@ -150,7 +150,7 @@ export const resolveUrlCommand = new Command("resolve-url")
       console.log(`  Type:      ${managed ? "Managed" : "Unmanaged"}`);
       console.log(`  Output:    ${chalk.cyan(outputPath)}`);
       console.log();
-      console.log(chalk.gray(`Use 'agentsync deploy <solution> --all' to deploy to your tenants`));
+      console.log(chalk.gray(`Use 'deploy <solution> --all' to deploy to your tenants`));
     } catch (error) {
       handleCommandError(error, spinner, "URL resolution failed");
     }

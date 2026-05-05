@@ -145,7 +145,7 @@ export const OUTPUT_PATTERNS = {
   demoModeWarning: /DEMO MODE/i,
   deploymentId: /dep-[a-z0-9-]+/i,
   tenantId: /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
-  trackingHint: /agentsync (track|deployments show)/i,
+  trackingHint: /'(track|deployments show)/i,
   successMessage: /✔|succeed|success|completed/i,
   errorMessage: /✗|fail|error/i,
   tableHeader: /^\s*│.*│\s*$/,

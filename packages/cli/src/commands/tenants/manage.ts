@@ -77,9 +77,7 @@ export const enableCommand = new Command("enable")
         () => {
           // Production mode - would update config file
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
-          console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
-          );
+          console.log(chalk.gray("\nEnable demo mode with 'demo on' to test this command."));
         }
       );
     } catch (error) {
@@ -143,14 +141,12 @@ export const disableCommand = new Command("disable")
           }
           console.log();
           console.log(chalk.gray("This tenant will be excluded from future deployments."));
-          console.log(chalk.gray(`Use 'agentsync tenants enable ${tenantQuery}' to re-enable.`));
+          console.log(chalk.gray(`Use 'tenants enable ${tenantQuery}' to re-enable.`));
         },
         () => {
           // Production mode - would update config file
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
-          console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
-          );
+          console.log(chalk.gray("\nEnable demo mode with 'demo on' to test this command."));
         }
       );
     } catch (error) {
@@ -250,9 +246,7 @@ export const tagCommand = new Command("tag")
         () => {
           // Production mode - would update config file
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
-          console.log(
-            chalk.gray("\nEnable demo mode with 'agentsync demo on' to test this command.")
-          );
+          console.log(chalk.gray("\nEnable demo mode with 'demo on' to test this command."));
         }
       );
     } catch (error) {

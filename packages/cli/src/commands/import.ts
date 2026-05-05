@@ -43,8 +43,8 @@ export const importCommand = new Command("import")
     "after",
     `
 Examples:
-  agentsync import ./TestDeploy.zip -t AgentSync-Test2      Import to a specific tenant
-  agentsync import ./TestDeploy.zip -t AgentSync-Test2 --no-publish
+  import ./TestDeploy.zip -t AgentSync-Test2      Import to a specific tenant
+  import ./TestDeploy.zip -t AgentSync-Test2 --no-publish
 `
   )
   .action(async (solutionArg: string | undefined, options) => {
@@ -61,7 +61,7 @@ Examples:
       const destination = findTenant(config, destinationId);
       if (!destination) {
         throw new CliError(
-          `Destination '${destinationId}' not found in manifest. Run 'agentsync tenants list' to see available tenants.`
+          `Destination '${destinationId}' not found in manifest. Run 'tenants list' to see available tenants.`
         );
       }
       spinner.succeed(`Manifest loaded - Destination: ${destination.name}`);
@@ -153,6 +153,6 @@ function resolveAgentPackage(input: string): string {
   }
 
   throw new CliError(
-    `Solution '${input}' not found.\nNo matching zips in 'agent packages/'.\nTip: Export first with 'agentsync export ${input}', then retry.`
+    `Solution '${input}' not found.\nNo matching zips in 'agent packages/'.\nTip: Export first with 'export ${input}', then retry.`
   );
 }

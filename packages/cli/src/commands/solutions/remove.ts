@@ -34,8 +34,8 @@ export const removeCommand = new Command("remove")
     "after",
     `
 Examples:
-  agentsync solutions remove TestDeploy -t AgentSync-Test2       Uninstall with confirmation
-  agentsync solutions remove TestDeploy -t AgentSync-Test2 -y    Uninstall without confirmation
+  solutions remove TestDeploy -t AgentSync-Test2       Uninstall with confirmation
+  solutions remove TestDeploy -t AgentSync-Test2 -y    Uninstall without confirmation
 `
   )
   .action(async (solutionName: string, options) => {
