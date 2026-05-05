@@ -19,6 +19,7 @@ import {
   DEMO_SOLUTIONS,
   DEMO_TENANTS,
   type DemoTenantMetadata,
+  type DemoDeployedSolution,
 } from "@agentsync/core";
 
 export function findTenant(tenants: TenantConfig[], query: string): TenantConfig | undefined {
@@ -49,8 +50,8 @@ export function getDeployedAgentsForTenant(tenantId: string): Array<{
   }
 
   return meta.deployedSolutions
-    .filter((s) => s.deployedVersion !== null)
-    .map((s) => ({
+    .filter((s: DemoDeployedSolution) => s.deployedVersion !== null)
+    .map((s: DemoDeployedSolution) => ({
       name: s.uniqueName,
       version: s.deployedVersion as string,
       deployedAt: s.deployedAt ?? new Date().toISOString(),
