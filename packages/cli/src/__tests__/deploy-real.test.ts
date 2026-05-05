@@ -122,7 +122,14 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "--skip-validation",
         ],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+          // AGENTSYNC_DEFAULT_FORMAT forces the table dry-run output even though
+          // subprocess stdout is non-TTY (which would default to JSON per #357).
+          env: {
+            DEMO_MODE: "",
+            HOME: TEST_DIR,
+            USERPROFILE: TEST_DIR,
+            AGENTSYNC_DEFAULT_FORMAT: "table",
+          },
           cwd: TEST_DIR,
         }
       );
@@ -148,7 +155,12 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "--skip-validation",
         ],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+          env: {
+            DEMO_MODE: "",
+            HOME: TEST_DIR,
+            USERPROFILE: TEST_DIR,
+            AGENTSYNC_DEFAULT_FORMAT: "table",
+          },
           cwd: TEST_DIR,
         }
       );
@@ -185,7 +197,13 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "--skip-validation",
         ],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+          // AGENTSYNC_DEFAULT_FORMAT forces table even though subprocess stdout is non-TTY.
+          env: {
+            DEMO_MODE: "",
+            HOME: TEST_DIR,
+            USERPROFILE: TEST_DIR,
+            AGENTSYNC_DEFAULT_FORMAT: "table",
+          },
           cwd: TEST_DIR,
         }
       );
@@ -304,7 +322,12 @@ describe("Deploy Command (Real Mode - Config File)", () => {
           "--skip-validation",
         ],
         {
-          env: { DEMO_MODE: "", HOME: TEST_DIR, USERPROFILE: TEST_DIR },
+          env: {
+            DEMO_MODE: "",
+            HOME: TEST_DIR,
+            USERPROFILE: TEST_DIR,
+            AGENTSYNC_DEFAULT_FORMAT: "table",
+          },
           cwd: TEST_DIR,
         }
       );
