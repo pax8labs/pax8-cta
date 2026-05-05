@@ -1,0 +1,102 @@
+name: Bug report
+description: Report a problem with the AgentSync CLI
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please redact any tenant IDs, client IDs, secrets, or customer data from logs and config snippets before submitting.
+
+  - type: input
+    id: cli-version
+    attributes:
+      label: CLI version
+      description: Output of `agentsync --version`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: Operating system and version.
+      placeholder: "macOS 14.5 / Windows 11 / Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      description: Output of `node --version`. Leave blank if you are using a standalone binary.
+      placeholder: "v20.12.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      description: Were you running in demo mode or against real tenants?
+      options:
+        - Demo mode (DEMO_MODE=true or `agentsync demo on`)
+        - Real environment (GDAP / live Dataverse)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: A minimal sequence of commands that reproduces the issue.
+      placeholder: |
+        1. Run `agentsync demo on`
+        2. Run `agentsync tenants list`
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error output
+      description: Paste relevant CLI output. Re-run with `--verbose` if possible. **Redact secrets and tenant IDs.**
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config snippet
+      description: Relevant excerpt from `config/tenants.yaml` or `~/.agentsync/cli-config.json`. **Redact client secrets, tenant IDs, and customer names.**
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help us debug.
+    validations:
+      required: false

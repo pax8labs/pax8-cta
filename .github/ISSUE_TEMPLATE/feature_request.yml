@@ -1,0 +1,70 @@
+name: Feature request
+description: Suggest a new capability or improvement for the AgentSync CLI
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. AgentSync is built for MSPs running multi-tenant Copilot Studio deployments via GDAP, so context about your environment and workflow really helps us prioritize.
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What are you trying to do? What problem does this solve in your day-to-day workflow?
+      placeholder: "When I deploy a new agent across all 80 of my customer tenants, I need to ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? CLI flag? New command? Config option?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you have tried or considered, and why they fall short.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: tenant-scale
+    attributes:
+      label: Tenant scale
+      description: Roughly how many customer tenants do you manage with AgentSync?
+      options:
+        - 1-10
+        - 11-50
+        - 51-200
+        - 200+
+        - Not applicable / evaluating
+    validations:
+      required: false
+
+  - type: dropdown
+    id: deploy-frequency
+    attributes:
+      label: Deployment frequency
+      description: How often do you push solution updates?
+      options:
+        - Multiple times per day
+        - Daily
+        - Weekly
+        - Monthly or less
+        - Not applicable / evaluating
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, links to related issues, prior art in other tools, etc.
+    validations:
+      required: false
