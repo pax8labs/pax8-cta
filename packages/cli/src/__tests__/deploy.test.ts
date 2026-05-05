@@ -375,12 +375,15 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
+      // Use a real demo solution name — demo mode now validates the solution
+      // argument against DEMO_SOLUTIONS to surface typos. Made-up names like
+      // "TestAgent" intentionally fail.
       await program.parseAsync([
         "node",
         "test",
         "deploy",
         "--solution",
-        "TestAgent",
+        "SalesAssistant",
         "--unmanaged",
         "--all",
       ]);
@@ -396,11 +399,11 @@ describe("Deploy Command (ship)", () => {
       const program = new Command();
       program.addCommand(deployCommand);
 
-      await program.parseAsync(["node", "test", "deploy", "--solution", "TestAgent", "--all"]);
+      await program.parseAsync(["node", "test", "deploy", "--solution", "HROnboarding", "--all"]);
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "TestAgent (exported)")).toBe(true);
+      expect(containsText(output, "HROnboarding (exported)")).toBe(true);
     });
   });
 });

@@ -51,7 +51,7 @@ import {
 } from "@agentsync/core";
 import { isDemo, withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
-import { handleCommandError } from "../lib/errors.js";
+import { CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
 
 // ---------------------------------------------------------------------------
@@ -239,6 +239,31 @@ Examples:
           }
 
           spinner.succeed("Demo fleet manifest loaded");
+
+          // Validate the solution argument against the demo catalog before we
+          // pretend to export/ship. Without this, demo mode silently accepts
+          // typos like "CusteomrServiceAgent" and prints a fake success — that
+          // teaches users the CLI accepts garbage and hides typos during
+          // demos. Real-mode deploy already errors when an unknown solution
+          // name fails to export, so we only need to backfill the demo path.
+          // ZIP path inputs ("./foo.zip") still pretend-export without file
+          // existence checks (the existing demo contract for paths).
+          if (!isFilePath) {
+            const knownDemoNames = DEMO_SOLUTIONS.map((sol) => sol.uniqueName);
+            // Case-sensitive match — the CLI is case-sensitive about solution
+            // names elsewhere (export/import use the uniqueName verbatim).
+            if (!knownDemoNames.includes(solutionArg)) {
+              const preview = knownDemoNames.slice(0, 5);
+              const lines = [
+                `Solution '${solutionArg}' not found in the demo catalog.`,
+                "Available demo solutions:",
+                ...preview.map((name) => `  - ${name}`),
+                "Run 'solutions list' to see all available demo solutions.",
+              ];
+              throw new CliError(lines.join("\n"));
+            }
+          }
+
           // DEMO MODE banner is informational chrome — keep it on stderr but
           // suppress under --quiet/--json (callers piping JSON shouldn't see
           // unstructured noise on either stream during automated runs).
