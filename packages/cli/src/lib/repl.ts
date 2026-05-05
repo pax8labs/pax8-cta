@@ -32,7 +32,7 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
   console.log();
 
   while (true) {
-    const line = await question(chalk.cyan("AgentSync> "));
+    const line = await question(chalk.cyan("pax8-cta> "));
     const input = line.trim();
 
     if (!input) {
