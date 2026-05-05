@@ -181,7 +181,12 @@ describe("CLI Integration Tests", () => {
 
   describe("deploy command (dry run)", () => {
     it("should preview deployment in demo mode", async () => {
-      const result = await runCliExpectSuccess(["deploy", "--solution", "./test.zip", "--all"]);
+      // After #357, deploy's stdout defaults to JSON when piped (subprocess).
+      // Force the human-readable path here by pretending stdout is a TTY so
+      // we can still assert on the pirate-themed chrome.
+      const result = await runCliExpectSuccess(["deploy", "--solution", "./test.zip", "--all"], {
+        env: { AGENTSYNC_DEFAULT_FORMAT: "table" },
+      });
 
       expect(containsText(result.output, "DEMO MODE")).toBe(true);
       expect(containsText(result.output, "Shipment dispatched")).toBe(true);

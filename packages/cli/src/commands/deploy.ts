@@ -29,6 +29,7 @@ import { tmpdir } from "node:os";
 import chalk from "chalk";
 import { createSpinner } from "../lib/spinner.js";
 import Table from "cli-table3";
+import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
 import {
   type Config,
   TenantConfig,
@@ -52,6 +53,62 @@ import { isDemo, withResolvedDestinations, type LoadedConfig } from "../lib/comm
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
+
+// ---------------------------------------------------------------------------
+// Output schema — used by output()/resolveFormat() so --quiet, --json, and
+// TTY-default JSON behave consistently with `tenants list` / `deployments list`
+// (issue #357). Two structured surfaces flow through the helper:
+//   - DestinationRow: the "Shipping Destinations" preview table
+//   - DeployResultRow: the live-mode per-tenant deploy outcome / summary
+// Demo mode emits a single envelope (`{ shipmentId, package, destinations[] }`)
+// directly via JSON.stringify when --json is requested, so it keeps its
+// existing pirate-themed table rendering for the human path while still
+// honoring --quiet and pipe-default JSON.
+// ---------------------------------------------------------------------------
+
+interface DestinationRow {
+  name: string;
+  tenantId: string;
+  tenantIdShort: string;
+  environmentUrl: string;
+  hostname: string;
+  tags: string;
+}
+
+const DESTINATION_COLUMNS: Column<DestinationRow>[] = [
+  { key: "name", header: "Destination" },
+  { key: "tenantIdShort", header: "Tenant ID" },
+  { key: "hostname", header: "Port" },
+  { key: "tags", header: "Tags" },
+];
+
+interface DeployResultRow {
+  tenant: string;
+  tenantId: string;
+  status: "success" | "failed";
+  message: string;
+}
+
+const DEPLOY_RESULT_COLUMNS: Column<DeployResultRow>[] = [
+  { key: "tenant", header: "Destination" },
+  {
+    key: "status",
+    header: "Status",
+    format: (v) => (v === "success" ? chalk.green("Success") : chalk.red("Failed")),
+  },
+  { key: "message", header: "Message" },
+];
+
+function buildDestinationRows(destinations: TenantConfig[]): DestinationRow[] {
+  return destinations.map((tenant) => ({
+    name: tenant.name,
+    tenantId: tenant.tenantId,
+    tenantIdShort: tenant.tenantId.slice(0, 8) + "...",
+    environmentUrl: tenant.environmentUrl,
+    hostname: new URL(tenant.environmentUrl).hostname,
+    tags: tenant.tags?.join(", ") || "-",
+  }));
+}
 
 export const deployCommand = new Command("deploy")
   .description("Export a solution from source and import it to target tenants")
@@ -113,10 +170,14 @@ Examples:
       process.exit(2);
     }
 
-    if (options.json && !options.dryRun) {
-      console.error(chalk.red("Error: --json is only supported with --dry-run."));
-      process.exit(2);
-    }
+    // Resolve the structured output format once — drives --quiet/--json gating
+    // and TTY-default JSON for the destinations preview and the post-deploy
+    // summary blocks (issue #357). Dry-run keeps its own JSON branch (the
+    // existing envelope shape is preserved by runDryRunPreview).
+    const fmt: OutputFormat = resolveFormat({
+      json: options.json,
+      quiet: options.quiet,
+    });
 
     // No target selection? In an interactive terminal, offer a picker
     // (tags from the fleet plus an "all" sentinel). Same TTY guard as above.
@@ -178,7 +239,12 @@ Examples:
           }
 
           spinner.succeed("Demo fleet manifest loaded");
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
+          // DEMO MODE banner is informational chrome — keep it on stderr but
+          // suppress under --quiet/--json (callers piping JSON shouldn't see
+          // unstructured noise on either stream during automated runs).
+          if (fmt === "table") {
+            console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing preview\n"));
+          }
 
           if (options.dryRun) {
             await runDryRunPreview({
@@ -191,7 +257,41 @@ Examples:
             return null;
           }
 
-          // In demo mode, show export simulation if solution name provided
+          const destinationRows = buildDestinationRows(destinations);
+          const demoShipmentId = `dep-demo-${Date.now().toString(36)}`;
+          const packageLabel = isFilePath ? solutionArg : `${solutionArg} (exported)`;
+
+          if (fmt === "json") {
+            // Demo success envelope — distinct from the dry-run plan shape.
+            console.log(
+              JSON.stringify(
+                {
+                  demo: true,
+                  shipmentId: demoShipmentId,
+                  package: packageLabel,
+                  solution: solutionArg,
+                  managed: !options.unmanaged,
+                  destinations: destinationRows.map((row) => ({
+                    name: row.name,
+                    tenantId: row.tenantId,
+                    environmentUrl: row.environmentUrl,
+                    tags: destinations.find((t) => t.tenantId === row.tenantId)?.tags ?? [],
+                  })),
+                  totalDestinations: destinations.length,
+                },
+                null,
+                2
+              )
+            );
+            return null;
+          }
+
+          if (fmt === "quiet") {
+            // No-op — caller cares about exit code only.
+            return null;
+          }
+
+          // Human-readable (table) path: keep the pirate-themed chrome.
           if (!isFilePath) {
             console.log(chalk.bold("📤 Export Simulation:"));
             console.log(`  Solution:      ${chalk.green(solutionArg)}`);
@@ -200,34 +300,16 @@ Examples:
             console.log();
           }
 
-          // Display destinations
           console.log(chalk.bold(`📦 Shipping Destinations (${destinations.length}):`));
           console.log();
-
-          const table = new Table({
-            head: ["Destination", "Tenant ID", "Port", "Tags"],
-            style: { head: ["cyan"] },
-          });
-
-          destinations.forEach((tenant) => {
-            table.push([
-              tenant.name,
-              tenant.tenantId.slice(0, 8) + "...",
-              new URL(tenant.environmentUrl).hostname,
-              tenant.tags?.join(", ") || "-",
-            ]);
-          });
-
-          console.log(table.toString());
+          output(destinationRows, { format: "table", columns: DESTINATION_COLUMNS });
           console.log();
-
-          const demoShipmentId = `dep-demo-${Date.now().toString(36)}`;
 
           console.log(chalk.green("✓ Shipment dispatched successfully (demo)"));
           console.log();
           console.log(chalk.bold("📋 Shipment Details:"));
           console.log(`  Tracking #:    ${chalk.cyan(demoShipmentId)}`);
-          console.log(`  Package:       ${isFilePath ? solutionArg : `${solutionArg} (exported)`}`);
+          console.log(`  Package:       ${packageLabel}`);
           console.log(`  Destinations:  ${destinations.length}`);
           console.log();
           console.log(chalk.gray(`Use 'track --shipment ${demoShipmentId}' to track progress`));
@@ -301,31 +383,35 @@ Examples:
 
           if (modeCheck.hasConflict) {
             spinner.warn(chalk.yellow("Mixed solution modes detected in targets"));
-            console.log();
-            console.log(chalk.yellow("⚠ Warning: Solution exists with different modes:"));
-            if (modeCheck.managedCount > 0) {
-              console.log(chalk.gray(`  ${modeCheck.managedCount} target(s) have it as managed`));
+            if (fmt === "table") {
+              console.log();
+              console.log(chalk.yellow("⚠ Warning: Solution exists with different modes:"));
+              if (modeCheck.managedCount > 0) {
+                console.log(chalk.gray(`  ${modeCheck.managedCount} target(s) have it as managed`));
+              }
+              if (modeCheck.unmanagedCount > 0) {
+                console.log(
+                  chalk.gray(`  ${modeCheck.unmanagedCount} target(s) have it as unmanaged`)
+                );
+              }
+              if (modeCheck.notInstalledCount > 0) {
+                console.log(
+                  chalk.gray(`  ${modeCheck.notInstalledCount} target(s) don't have it installed`)
+                );
+              }
+              console.log();
+              console.log(chalk.gray("Use --managed or --unmanaged to specify which mode to use."));
+              console.log(chalk.gray("Targets with mismatched mode will fail to import."));
+              console.log();
             }
-            if (modeCheck.unmanagedCount > 0) {
-              console.log(
-                chalk.gray(`  ${modeCheck.unmanagedCount} target(s) have it as unmanaged`)
-              );
-            }
-            if (modeCheck.notInstalledCount > 0) {
-              console.log(
-                chalk.gray(`  ${modeCheck.notInstalledCount} target(s) don't have it installed`)
-              );
-            }
-            console.log();
-            console.log(chalk.gray("Use --managed or --unmanaged to specify which mode to use."));
-            console.log(chalk.gray("Targets with mismatched mode will fail to import."));
-            console.log();
             // Default to majority mode
             managed = modeCheck.managedCount >= modeCheck.unmanagedCount;
-            console.log(
-              chalk.cyan(`Proceeding with ${managed ? "managed" : "unmanaged"} mode (majority)`)
-            );
-            console.log();
+            if (fmt === "table") {
+              console.log(
+                chalk.cyan(`Proceeding with ${managed ? "managed" : "unmanaged"} mode (majority)`)
+              );
+              console.log();
+            }
           } else if (modeCheck.unmanagedCount > 0) {
             // All existing installations are unmanaged
             managed = false;
@@ -384,7 +470,9 @@ Examples:
             tempPackagePath = outputPath;
           }
 
-          console.log();
+          if (fmt === "table") {
+            console.log();
+          }
         } catch (error) {
           handleCommandError(error, spinner, "Export failed");
         }
@@ -398,33 +486,24 @@ Examples:
         }
       }
 
-      // Display destinations
-      console.log();
-      console.log(chalk.bold(`Shipping Destinations (${destinations.length}):`));
-
-      const table = new Table({
-        head: ["Destination", "Tenant ID", "Port", "Tags"],
-        style: { head: ["cyan"] },
-      });
-
-      destinations.forEach((tenant) => {
-        table.push([
-          tenant.name,
-          tenant.tenantId.slice(0, 8) + "...",
-          new URL(tenant.environmentUrl).hostname,
-          tenant.tags?.join(", ") || "-",
-        ]);
-      });
-
-      console.log(table.toString());
-      console.log();
+      // Display destinations through the structured output() helper so
+      // --quiet/--json/TTY-default JSON behave consistently (issue #357).
+      const destinationRows = buildDestinationRows(destinations);
+      if (fmt === "table") {
+        console.log();
+        console.log(chalk.bold(`Shipping Destinations (${destinations.length}):`));
+        output(destinationRows, { format: "table", columns: DESTINATION_COLUMNS });
+        console.log();
+      }
 
       // Verify client secret is available
       await getClientSecretWithFallback();
 
       // Auto-setup app users if needed (unless --no-auto-setup)
       if (options.autoSetup !== false) {
-        console.log(chalk.bold("Checking application users..."));
+        if (fmt === "table") {
+          console.log(chalk.bold("Checking application users..."));
+        }
         let setupCount = 0;
         let warningCount = 0;
 
@@ -457,24 +536,31 @@ Examples:
           }
         }
 
-        console.log();
-        if (setupCount > 0) {
-          console.log(chalk.green(`✓ ${setupCount} environment(s) setup completed`));
+        if (fmt === "table") {
+          console.log();
+          if (setupCount > 0) {
+            console.log(chalk.green(`✓ ${setupCount} environment(s) setup completed`));
+          }
+          if (warningCount > 0) {
+            console.log(
+              chalk.yellow(`⚠ ${warningCount} environment(s) skipped (see warnings above)`)
+            );
+          }
+          console.log();
         }
-        if (warningCount > 0) {
-          console.log(
-            chalk.yellow(`⚠ ${warningCount} environment(s) skipped (see warnings above)`)
-          );
-        }
-        console.log();
       }
 
       // Deploy directly to each tenant sequentially
-      console.log(chalk.bold("Deploying to destinations...\n"));
+      if (fmt === "table") {
+        console.log(chalk.bold("Deploying to destinations...\n"));
+      }
 
       const clientSecret = await getClientSecretWithFallback();
       let successCount = 0;
       let failCount = 0;
+      // Track per-tenant outcomes so we can render a structured summary at the
+      // end (table for humans, rows in the JSON envelope for pipelines).
+      const deployResults: DeployResultRow[] = [];
 
       // Scan solution for tenant-specific URLs (once, before the loop)
       let detectedUrls: DetectedUrl[] = [];
@@ -486,7 +572,7 @@ Examples:
           const templater = new UrlTemplater();
           detectedUrls = await templater.scanSolution(zip);
 
-          if (detectedUrls.length > 0) {
+          if (detectedUrls.length > 0 && fmt === "table") {
             const sourceTenant = templater.inferSourceTenant(detectedUrls);
             console.log(
               chalk.gray(
@@ -561,24 +647,67 @@ Examples:
           if (result.success) {
             tenantSpinner.succeed(chalk.green(`${tenant.name}: Deployed successfully`));
             successCount++;
+            deployResults.push({
+              tenant: tenant.name,
+              tenantId: tenant.tenantId,
+              status: "success",
+              message: "Deployed successfully",
+            });
           } else {
-            tenantSpinner.fail(chalk.red(`${tenant.name}: ${result.error || "Deployment failed"}`));
+            const message = result.error || "Deployment failed";
+            tenantSpinner.fail(chalk.red(`${tenant.name}: ${message}`));
             failCount++;
+            deployResults.push({
+              tenant: tenant.name,
+              tenantId: tenant.tenantId,
+              status: "failed",
+              message,
+            });
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
           tenantSpinner.fail(chalk.red(`${tenant.name}: ${errorMsg}`));
           failCount++;
+          deployResults.push({
+            tenant: tenant.name,
+            tenantId: tenant.tenantId,
+            status: "failed",
+            message: errorMsg,
+          });
         }
       }
 
-      console.log();
-      console.log(chalk.bold("Deployment Summary:"));
-      console.log(`  Total:     ${destinations.length}`);
-      console.log(`  ${chalk.green("Success:")}  ${successCount}`);
-      if (failCount > 0) {
-        console.log(`  ${chalk.red("Failed:")}   ${failCount}`);
+      // Render the post-deploy summary through the same output() pipeline as
+      // tenants-list / deployments-list. JSON callers get a structured envelope
+      // (results[] + counts); --quiet stays silent; the human path keeps the
+      // bold "Deployment Summary" block.
+      if (fmt === "json") {
+        console.log(
+          JSON.stringify(
+            {
+              demo: false,
+              solution: solutionArg,
+              total: destinations.length,
+              success: successCount,
+              failed: failCount,
+              results: deployResults,
+            },
+            null,
+            2
+          )
+        );
+      } else if (fmt === "table") {
+        console.log();
+        console.log(chalk.bold("Deployment Summary:"));
+        output(deployResults, { format: "table", columns: DEPLOY_RESULT_COLUMNS });
+        console.log(`  Total:     ${destinations.length}`);
+        console.log(`  ${chalk.green("Success:")}  ${successCount}`);
+        if (failCount > 0) {
+          console.log(`  ${chalk.red("Failed:")}   ${failCount}`);
+        }
       }
+      // fmt === "quiet" (and any future formats) intentionally produce no
+      // success-path stdout.
 
       if (failCount > 0) {
         process.exit(1);
