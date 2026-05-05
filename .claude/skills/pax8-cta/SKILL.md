@@ -86,6 +86,7 @@ agentsync analyze <solution|zip> [--tag X | --all]    Pre-deploy risk scan
 agentsync deployments list [--status failed|success] [--since 7d] [--limit N]
                            [-t <tenant>] [-a <solution>]
 agentsync deployments show <id>
+agentsync deployments undo <id> [--dry-run] [-y] [--json]    Roll back a bad deploy
 
 agentsync status [--list | --setup | -d <id>]         Setup/deployment status overview
 
@@ -95,7 +96,9 @@ agentsync config [--json]                             Show effective settings: d
                                                        credentials presence, telemetry, paths
 ```
 
-`deployments` only supports `list` and `show` in the OSS CLI. `watch`, `retry`, `cancel`, `rollback` belonged to a queue-backed mode that's not part of the OSS build.
+`deployments` supports `list`, `show`, and `undo` in the OSS CLI. `undo` rolls back a previous deployment by re-importing the prior solution version via `RollbackService`; in demo mode it simulates the per-tenant flow and writes an audit entry. `watch`, `retry`, and `cancel` belonged to a queue-backed mode that's not part of the OSS build.
+
+If the user asks to "undo a bad deploy" or "roll back a deployment", reach for `agentsync deployments undo <id>` (always with confirmation — see policy below).
 
 ## Composing commands (JSON & pipelines)
 
@@ -156,6 +159,7 @@ Don't ask the user before every command — that's noise. Ask only when an actio
 **Confirm first, paraphrasing the impact** (mutates real tenants, infra, or credentials):
 
 - `deploy` without `--dry-run` — _especially_ anything `--all` or `--tag <wide-tag>`. Always summarize: "this will deploy <solution> to <N> tenants matching <selector> — proceed?"
+- `deployments undo <id>` — re-imports the previous solution version across the deployment's tenants; mutates real Dataverse state. Always summarize: "this will roll back <solution> on <N> tenants from <id> — proceed?" Pair with `--dry-run` first when unsure.
 - `solutions remove` — uninstalls a managed solution from a target tenant; recoverable but disruptive.
 - `solutions drift --fix` — issues real updates across the fleet.
 - `setup` (any form) — registers an application user inside customer tenants.
