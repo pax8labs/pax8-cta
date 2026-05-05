@@ -67,7 +67,7 @@ Examples:
       spinner.succeed(`Manifest loaded - Destination: ${destination.name}`);
 
       // Get client secret
-      spinner.start("Establishing shipping route...");
+      spinner.start("Establishing connection to target tenant...");
       const clientSecret = await getClientSecretWithFallback();
 
       // Create token manager for the customer tenant
@@ -83,39 +83,37 @@ Examples:
       });
 
       const solutionOps = new SolutionOperations(dataverseClient);
-      spinner.succeed(`Route established to ${destination.name}`);
+      spinner.succeed(`Connected to ${destination.name}`);
 
-      // Import solution (deliver agent package)
+      // Import solution package into the target environment
       const agentPackagePath = resolveAgentPackage(options.agentPackage || options.solution);
-      spinner.start(`Delivering agent package to ${destination.name}...`);
+      spinner.start(`Importing solution to ${destination.name}...`);
 
       const importJobId = await solutionOps.importSolutionAsync(agentPackagePath, {
         overwriteUnmanagedCustomizations: options.overwrite !== false,
         publishWorkflows: options.publish !== false,
       });
 
-      spinner.text = `Delivery in progress (Tracking: ${importJobId}), unloading...`;
+      spinner.text = `Import in progress (Job ID: ${importJobId})...`;
 
       // Wait for import with progress
       const result = await solutionOps.waitForImport(importJobId, {
         pollIntervalMs: 3000,
         timeoutMs: 300000,
         onProgress: (progress) => {
-          spinner.text = `Unloading at ${destination.name}... ${progress}%`;
+          spinner.text = `Importing to ${destination.name}... ${progress}%`;
         },
       });
 
       if (result.success) {
-        spinner.succeed(
-          chalk.green(`📦 Agent package delivered successfully to ${destination.name}`)
-        );
+        spinner.succeed(chalk.green(`✅ Solution imported successfully to ${destination.name}`));
       } else {
         const errorMsg =
           result.error || "Unknown error - check solution compatibility and permissions";
-        throw new CliError(`Delivery failed: ${errorMsg}`);
+        throw new CliError(`Import failed: ${errorMsg}`);
       }
     } catch (error) {
-      handleCommandError(error, spinner, "Delivery failed");
+      handleCommandError(error, spinner, "Import failed");
     }
   });
 

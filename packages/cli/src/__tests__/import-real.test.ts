@@ -118,7 +118,7 @@ describe("Import Command (Real Mode - Config File)", () => {
       expect(
         containsText(output, "Import Test Alpha") ||
           containsText(output, "Client secret not found") ||
-          containsText(output, "Delivery failed")
+          containsText(output, "Import failed")
       ).toBe(true);
       // Should NOT show demo mode
       expect(containsText(output, "DEMO MODE")).toBe(false);
@@ -151,7 +151,7 @@ describe("Import Command (Real Mode - Config File)", () => {
       expect(
         containsText(output, "Import Test Beta") ||
           containsText(output, "Client secret not found") ||
-          containsText(output, "Delivery failed")
+          containsText(output, "Import failed")
       ).toBe(true);
     });
 
@@ -200,7 +200,7 @@ describe("Import Command (Real Mode - Config File)", () => {
       expect(
         containsText(result.output, "not found") ||
           containsText(result.output, "Failed") ||
-          containsText(result.output, "Delivery failed")
+          containsText(result.output, "Import failed")
       ).toBe(true);
     });
 
@@ -218,7 +218,7 @@ describe("Import Command (Real Mode - Config File)", () => {
 
       expect(result.exitCode).toBe(1);
       expect(
-        containsText(result.output, "Delivery failed") ||
+        containsText(result.output, "Import failed") ||
           containsText(result.output, "Invalid") ||
           containsText(result.output, "Failed")
       ).toBe(true);
@@ -251,7 +251,7 @@ describe("Import Command (Real Mode - Config File)", () => {
       expect(result.exitCode).toBe(1);
       expect(
         containsText(result.output, "Client secret not found") ||
-          containsText(result.output, "Delivery failed")
+          containsText(result.output, "Import failed")
       ).toBe(true);
     });
   });
@@ -287,7 +287,7 @@ describe("Import Command (Real Mode - Config File)", () => {
       expect(
         containsText(output, "Import Test Alpha") ||
           containsText(output, "Client secret not found") ||
-          containsText(output, "Delivery failed")
+          containsText(output, "Import failed")
       ).toBe(true);
     });
 

@@ -139,14 +139,14 @@ describe("status command (issue #358)", () => {
 
     expect(result.exitCode).toBe(0);
     const envelope = JSON.parse(result.stdout) as {
-      shipments: Array<{ id: string; solutionName: string; status: string }>;
+      deployments: Array<{ id: string; solutionName: string; status: string }>;
     };
-    expect(Array.isArray(envelope.shipments)).toBe(true);
-    expect(envelope.shipments.length).toBeGreaterThan(0);
-    expect(envelope.shipments[0]).toHaveProperty("id");
+    expect(Array.isArray(envelope.deployments)).toBe(true);
+    expect(envelope.deployments.length).toBeGreaterThan(0);
+    expect(envelope.deployments[0]).toHaveProperty("id");
   }, 60000);
 
-  it("agentsync status --shipment <id> --json emits a parseable shipment envelope", async () => {
+  it("agentsync status --shipment <id> --json emits a parseable deployment envelope", async () => {
     const result = await runCli(["status", "--shipment", "dep-demo-success", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -154,11 +154,11 @@ describe("status command (issue #358)", () => {
 
     expect(result.exitCode).toBe(0);
     const envelope = JSON.parse(result.stdout) as {
-      shipment: { id: string; tenantResults: unknown[] };
+      deployment: { id: string; tenantResults: unknown[] };
     };
-    expect(envelope.shipment).toBeTruthy();
-    expect(envelope.shipment.id).toBe("dep-demo-success");
-    expect(Array.isArray(envelope.shipment.tenantResults)).toBe(true);
+    expect(envelope.deployment).toBeTruthy();
+    expect(envelope.deployment.id).toBe("dep-demo-success");
+    expect(Array.isArray(envelope.deployment.tenantResults)).toBe(true);
   }, 60000);
 });
 

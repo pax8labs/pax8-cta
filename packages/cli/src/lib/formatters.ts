@@ -91,33 +91,35 @@ export type DeploymentStatus =
 /**
  * Format a deployment status with color and icon
  * @param status - The deployment status
- * @param style - 'default' for standard labels, 'shipping' for shipping metaphor
+ * @param style - 'default' for standard labels, 'tracking' for the per-deployment
+ *               tracking view (slightly different verbiage / icons for the
+ *               progress-oriented status table)
  */
-export function formatStatus(status: string, style: "default" | "shipping" = "default"): string {
-  if (style === "shipping") {
+export function formatStatus(status: string, style: "default" | "tracking" = "default"): string {
+  if (style === "tracking") {
     switch (status) {
       case "completed":
-        return chalk.green("✓ Delivered");
+        return chalk.green("✓ Completed");
       case "failed":
         return chalk.red("✗ Failed");
       case "in_progress":
-        return chalk.yellow("🚚 In Transit");
+        return chalk.yellow("● In Progress");
       case "pending":
         return chalk.gray("○ Queued");
       case "scheduled":
         return chalk.cyan("◷ Scheduled");
       case "awaiting_approval":
-        return chalk.magenta("⊙ Awaiting Clearance");
+        return chalk.magenta("⊙ Awaiting Approval");
       case "approved":
-        return chalk.green("✓ Cleared");
+        return chalk.green("✓ Approved");
       case "rejected":
         return chalk.red("✗ Rejected");
       case "cancelled":
         return chalk.gray("⊘ Cancelled");
       case "rolling_back":
-        return chalk.yellow("↩ Returning");
+        return chalk.yellow("↩ Rolling Back");
       case "rolled_back":
-        return chalk.blue("↩ Returned");
+        return chalk.blue("↩ Rolled Back");
       default:
         return status;
     }

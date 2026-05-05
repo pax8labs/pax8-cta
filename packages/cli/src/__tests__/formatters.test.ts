@@ -183,64 +183,64 @@ describe("Formatters", () => {
       });
     });
 
-    describe("shipping style", () => {
-      it("should format completed as Delivered", () => {
-        const result = stripAnsi(formatStatus("completed", "shipping"));
-        expect(result).toBe("✓ Delivered");
+    describe("tracking style", () => {
+      it("should format completed as Completed", () => {
+        const result = stripAnsi(formatStatus("completed", "tracking"));
+        expect(result).toBe("✓ Completed");
       });
 
       it("should format failed as Failed", () => {
-        const result = stripAnsi(formatStatus("failed", "shipping"));
+        const result = stripAnsi(formatStatus("failed", "tracking"));
         expect(result).toBe("✗ Failed");
       });
 
-      it("should format in_progress as In Transit", () => {
-        const result = stripAnsi(formatStatus("in_progress", "shipping"));
-        expect(result).toBe("🚚 In Transit");
+      it("should format in_progress as In Progress", () => {
+        const result = stripAnsi(formatStatus("in_progress", "tracking"));
+        expect(result).toBe("● In Progress");
       });
 
       it("should format pending as Queued", () => {
-        const result = stripAnsi(formatStatus("pending", "shipping"));
+        const result = stripAnsi(formatStatus("pending", "tracking"));
         expect(result).toBe("○ Queued");
       });
 
       it("should format scheduled", () => {
-        const result = stripAnsi(formatStatus("scheduled", "shipping"));
+        const result = stripAnsi(formatStatus("scheduled", "tracking"));
         expect(result).toBe("◷ Scheduled");
       });
 
-      it("should format awaiting_approval as Awaiting Clearance", () => {
-        const result = stripAnsi(formatStatus("awaiting_approval", "shipping"));
-        expect(result).toBe("⊙ Awaiting Clearance");
+      it("should format awaiting_approval as Awaiting Approval", () => {
+        const result = stripAnsi(formatStatus("awaiting_approval", "tracking"));
+        expect(result).toBe("⊙ Awaiting Approval");
       });
 
-      it("should format approved as Cleared", () => {
-        const result = stripAnsi(formatStatus("approved", "shipping"));
-        expect(result).toBe("✓ Cleared");
+      it("should format approved as Approved", () => {
+        const result = stripAnsi(formatStatus("approved", "tracking"));
+        expect(result).toBe("✓ Approved");
       });
 
       it("should format rejected", () => {
-        const result = stripAnsi(formatStatus("rejected", "shipping"));
+        const result = stripAnsi(formatStatus("rejected", "tracking"));
         expect(result).toBe("✗ Rejected");
       });
 
       it("should format cancelled", () => {
-        const result = stripAnsi(formatStatus("cancelled", "shipping"));
+        const result = stripAnsi(formatStatus("cancelled", "tracking"));
         expect(result).toBe("⊘ Cancelled");
       });
 
-      it("should format rolling_back as Returning", () => {
-        const result = stripAnsi(formatStatus("rolling_back", "shipping"));
-        expect(result).toBe("↩ Returning");
+      it("should format rolling_back as Rolling Back", () => {
+        const result = stripAnsi(formatStatus("rolling_back", "tracking"));
+        expect(result).toBe("↩ Rolling Back");
       });
 
-      it("should format rolled_back as Returned", () => {
-        const result = stripAnsi(formatStatus("rolled_back", "shipping"));
-        expect(result).toBe("↩ Returned");
+      it("should format rolled_back as Rolled Back", () => {
+        const result = stripAnsi(formatStatus("rolled_back", "tracking"));
+        expect(result).toBe("↩ Rolled Back");
       });
 
       it("should return unknown status as-is", () => {
-        const result = stripAnsi(formatStatus("unknown", "shipping"));
+        const result = stripAnsi(formatStatus("unknown", "tracking"));
         expect(result).toBe("unknown");
       });
     });

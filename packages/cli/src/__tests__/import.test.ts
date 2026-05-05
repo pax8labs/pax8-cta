@@ -49,7 +49,7 @@ vi.mock("../lib/credentials.js", () => ({
   getClientSecretWithFallback: vi.fn().mockResolvedValue("test-secret"),
 }));
 
-describe("Import Command (deliver)", () => {
+describe("Import Command", () => {
   let consoleCapture: ConsoleCapture;
   let restoreEnv: () => void;
   let exitSpy: any;
@@ -224,8 +224,8 @@ describe("Import Command (deliver)", () => {
     });
   });
 
-  describe("successful delivery", () => {
-    it("should deliver solution successfully when all mocks resolve", async () => {
+  describe("successful import", () => {
+    it("should import solution successfully when all mocks resolve", async () => {
       const {
         loadConfig,
         getClientSecret,
@@ -294,12 +294,12 @@ describe("Import Command (deliver)", () => {
       ]);
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, "delivered successfully")).toBe(true);
+      expect(containsText(output, "imported successfully")).toBe(true);
       expect(mockImportSolutionAsync).toHaveBeenCalled();
       expect(mockWaitForImport).toHaveBeenCalled();
     });
 
-    it("should handle delivery failure", async () => {
+    it("should handle import failure", async () => {
       const {
         loadConfig,
         getClientSecret,
@@ -362,9 +362,7 @@ describe("Import Command (deliver)", () => {
       }
 
       const output = consoleCapture.getAllOutput();
-      expect(containsText(output, "Import failed") || containsText(output, "Delivery failed")).toBe(
-        true
-      );
+      expect(containsText(output, "Import failed")).toBe(true);
       expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });

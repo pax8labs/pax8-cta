@@ -189,8 +189,8 @@ describe("CLI Integration Tests", () => {
       });
 
       expect(containsText(result.output, "DEMO MODE")).toBe(true);
-      expect(containsText(result.output, "Shipment dispatched")).toBe(true);
-      expect(containsText(result.output, "Tracking #")).toBe(true);
+      expect(containsText(result.output, "Deployment dispatched")).toBe(true);
+      expect(containsText(result.output, "Deployment ID")).toBe(true);
     });
 
     it("should show deployment ID", async () => {

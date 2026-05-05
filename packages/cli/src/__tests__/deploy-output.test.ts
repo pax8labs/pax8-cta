@@ -58,7 +58,7 @@ describe("deploy --json (issue #357)", () => {
     // stdout must be valid JSON in its entirety — no chrome before/after.
     const parsed = JSON.parse(result.stdout);
     expect(parsed.demo).toBe(true);
-    expect(parsed.shipmentId).toMatch(/^dep-demo-/);
+    expect(parsed.deploymentId).toMatch(/^dep-demo-/);
     expect(parsed.solution).toBe("CustomerServiceAgent");
     expect(Array.isArray(parsed.destinations)).toBe(true);
     expect(parsed.totalDestinations).toBeGreaterThan(0);
@@ -76,6 +76,6 @@ describe("deploy --json (issue #357)", () => {
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout);
     expect(parsed.demo).toBe(true);
-    expect(parsed.shipmentId).toMatch(/^dep-demo-/);
+    expect(parsed.deploymentId).toMatch(/^dep-demo-/);
   }, 60000);
 });
