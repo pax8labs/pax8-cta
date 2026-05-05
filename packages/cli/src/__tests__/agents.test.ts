@@ -751,7 +751,7 @@ describe("Agents Command", () => {
 
   describe("drift risk calculation", () => {
     it("should calculate risk levels correctly", async () => {
-      const { buildDriftFixPlan } = await import("../commands/agents/drift.js");
+      const { buildDriftFixPlan } = await import("../commands/solutions/drift.js");
       const { getDemoTenantVersionStatus, DEMO_TENANTS } = await import("@agentsync/core");
 
       const enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);
@@ -776,7 +776,7 @@ describe("Agents Command", () => {
     });
 
     it("should classify not_deployed as high risk", async () => {
-      const { calculateDriftRisk } = await import("../commands/agents/drift.js");
+      const { calculateDriftRisk } = await import("../commands/solutions/drift.js");
 
       const status = {
         tenantId: "test",
@@ -801,7 +801,7 @@ describe("Agents Command", () => {
     });
 
     it("should classify 1-version drift as low risk", async () => {
-      const { calculateDriftRisk } = await import("../commands/agents/drift.js");
+      const { calculateDriftRisk } = await import("../commands/solutions/drift.js");
 
       const status = {
         tenantId: "test",
@@ -826,7 +826,7 @@ describe("Agents Command", () => {
     });
 
     it("should classify 2-version drift as medium risk", async () => {
-      const { calculateDriftRisk } = await import("../commands/agents/drift.js");
+      const { calculateDriftRisk } = await import("../commands/solutions/drift.js");
 
       const status = {
         tenantId: "test",

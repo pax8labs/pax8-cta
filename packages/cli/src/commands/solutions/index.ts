@@ -17,8 +17,8 @@
 import { Command } from "commander";
 import { listCommand } from "./list.js";
 import { removeCommand } from "./remove.js";
-import { showCommand } from "../agents/show.js";
-import { driftCommand } from "../agents/drift.js";
+import { showCommand } from "./show.js";
+import { driftCommand } from "./drift.js";
 
 export const solutionsCommand = new Command("solutions").description(
   "List, inspect, and compare solutions across environments"
