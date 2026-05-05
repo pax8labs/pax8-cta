@@ -28,7 +28,7 @@ import {
 } from "@agentsync/core";
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
 import { handleCommandError } from "../lib/errors.js";
-import { question } from "../lib/input.js";
+import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
 
 // Risk issue severity colors
 const SEVERITY_COLORS = {
@@ -231,56 +231,25 @@ interface TestDeployPromptOptions {
  * so scripts and pipelines never hang waiting for input.
  */
 async function maybePromptTestDeploy(opts: TestDeployPromptOptions): Promise<void> {
-  if (opts.json || isQuietMode() || !process.stdout.isTTY || !process.stdin.isTTY) {
-    return;
-  }
+  const interactive = isInteractivePrompt({ json: opts.json });
+  if (!interactive) return;
 
   const testTenants = opts.fullFleet.filter((t) => t.enabled && t.tags?.includes("test"));
-  if (testTenants.length === 0) {
-    return;
-  }
+  if (testTenants.length === 0) return;
 
-  let target: TenantConfig | undefined;
-
-  if (testTenants.length === 1) {
-    const only = testTenants[0];
-    const answer = await question(
-      chalk.cyan(`Try a test deploy to ${chalk.bold(only.name)} first? [y/N] `)
-    );
-    if (!isAffirmative(answer)) return;
-    target = only;
-  } else {
-    console.log(chalk.cyan("Try a test deploy first? Pick a tenant:"));
-    testTenants.forEach((t, i) => {
-      const tagsHint = t.tags?.length ? chalk.gray(`  [${t.tags.join(", ")}]`) : "";
-      console.log(`  ${i + 1}) ${t.name}${tagsHint}`);
-    });
-    console.log(chalk.gray("  0) skip"));
-    const answer = await question(chalk.cyan("> "));
-    const choice = parseInt(answer.trim(), 10);
-    if (!Number.isInteger(choice) || choice < 1 || choice > testTenants.length) {
-      return;
-    }
-    target = testTenants[choice - 1];
-  }
-
+  // pickFromList collapses to a y/N confirm when the list has one item, so the
+  // single-test-tenant case and the multi-test-tenant case share one code path.
+  const target = await pickFromList(testTenants, {
+    prompt: "Try a test deploy first?",
+    label: (t) => t.name,
+    hint: (t) => (t.tags?.length ? t.tags.join(", ") : undefined),
+    isInteractive: interactive,
+  });
   if (!target) return;
 
-  console.log(
-    chalk.gray(
-      `\nrunning: deploy ${quoteIfNeeded(opts.solution)} --tenant ${quoteIfNeeded(target.name)}\n`
-    )
-  );
+  printRunningCommand(["deploy", opts.solution, "--tenant", target.name]);
 
   await runDeploy(opts.solution, target.name, opts.isDemo);
-}
-
-function isAffirmative(input: string): boolean {
-  return /^(y|yes)$/i.test(input.trim());
-}
-
-function quoteIfNeeded(value: string): string {
-  return /\s/.test(value) ? `"${value}"` : value;
 }
 
 async function runDeploy(solution: string, tenantName: string, isDemo: boolean): Promise<void> {
