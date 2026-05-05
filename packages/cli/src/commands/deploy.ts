@@ -61,7 +61,7 @@ import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/p
 // (issue #357). Two structured surfaces flow through the helper:
 //   - DestinationRow: the "Shipping Destinations" preview table
 //   - DeployResultRow: the live-mode per-tenant deploy outcome / summary
-// Demo mode emits a single envelope (`{ shipmentId, package, destinations[] }`)
+// Demo mode emits a single envelope (`{ deploymentId, solution, destinations[] }`)
 // directly via JSON.stringify when --json is requested, so it keeps its
 // existing pirate-themed table rendering for the human path while still
 // honoring --quiet and pipe-default JSON.
@@ -121,7 +121,7 @@ function buildDestinationRows(destinations: TenantConfig[]): DestinationRow[] {
  * timestamps clustered around `now` so duration calculations look reasonable.
  */
 function recordDemoDeployment(opts: {
-  shipmentId: string;
+  deploymentId: string;
   solutionInput: string;
   isFilePath: boolean;
   destinations: TenantConfig[];
@@ -155,7 +155,7 @@ function recordDemoDeployment(opts: {
     : opts.solutionInput;
 
   demoDeploymentStore.record({
-    id: opts.shipmentId,
+    id: opts.deploymentId,
     solutionPath: opts.isFilePath ? opts.solutionInput : `./solutions/${opts.solutionInput}.zip`,
     solutionName,
     solutionVersion: "1.0.0.2",
@@ -356,7 +356,7 @@ Examples:
           // "I just deployed → show me what landed" demo beat broke because
           // the listing came purely from canned `generateMockDeploymentHistory`.
           recordDemoDeployment({
-            shipmentId: demoShipmentId,
+            deploymentId: demoDeploymentId,
             solutionInput: solutionArg,
             isFilePath,
             destinations,
