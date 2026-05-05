@@ -49,6 +49,7 @@ import {
   type DetectedUrl,
   environmentSetupService,
   detectSolutionMode,
+  getDemoTenantMetadata,
 } from "@agentsync/core";
 import { isDemo, withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
@@ -909,6 +910,66 @@ interface DryRunValidation {
   warnings: string[];
 }
 
+/**
+ * Demo-mode dry-run validation derived from the tenant's demo metadata.
+ *
+ * Uses the same gdapStatus / connectionStatus → severity mapping as the
+ * `solutions drift --risk` analyzer (`risk-analyzer.ts:283-410`) so the two
+ * views never disagree about a tenant. Tenants without demo metadata fall
+ * back to the previous "skipped" behaviour so non-demo configs are
+ * unaffected.
+ */
+function deriveDemoValidation(tenant: TenantConfig): DryRunValidation {
+  const meta = getDemoTenantMetadata(tenant.tenantId);
+  if (!meta) {
+    return { status: "skipped", errors: [], warnings: ["No demo metadata available"] };
+  }
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  switch (meta.gdapStatus) {
+    case "missing_role":
+      errors.push("Missing Power Platform Admin role on GDAP relationship");
+      break;
+    case "expired":
+      errors.push("GDAP relationship expired");
+      break;
+    case "propagating":
+      warnings.push("GDAP recently added — permissions may not have propagated yet");
+      break;
+    case "expiring_soon":
+      warnings.push("GDAP relationship expires within 7 days");
+      break;
+  }
+
+  switch (meta.connectionStatus) {
+    case "expired":
+      errors.push("Expired connection references");
+      break;
+    case "missing":
+      errors.push("Connection references missing");
+      break;
+    case "expiring_certificate":
+      warnings.push("Connection certificate expires soon");
+      break;
+  }
+
+  if (meta.recentFailures >= 3) {
+    warnings.push(`${meta.recentFailures} recent deploy failures on this tenant`);
+  }
+
+  if (meta.riskProfile === "production-critical" && errors.length === 0) {
+    warnings.push("Production-critical tenant — approval recommended");
+  }
+
+  return {
+    status: errors.length > 0 ? "fail" : "pass",
+    errors,
+    warnings,
+  };
+}
+
 interface DryRunTenantPlan {
   tenantName: string;
   tenantId: string;
@@ -1117,12 +1178,12 @@ async function buildDryRunPlan(context: DryRunContext): Promise<DryRunPlan> {
   const validationByTenant = new Map<string, DryRunValidation>();
 
   if (context.demoMode) {
+    // Derive plausible per-tenant validation from demo metadata so the dry-run
+    // table shows real signal (PASS / WARN / FAIL with reasons) instead of a
+    // wall of "SKIPPED" cells. Drives the demo story "this tool actually
+    // checked each tenant before deploying."
     for (const tenant of context.destinations) {
-      validationByTenant.set(tenant.tenantId, {
-        status: "skipped",
-        errors: [],
-        warnings: ["Skipped in demo mode"],
-      });
+      validationByTenant.set(tenant.tenantId, deriveDemoValidation(tenant));
     }
   } else if (context.options.skipValidation) {
     for (const tenant of context.destinations) {
