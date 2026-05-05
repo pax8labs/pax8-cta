@@ -282,6 +282,74 @@ describe("tenants health command (issue #382)", () => {
 });
 
 // ============================================================================
+// Issue #377: solutions drift --risk gained an after-action hint and an
+// interactive picker. Both must respect --json / --quiet / non-TTY so
+// scripted callers don't hang on the picker prompt.
+// ============================================================================
+
+describe("solutions drift after-action hint (issue #377)", () => {
+  it("solutions drift --risk --json suppresses the after-action hint and picker", async () => {
+    // Note: the pre-existing drift command renders the risk table even when
+    // --json is set at root level (separate compatibility concern). What
+    // this test pins is that the new after-action hint and picker are
+    // suppressed for any `--json` caller (root-level or local).
+    const result = await runCli(["solutions", "drift", "--risk", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("Suggested next action");
+    expect(result.stdout).not.toContain("Update an outdated tenant now?");
+  }, 60000);
+
+  it("solutions drift --risk --quiet suppresses the after-action hint and picker", async () => {
+    // Note: drift's pre-existing table renderer doesn't currently honor
+    // --quiet (separate concern, tracked elsewhere). This test only asserts
+    // that the new hint and the picker stay silent under --quiet.
+    const result = await runCli(["solutions", "drift", "--risk", "--quiet"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("Suggested next action");
+    expect(result.stdout).not.toContain("Update an outdated tenant now?");
+  }, 60000);
+
+  it("solutions drift --risk in non-TTY (piped) prints hint but does NOT prompt", async () => {
+    // Subprocess stdout is non-TTY by default → isInteractivePrompt() returns
+    // false → the picker must not fire. The after-action hint should still
+    // render (it's just a console.log, not a prompt).
+    const result = await runCli(["solutions", "drift", "--risk"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Fleet Drift Risk Analysis");
+    // Hint renders for the demo fleet (which has outdated tenants by design).
+    expect(result.stdout).toMatch(/Suggested next action|Fleet is current/);
+    // Picker never fires in non-TTY.
+    expect(result.stdout).not.toContain("Update an outdated tenant now?");
+  }, 60000);
+
+  it("solutions drift --fix in non-TTY does not double-prompt the picker", async () => {
+    // --fix is the explicit fix path; the after-report picker would just be a
+    // second prompt for the same intent. We pass --yes to skip the existing
+    // --fix confirmation and assert the new picker never appears.
+    const result = await runCli(["solutions", "drift", "--fix", "--yes"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    // --fix can exit 0 or non-zero depending on demo data; we only care that
+    // the new picker doesn't render.
+    expect(result.stdout).not.toContain("Update an outdated tenant now?");
+  }, 60000);
+});
+
+// ============================================================================
 // Issue #360: tenants show <not-found> emits a JSON error envelope (not bare
 // colored text) and exits non-zero.
 // ============================================================================

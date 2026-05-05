@@ -15,6 +15,7 @@
  */
 
 import { Command } from "commander";
+import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import Table from "cli-table3";
@@ -31,14 +32,19 @@ import {
   TenantDeploymentHistory,
   getDemoUnmanagedCustomizations,
   getDemoCustomizationSummary,
+  type FleetDriftAnalysis,
+  type TenantDriftAnalysis,
 } from "@agentsync/core";
 import type { TenantVersionStatus } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
-import { type DriftRiskLevel, riskLevelValue } from "./risk-calculator.js";
+import { isInteractivePrompt, printRunningCommand } from "../../lib/picker.js";
+import { question } from "../../lib/input.js";
+import { type DriftRiskLevel, riskLevelValue, formatRiskLevel } from "./risk-calculator.js";
 import { buildDriftFixPlan, type DriftFixResult } from "./fix-planner.js";
 import {
+  buildAfterActionHint,
   buildSummary,
   displayCustomizationDetails,
   displayCustomizationFleetSummary,
@@ -47,6 +53,7 @@ import {
   displayTenantRiskAnalysis,
   displayTenantStatus,
   generateDemoDeployHistory,
+  selectOutdated,
 } from "./drift-analysis.js";
 
 const driftAnalyzer = new DriftAnalyzer();
@@ -81,7 +88,16 @@ Examples:
   solutions drift --fix --force             Fix all outdated tenants
 `
   )
-  .action(async (options) => {
+  .action(async (options, cmd) => {
+    // --json is a root-level global flag in this CLI (see index.ts), so the
+    // local opts bag may not see it when typed at the program level
+    // (`agentsync solutions drift --risk --json`). The new after-action hint
+    // and picker must honor that; we pass the merged value through the
+    // post-report path without touching the existing branches that rely on
+    // the local `options.json` for backward compatibility.
+    const globalOpts = cmd.optsWithGlobals();
+    const jsonOutput = !!(options.json || globalOpts.json);
+
     const spinner = createSpinner("Checking version drift...").start();
 
     try {
@@ -354,6 +370,11 @@ Examples:
             }
 
             displayFleetRiskAnalysis(fleetAnalysis, options.risk);
+            await afterDriftReport(
+              fleetAnalysis,
+              { ...options, json: jsonOutput },
+              /* isDemo */ true
+            );
             return;
           }
 
@@ -555,6 +576,11 @@ Examples:
             }
 
             displayFleetRiskAnalysis(fleetAnalysis, options.risk);
+            await afterDriftReport(
+              fleetAnalysis,
+              { ...options, json: jsonOutput },
+              /* isDemo */ false
+            );
             return;
           }
 
@@ -584,6 +610,156 @@ Examples:
       handleCommandError(error, spinner, "Failed to check version drift");
     }
   });
+
+// ============================================================================
+// After-action hint + picker (issue #377)
+// ----------------------------------------------------------------------------
+// Mirrors the analyze → test-deploy nudge from `analyze.ts`. The drift report
+// already lists outdated tenants and their risk; the missing piece was a hint
+// telling the user *what to do next* and an interactive picker that runs the
+// suggested command. We reuse `isInteractivePrompt` / `printRunningCommand`
+// from `lib/picker.ts` so `--json`, `--quiet`, and non-TTY callers never
+// hang. The picker is hand-rolled (rather than `pickFromList`) because we
+// need an extra non-numeric "F = fix all" option.
+// ============================================================================
+
+interface DriftAfterActionOptions {
+  json?: boolean;
+  fix?: boolean;
+  agent?: string;
+}
+
+/**
+ * Pick a stable label for the solution we'd suggest the user act on. Drift
+ * is per-fleet today, so when the user didn't scope with `-a/--agent` we try
+ * to learn it from the analysis (the riskiest tenant's first outdated
+ * solution) and otherwise fall back to `<solution>` so the printed hint is
+ * still readable as a template.
+ */
+function resolveSolutionLabel(fleet: FleetDriftAnalysis, options: DriftAfterActionOptions): string {
+  if (options.agent && options.agent.trim().length > 0) {
+    return options.agent;
+  }
+  for (const t of fleet.tenants) {
+    const first = t.outdatedSolutions[0];
+    if (first?.uniqueName) return first.uniqueName;
+  }
+  return "<solution>";
+}
+
+/**
+ * Sort outdated tenants for display: highest risk score first, ties broken
+ * alphabetically so the picker is deterministic across runs.
+ */
+function sortOutdated(outdated: TenantDriftAnalysis[]): TenantDriftAnalysis[] {
+  return [...outdated].sort((a, b) => {
+    if (b.riskScore !== a.riskScore) return b.riskScore - a.riskScore;
+    return a.tenantName.localeCompare(b.tenantName);
+  });
+}
+
+function maxVersionDrift(t: TenantDriftAnalysis): number {
+  if (t.outdatedSolutions.length === 0) return 0;
+  return Math.max(...t.outdatedSolutions.map((s) => Math.abs(s.versionDrift)));
+}
+
+async function afterDriftReport(
+  fleet: FleetDriftAnalysis,
+  options: DriftAfterActionOptions,
+  isDemo: boolean
+): Promise<void> {
+  // --json and --quiet suppress all post-report chrome: callers rely on a
+  // clean machine-parseable stream (or no stream at all).
+  if (options.json) return;
+  if (isQuietMode()) return;
+
+  const outdated = selectOutdated(fleet);
+  const solutionLabel = resolveSolutionLabel(fleet, options);
+
+  // Hint always renders (including the "fleet is current" case) — it's the
+  // discoverable nudge at the bottom of the report.
+  const hint = buildAfterActionHint(outdated, solutionLabel);
+  console.log();
+  console.log(chalk.gray(hint));
+
+  // Picker only fires when we have something to act on, the caller is a real
+  // human in a TTY, and they didn't already pass `--fix` (we don't want to
+  // double-prompt for an explicit fix run).
+  if (outdated.length === 0) return;
+  if (options.fix) return;
+  if (!isInteractivePrompt({ json: options.json })) return;
+
+  await promptDriftPicker(sortOutdated(outdated), solutionLabel, isDemo);
+}
+
+async function promptDriftPicker(
+  outdated: TenantDriftAnalysis[],
+  solutionLabel: string,
+  isDemo: boolean
+): Promise<void> {
+  console.log();
+  console.log(chalk.cyan("Update an outdated tenant now? Pick:"));
+
+  // Pad tenant names so the [risk — N versions behind] hint lines up.
+  const widest = outdated.reduce((m, t) => Math.max(m, t.tenantName.length), 0);
+
+  outdated.forEach((t, i) => {
+    const drift = maxVersionDrift(t);
+    const driftLabel = drift === 1 ? "1 version behind" : `${drift} versions behind`;
+    const riskLabel = formatRiskLevel(t.riskLevel).padEnd(4);
+    const padded = t.tenantName.padEnd(widest);
+    console.log(`  ${i + 1}) ${padded}  ${chalk.gray(`[${riskLabel} — ${driftLabel}]`)}`);
+  });
+  console.log(`  ${chalk.bold("F")}) fix all outdated (runs solutions drift --fix)`);
+  console.log(chalk.gray("  0) skip"));
+
+  const answer = (await question(chalk.cyan("> "))).trim();
+  if (answer === "" || answer === "0") return;
+
+  if (answer.toLowerCase() === "f") {
+    printRunningCommand(["solutions", "drift", "--fix"]);
+    await runDriftFix(isDemo);
+    return;
+  }
+
+  const choice = parseInt(answer, 10);
+  if (!Number.isInteger(choice) || choice < 1 || choice > outdated.length) return;
+
+  const target = outdated[choice - 1];
+  printRunningCommand(["deploy", solutionLabel, "--tenant", target.tenantName]);
+  await runDeploy(solutionLabel, target.tenantName, isDemo);
+}
+
+function spawnSelf(args: string[], isDemo: boolean): Promise<void> {
+  // Mirrors `runDeploy` in analyze.ts: re-invoke the same CLI binary as a
+  // child process so the spawned command gets its own commander parse and
+  // we don't tangle commander state with the active drift run. stdin is
+  // ignored — neither deploy nor `drift --fix` need user input in this
+  // post-report flow (and `--fix` defaults to confirm-prompted, but the user
+  // can re-run with `--yes` themselves if they want non-interactive).
+  return new Promise((resolveSpawn, reject) => {
+    const isBundled = !process.argv[1] || process.argv[1] === process.execPath;
+    const spawnArgs = isBundled ? args : [process.argv[1], ...args];
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    if (isDemo) env.DEMO_MODE = "true";
+    const proc = spawn(process.execPath, spawnArgs, {
+      stdio: ["ignore", "inherit", "inherit"],
+      env,
+    });
+    proc.on("close", () => resolveSpawn());
+    proc.on("error", reject);
+  });
+}
+
+async function runDeploy(solution: string, tenantName: string, isDemo: boolean): Promise<void> {
+  return spawnSelf(["deploy", solution, "--tenant", tenantName], isDemo);
+}
+
+async function runDriftFix(isDemo: boolean): Promise<void> {
+  return spawnSelf(["solutions", "drift", "--fix"], isDemo);
+}
+
+export { buildAfterActionHint } from "./drift-analysis.js";
 export { calculateDriftRisk } from "./risk-calculator.js";
 export { buildDriftFixPlan } from "./fix-planner.js";
 export type { DriftFixEntry, DriftFixResult } from "./fix-planner.js";
