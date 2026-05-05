@@ -36,10 +36,31 @@ export interface ZipFile {
 }
 
 /**
- * Options for generating a ZIP archive
+ * Map of ZIP output type identifiers to their concrete TS types.
+ *
+ * Mirrors the shape of JSZip's `OutputByType` so that {@link ZipArchive.generateAsync}
+ * can return the correct concrete type based on the requested `type` option,
+ * instead of falling back to `any`.
  */
-export interface ZipGenerateOptions {
-  type: "nodebuffer" | "arraybuffer" | "blob" | "uint8array" | "base64" | "string";
+export interface ZipOutputByType {
+  nodebuffer: Buffer;
+  arraybuffer: ArrayBuffer;
+  blob: Blob;
+  uint8array: Uint8Array;
+  base64: string;
+  string: string;
+}
+
+export type ZipOutputType = keyof ZipOutputByType;
+
+/**
+ * Options for generating a ZIP archive.
+ *
+ * The `type` field is a generic so that callers like `zip.generateAsync({ type: "nodebuffer" })`
+ * yield a `Promise<Buffer>` rather than `Promise<any>`.
+ */
+export interface ZipGenerateOptions<T extends ZipOutputType = ZipOutputType> {
+  type: T;
   compression?: "STORE" | "DEFLATE";
   compressionOptions?: { level: number };
 }
@@ -50,8 +71,9 @@ export interface ZipGenerateOptions {
 export interface ZipArchive {
   files: Record<string, ZipFile>;
   file(path: string, content: string): void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  generateAsync(options: ZipGenerateOptions): Promise<any>;
+  generateAsync<T extends ZipOutputType>(
+    options: ZipGenerateOptions<T>
+  ): Promise<ZipOutputByType[T]>;
 }
 
 /**
