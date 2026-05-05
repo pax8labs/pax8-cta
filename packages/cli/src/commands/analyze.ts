@@ -28,7 +28,10 @@ import {
   type RiskAnalysis,
   type DeploymentContext,
   type TenantConfig,
+  type PreconditionFailure,
+  type Remediation,
 } from "@agentsync/core";
+import open from "open";
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
 import { CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
@@ -179,6 +182,8 @@ Examples:
 
           displayAnalysis(analysis, destinations.length, jsonOutput);
 
+          await maybePromptPreconditionFix(analysis.preconditions.failures, jsonOutput);
+
           if (analysis.canProceed) {
             await maybePromptTestDeploy({
               solution: options.agentPackage || options.solution,
@@ -245,6 +250,8 @@ Examples:
           console.log();
 
           displayAnalysis(analysis, destinations.length, jsonOutput);
+
+          await maybePromptPreconditionFix(analysis.preconditions.failures, jsonOutput);
 
           if (analysis.canProceed) {
             await maybePromptTestDeploy({
@@ -378,9 +385,10 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
     });
   }
 
-  // Critical & Error Issues
+  // Critical & Error Issues — preflight failures get their own dedicated
+  // PRECONDITIONS section below, so exclude them here to avoid duplication.
   const criticalIssues = analysis.issues.filter(
-    (i) => i.severity === "critical" || i.severity === "error"
+    (i) => (i.severity === "critical" || i.severity === "error") && i.category !== "preconditions"
   );
   if (criticalIssues.length > 0 && analysis.blockers.length === 0) {
     console.log(chalk.bold.red(`❌ CRITICAL ISSUES (${criticalIssues.length})`));
@@ -400,8 +408,10 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
     console.log();
   }
 
-  // Warnings
-  const warnings = analysis.issues.filter((i) => i.severity === "warning");
+  // Warnings — same exclusion, preflight has its own section.
+  const warnings = analysis.issues.filter(
+    (i) => i.severity === "warning" && i.category !== "preconditions"
+  );
   if (warnings.length > 0) {
     console.log(chalk.bold.yellow(`⚠️  WARNINGS (${warnings.length})`));
     console.log(chalk.yellow("─".repeat(70)));
@@ -418,8 +428,11 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
     console.log();
   }
 
-  // Info
-  const infos = analysis.issues.filter((i) => i.severity === "info");
+  // Info — exclude preconditions; the PRECONDITIONS section below renders
+  // its own "manifest skipped" / "all clear" status line.
+  const infos = analysis.issues.filter(
+    (i) => i.severity === "info" && i.category !== "preconditions"
+  );
   if (infos.length > 0) {
     console.log(chalk.bold.blue(`ℹ️  INFORMATION (${infos.length})`));
     console.log(chalk.blue("─".repeat(70)));
@@ -440,6 +453,10 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
     });
     console.log();
   }
+
+  // Preflight (preconditions) — fifth analyze dimension. Renders structured
+  // remediation per failure (deep link / CLI command / manual steps).
+  displayPreconditions(analysis);
 
   // Per-tenant breakdown — gives operators a fast scan over which
   // tenants are driving the aggregate risk.
@@ -492,4 +509,176 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
     console.log(chalk.gray("Fix the blockers listed above, then run 'analyze' again"));
   }
   console.log();
+}
+
+/**
+ * Render the PRECONDITIONS block (Phase 1 preflight). Three states:
+ *   - Manifest not found → single info line, deploy still proceeds.
+ *   - Manifest found, no failures → "all clear" line.
+ *   - Manifest found with failures → numbered list with structured
+ *     remediation (link / command / manual).
+ */
+function displayPreconditions(analysis: RiskAnalysis): void {
+  const { preconditions } = analysis;
+
+  if (!preconditions.manifestFound) {
+    // Visible note about coverage — preflight skipped because no manifest.
+    console.log(chalk.bold("🔧 PRECONDITIONS"));
+    console.log("─".repeat(70));
+    console.log(chalk.gray("No precondition manifest for this solution; preflight skipped."));
+    console.log();
+    return;
+  }
+
+  if (preconditions.failures.length === 0) {
+    console.log(chalk.bold("🔧 PRECONDITIONS"));
+    console.log("─".repeat(70));
+    console.log(
+      chalk.green(
+        `All preconditions passed for solution \`${preconditions.solution}\` (manifest v${preconditions.manifestVersion}).`
+      )
+    );
+    console.log();
+    return;
+  }
+
+  console.log(chalk.bold("🔧 PRECONDITIONS"));
+  console.log("─".repeat(70));
+  console.log(
+    `${chalk.bold(preconditions.failures.length)} precondition${preconditions.failures.length === 1 ? "" : "s"} failed for solution \`${preconditions.solution}\`:`
+  );
+  console.log();
+
+  preconditions.failures.forEach((failure, idx) => {
+    const headerColor = failure.severity === "error" ? chalk.red : chalk.yellow;
+    console.log(
+      headerColor(
+        `  ${idx + 1}. ${failure.resourceType.split(".").pop() ?? failure.resourceType} \`${failure.resourceDisplayName}\`  [${failure.tenantName}]`
+      )
+    );
+    console.log(`     ${chalk.gray("property:")}    ${failure.failedProperty}`);
+    console.log(`     ${chalk.gray("current:")}     ${formatValue(failure.currentValue)}`);
+    console.log(
+      `     ${chalk.gray("required:")}    ${formatValue(failure.requiredValue)} (${failure.comparisonOp})`
+    );
+    console.log(`     ${chalk.gray("why:")}         ${failure.description}`);
+    console.log();
+
+    const subs = remediationSubstitutions(failure);
+    const remediation = failure.remediation;
+    console.log(`     ${chalk.cyan("fix:")}  ${substitute(remediation.title, subs)}`);
+    if (remediation.kind === "link") {
+      console.log(`     ${chalk.cyan("→")}     ${substitute(remediation.urlTemplate, subs)}`);
+    } else if (remediation.kind === "command") {
+      console.log(`     ${chalk.cyan("$")}     ${substitute(remediation.cmd, subs)}`);
+    } else {
+      remediation.steps.forEach((step) => {
+        console.log(`     ${chalk.cyan("·")}     ${substitute(step, subs)}`);
+      });
+    }
+    console.log();
+  });
+}
+
+/**
+ * Pretty-print a precondition value. Strings stay bare; everything else
+ * (booleans, arrays, objects, undefined) round-trips through JSON for a
+ * compact, unambiguous representation.
+ */
+function formatValue(value: unknown): string {
+  if (typeof value === "string") return `\`${value}\``;
+  if (value === undefined) return "(missing)";
+  return JSON.stringify(value);
+}
+
+/**
+ * Substitution map for `urlTemplate`, `cmd`, and `manualSteps[*]`. Keys in
+ * the template are wrapped in single braces (e.g. `{tenantId}`) — same
+ * grammar as the existing analyze deep-link templating in the URL
+ * resolver.
+ */
+function remediationSubstitutions(failure: PreconditionFailure): Record<string, string> {
+  return {
+    tenantId: failure.tenantId,
+    tenantName: failure.tenantName,
+    resourceId: failure.resourceId,
+    resourceDisplayName: failure.resourceDisplayName,
+  };
+}
+
+function substitute(template: string, subs: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => subs[key] ?? `{${key}}`);
+}
+
+/**
+ * After-action picker for preflight failures. TTY-only (matches the
+ * drift-after-action UX from #404). Renders a numbered list of failures
+ * and dispatches based on remediation kind:
+ *   - `link`     → print URL, optionally `open` it.
+ *   - `command`  → print the command and spawn it.
+ *   - `manual`   → print the substituted steps.
+ */
+export async function maybePromptPreconditionFix(
+  failures: PreconditionFailure[],
+  jsonOutput: boolean
+): Promise<void> {
+  if (failures.length === 0) return;
+  const interactive = isInteractivePrompt({ json: jsonOutput });
+  if (!interactive) return;
+
+  const choice = await pickFromList(failures, {
+    prompt: "Fix a precondition?",
+    label: (f) => `${f.resourceDisplayName} on ${f.tenantName} (${f.failedProperty})`,
+    hint: (f) => f.severity,
+    isInteractive: interactive,
+    skipLabel: "skip",
+  });
+  if (!choice) return;
+
+  await dispatchRemediation(choice);
+}
+
+async function dispatchRemediation(failure: PreconditionFailure): Promise<void> {
+  const subs = remediationSubstitutions(failure);
+  const remediation: Remediation = failure.remediation;
+
+  if (remediation.kind === "link") {
+    const url = substitute(remediation.urlTemplate, subs);
+    console.log(chalk.cyan(`\n→ ${url}\n`));
+    try {
+      await open(url);
+    } catch {
+      // Non-fatal: user can copy the URL manually.
+    }
+    return;
+  }
+
+  if (remediation.kind === "command") {
+    const cmd = substitute(remediation.cmd, subs);
+    printRunningCommand(cmd.split(/\s+/));
+    await runShellCommand(cmd);
+    return;
+  }
+
+  console.log(chalk.cyan(`\n${remediation.title}`));
+  remediation.steps.forEach((step, idx) => {
+    console.log(`  ${idx + 1}. ${substitute(step, subs)}`);
+  });
+  console.log();
+}
+
+/**
+ * Spawn a remediation `command` directly. Mirrors `runDeploy` above —
+ * stdin ignored so we don't fight with the parent REPL's readline.
+ */
+async function runShellCommand(cmd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const parts = cmd.split(/\s+/);
+    const proc = spawn(parts[0], parts.slice(1), {
+      stdio: ["ignore", "inherit", "inherit"],
+      env: process.env,
+    });
+    proc.on("close", () => resolve());
+    proc.on("error", reject);
+  });
 }

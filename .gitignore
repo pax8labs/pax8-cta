@@ -30,6 +30,11 @@ pnpm-debug.log*
 # Solutions (exported files)
 solutions/*.zip
 agent packages/
+# Phase 1 deploy-preflight ships an example precondition manifest with the
+# repo. The directory is otherwise gitignored (it's where users drop their
+# own .zip solutions), so allow YAML sidecars back in.
+!agent packages/
+agent packages/*.zip
 packages/web/solutions/
 
 # Rollback snapshots

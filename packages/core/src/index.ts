@@ -42,6 +42,9 @@ export * from "./services/index.js";
 export * from "./mock/demo-data.js";
 export * from "./mock/demo-deployment-store.js";
 
+// Preconditions (preflight)
+export * from "./preconditions/index.js";
+
 // Test utilities are available at:
 // import { createMockTokenManager, ... } from '@agentsync/core/dist/__tests__/test-utils.js'
 // Do NOT export them from main index to avoid vitest being bundled in production

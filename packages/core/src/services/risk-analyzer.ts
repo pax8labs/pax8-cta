@@ -19,7 +19,16 @@
  * Analyzes deployment risk before execution
  */
 
-import { getDemoTenantMetadata } from "../mock/demo-data.js";
+import { getDemoTenantMetadata, type DemoPreconditionState } from "../mock/demo-data.js";
+import {
+  loadPreconditionManifest,
+  checkPreconditions,
+  PreconditionManifestValidationError,
+  type Precondition,
+  type PreconditionFailure,
+} from "../preconditions/index.js";
+import type { TenantConfig } from "../config/schema.js";
+import { join } from "node:path";
 import type { WaveExecutionPlan } from "./waves.js";
 
 // Simple tenant interface for risk analysis
@@ -66,7 +75,8 @@ export type RiskCategory =
   | "timing"
   | "history"
   | "connections"
-  | "configuration";
+  | "configuration"
+  | "preconditions";
 
 // Individual risk issue
 export interface RiskIssue {
@@ -103,6 +113,19 @@ export interface RiskAnalysis {
   requiresApproval: boolean;
   /** Per-tenant risk rollup. Same dimensions, attributed per tenant. */
   perTenantBreakdown: TenantRiskRow[];
+  /**
+   * Preflight (preconditions) results — the fifth analyze dimension. When
+   * no manifest was found for the solution, `manifestFound` is false and
+   * `failures` is empty. When the manifest validates and the diff engine
+   * runs, every failed (tenant × requirement) lands in `failures` here AND
+   * is mirrored into `issues` as a RiskIssue with category `preconditions`.
+   */
+  preconditions: {
+    manifestFound: boolean;
+    solution?: string;
+    manifestVersion?: string;
+    failures: PreconditionFailure[];
+  };
 }
 
 // Deployment context for analysis
@@ -125,6 +148,13 @@ export interface DeploymentContext {
    * `waves` is not provided. Defaults to `DEFAULT_MAX_PARALLEL` (5).
    */
   maxParallel?: number;
+  /**
+   * Directories to search for `<solution>.preconditions.yaml`. When omitted,
+   * defaults to `["./agent packages", process.cwd()]`. The fifth analyze
+   * dimension (preconditions) walks this list and skips silently if no
+   * manifest is found.
+   */
+  preconditionSearchDirs?: string[];
 }
 
 /**
@@ -142,12 +172,92 @@ export const DEFAULT_MAX_PARALLEL = 5;
 const PER_TENANT_MINUTES = 1;
 
 /**
+ * Build a Phase 1 state resolver against `DEMO_TENANTS[].metadata.preconditionState`.
+ *
+ *  - If a tenant has no `preconditionState` set, we synthesize a state where
+ *    every requirement passes. "We didn't snapshot this tenant" is treated
+ *    as "assume good"; this keeps non-demo tenants and tenants that didn't
+ *    opt into preflight quiet.
+ *  - If a tenant has `preconditionState` defined, we look for a snapshot
+ *    matching every key/value in the precondition's `matcher`. Found → real
+ *    state. Not found → "missing-resource".
+ *
+ * Phase 2: replace this whole factory with one that calls Microsoft Graph
+ * TCM endpoints. The diff engine and manifest format don't change.
+ */
+function synthesizeTenantStateResolver(): (
+  tenant: TenantConfig,
+  precondition: Precondition
+) => DemoPreconditionState | "missing-resource" {
+  return (tenant, precondition) => {
+    const meta = getDemoTenantMetadata(tenant.tenantId);
+    const states = meta?.preconditionState;
+
+    if (!states) {
+      // No preflight snapshot at all — synthesize a passing state. Each
+      // requirement's required value lands at its `property` dot-path.
+      const props: Record<string, unknown> = {};
+      for (const req of precondition.requirements) {
+        setByDotPath(props, req.property, req.value);
+      }
+      return {
+        resourceType: precondition.resourceType,
+        resourceMatcher: precondition.matcher,
+        resourceDisplayName:
+          precondition.matcher.displayName ??
+          Object.values(precondition.matcher)[0] ??
+          "(synthesized)",
+        currentProperties: props,
+      };
+    }
+
+    // Look for a snapshot whose matcher fields all line up.
+    const match = states.find(
+      (s) =>
+        s.resourceType === precondition.resourceType &&
+        Object.entries(precondition.matcher).every(([k, v]) => s.resourceMatcher[k] === v)
+    );
+    if (!match) return "missing-resource";
+    return match;
+  };
+}
+
+/**
+ * Walk into `obj` along a dot-path and assign `value` at the leaf, creating
+ * intermediate objects as needed. Used by the synthesized passing-state.
+ */
+function setByDotPath(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split(".");
+  let current = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    const next = current[key];
+    if (typeof next !== "object" || next === null || Array.isArray(next)) {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, unknown>;
+  }
+  current[parts[parts.length - 1]] = value;
+}
+
+/**
  * Internal — return shape for each risk dimension check. `dataAvailable`
  * feeds the coverage component of `calculateConfidence`.
  */
 interface DimensionResult {
   issues: RiskIssue[];
   dataAvailable: boolean;
+}
+
+/**
+ * Extended dimension result for preflight. Same `dataAvailable` semantics,
+ * plus the manifest envelope and structured failures so `analyze()` can
+ * forward them to the CLI render layer.
+ */
+interface PreconditionDimensionResult extends DimensionResult {
+  manifestFound: boolean;
+  manifest?: { solution: string; version: string };
+  failures: PreconditionFailure[];
 }
 
 /**
@@ -199,16 +309,25 @@ export class DeploymentRiskAnalyzer {
 
     // Run all checks in parallel. Each check returns its issues plus a
     // `dataAvailable` flag — used to compute coverage for confidence.
-    const [gdap, connections, health, history] = await Promise.all([
+    const [gdap, connections, health, history, preconditions] = await Promise.all([
       this.checkGDAPPermissions(context),
       this.checkConnections(context),
       this.checkTenantHealth(context),
       this.analyzeHistory(context),
+      this.checkPreconditions(context),
     ]);
 
-    issues.push(...gdap.issues, ...connections.issues, ...health.issues, ...history.issues);
+    issues.push(
+      ...gdap.issues,
+      ...connections.issues,
+      ...health.issues,
+      ...history.issues,
+      ...preconditions.issues
+    );
 
-    const coverage = [gdap, connections, health, history].filter((r) => r.dataAvailable).length;
+    const coverage = [gdap, connections, health, history, preconditions].filter(
+      (r) => r.dataAvailable
+    ).length;
 
     // Calculate risk score
     const riskScore = this.calculateRiskScore(issues);
@@ -255,6 +374,12 @@ export class DeploymentRiskAnalyzer {
       canProceed,
       requiresApproval,
       perTenantBreakdown,
+      preconditions: {
+        manifestFound: preconditions.manifestFound,
+        solution: preconditions.manifest?.solution,
+        manifestVersion: preconditions.manifest?.version,
+        failures: preconditions.failures,
+      },
     };
   }
 
@@ -655,6 +780,116 @@ export class DeploymentRiskAnalyzer {
     }
 
     return { issues, dataAvailable };
+  }
+
+  /**
+   * Fifth dimension — tenant-config preflight. Loads a sibling YAML
+   * `<solution>.preconditions.yaml`, runs it against synthetic per-tenant
+   * state (Phase 1), and emits one `RiskIssue` per failed requirement plus a
+   * structured `failures[]` payload the CLI can render with deep-link / CLI
+   * / manual remediation steps.
+   *
+   * When no manifest is found we emit a single `info` issue ("preflight
+   * skipped") and return — deploy still proceeds.
+   *
+   * Phase 2 will replace `synthesizeTenantStateResolver` with a real
+   * Microsoft Graph TCM client; the manifest format and the diff engine
+   * stay the same.
+   */
+  private async checkPreconditions(
+    context: DeploymentContext
+  ): Promise<PreconditionDimensionResult> {
+    const issues: RiskIssue[] = [];
+    const failures: PreconditionFailure[] = [];
+
+    if (!context.solutionFile) {
+      return { issues, dataAvailable: false, manifestFound: false, failures };
+    }
+
+    const searchDirs = context.preconditionSearchDirs ?? [
+      join(process.cwd(), "agent packages"),
+      process.cwd(),
+    ];
+
+    let manifest;
+    try {
+      manifest = await loadPreconditionManifest(context.solutionFile, searchDirs);
+    } catch (error) {
+      // Surface validation errors as a non-blocking warning rather than
+      // crashing analyze — the user has a manifest but it's malformed and
+      // they need to know why.
+      const message =
+        error instanceof PreconditionManifestValidationError
+          ? error.message
+          : `Failed to load precondition manifest: ${error instanceof Error ? error.message : String(error)}`;
+      issues.push({
+        severity: "warning",
+        category: "preconditions",
+        message: "Precondition manifest failed to load",
+        resolution: "Fix the manifest schema errors above and re-run analyze",
+        details: { error: message },
+      });
+      return { issues, dataAvailable: false, manifestFound: false, failures };
+    }
+
+    if (!manifest) {
+      // Visible note — preflight skipped because there's no manifest. Not
+      // a warning, not blocking; just transparency about coverage.
+      issues.push({
+        severity: "info",
+        category: "preconditions",
+        message: "No precondition manifest for this solution; preflight skipped.",
+      });
+      return { issues, dataAvailable: false, manifestFound: false, failures };
+    }
+
+    // Build the Phase 1 state resolver from demo metadata. This is the
+    // single seam Phase 2 will replace with a Graph TCM client.
+    const resolver = synthesizeTenantStateResolver();
+
+    // The check engine wants TenantConfig[]; map our richer-but-stripped
+    // `Tenant` view back. We fall back to a minimal TenantConfig-shaped
+    // value so the resolver can read tenantId/name without a deeper lookup.
+    const tenantConfigs: TenantConfig[] = context.tenants.map((t) => ({
+      name: t.name,
+      tenantId: t.id,
+      environmentUrl: t.environmentUrl,
+      tags: t.tags ?? [],
+      enabled: true,
+      autoSetup: true,
+    }));
+
+    failures.push(...checkPreconditions(manifest, tenantConfigs, resolver));
+
+    // Mirror each failure into a RiskIssue so the existing aggregate score,
+    // recommendations, and per-tenant breakdown all see preflight findings.
+    for (const failure of failures) {
+      issues.push({
+        severity: failure.severity === "error" ? "error" : "warning",
+        category: "preconditions",
+        message: `${failure.description} — ${failure.resourceDisplayName} (${failure.failedProperty})`,
+        affectedTenants: [failure.tenantName],
+        resolution: failure.remediation.title,
+        details: {
+          preconditionId: failure.preconditionId,
+          resourceType: failure.resourceType,
+          resourceDisplayName: failure.resourceDisplayName,
+          failedProperty: failure.failedProperty,
+          currentValue: failure.currentValue,
+          requiredValue: failure.requiredValue,
+          comparisonOp: failure.comparisonOp,
+          remediation: failure.remediation,
+        },
+      });
+    }
+
+    return {
+      issues,
+      dataAvailable: true,
+      manifestFound: true,
+      manifest: { solution: manifest.solution, version: manifest.version },
+      failures,
+    };
   }
 
   /**
