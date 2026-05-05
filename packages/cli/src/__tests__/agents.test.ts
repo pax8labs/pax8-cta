@@ -531,16 +531,29 @@ describe("Agents Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
+      // Issue #401: drift now emits a typed DriftRow envelope rather than the
+      // raw FleetDriftAnalysis structure. Rows carry `score`, `risk`,
+      // `recommendation`, `topFactor` so agent / pipeline callers can rely on
+      // a stable shape.
       const json = extractJson<{
-        tenants: Array<{ riskScore: number; recommendation: string }>;
+        tenants: Array<{
+          tenantName: string;
+          tenantId: string;
+          score: number;
+          risk: string;
+          recommendation: string;
+          topFactor: string;
+        }>;
         summary: { total: number };
       }>(output);
       expect(json).not.toBeNull();
       expect(json!.tenants).toBeDefined();
       expect(json!.summary).toBeDefined();
       expect(json!.summary.total).toBeGreaterThan(0);
-      expect(json!.tenants[0].riskScore).toBeDefined();
+      expect(json!.tenants[0].score).toBeDefined();
+      expect(json!.tenants[0].risk).toBeDefined();
       expect(json!.tenants[0].recommendation).toBeDefined();
+      expect(json!.tenants[0].topFactor).toBeDefined();
     });
   });
 
