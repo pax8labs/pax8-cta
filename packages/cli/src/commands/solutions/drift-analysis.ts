@@ -17,6 +17,7 @@
 import chalk from "chalk";
 import Table from "cli-table3";
 import type {
+  DemoTenantMetadata,
   FleetDriftAnalysis,
   SolutionVersionInfo,
   TenantConfig,
@@ -26,6 +27,7 @@ import type {
   VersionChecker,
   VersionDriftSummary,
 } from "@agentsync/core";
+import { DEMO_TENANTS } from "@agentsync/core";
 import type { UnmanagedCustomizationResult } from "@agentsync/core";
 import { formatRecommendation, formatRiskLevel } from "./risk-calculator.js";
 
@@ -251,7 +253,26 @@ export function displayFleetRiskAnalysis(
 }
 
 export function generateDemoDeployHistory(tenantId: string): TenantDeploymentHistory {
-  // Generate deterministic but varied history based on tenant ID
+  // Prefer the explicit deploymentHistory authored on the tenant's metadata.
+  // This is what gives the demo a consistent risk-spread (HIGH/MED/LOW)
+  // without relying on tenant-id hashing. See `DEMO_TENANTS` in
+  // packages/core/src/mock/demo-data.ts.
+  const tenant = DEMO_TENANTS.find((t) => t.tenantId === tenantId);
+  const meta = tenant?.metadata as DemoTenantMetadata | undefined;
+  if (meta?.deploymentHistory) {
+    const lastDate = new Date();
+    lastDate.setDate(lastDate.getDate() - meta.deploymentHistory.lastDeployDaysAgo);
+    return {
+      tenantId,
+      lastDeployResult: meta.deploymentHistory.lastDeployResult,
+      lastDeployDate: lastDate.toISOString(),
+      totalDeploys: meta.deploymentHistory.totalDeploys,
+      successfulDeploys: meta.deploymentHistory.successfulDeploys,
+    };
+  }
+
+  // Fallback: deterministic but varied history based on tenant ID for any
+  // demo tenants that don't define `deploymentHistory` explicitly.
   const seed = parseInt(tenantId.replace(/-/g, "").slice(0, 8), 16) || 0;
   const total = 3 + (seed % 20);
   const successRate = 0.5 + (seed % 50) / 100; // 50-99%
