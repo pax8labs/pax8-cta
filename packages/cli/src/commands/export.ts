@@ -24,6 +24,7 @@ import { TokenManager, DataverseClient, SolutionOperations } from "@agentsync/co
 import { withResolvedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
+import { showDemoBanner } from "../lib/demo-banner.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -61,7 +62,7 @@ Examples:
         async () => {
           spinner.succeed("Demo mode - using sample agent package");
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+            showDemoBanner();
           }
 
           // Create output directory

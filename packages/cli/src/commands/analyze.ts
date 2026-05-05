@@ -32,6 +32,7 @@ import {
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
 import { CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
+import { showDemoBanner } from "../lib/demo-banner.js";
 
 // Risk issue severity colors
 const SEVERITY_COLORS = {
@@ -97,7 +98,7 @@ Examples:
         async (destinations) => {
           spinner.succeed("Demo fleet manifest loaded");
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing simulated analysis\n"));
+            showDemoBanner();
           }
 
           // Validate the solution argument against the demo catalog before we

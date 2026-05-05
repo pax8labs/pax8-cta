@@ -88,7 +88,7 @@ describe("Analyze Command", () => {
       const output = consoleCapture.getAllOutput();
 
       expect(containsText(output, "DEMO MODE")).toBe(true);
-      expect(containsText(output, "Showing simulated analysis")).toBe(true);
+      expect(containsText(output, "DEMO MODE")).toBe(true);
     });
 
     it("should analyze all enabled destinations", async () => {

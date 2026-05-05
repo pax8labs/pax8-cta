@@ -27,6 +27,7 @@ import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
 import { exitOssUnavailable } from "../lib/oss-surface.js";
 import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
+import { showDemoBanner } from "../lib/demo-banner.js";
 
 // Mock deployment data for demo mode
 const DEMO_DEPLOYMENTS = [
@@ -254,7 +255,7 @@ export const statusCommand = new Command("status")
       await withDemoMode(
         () => {
           if (!isQuietMode() && !structured) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock deployments\n"));
+            showDemoBanner();
           }
 
           const rows: ShipmentListRow[] = DEMO_DEPLOYMENTS.map((d) => {
@@ -306,7 +307,7 @@ export const statusCommand = new Command("status")
     await withDemoMode(
       () => {
         if (!isQuietMode() && !structured) {
-          console.error(chalk.yellow("\n⚠️  DEMO MODE - Showing mock data\n"));
+          showDemoBanner();
         }
 
         const deployment = getDemoDeploymentDetails(trackingId);

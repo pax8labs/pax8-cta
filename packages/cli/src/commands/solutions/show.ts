@@ -23,6 +23,7 @@ import { withDemoMode } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findSolution, getTenantDeploymentStatus } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 export const showCommand = new Command("show")
   .argument("<name>", "Solution name or unique name")
@@ -46,7 +47,7 @@ Examples:
         () => {
           spinner.stop();
           if (!isQuietMode()) {
-            console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+            showDemoBanner();
           }
 
           const solution = findSolution(DEMO_SOLUTIONS, name);

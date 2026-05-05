@@ -21,6 +21,7 @@ import { GdapClient, type TenantConfig } from "@agentsync/core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { withResolvedDestinations } from "../../lib/command-wrapper.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 export const inspectCommand = new Command("inspect")
   .alias("validate")
@@ -102,7 +103,7 @@ function runDemoInspection(spinner: Spinner, destinations: TenantConfig[]): void
   spinner.succeed(`Loaded ${destinations.length} destinations to inspect`);
 
   if (!isQuietMode()) {
-    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    showDemoBanner();
   }
 
   console.log();

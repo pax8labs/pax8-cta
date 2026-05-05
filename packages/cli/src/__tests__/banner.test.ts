@@ -52,8 +52,10 @@ describe("Banner Module", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, "Sync your Copilot Studio agents")).toBe(true);
-      expect(containsText(cleanOutput, "Multi-tenant deployment automation")).toBe(true);
+      expect(containsText(cleanOutput, "Cross Tenant Agents")).toBe(true);
+      expect(containsText(cleanOutput, "Deploy Copilot Studio agents to customer tenants")).toBe(
+        true
+      );
     });
 
     it("should display version number", async () => {
@@ -166,7 +168,8 @@ describe("Banner Module", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, "AgentSync")).toBe(true);
+      expect(containsText(cleanOutput, "Pax8")).toBe(true);
+      expect(containsText(cleanOutput, "CTA")).toBe(true);
       expect(containsText(cleanOutput, "Multi-Tenant Deployment")).toBe(true);
     });
 

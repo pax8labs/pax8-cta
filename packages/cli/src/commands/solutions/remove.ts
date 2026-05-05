@@ -31,6 +31,7 @@ import { question } from "../../lib/input.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { isDemo } from "../../lib/command-wrapper.js";
 import { resolveFormat } from "../../lib/output.js";
+import { showDemoBanner } from "../../lib/demo-banner.js";
 
 export const removeCommand = new Command("remove")
   .alias("uninstall")
@@ -166,7 +167,7 @@ async function runDemoRemove(
   }
 
   if (!isQuietMode()) {
-    console.error(chalk.yellow("\n⚠️  DEMO MODE - Using mock data\n"));
+    showDemoBanner();
   }
   console.log(
     chalk.gray(`  Would uninstall '${solutionName}' from ${tenant.name} (no real changes made).`)
