@@ -33,11 +33,14 @@ Examples:
   deployments list                          List recent deployments
   deployments show dep_abc123               View deployment details
   deployments list -s failed --since 7d     Show failed deployments from last 7 days
-  deployments undo dep_abc123               Roll back a deployment (demo mode only — see #418)
+  deployments undo dep_abc123               Roll back a deployment (asks for confirmation)
+  deployments undo dep_abc123 --dry-run     Preview what an undo would change
+  deployments undo dep_abc123 -y --json     Skip prompt, machine-readable output
 
 Note:
   Queue management actions (cancel, retry, watch) are not available in the open-source CLI.
-  Real-mode undo is tracked in #418; demo-mode undo simulates the per-tenant flow.
+  Real-mode undo is wired through @agentsync/core's RollbackService; it requires
+  pre-deploy snapshots to exist (Phase 2 of #418). Demo mode supports undo end-to-end.
 `
   );
 
