@@ -463,6 +463,125 @@ describe("solutions drift command (issue #401)", () => {
 });
 
 // ============================================================================
+// Issue #406: solutions show now honors --json / --quiet / TTY-default
+// behavior, matching the contract used by tenants list, tenants health,
+// solutions drift, validate, etc.
+// ============================================================================
+
+describe("solutions show command (issue #406)", () => {
+  it("agentsync solutions show <name> --quiet produces zero stdout and exits 0", async () => {
+    const result = await runCli(["solutions", "show", "CustomerServiceAgent", "--quiet"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  }, 60000);
+
+  it("agentsync solutions show <name> --tenants --quiet produces zero stdout and exits 0", async () => {
+    const result = await runCli(
+      ["solutions", "show", "CustomerServiceAgent", "--tenants", "--quiet"],
+      {
+        env: { NO_COLOR: "1", DEMO_MODE: "true" },
+        timeout: 60000,
+      }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("");
+  }, 60000);
+
+  it("agentsync solutions show <name> --json emits a parseable solution envelope", async () => {
+    const result = await runCli(["solutions", "show", "CustomerServiceAgent", "--json"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+
+    const envelope = JSON.parse(result.stdout) as {
+      name: string;
+      displayName: string;
+      latestVersion: string;
+      summary: {
+        totalTenants: number;
+        deployed: number;
+        current: number;
+        outdated: number;
+        notDeployed: number;
+      };
+      tenants?: unknown[];
+    };
+    expect(envelope.name).toBe("CustomerServiceAgent");
+    expect(typeof envelope.displayName).toBe("string");
+    expect(envelope.displayName.length).toBeGreaterThan(0);
+    expect(typeof envelope.latestVersion).toBe("string");
+    expect(envelope.summary).toBeTruthy();
+    expect(typeof envelope.summary.totalTenants).toBe("number");
+    expect(envelope.summary.totalTenants).toBeGreaterThan(0);
+    expect(typeof envelope.summary.deployed).toBe("number");
+    expect(typeof envelope.summary.current).toBe("number");
+    expect(typeof envelope.summary.outdated).toBe("number");
+    expect(typeof envelope.summary.notDeployed).toBe("number");
+    // Without --tenants, the tenants[] array is omitted from the envelope.
+    expect(envelope.tenants).toBeUndefined();
+  }, 60000);
+
+  it("agentsync solutions show <name> --tenants --json emits envelope with tenants[]", async () => {
+    const result = await runCli(
+      ["solutions", "show", "CustomerServiceAgent", "--tenants", "--json"],
+      {
+        env: { NO_COLOR: "1", DEMO_MODE: "true" },
+        timeout: 60000,
+      }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+
+    const envelope = JSON.parse(result.stdout) as {
+      name: string;
+      summary: { totalTenants: number };
+      tenants: Array<{
+        tenantName: string;
+        tenantId: string;
+        version: string | null;
+        status: string;
+        deployedAt: string | null;
+      }>;
+    };
+    expect(envelope.name).toBe("CustomerServiceAgent");
+    expect(Array.isArray(envelope.tenants)).toBe(true);
+    expect(envelope.tenants.length).toBe(envelope.summary.totalTenants);
+    expect(envelope.tenants[0]).toHaveProperty("tenantName");
+    expect(envelope.tenants[0]).toHaveProperty("tenantId");
+    expect(envelope.tenants[0]).toHaveProperty("status");
+    expect(["current", "outdated", "not_deployed"]).toContain(envelope.tenants[0].status);
+  }, 60000);
+
+  it("agentsync solutions show <name> in non-TTY defaults to JSON envelope", async () => {
+    // Subprocess stdout is non-TTY → solutions show defaults to JSON without
+    // an explicit --json flag. Mirrors tenants list / tenants health /
+    // solutions drift behavior.
+    const result = await runCli(["solutions", "show", "CustomerServiceAgent"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(() => JSON.parse(result.stdout)).not.toThrow();
+    const envelope = JSON.parse(result.stdout) as {
+      name: string;
+      summary: { totalTenants: number };
+    };
+    expect(envelope.name).toBe("CustomerServiceAgent");
+    expect(typeof envelope.summary.totalTenants).toBe("number");
+  }, 60000);
+});
+
+// ============================================================================
 // Issue #360: tenants show <not-found> emits a JSON error envelope (not bare
 // colored text) and exits non-zero.
 // ============================================================================

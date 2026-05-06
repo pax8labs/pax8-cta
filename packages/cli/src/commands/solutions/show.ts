@@ -16,20 +16,66 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { createSpinner, isQuietMode } from "../../lib/spinner.js";
-import Table from "cli-table3";
+import { createSpinner } from "../../lib/spinner.js";
 import { DEMO_SOLUTIONS } from "@agentsync/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findSolution, getTenantDeploymentStatus } from "./helpers.js";
-import { handleCommandError } from "../../lib/errors.js";
+import { CliError, handleCommandError } from "../../lib/errors.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
+import { output, resolveFormat, type Column } from "../../lib/output.js";
+
+// ============================================================================
+// Per-tenant deployment row (issue #406)
+// ----------------------------------------------------------------------------
+// Typed row schema for the `--tenants` table. Mirrors the Column<Row> pattern
+// used by tenants list / tenants health / solutions drift so the JSON envelope
+// is stable for agents and pipeline callers, and the human-readable table
+// renders through the structured `output()` helper.
+// ============================================================================
+
+interface TenantDeploymentRow {
+  tenantName: string;
+  tenantId: string;
+  version: string | null;
+  status: "current" | "outdated" | "not_deployed";
+  deployedAt: string | null;
+}
+
+const TENANT_COLUMNS: Column<TenantDeploymentRow>[] = [
+  { key: "tenantName", header: "Tenant" },
+  {
+    key: "version",
+    header: "Version",
+    format: (v) => (v == null || v === "" ? "-" : String(v)),
+  },
+  {
+    key: "status",
+    header: "Status",
+    format: (_v, row) => {
+      switch (row.status) {
+        case "current":
+          return chalk.green("✓ current");
+        case "outdated":
+          return chalk.yellow("↑ outdated");
+        case "not_deployed":
+          return chalk.gray("✗ not deployed");
+      }
+    },
+  },
+  {
+    key: "deployedAt",
+    header: "Last Deployed",
+    format: (v) => (typeof v === "string" && v.length > 0 ? formatTimeAgo(v) : "-"),
+  },
+];
 
 export const showCommand = new Command("show")
   .argument("<name>", "Solution name or unique name")
   .description("View solution details and where it's deployed")
   .option("--tenants", "Show tenant deployment status")
   .option("--json", "Output as JSON")
+  .option("--quiet", "Suppress all output (exit code only)")
   .addHelpText(
     "after",
     `
@@ -39,42 +85,88 @@ Examples:
   solutions show TestDeploy --json          Output as JSON
 `
   )
-  .action(async (name: string, options) => {
+  .action(async (name: string, options, cmd) => {
+    // Merge local opts with globals so root-level `--json` / `--quiet`
+    // (`agentsync --json solutions show ...`) reach this command. Resolve the
+    // effective output format up-front so every branch below can branch on a
+    // single `fmt` value (issue #406).
+    const opts = { ...options, ...cmd.optsWithGlobals() };
+    const fmt = resolveFormat({ json: !!opts.json, quiet: !!opts.quiet });
+
     const spinner = createSpinner("Loading agent...").start();
 
     try {
       await withDemoMode(
         () => {
           spinner.stop();
-          if (!isQuietMode()) {
+          if (fmt === "table") {
             showDemoBanner();
           }
 
           const solution = findSolution(DEMO_SOLUTIONS, name);
 
           if (!solution) {
-            console.log(chalk.red(`Agent '${name}' not found`));
-            console.log();
-            console.log(chalk.gray("Available agents:"));
-            DEMO_SOLUTIONS.forEach((s) => {
-              console.log(chalk.gray(`  - ${s.uniqueName} (${s.friendlyName})`));
-            });
-            process.exit(1);
+            // Route through handleCommandError so --json/non-TTY callers get the
+            // structured error envelope instead of bare colored stdout.
+            throw new CliError(
+              `Agent '${name}' not found. ` + `Run 'solutions list' to see all available agents.`
+            );
           }
 
-          // JSON output
-          if (options.json) {
-            const output: Record<string, unknown> = { ...solution };
+          const tenantStatus = getTenantDeploymentStatus(solution.uniqueName);
+          const rows: TenantDeploymentRow[] = tenantStatus.map((t) => ({
+            tenantName: t.tenantName,
+            tenantId: t.tenantId,
+            version: t.version,
+            status: t.status,
+            deployedAt: t.deployedAt,
+          }));
 
-            if (options.tenants) {
-              output.tenantStatus = getTenantDeploymentStatus(solution.uniqueName);
+          const totalTenants = rows.length;
+          const deployed = rows.filter((r) => r.status !== "not_deployed").length;
+          const current = rows.filter((r) => r.status === "current").length;
+          const outdated = rows.filter((r) => r.status === "outdated").length;
+          const notDeployed = rows.filter((r) => r.status === "not_deployed").length;
+
+          // ──────────────────────────────────────────────────────────────────
+          // JSON envelope
+          // ──────────────────────────────────────────────────────────────────
+          if (fmt === "json") {
+            const envelope: {
+              name: string;
+              displayName: string;
+              latestVersion: string;
+              summary: {
+                totalTenants: number;
+                deployed: number;
+                current: number;
+                outdated: number;
+                notDeployed: number;
+              };
+              tenants?: TenantDeploymentRow[];
+            } = {
+              name: solution.uniqueName,
+              displayName: solution.friendlyName,
+              latestVersion: solution.version,
+              summary: { totalTenants, deployed, current, outdated, notDeployed },
+            };
+
+            if (opts.tenants) {
+              envelope.tenants = rows;
             }
 
-            console.log(JSON.stringify(output, null, 2));
+            console.log(JSON.stringify(envelope, null, 2));
             return;
           }
 
-          // Standard output - agent details
+          // ──────────────────────────────────────────────────────────────────
+          // Quiet — produce no output
+          // ──────────────────────────────────────────────────────────────────
+          if (fmt === "quiet") return;
+
+          // ──────────────────────────────────────────────────────────────────
+          // Table (TTY default) — existing human-readable rendering
+          // ──────────────────────────────────────────────────────────────────
           console.log(chalk.bold(`${solution.friendlyName} (${solution.uniqueName})`));
           console.log("━".repeat(60));
           console.log(`Version:     ${solution.version}`);
@@ -97,51 +189,19 @@ Examples:
           console.log();
           console.log(`Last Published: ${formatTimeAgo(solution.lastPublished)}`);
 
-          // Tenant deployment status
-          if (options.tenants) {
+          // Tenant deployment status (when --tenants is passed)
+          if (opts.tenants) {
             console.log();
             console.log(chalk.bold(`${solution.uniqueName} - Tenant Deployment Status`));
             console.log("━".repeat(60));
 
-            const tenantStatus = getTenantDeploymentStatus(solution.uniqueName);
+            output(rows, { format: "table", columns: TENANT_COLUMNS });
 
-            const table = new Table({
-              head: ["Tenant", "Version", "Status", "Last Deployed"],
-              style: { head: ["cyan"] },
-            });
-
-            tenantStatus.forEach((t) => {
-              let statusIcon: string;
-              switch (t.status) {
-                case "current":
-                  statusIcon = chalk.green("✓ current");
-                  break;
-                case "outdated":
-                  statusIcon = chalk.yellow("↑ outdated");
-                  break;
-                case "not_deployed":
-                  statusIcon = chalk.gray("✗ not deployed");
-                  break;
-              }
-
-              table.push([
-                t.tenantName,
-                t.version || "-",
-                statusIcon,
-                t.deployedAt ? formatTimeAgo(t.deployedAt) : "-",
-              ]);
-            });
-
-            console.log(table.toString());
             console.log();
-
-            const deployed = tenantStatus.filter((t) => t.status !== "not_deployed").length;
-            const current = tenantStatus.filter((t) => t.status === "current").length;
-            const outdated = tenantStatus.filter((t) => t.status === "outdated").length;
-
             console.log(
               chalk.gray(
-                `${deployed}/${tenantStatus.length} tenants have this agent (${current} current, ${outdated} outdated)`
+                `${deployed}/${totalTenants} tenants have this agent ` +
+                  `(${current} current, ${outdated} outdated, ${notDeployed} not deployed)`
               )
             );
           }
@@ -149,7 +209,9 @@ Examples:
         () => {
           // Production mode
           spinner.fail(chalk.yellow("Production mode not yet implemented"));
-          console.log(chalk.gray("\nEnable demo mode with 'demo on' to see sample data."));
+          if (fmt === "table") {
+            console.log(chalk.gray("\nEnable demo mode with 'demo on' to see sample data."));
+          }
         }
       );
     } catch (error) {
