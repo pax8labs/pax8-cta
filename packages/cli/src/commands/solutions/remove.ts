@@ -32,6 +32,7 @@ import { handleCommandError } from "../../lib/errors.js";
 import { isDemo } from "../../lib/command-wrapper.js";
 import { resolveFormat } from "../../lib/output.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
+import { findTenantMatches } from "../tenants/helpers.js";
 
 export const removeCommand = new Command("remove")
   .alias("uninstall")
@@ -129,16 +130,29 @@ async function runDemoRemove(
   options: { tenant: string; yes?: boolean; json?: boolean; quiet?: boolean }
 ): Promise<void> {
   const fmt = resolveFormat({ json: options.json, quiet: options.quiet });
-  const tenant: TenantConfig | undefined = DEMO_TENANTS.find(
-    (t) =>
-      t.name.toLowerCase() === options.tenant.toLowerCase() ||
-      t.tenantId.toLowerCase() === options.tenant.toLowerCase()
-  );
+  // Issue #402: reuse the same case-insensitive substring matching the rest of
+  // the CLI uses for `-t <name>`, but also report ambiguous partial matches so
+  // users don't get the wrong tenant silently chosen for them.
+  const matches = findTenantMatches(DEMO_TENANTS, options.tenant);
 
-  if (!tenant) {
-    spinner.fail(chalk.red(`Tenant '${options.tenant}' not found in demo fleet`));
+  if (matches.length === 0) {
+    spinner.fail(
+      chalk.red(
+        `No tenant matches '${options.tenant}'; run 'agentsync tenants list' to see available tenants.`
+      )
+    );
     process.exit(1);
   }
+
+  if (matches.length > 1) {
+    spinner.fail(chalk.red(`Tenant '${options.tenant}' is ambiguous. Did you mean:`));
+    for (const candidate of matches) {
+      console.error(chalk.gray(`  - ${candidate.name}`));
+    }
+    process.exit(1);
+  }
+
+  const tenant: TenantConfig = matches[0];
 
   spinner.succeed(`Target: ${tenant.name} (${tenant.environmentUrl})`);
 

@@ -151,3 +151,68 @@ describe("issue #385: solutions remove in demo mode", () => {
     expect(result.stdout.trim()).toBe("");
   }, 90000);
 });
+
+describe("issue #402: solutions remove -t fuzzy-matches tenant names", () => {
+  it("partial tenant query (e.g. 'Contoso') resolves like other commands", async () => {
+    const result = await runCli(
+      ["solutions", "remove", "CustomerServiceAgent", "-t", "Contoso", "-y"],
+      {
+        env: { NO_COLOR: "1", DEMO_MODE: "true" },
+        cwd: workDir,
+        timeout: 60000,
+      }
+    );
+
+    expect(result.exitCode).toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined).toContain("CustomerServiceAgent");
+    // Resolves to the full canonical tenant name
+    expect(combined).toContain("Contoso Corporation");
+    expect(combined.toLowerCase()).toMatch(/would (remove|uninstall)/);
+  }, 90000);
+
+  it("exact tenant query still works after the fuzzy-match change", async () => {
+    const result = await runCli(
+      ["solutions", "remove", "CustomerServiceAgent", "-t", "Contoso Corporation", "-y"],
+      {
+        env: { NO_COLOR: "1", DEMO_MODE: "true" },
+        cwd: workDir,
+        timeout: 60000,
+      }
+    );
+
+    expect(result.exitCode).toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined).toContain("Contoso Corporation");
+    expect(combined.toLowerCase()).toMatch(/would (remove|uninstall)/);
+  }, 90000);
+
+  it("query that matches no tenant errors with a helpful hint", async () => {
+    const result = await runCli(["solutions", "remove", "CustomerServiceAgent", "-t", "XX", "-y"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      cwd: workDir,
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined.toLowerCase()).toContain("no tenant matches");
+    expect(combined).toContain("'XX'");
+    expect(combined).toContain("agentsync tenants list");
+  }, 90000);
+
+  it("ambiguous query (matches multiple tenants) lists candidates", async () => {
+    // "co" matches both "Contoso Corporation" and "Coho Vineyard"
+    const result = await runCli(["solutions", "remove", "CustomerServiceAgent", "-t", "co", "-y"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      cwd: workDir,
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined.toLowerCase()).toContain("did you mean");
+    expect(combined).toContain("Contoso Corporation");
+    expect(combined).toContain("Coho Vineyard");
+  }, 90000);
+});

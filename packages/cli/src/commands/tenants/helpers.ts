@@ -33,6 +33,35 @@ export function findTenant(tenants: TenantConfig[], query: string): TenantConfig
 }
 
 /**
+ * Like {@link findTenant} but returns *all* tenants whose name, tenantId, or
+ * environmentUrl contains the query (case-insensitive). Callers can use this
+ * to detect ambiguous partial matches and surface a "did you mean..." prompt.
+ *
+ * If the query matches a tenant's name, tenantId, or environmentUrl exactly
+ * (case-insensitive), only that tenant is returned — an exact match resolves
+ * the ambiguity. This way `-t "Coho Vineyard"` succeeds even though "co"
+ * would otherwise be ambiguous.
+ */
+export function findTenantMatches(tenants: TenantConfig[], query: string): TenantConfig[] {
+  const q = query.toLowerCase();
+  const exact = tenants.filter(
+    (t) =>
+      t.name.toLowerCase() === q ||
+      t.tenantId.toLowerCase() === q ||
+      t.environmentUrl.toLowerCase() === q
+  );
+  if (exact.length > 0) {
+    return exact;
+  }
+  return tenants.filter(
+    (t) =>
+      t.name.toLowerCase().includes(q) ||
+      t.tenantId.toLowerCase().includes(q) ||
+      t.environmentUrl.toLowerCase().includes(q)
+  );
+}
+
+/**
  * Get deployed agents for a tenant.
  *
  * Reads from `DEMO_TENANTS[].metadata.deployedSolutions` so the deployed-agent
