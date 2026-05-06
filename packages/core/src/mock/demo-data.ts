@@ -88,6 +88,24 @@ export type DemoTenantConfig = Omit<TenantConfig, "metadata"> & {
 };
 
 /**
+ * Snapshot of one tenant-config resource (a CA policy, a transport rule, a
+ * connection ref…) used by the Phase 1 preflight diff engine. The shape
+ * mirrors what real Microsoft Graph TCM responses will look like in Phase 2,
+ * so the resolver swap is a one-line change in `risk-analyzer.ts`.
+ *
+ *  - `resourceType` and `resourceMatcher` are how the diff engine pairs this
+ *    snapshot to a manifest precondition (matched by `displayName` etc.).
+ *  - `currentProperties` carries whatever properties the manifest's
+ *    requirements address, walked via dot-path.
+ */
+export interface DemoPreconditionState {
+  resourceType: string;
+  resourceMatcher: Record<string, string>;
+  resourceDisplayName: string;
+  currentProperties: Record<string, unknown>;
+}
+
+/**
  * Per-solution version status for a demo tenant.
  * Acts as the single source of truth for both `solutions drift` and
  * `solutions show --tenants` so the two views never contradict each other.
@@ -138,6 +156,13 @@ export interface DemoTenantMetadata {
     lastDeployDaysAgo: number;
     lastDeployResult: "success" | "failure";
   };
+  /**
+   * Synthetic per-tenant precondition state for Phase 1 preflight. Each
+   * entry is a snapshot of one tenant-config resource (CA policy, transport
+   * rule, connection ref…) the manifest may target. Phase 2 replaces this
+   * with live Microsoft Graph TCM lookups.
+   */
+  preconditionState?: DemoPreconditionState[];
 }
 
 /**
@@ -414,6 +439,40 @@ const DEMO_TENANTS_AUTHORED: DemoTenantConfig[] = [
         lastDeployDaysAgo: 35, // -> aging_environment
         lastDeployResult: "success",
       },
+      // Phase 1 preflight: CA policy is enabled (equals), MFA required
+      // (at-least true), and grant controls are stricter than the manifest
+      // demands (manifest requires ["mfa"]; Apex has ["mfa","compliantDevice"]).
+      preconditionState: [
+        {
+          resourceType: "microsoft.entra.conditionalaccesspolicy",
+          resourceMatcher: { displayName: "Require MFA for Admins" },
+          resourceDisplayName: "Require MFA for Admins",
+          currentProperties: {
+            id: "ca-pol-apex-001",
+            state: "enabled",
+            requireMfa: true,
+            grantControls: ["mfa", "compliantDevice"],
+          },
+        },
+        {
+          resourceType: "microsoft.powerplatform.connectionreference",
+          resourceMatcher: { displayName: "Dataverse" },
+          resourceDisplayName: "Dataverse",
+          currentProperties: {
+            id: "conn-apex-dataverse",
+            expired: false,
+          },
+        },
+        {
+          resourceType: "microsoft.exchange.transportrule",
+          resourceMatcher: { displayName: "Block-External-AutoForward" },
+          resourceDisplayName: "Block-External-AutoForward",
+          currentProperties: {
+            id: "rule-apex-autoforward",
+            enabled: true,
+          },
+        },
+      ],
     } satisfies DemoTenantMetadata,
   },
   {
@@ -571,6 +630,39 @@ const DEMO_TENANTS_AUTHORED: DemoTenantConfig[] = [
         lastDeployDaysAgo: 35, // -> aging_environment
         lastDeployResult: "failure",
       },
+      // Phase 1 preflight: production-critical, but the CA policy is still
+      // in reportOnly — a real failure that would block this deploy. The
+      // other resources are fine.
+      preconditionState: [
+        {
+          resourceType: "microsoft.entra.conditionalaccesspolicy",
+          resourceMatcher: { displayName: "Require MFA for Admins" },
+          resourceDisplayName: "Require MFA for Admins",
+          currentProperties: {
+            id: "ca-pol-woodgrove-001",
+            state: "reportOnly",
+            requireMfa: true,
+          },
+        },
+        {
+          resourceType: "microsoft.powerplatform.connectionreference",
+          resourceMatcher: { displayName: "Dataverse" },
+          resourceDisplayName: "Dataverse",
+          currentProperties: {
+            id: "conn-woodgrove-dataverse",
+            expired: false,
+          },
+        },
+        {
+          resourceType: "microsoft.exchange.transportrule",
+          resourceMatcher: { displayName: "Block-External-AutoForward" },
+          resourceDisplayName: "Block-External-AutoForward",
+          currentProperties: {
+            id: "rule-woodgrove-autoforward",
+            enabled: true,
+          },
+        },
+      ],
     } satisfies DemoTenantMetadata,
   },
 
@@ -623,6 +715,39 @@ const DEMO_TENANTS_AUTHORED: DemoTenantConfig[] = [
         lastDeployDaysAgo: 3,
         lastDeployResult: "success",
       },
+      // Phase 1 preflight: CA policy is still in reportOnly (will fail
+      // equals=enabled), and the Dataverse connection ref is expired.
+      // Transport rule is fine — only the first two surface as failures.
+      preconditionState: [
+        {
+          resourceType: "microsoft.entra.conditionalaccesspolicy",
+          resourceMatcher: { displayName: "Require MFA for Admins" },
+          resourceDisplayName: "Require MFA for Admins",
+          currentProperties: {
+            id: "ca-pol-tailspin-001",
+            state: "reportOnly",
+            requireMfa: true,
+          },
+        },
+        {
+          resourceType: "microsoft.powerplatform.connectionreference",
+          resourceMatcher: { displayName: "Dataverse" },
+          resourceDisplayName: "Dataverse",
+          currentProperties: {
+            id: "conn-tailspin-dataverse",
+            expired: true,
+          },
+        },
+        {
+          resourceType: "microsoft.exchange.transportrule",
+          resourceMatcher: { displayName: "Block-External-AutoForward" },
+          resourceDisplayName: "Block-External-AutoForward",
+          currentProperties: {
+            id: "rule-tailspin-autoforward",
+            enabled: true,
+          },
+        },
+      ],
     } satisfies DemoTenantMetadata,
   },
   {
@@ -648,6 +773,38 @@ const DEMO_TENANTS_AUTHORED: DemoTenantConfig[] = [
         lastDeployDaysAgo: 6,
         lastDeployResult: "success",
       },
+      // Phase 1 preflight: CA policy passes, but the Dataverse connection
+      // ref is expired and the auto-forward block transport rule is off.
+      preconditionState: [
+        {
+          resourceType: "microsoft.entra.conditionalaccesspolicy",
+          resourceMatcher: { displayName: "Require MFA for Admins" },
+          resourceDisplayName: "Require MFA for Admins",
+          currentProperties: {
+            id: "ca-pol-coho-001",
+            state: "enabled",
+            requireMfa: true,
+          },
+        },
+        {
+          resourceType: "microsoft.powerplatform.connectionreference",
+          resourceMatcher: { displayName: "Dataverse" },
+          resourceDisplayName: "Dataverse",
+          currentProperties: {
+            id: "conn-coho-dataverse",
+            expired: true,
+          },
+        },
+        {
+          resourceType: "microsoft.exchange.transportrule",
+          resourceMatcher: { displayName: "Block-External-AutoForward" },
+          resourceDisplayName: "Block-External-AutoForward",
+          currentProperties: {
+            id: "rule-coho-autoforward",
+            enabled: false,
+          },
+        },
+      ],
     } satisfies DemoTenantMetadata,
   },
 
@@ -672,6 +829,11 @@ const DEMO_TENANTS_AUTHORED: DemoTenantConfig[] = [
       connectionIssue: "All connections expired due to suspended relationship",
       recentFailures: 0,
       disabledReason: "Contract renewal pending",
+      // Phase 1 preflight: empty array — every manifest precondition will
+      // resolve to "missing-resource" for this tenant. Crown is disabled so
+      // it won't normally show up in `--all`, but the data is correct if a
+      // user explicitly opts in.
+      preconditionState: [],
     } satisfies DemoTenantMetadata,
   },
 ];
