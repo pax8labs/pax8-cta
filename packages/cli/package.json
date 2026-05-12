@@ -38,11 +38,11 @@
     "cli-table3": "0.6.5",
     "commander": "12.0.0",
     "conf": "15.1.0",
-    "inquirer": "13.3.2",
+    "inquirer": "13.4.3",
     "jszip": "3.10.1",
     "open": "11.0.0",
-    "ora": "9.3.0",
-    "posthog-node": "5.28.10"
+    "ora": "9.4.0",
+    "posthog-node": "5.33.7"
   },
   "optionalDependencies": {
     "keytar": "7.9.0"
@@ -53,10 +53,10 @@
   "devDependencies": {
     "@types/inquirer": "9.0.9",
     "@types/jszip": "^3.4.1",
-    "@types/node": "25.5.0",
-    "@vitest/coverage-v8": "4.1.2",
-    "@vitest/ui": "4.1.2",
-    "typescript": "6.0.2",
-    "vitest": "4.1.2"
+    "@types/node": "25.7.0",
+    "@vitest/coverage-v8": "4.1.6",
+    "@vitest/ui": "4.1.6",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
   }
 }
