@@ -15,7 +15,7 @@
  */
 
 import chalk from "chalk";
-import { formatError, printError, AgentSyncError } from "./error-handler.js";
+import { formatError, printError, CtaError } from "./error-handler.js";
 
 /**
  * Base CLI error with exit code.
@@ -101,8 +101,8 @@ function buildJsonError(error: unknown): Record<string, unknown> {
     };
   }
 
-  // AgentSyncError (CLI structured error) — emit all fields directly
-  if (error instanceof AgentSyncError) {
+  // CtaError (CLI structured error) — emit all fields directly
+  if (error instanceof CtaError) {
     const payload: Record<string, unknown> = {
       code: error.code,
       message: error.message,

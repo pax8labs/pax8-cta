@@ -85,7 +85,7 @@ export enum ErrorCode {
 /**
  * Context information attached to structured errors.
  */
-export interface AgentSyncErrorContext {
+export interface CtaErrorContext {
   environmentUrl?: string;
   tenantId?: string;
   tenantName?: string;
@@ -103,13 +103,13 @@ export interface AgentSyncErrorContext {
  * CLI error handler can switch on `error.code` or use `instanceof`
  * instead of regex-matching message strings.
  */
-export class AgentSyncError extends Error {
-  readonly name: string = "AgentSyncError";
+export class CtaError extends Error {
+  readonly name: string = "CtaError";
 
   constructor(
     readonly code: ErrorCode,
     message: string,
-    readonly context?: AgentSyncErrorContext,
+    readonly context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(message, options);
@@ -119,7 +119,7 @@ export class AgentSyncError extends Error {
 /**
  * Authentication and token errors.
  */
-export class AuthError extends AgentSyncError {
+export class AuthError extends CtaError {
   override readonly name = "AuthError";
 
   constructor(
@@ -131,7 +131,7 @@ export class AuthError extends AgentSyncError {
       | ErrorCode.AUTH_ACCOUNT_NOT_FOUND
       | ErrorCode.AUTH_INVALID_CLIENT,
     message: string,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -141,7 +141,7 @@ export class AuthError extends AgentSyncError {
 /**
  * GDAP and application-user setup errors.
  */
-export class GdapError extends AgentSyncError {
+export class GdapError extends CtaError {
   override readonly name = "GdapError";
 
   constructor(
@@ -151,7 +151,7 @@ export class GdapError extends AgentSyncError {
       | ErrorCode.GDAP_SETUP_FAILED
       | ErrorCode.GDAP_ENVIRONMENT_ID_MISSING,
     message: string,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -161,7 +161,7 @@ export class GdapError extends AgentSyncError {
 /**
  * Dataverse API errors.
  */
-export class DataverseApiError extends AgentSyncError {
+export class DataverseApiError extends CtaError {
   override readonly name = "DataverseApiError";
 
   readonly statusCode?: number;
@@ -176,7 +176,7 @@ export class DataverseApiError extends AgentSyncError {
       | ErrorCode.PERMISSION_PRIVILEGE_MISSING,
     message: string,
     statusCode?: number,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -187,7 +187,7 @@ export class DataverseApiError extends AgentSyncError {
 /**
  * Solution-related errors.
  */
-export class SolutionError extends AgentSyncError {
+export class SolutionError extends CtaError {
   override readonly name = "SolutionError";
 
   constructor(
@@ -197,7 +197,7 @@ export class SolutionError extends AgentSyncError {
       | ErrorCode.SOLUTION_EXPORT_FAILED
       | ErrorCode.SOLUTION_PARSE_FAILED,
     message: string,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -207,7 +207,7 @@ export class SolutionError extends AgentSyncError {
 /**
  * Agent resolution errors.
  */
-export class AgentResolutionError extends AgentSyncError {
+export class AgentResolutionError extends CtaError {
   override readonly name = "AgentResolutionError";
 
   constructor(
@@ -216,7 +216,7 @@ export class AgentResolutionError extends AgentSyncError {
       | ErrorCode.AGENT_URL_INVALID
       | ErrorCode.AGENT_RESOLUTION_FAILED,
     message: string,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -226,7 +226,7 @@ export class AgentResolutionError extends AgentSyncError {
 /**
  * Configuration errors.
  */
-export class ConfigValidationError extends AgentSyncError {
+export class ConfigValidationError extends CtaError {
   override readonly name = "ConfigValidationError";
 
   constructor(
@@ -237,7 +237,7 @@ export class ConfigValidationError extends AgentSyncError {
       | ErrorCode.CONFIG_PARSE_FAILED
       | ErrorCode.CONFIG_SECRET_MISSING,
     message: string,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -247,7 +247,7 @@ export class ConfigValidationError extends AgentSyncError {
 /**
  * Network errors.
  */
-export class NetworkError extends AgentSyncError {
+export class NetworkError extends CtaError {
   override readonly name = "NetworkError";
 
   constructor(
@@ -257,7 +257,7 @@ export class NetworkError extends AgentSyncError {
       | ErrorCode.NETWORK_DNS_FAILED
       | ErrorCode.NETWORK_ERROR,
     message: string,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -267,7 +267,7 @@ export class NetworkError extends AgentSyncError {
 /**
  * Deployment errors.
  */
-export class DeploymentError extends AgentSyncError {
+export class DeploymentError extends CtaError {
   override readonly name = "DeploymentError";
 
   constructor(
@@ -276,7 +276,7 @@ export class DeploymentError extends AgentSyncError {
       | ErrorCode.DEPLOYMENT_VALIDATION_FAILED
       | ErrorCode.DEPLOYMENT_TIMEOUT,
     message: string,
-    context?: AgentSyncErrorContext,
+    context?: CtaErrorContext,
     options?: { cause?: unknown }
   ) {
     super(code, message, context, options);
@@ -284,15 +284,15 @@ export class DeploymentError extends AgentSyncError {
 }
 
 /**
- * Helper to check if an error is an AgentSyncError with a specific code.
+ * Helper to check if an error is an CtaError with a specific code.
  */
 export function isErrorCode(error: unknown, code: ErrorCode): boolean {
-  return error instanceof AgentSyncError && error.code === code;
+  return error instanceof CtaError && error.code === code;
 }
 
 /**
- * Helper to check if an error is any AgentSyncError.
+ * Helper to check if an error is any CtaError.
  */
-export function isAgentSyncError(error: unknown): error is AgentSyncError {
-  return error instanceof AgentSyncError;
+export function isCtaError(error: unknown): error is CtaError {
+  return error instanceof CtaError;
 }

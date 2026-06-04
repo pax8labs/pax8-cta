@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GDAP testing suite** — 74 unit tests covering all GdapClient auth logic (#262), plus MSW record/replay integration tests for Graph API calls (#263).
 - **OData pagination and retry with backoff** — GdapClient now follows `@odata.nextLink` for paginated Graph API results and retries transient failures with exponential backoff (#267, #268).
 - **Token refresh fix** — Refresh access token on each retry attempt in `GdapClient.graphGet` to avoid retrying with an expired token.
-- **Structured error codes** — `AgentSyncError` base class with 30+ typed error codes replacing regex-based error matching (#244).
+- **Structured error codes** — `CtaError` base class with 30+ typed error codes replacing regex-based error matching (#244).
 - **Named constants** — Extracted magic numbers throughout core into named constants for clarity and maintainability (#212).
 - **Logger configureLogging/resetLogging** — Testable Logger singletons with explicit configuration and reset functions (#209).
 - **Business logic extracted to core** — Moved auth-error-parser, environment-setup, and solution-mode-detector from CLI commands into `@pax8-cta/core` for reuse (#241).

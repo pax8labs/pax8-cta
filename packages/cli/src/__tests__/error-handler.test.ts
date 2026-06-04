@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AgentSyncError, formatError, printError } from "../lib/error-handler.js";
+import { CtaError, formatError, printError } from "../lib/error-handler.js";
 import { handleCommandError, isJsonOutputMode, CliError, UsageError } from "../lib/errors.js";
 import {
   AuthError,
@@ -29,9 +29,9 @@ import {
 } from "@pax8-cta/core";
 
 describe("Error Handler", () => {
-  describe("AgentSyncError", () => {
+  describe("CtaError", () => {
     it("should create error with all properties", () => {
-      const error = new AgentSyncError(
+      const error = new CtaError(
         "TEST_ERROR",
         "Test error message",
         ["Cause 1", "Cause 2"],
@@ -44,7 +44,7 @@ describe("Error Handler", () => {
       expect(error.causes).toEqual(["Cause 1", "Cause 2"]);
       expect(error.recovery).toEqual(["Step 1", "Step 2"]);
       expect(error.context?.environmentUrl).toBe("https://test.crm.dynamics.com");
-      expect(error.name).toBe("AgentSyncError");
+      expect(error.name).toBe("CtaError");
     });
   });
 
@@ -286,7 +286,7 @@ describe("Error Handler", () => {
     });
 
     it("should print formatted error with all sections", () => {
-      const error = new AgentSyncError(
+      const error = new CtaError(
         "TEST_ERROR",
         "Test error message",
         ["Cause 1", "Cause 2"],
@@ -320,7 +320,7 @@ describe("Error Handler", () => {
     });
 
     it("should handle recovery steps with sub-steps", () => {
-      const error = new AgentSyncError(
+      const error = new CtaError(
         "TEST_ERROR",
         "Test",
         ["Cause"],
@@ -337,7 +337,7 @@ describe("Error Handler", () => {
     });
 
     it("should not print context section if empty", () => {
-      const error = new AgentSyncError("TEST_ERROR", "Test error", ["Cause"], ["Step"]);
+      const error = new CtaError("TEST_ERROR", "Test error", ["Cause"], ["Step"]);
 
       printError(error);
 

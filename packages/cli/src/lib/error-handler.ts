@@ -16,7 +16,7 @@
 
 import chalk from "chalk";
 import {
-  AgentSyncError as CoreError,
+  CtaError as CoreError,
   AuthError,
   GdapError,
   SolutionError,
@@ -24,7 +24,7 @@ import {
   ConfigValidationError,
   NetworkError,
   ErrorCode,
-  isAgentSyncError,
+  isCtaError,
 } from "@pax8-cta/core";
 
 const LEGACY_QUEUE_ERROR_MESSAGE =
@@ -47,7 +47,7 @@ const LEGACY_QUEUE_ERROR_RECOVERY = [
  * This wraps any error (typed or untyped) into a presentation-friendly
  * format with causes, recovery steps, and context for the CLI output.
  */
-export class AgentSyncError extends Error {
+export class CtaError extends Error {
   constructor(
     public readonly code: string,
     message: string,
@@ -61,7 +61,7 @@ export class AgentSyncError extends Error {
     }
   ) {
     super(message);
-    this.name = "AgentSyncError";
+    this.name = "CtaError";
   }
 }
 
@@ -69,8 +69,8 @@ export class AgentSyncError extends Error {
 // Code-based mapping: structured errors from @pax8-cta/core
 // ---------------------------------------------------------------------------
 
-function formatByErrorCode(error: CoreError): AgentSyncError | null {
-  const ctx: AgentSyncError["context"] = {
+function formatByErrorCode(error: CoreError): CtaError | null {
+  const ctx: CtaError["context"] = {
     environmentUrl: error.context?.environmentUrl as string | undefined,
     tenantName: error.context?.tenantName as string | undefined,
     solutionName: error.context?.solutionName as string | undefined,
@@ -85,7 +85,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     error.code === ErrorCode.GDAP_SETUP_FAILED ||
     error.code === ErrorCode.GDAP_ENVIRONMENT_ID_MISSING
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_GDAP_MISSING",
       "Application user not registered in Power Platform environment",
       [
@@ -113,7 +113,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     error.code === ErrorCode.PERMISSION_PRIVILEGE_MISSING ||
     error.code === ErrorCode.DATAVERSE_FORBIDDEN
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_INSUFFICIENT_PERMISSIONS",
       "Application user lacks required permissions in Power Platform environment",
       [
@@ -147,7 +147,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     error.code === ErrorCode.AUTH_ACCOUNT_NOT_FOUND ||
     error.code === ErrorCode.AUTH_INVALID_CLIENT
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_AUTH_FAILED",
       "Authentication failed - unable to acquire or validate access token",
       [
@@ -181,7 +181,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     error.code === ErrorCode.SOLUTION_IMPORT_FAILED ||
     error.code === ErrorCode.SOLUTION_EXPORT_FAILED
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_SOLUTION_NOT_FOUND",
       ctx.solutionName
         ? `Solution '${ctx.solutionName}' not found in environment`
@@ -207,7 +207,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
 
   // --- Agent resolution errors ---
   if (error instanceof AgentResolutionError) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_SOLUTION_NOT_FOUND",
       "Could not resolve agent URL to a solution",
       [
@@ -233,7 +233,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     error.code === ErrorCode.NETWORK_DNS_FAILED ||
     error.code === ErrorCode.NETWORK_ERROR
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_NETWORK",
       "Network connection failed",
       [
@@ -269,7 +269,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
     error.code === ErrorCode.CONFIG_PARSE_FAILED ||
     error.code === ErrorCode.CONFIG_SECRET_MISSING
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_CONFIG_NOT_FOUND",
       "Configuration file or required resource not found",
       [
@@ -292,7 +292,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
 
   // --- Queue / Redis errors ---
   if (error.code === ErrorCode.QUEUE_CONNECTION_FAILED) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_QUEUE_CONNECTION",
       LEGACY_QUEUE_ERROR_MESSAGE,
       LEGACY_QUEUE_ERROR_CAUSES,
@@ -308,7 +308,7 @@ function formatByErrorCode(error: CoreError): AgentSyncError | null {
 // Regex-based fallback for untyped errors
 // ---------------------------------------------------------------------------
 
-function formatByRegex(error: unknown): AgentSyncError {
+function formatByRegex(error: unknown): CtaError {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errorString = errorMessage.toLowerCase();
 
@@ -316,7 +316,7 @@ function formatByRegex(error: unknown): AgentSyncError {
   const environmentUrlMatch = errorMessage.match(/environment:?\s+(https?:\/\/[^\s]+)/i);
   const clientIdMatch = errorMessage.match(/client\s+id:?\s+([a-f0-9-]+)/i);
 
-  const context: AgentSyncError["context"] = {};
+  const context: CtaError["context"] = {};
   if (environmentUrlMatch) {
     context.environmentUrl = environmentUrlMatch[1];
   }
@@ -330,7 +330,7 @@ function formatByRegex(error: unknown): AgentSyncError {
     errorString.includes("not a member of") ||
     errorString.includes("application is not registered")
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_GDAP_MISSING",
       "Application user not registered in Power Platform environment",
       [
@@ -363,7 +363,7 @@ function formatByRegex(error: unknown): AgentSyncError {
     errorString.includes("access") ||
     errorString.includes("403")
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_INSUFFICIENT_PERMISSIONS",
       "Application user lacks required permissions in Power Platform environment",
       [
@@ -393,7 +393,7 @@ function formatByRegex(error: unknown): AgentSyncError {
     errorString.includes("authentication failed") ||
     errorString.includes("token")
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_AUTH_FAILED",
       "Authentication failed - unable to acquire or validate access token",
       [
@@ -431,7 +431,7 @@ function formatByRegex(error: unknown): AgentSyncError {
       context.solutionName = solutionMatch[1] || solutionMatch[2];
     }
 
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_SOLUTION_NOT_FOUND",
       context.solutionName
         ? `Solution '${context.solutionName}' not found in environment`
@@ -463,7 +463,7 @@ function formatByRegex(error: unknown): AgentSyncError {
     errorString.includes("network") ||
     errorString.includes("fetch failed")
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_NETWORK",
       "Network connection failed",
       [
@@ -497,7 +497,7 @@ function formatByRegex(error: unknown): AgentSyncError {
       errorString.includes("file") ||
       errorString.includes("enoent"))
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_CONFIG_NOT_FOUND",
       "Configuration file or required resource not found",
       [
@@ -524,7 +524,7 @@ function formatByRegex(error: unknown): AgentSyncError {
     errorString.includes("queue") ||
     (errorString.includes("connection") && errorString.includes("refused"))
   ) {
-    return new AgentSyncError(
+    return new CtaError(
       "ERROR_QUEUE_CONNECTION",
       LEGACY_QUEUE_ERROR_MESSAGE,
       LEGACY_QUEUE_ERROR_CAUSES,
@@ -533,7 +533,7 @@ function formatByRegex(error: unknown): AgentSyncError {
     );
   }
   // Generic fallback
-  return new AgentSyncError(
+  return new CtaError(
     "ERROR_UNKNOWN",
     errorMessage,
     [
@@ -558,15 +558,15 @@ function formatByRegex(error: unknown): AgentSyncError {
 // ---------------------------------------------------------------------------
 
 /**
- * Maps any error to a structured AgentSyncError with recovery guidance.
+ * Maps any error to a structured CtaError with recovery guidance.
  *
- * 1. If the error is a typed AgentSyncError from @pax8-cta/core, the
+ * 1. If the error is a typed CtaError from @pax8-cta/core, the
  *    error code is used to select the appropriate guidance (no regex).
  * 2. Otherwise, falls back to regex matching on the error message.
  */
-export function formatError(error: unknown): AgentSyncError {
+export function formatError(error: unknown): CtaError {
   // Fast path: structured error from core with a known code
-  if (isAgentSyncError(error)) {
+  if (isCtaError(error)) {
     const result = formatByErrorCode(error);
     if (result) {
       return result;
@@ -580,7 +580,7 @@ export function formatError(error: unknown): AgentSyncError {
 /**
  * Prints a formatted error message with recovery guidance
  */
-export function printError(error: AgentSyncError): void {
+export function printError(error: CtaError): void {
   console.error();
   console.error(chalk.red.bold(`Error: ${error.message}`), chalk.gray(`(${error.code})`));
   console.error();
