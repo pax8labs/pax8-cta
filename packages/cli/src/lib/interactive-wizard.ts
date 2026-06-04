@@ -605,7 +605,7 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
       console.log(chalk.gray("   deploy <agent-name>\n"));
     }
 
-    console.log(chalk.dim("Need help? Visit: https://github.com/pax8labs/agentsync\n"));
+    console.log(chalk.dim("Need help? Visit: https://github.com/pax8labs/pax8-cta\n"));
 
     return {
       configPath,

@@ -72,7 +72,7 @@ export class EnvironmentSetupService {
   /**
    * Check if an app user exists and has the System Administrator role.
    *
-   * This is the core validation used by `agentsync validate` and `agentsync setup --check`.
+   * This is the core validation used by `pax8-cta validate` and `pax8-cta setup --check`.
    */
   async validateTenant(client: DataverseClient, appId: string): Promise<TenantValidationResult> {
     // Check if app user exists
@@ -111,7 +111,7 @@ export class EnvironmentSetupService {
    * Check the full setup status for a tenant, including error handling.
    *
    * Returns a structured status object suitable for display in tables or JSON output.
-   * Used by `agentsync setup --check`.
+   * Used by `pax8-cta setup --check`.
    */
   async checkSetupStatus(
     client: DataverseClient,
@@ -245,8 +245,8 @@ export class EnvironmentSetupService {
   /**
    * Ensure an app user is created and has System Administrator role.
    *
-   * This is the "setup" action used by both `agentsync setup` and
-   * the auto-setup step in `agentsync deploy`.
+   * This is the "setup" action used by both `pax8-cta setup` and
+   * the auto-setup step in `pax8-cta deploy`.
    */
   async setupTenant(
     client: DataverseClient,

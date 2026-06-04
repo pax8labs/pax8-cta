@@ -35,11 +35,11 @@
  * - IP addresses (PostHog configured to anonymize)
  *
  * Opt-out:
- * - Run: agentsync telemetry off
+ * - Run: pax8-cta telemetry off
  * - Or set: PAX8_CTA_TELEMETRY_DISABLED=1
  * - Or set: DO_NOT_TRACK=1 (https://consoledonottrack.com)
  *
- * More info: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry
+ * More info: https://github.com/pax8labs/pax8-cta/tree/main/packages/cli#telemetry
  */
 
 import type { PostHog } from "posthog-node";
@@ -63,9 +63,9 @@ const config = new Conf<{
   firstRunShown: boolean;
   machineId: string;
 }>({
-  projectName: "agentsync-cli",
+  projectName: "pax8-cta-cli",
   defaults: {
-    telemetryEnabled: false, // Opt-in: disabled by default, enable with `agentsync telemetry on`
+    telemetryEnabled: false, // Opt-in: disabled by default, enable with `pax8-cta telemetry on`
     firstRunShown: false,
     machineId: "",
   },
@@ -178,7 +178,7 @@ export function markFirstRunNoticeShown(): void {
 
 /**
  * Filesystem path to the Conf-managed telemetry preferences file.
- * Used by `agentsync config` to surface where preferences live.
+ * Used by `pax8-cta config` to surface where preferences live.
  */
 export function getTelemetryConfigPath(): string {
   return config.path;
@@ -442,7 +442,7 @@ export function getFirstRunNotice(): string {
 │                                                                           │
 │  Telemetry is disabled by default. To opt in:                             │
 │  • Run 'telemetry on'                                                     │
-│  • Learn more: github.com/pax8labs/agentsync/tree/main/packages/cli       │
+│  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli       │
 └────────────────────────────────────────────────────────────────────────────┘
 `;
 }

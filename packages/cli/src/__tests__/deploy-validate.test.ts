@@ -16,7 +16,7 @@
 
 /**
  * Subprocess tests for the demo-mode solution-name validation added to the
- * deploy command. The bug being covered: in demo mode, `agentsync deploy`
+ * deploy command. The bug being covered: in demo mode, `pax8-cta deploy`
  * previously accepted any string as the solution name and printed a fake
  * success — including obvious typos like "CusteomrServiceAgent". That hides
  * typos during demos and trains users to expect the CLI to accept garbage.

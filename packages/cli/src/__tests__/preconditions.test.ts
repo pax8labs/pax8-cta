@@ -30,7 +30,7 @@ import { runCli, runCliExpectSuccess, stripAnsi, expectJson } from "./test-utils
 
 // The CLI subprocess runner defaults cwd to packages/cli, but the example
 // preconditions manifest ships at the workspace root (`agent packages/`),
-// so we point `cwd` there. Mirrors what end-users do — run agentsync from
+// so we point `cwd` there. Mirrors what end-users do — run pax8-cta from
 // the repo root that contains their solution + manifest sidecar.
 const __filename = fileURLToPath(import.meta.url);
 const WORKSPACE_ROOT = resolve(dirname(__filename), "../../../..");
@@ -116,7 +116,7 @@ describe("analyze — preconditions (Phase 1 preflight)", () => {
     expect(out).toContain("Coho Vineyard");
     // Three remediation kinds (link / command / manual) all rendered.
     expect(out).toContain("https://entra.microsoft.com/"); // link
-    expect(out).toContain("agentsync auth refresh"); // command
+    expect(out).toContain("pax8-cta auth refresh"); // command
     expect(out).toContain("Open Exchange Admin Center"); // manual
   });
 });

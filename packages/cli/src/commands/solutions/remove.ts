@@ -138,7 +138,7 @@ async function runDemoRemove(
   if (matches.length === 0) {
     spinner.fail(
       chalk.red(
-        `No tenant matches '${options.tenant}'; run 'agentsync tenants list' to see available tenants.`
+        `No tenant matches '${options.tenant}'; run 'pax8-cta tenants list' to see available tenants.`
       )
     );
     process.exit(1);

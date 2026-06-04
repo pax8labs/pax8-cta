@@ -15,7 +15,7 @@
  */
 
 /**
- * Subprocess tests for `agentsync config` (issue #309).
+ * Subprocess tests for `pax8-cta config` (issue #309).
  *
  * Coverage:
  *   - Bare run prints expected sections (Demo mode, Credentials, Config file, Paths)
@@ -29,7 +29,7 @@ import { runCli, runCliExpectSuccess, stripAnsi } from "./test-utils.js";
 
 const FAKE_SECRET = "fake-secret-do-not-leak-309";
 
-describe("agentsync config (human-readable)", () => {
+describe("pax8-cta config (human-readable)", () => {
   it("renders all expected sections", async () => {
     // Subprocess stdout is piped, which would otherwise default to JSON.
     // Force the human-readable format via PAX8_CTA_DEFAULT_FORMAT.
@@ -61,7 +61,7 @@ describe("agentsync config (human-readable)", () => {
   }, 60000);
 });
 
-describe("agentsync config --json", () => {
+describe("pax8-cta config --json", () => {
   it("emits parseable JSON with all top-level sections", async () => {
     const result = await runCliExpectSuccess(["config", "--json"], {
       env: { NO_COLOR: "1" },
@@ -104,7 +104,7 @@ describe("agentsync config --json", () => {
   }, 60000);
 });
 
-describe("agentsync config --quiet", () => {
+describe("pax8-cta config --quiet", () => {
   it("produces zero stdout and exits 0", async () => {
     const result = await runCli(["config", "--quiet"], {
       env: { NO_COLOR: "1" },
@@ -116,7 +116,7 @@ describe("agentsync config --quiet", () => {
   }, 60000);
 });
 
-describe("agentsync config: secret hygiene", () => {
+describe("pax8-cta config: secret hygiene", () => {
   it("never echoes PARTNER_CLIENT_SECRET in human-readable output", async () => {
     const result = await runCliExpectSuccess(["config"], {
       env: {

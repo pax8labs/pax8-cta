@@ -14,7 +14,7 @@ partner:
 # This is where your test Copilot Studio agents are developed
 source:
   tenantId: "your-sandbox-tenant-id"  # Can be same as partner tenant
-  environmentUrl: "https://agentsync-dev-source.crm.dynamics.com"
+  environmentUrl: "https://pax8-cta-dev-source.crm.dynamics.com"
 
   # Connection references in source environment (for mapping)
   connectionReferences:

@@ -187,7 +187,7 @@ describe("REPL Module", () => {
       expect(calls).toEqual([{ flag: true, tag: "enterprise" }, {}, { tag: "production" }]);
     });
 
-    it("should tolerate a leading 'agentsync' token", async () => {
+    it("should tolerate a leading 'pax8-cta' token", async () => {
       const actionFn = vi.fn();
       function createProgramWithSpy(): Command {
         const program = new Command();
@@ -195,7 +195,7 @@ describe("REPL Module", () => {
         return program;
       }
 
-      mockQuestion.mockResolvedValueOnce("agentsync test-cmd");
+      mockQuestion.mockResolvedValueOnce("pax8-cta test-cmd");
       mockQuestion.mockResolvedValueOnce("exit");
 
       await startRepl(createProgramWithSpy);

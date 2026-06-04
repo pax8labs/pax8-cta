@@ -29,7 +29,7 @@ import { runCli, containsText, extractJson, stripAnsi } from "./test-utils.js";
 import type { TenantConfig } from "@pax8-cta/core";
 
 // Create a temporary directory with a test config
-const TEST_DIR = join(tmpdir(), `agentsync-test-${Date.now()}`);
+const TEST_DIR = join(tmpdir(), `pax8-cta-test-${Date.now()}`);
 const CONFIG_PATH = join(TEST_DIR, "config", "tenants.yaml");
 const require = createRequire(import.meta.url);
 const { writeFileSync, mkdirSync, rmSync, existsSync } =

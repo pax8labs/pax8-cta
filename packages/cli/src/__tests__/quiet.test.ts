@@ -30,7 +30,7 @@ import { runCli } from "./test-utils.js";
 // ============================================================================
 
 describe("--quiet flag", () => {
-  it("agentsync tenants list --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta tenants list --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(["tenants", "list", "--quiet"], {
       env: { NO_COLOR: "1" },
       timeout: 60000,
@@ -46,7 +46,7 @@ describe("--quiet flag", () => {
 // ============================================================================
 
 describe("PAX8_CTA_QUIET=1 env var", () => {
-  it("PAX8_CTA_QUIET=1 agentsync tenants list produces zero stdout and exits 0", async () => {
+  it("PAX8_CTA_QUIET=1 pax8-cta tenants list produces zero stdout and exits 0", async () => {
     const result = await runCli(["tenants", "list"], {
       env: { NO_COLOR: "1", PAX8_CTA_QUIET: "1" },
       timeout: 60000,
@@ -62,7 +62,7 @@ describe("PAX8_CTA_QUIET=1 env var", () => {
 // ============================================================================
 
 describe("--quiet error path", () => {
-  it("agentsync tenants show <nonexistent> --quiet exits non-zero (errors not suppressed)", async () => {
+  it("pax8-cta tenants show <nonexistent> --quiet exits non-zero (errors not suppressed)", async () => {
     const result = await runCli(
       ["tenants", "show", "nonexistent-tenant-xyz-quiet-test", "--quiet"],
       {
@@ -89,7 +89,7 @@ describe("--quiet error path", () => {
 // ============================================================================
 
 describe("validate command (issue #358)", () => {
-  it("agentsync validate --quiet produces zero stdout", async () => {
+  it("pax8-cta validate --quiet produces zero stdout", async () => {
     const result = await runCli(["validate"], {
       env: { NO_COLOR: "1", PAX8_CTA_QUIET: "1" },
       timeout: 60000,
@@ -99,7 +99,7 @@ describe("validate command (issue #358)", () => {
     expect(result.stdout.trim()).toBe("");
   }, 60000);
 
-  it("agentsync validate --json emits a parseable envelope on stdout", async () => {
+  it("pax8-cta validate --json emits a parseable envelope on stdout", async () => {
     // Force real-mode validation: with DEMO_MODE off and no config in cwd,
     // validate should fail at the config-file check and emit a structured
     // failure envelope. (Issue #385 changed the default test env to demo
@@ -126,7 +126,7 @@ describe("validate command (issue #358)", () => {
 });
 
 describe("status command (issue #358)", () => {
-  it("agentsync status --list --quiet produces zero stdout and exits 0 in demo mode", async () => {
+  it("pax8-cta status --list --quiet produces zero stdout and exits 0 in demo mode", async () => {
     const result = await runCli(["status", "--list", "--quiet"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -136,7 +136,7 @@ describe("status command (issue #358)", () => {
     expect(result.stdout.trim()).toBe("");
   }, 60000);
 
-  it("agentsync status --list --json emits a parseable shipments envelope", async () => {
+  it("pax8-cta status --list --json emits a parseable shipments envelope", async () => {
     const result = await runCli(["status", "--list", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -151,7 +151,7 @@ describe("status command (issue #358)", () => {
     expect(envelope.deployments[0]).toHaveProperty("id");
   }, 60000);
 
-  it("agentsync status --shipment <id> --json emits a parseable deployment envelope", async () => {
+  it("pax8-cta status --shipment <id> --json emits a parseable deployment envelope", async () => {
     const result = await runCli(["status", "--shipment", "dep-demo-success", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -166,11 +166,11 @@ describe("status command (issue #358)", () => {
     expect(Array.isArray(envelope.deployment.tenantResults)).toBe(true);
   }, 60000);
 
-  // Issue #384: bare `agentsync status` should default to --list rather than
+  // Issue #384: bare `pax8-cta status` should default to --list rather than
   // erroring with "must specify --deployment or --list". This test asserts the
   // shape matches `status --list --json` exactly so users (and scripts) can
   // rely on the default behaviour.
-  it("agentsync status (no args) defaults to --list and emits the same JSON envelope", async () => {
+  it("pax8-cta status (no args) defaults to --list and emits the same JSON envelope", async () => {
     const noArgs = await runCli(["status", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -228,7 +228,7 @@ describe("argv -- separator handling (issue #383)", () => {
 // ============================================================================
 
 describe("tenants health command (issue #382)", () => {
-  it("agentsync tenants health --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta tenants health --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(["tenants", "health", "--quiet"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -238,7 +238,7 @@ describe("tenants health command (issue #382)", () => {
     expect(result.stdout.trim()).toBe("");
   }, 60000);
 
-  it("agentsync tenants health --json emits a parseable fleet envelope", async () => {
+  it("pax8-cta tenants health --json emits a parseable fleet envelope", async () => {
     const result = await runCli(["tenants", "health", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -261,7 +261,7 @@ describe("tenants health command (issue #382)", () => {
     expect(envelope.tenants[0]).toHaveProperty("checks");
   }, 60000);
 
-  it("agentsync tenants health <name> --json emits a parseable per-tenant envelope", async () => {
+  it("pax8-cta tenants health <name> --json emits a parseable per-tenant envelope", async () => {
     const result = await runCli(["tenants", "health", "Contoso", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -353,7 +353,7 @@ describe("solutions drift after-action hint (issue #377)", () => {
 // ============================================================================
 
 describe("solutions drift command (issue #401)", () => {
-  it("agentsync solutions drift --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta solutions drift --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(["solutions", "drift", "--quiet"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -363,7 +363,7 @@ describe("solutions drift command (issue #401)", () => {
     expect(result.stdout.trim()).toBe("");
   }, 60000);
 
-  it("agentsync solutions drift --risk --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta solutions drift --risk --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(["solutions", "drift", "--risk", "--quiet"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -373,7 +373,7 @@ describe("solutions drift command (issue #401)", () => {
     expect(result.stdout.trim()).toBe("");
   }, 60000);
 
-  it("agentsync solutions drift --json emits a parseable summary envelope", async () => {
+  it("pax8-cta solutions drift --json emits a parseable summary envelope", async () => {
     const result = await runCli(["solutions", "drift", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -393,7 +393,7 @@ describe("solutions drift command (issue #401)", () => {
     expect(Array.isArray(envelope.solutionSummary)).toBe(true);
   }, 60000);
 
-  it("agentsync solutions drift --risk --json emits a parseable fleet-risk envelope", async () => {
+  it("pax8-cta solutions drift --risk --json emits a parseable fleet-risk envelope", async () => {
     const result = await runCli(["solutions", "drift", "--risk", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -431,7 +431,7 @@ describe("solutions drift command (issue #401)", () => {
     expect(envelope.summary.total).toBe(envelope.tenants.length);
   }, 60000);
 
-  it("agentsync solutions drift in non-TTY defaults to JSON (matches piped stdout convention)", async () => {
+  it("pax8-cta solutions drift in non-TTY defaults to JSON (matches piped stdout convention)", async () => {
     // Subprocess stdout is non-TTY → drift defaults to JSON without an
     // explicit --json flag. Mirrors tenants list / tenants health behavior.
     const result = await runCli(["solutions", "drift"], {
@@ -445,7 +445,7 @@ describe("solutions drift command (issue #401)", () => {
     expect(typeof envelope.totalTenants).toBe("number");
   }, 60000);
 
-  it("agentsync solutions drift --risk in non-TTY defaults to JSON envelope", async () => {
+  it("pax8-cta solutions drift --risk in non-TTY defaults to JSON envelope", async () => {
     const result = await runCli(["solutions", "drift", "--risk"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -469,7 +469,7 @@ describe("solutions drift command (issue #401)", () => {
 // ============================================================================
 
 describe("solutions show command (issue #406)", () => {
-  it("agentsync solutions show <name> --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta solutions show <name> --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(["solutions", "show", "CustomerServiceAgent", "--quiet"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -479,7 +479,7 @@ describe("solutions show command (issue #406)", () => {
     expect(result.stdout.trim()).toBe("");
   }, 60000);
 
-  it("agentsync solutions show <name> --tenants --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta solutions show <name> --tenants --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(
       ["solutions", "show", "CustomerServiceAgent", "--tenants", "--quiet"],
       {
@@ -492,7 +492,7 @@ describe("solutions show command (issue #406)", () => {
     expect(result.stdout.trim()).toBe("");
   }, 60000);
 
-  it("agentsync solutions show <name> --json emits a parseable solution envelope", async () => {
+  it("pax8-cta solutions show <name> --json emits a parseable solution envelope", async () => {
     const result = await runCli(["solutions", "show", "CustomerServiceAgent", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,
@@ -529,7 +529,7 @@ describe("solutions show command (issue #406)", () => {
     expect(envelope.tenants).toBeUndefined();
   }, 60000);
 
-  it("agentsync solutions show <name> --tenants --json emits envelope with tenants[]", async () => {
+  it("pax8-cta solutions show <name> --tenants --json emits envelope with tenants[]", async () => {
     const result = await runCli(
       ["solutions", "show", "CustomerServiceAgent", "--tenants", "--json"],
       {
@@ -561,7 +561,7 @@ describe("solutions show command (issue #406)", () => {
     expect(["current", "outdated", "not_deployed"]).toContain(envelope.tenants[0].status);
   }, 60000);
 
-  it("agentsync solutions show <name> in non-TTY defaults to JSON envelope", async () => {
+  it("pax8-cta solutions show <name> in non-TTY defaults to JSON envelope", async () => {
     // Subprocess stdout is non-TTY → solutions show defaults to JSON without
     // an explicit --json flag. Mirrors tenants list / tenants health /
     // solutions drift behavior.
@@ -587,7 +587,7 @@ describe("solutions show command (issue #406)", () => {
 // ============================================================================
 
 describe("tenants show <not-found> (issue #360)", () => {
-  it("agentsync tenants show <missing> --json emits a JSON error envelope on stderr", async () => {
+  it("pax8-cta tenants show <missing> --json emits a JSON error envelope on stderr", async () => {
     const result = await runCli(["tenants", "show", "definitely-not-a-tenant-xyz", "--json"], {
       env: { NO_COLOR: "1", DEMO_MODE: "true" },
       timeout: 60000,

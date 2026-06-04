@@ -14,7 +14,7 @@ We plan to accept community contributions once we have a CLA and review process 
 
 ## Reporting Bugs
 
-If you find a bug, please [open an issue](https://github.com/pax8labs/agentsync/issues/new) and include:
+If you find a bug, please [open an issue](https://github.com/pax8labs/pax8-cta/issues/new) and include:
 
 - A clear, descriptive title
 - Steps to reproduce the problem
@@ -38,8 +38,8 @@ If you want to explore the codebase or reproduce an issue locally:
 
 ```bash
 # Clone and install
-git clone https://github.com/pax8labs/agentsync.git
-cd agentsync
+git clone https://github.com/pax8labs/pax8-cta.git
+cd pax8-cta
 pnpm install
 
 # Build all packages

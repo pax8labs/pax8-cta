@@ -30,11 +30,11 @@ run_check() {
   shift
 
   print_test "$name"
-  if "$@" >/tmp/agentsync-smoke.out 2>&1; then
+  if "$@" >/tmp/pax8-cta-smoke.out 2>&1; then
     print_success "$name"
   else
     echo -e "${YELLOW}Output:${NC}"
-    cat /tmp/agentsync-smoke.out
+    cat /tmp/pax8-cta-smoke.out
     print_failure "$name"
   fi
 }

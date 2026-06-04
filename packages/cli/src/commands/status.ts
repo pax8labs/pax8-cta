@@ -238,7 +238,7 @@ export const statusCommand = new Command("status")
     }
 
     // Default to --list behavior when no specific flag is provided.
-    // "agentsync status" with no args is the natural way users ask
+    // "pax8-cta status" with no args is the natural way users ask
     // "what's running" — treating it as an error (issue #384) was hostile.
     const trackingId = options.shipment || options.deployment;
     if (!options.list && !trackingId) {
@@ -286,7 +286,7 @@ export const statusCommand = new Command("status")
           console.log();
           output(rows, { format: "table", columns: SHIPMENT_LIST_COLUMNS });
           console.log();
-          console.log(chalk.gray(`Use 'agentsync deployments show <id>' to view details`));
+          console.log(chalk.gray(`Use 'pax8-cta deployments show <id>' to view details`));
         },
         () => {
           exitOssUnavailable("'status --list'", {

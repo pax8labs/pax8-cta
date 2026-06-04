@@ -24,7 +24,7 @@ describe("CRLF line ending compatibility", () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = join(tmpdir(), `agentsync-test-${randomUUID()}`);
+    tempDir = join(tmpdir(), `pax8-cta-test-${randomUUID()}`);
     mkdirSync(tempDir, { recursive: true });
   });
 
@@ -138,8 +138,8 @@ describe("parseTable with CRLF output", () => {
 
 describe("cross-platform path handling", () => {
   it("path.join should produce platform-correct separators", () => {
-    const result = join("data", "agentsync.db");
-    expect(result).toBe(`data${sep}agentsync.db`);
+    const result = join("data", "pax8-cta.db");
+    expect(result).toBe(`data${sep}pax8-cta.db`);
   });
 
   it("path.resolve normalizes forward slashes on all platforms", () => {

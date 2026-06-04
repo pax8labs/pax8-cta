@@ -181,7 +181,7 @@ describe("SolutionOperations (MSW replay)", () => {
   beforeEach(() => {
     client = createClient();
     ops = new SolutionOperations(client);
-    tmpDir = mkdtempSync(join(tmpdir(), "agentsync-msw-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "pax8-cta-msw-"));
   });
 
   afterEach(() => {

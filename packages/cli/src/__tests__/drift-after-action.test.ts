@@ -63,10 +63,10 @@ describe("buildAfterActionHint (issue #377)", () => {
       "CustomerServiceAgent"
     );
     expect(hint).toContain("Suggested next action:");
-    expect(hint).toContain("agentsync deploy CustomerServiceAgent --tenant <name>");
-    expect(hint).toContain("agentsync solutions drift --fix");
+    expect(hint).toContain("pax8-cta deploy CustomerServiceAgent --tenant <name>");
+    expect(hint).toContain("pax8-cta solutions drift --fix");
     // No HIGH-risk row → no analyze drill-in suggestion.
-    expect(hint).not.toContain("agentsync analyze");
+    expect(hint).not.toContain("pax8-cta analyze");
   });
 
   it("3 outdated tenants → still uses the per-tenant suggestion form", () => {
@@ -78,8 +78,8 @@ describe("buildAfterActionHint (issue #377)", () => {
       ],
       "CustomerServiceAgent"
     );
-    expect(hint).toContain("agentsync deploy CustomerServiceAgent --tenant <name>");
-    expect(hint).toContain("agentsync solutions drift --fix");
+    expect(hint).toContain("pax8-cta deploy CustomerServiceAgent --tenant <name>");
+    expect(hint).toContain("pax8-cta solutions drift --fix");
   });
 
   it("5 outdated tenants → recommends solutions drift --fix with caveat", () => {
@@ -93,10 +93,10 @@ describe("buildAfterActionHint (issue #377)", () => {
       ],
       "CustomerServiceAgent"
     );
-    expect(hint).toContain("Suggested next action: agentsync solutions drift --fix");
+    expect(hint).toContain("Suggested next action: pax8-cta solutions drift --fix");
     expect(hint).toContain("review the list above first");
     // No HIGH-risk row → no analyze drill-in suggestion.
-    expect(hint).not.toContain("agentsync analyze");
+    expect(hint).not.toContain("pax8-cta analyze");
   });
 
   it("any HIGH-risk row → appends the analyze drill-in suggestion", () => {
@@ -105,11 +105,11 @@ describe("buildAfterActionHint (issue #377)", () => {
       "CustomerServiceAgent"
     );
     expect(hint).toContain("Drill into risk before updating");
-    expect(hint).toContain("agentsync analyze CustomerServiceAgent --tenant <name>");
+    expect(hint).toContain("pax8-cta analyze CustomerServiceAgent --tenant <name>");
   });
 
   it("falls back to <solution> placeholder when no solution name is supplied", () => {
     const hint = buildAfterActionHint([makeTenant("Contoso", "medium", 40)]);
-    expect(hint).toContain("agentsync deploy <solution> --tenant <name>");
+    expect(hint).toContain("pax8-cta deploy <solution> --tenant <name>");
   });
 });

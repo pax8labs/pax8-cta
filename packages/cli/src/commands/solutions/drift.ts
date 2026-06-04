@@ -174,7 +174,7 @@ Examples:
     )
     .action(async (options, cmd) => {
       // Merge local opts with globals so root-level `--json` / `--quiet`
-      // (`agentsync --json solutions drift ...`) reach this command. Then
+      // (`pax8-cta --json solutions drift ...`) reach this command. Then
       // resolve the effective output format up-front so every branch below
       // can branch on a single `fmt` value (issue #401).
       const merged = { ...options, ...cmd.optsWithGlobals() };

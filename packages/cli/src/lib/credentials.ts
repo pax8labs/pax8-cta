@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-const SERVICE_NAME = "agentsync";
+const SERVICE_NAME = "pax8-cta";
 const ACCOUNT_NAME = "client-secret";
 
 /**
@@ -130,7 +130,7 @@ const CLIENT_SECRET_ENV_VARS = ["PARTNER_CLIENT_SECRET", "PAX8_CTA_CLIENT_SECRET
  *   1. Environment variables (PARTNER_CLIENT_SECRET, then PAX8_CTA_CLIENT_SECRET).
  *      These are populated either by the shell environment or by the .env loader
  *      in index.ts — so .env file values are included here automatically.
- *   2. OS keychain (stored via `agentsync auth login`).
+ *   2. OS keychain (stored via `pax8-cta auth login`).
  *
  * Every CLI command that needs a client secret MUST call this function
  * rather than reading process.env directly.

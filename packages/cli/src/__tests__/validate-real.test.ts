@@ -28,7 +28,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runCli, containsText, stripAnsi } from "./test-utils.js";
 
-const TEST_DIR = join(tmpdir(), `agentsync-validate-test-${Date.now()}`);
+const TEST_DIR = join(tmpdir(), `pax8-cta-validate-test-${Date.now()}`);
 const CONFIG_PATH = join(TEST_DIR, "config", "tenants.yaml");
 const require = createRequire(import.meta.url);
 const { writeFileSync, mkdirSync, rmSync, existsSync } =

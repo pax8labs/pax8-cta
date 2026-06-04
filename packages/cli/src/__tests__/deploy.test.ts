@@ -146,7 +146,7 @@ describe("Deploy Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "agentsync deployments show")).toBe(true);
+      expect(containsText(output, "pax8-cta deployments show")).toBe(true);
     });
 
     it("should show DEMO MODE banner once per process", async () => {

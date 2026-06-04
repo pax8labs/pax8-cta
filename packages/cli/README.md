@@ -14,20 +14,20 @@ Mock-data mode, no credentials, no Azure setup. Then run `npx -y pax8-cta --help
 
 ```bash
 # Try demo mode first (no credentials needed)
-agentsync init --demo
-agentsync tenants list
+pax8-cta init --demo
+pax8-cta tenants list
 
 # When ready for production
-agentsync demo off
-agentsync init
+pax8-cta demo off
+pax8-cta init
 ```
 
 ## Interactive Shell Mode
 
-Run `agentsync` without arguments to enter interactive mode where you can run commands without typing "agentsync" each time:
+Run `pax8-cta` without arguments to enter interactive mode where you can run commands without typing "pax8-cta" each time:
 
 ```bash
-$ agentsync
+$ pax8-cta
 
    ___                   _   ____
   /   |  ____ ____  ____(_) / __/_ ______  _____
@@ -56,7 +56,7 @@ $
 ### Quick Install (macOS/Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.sh | bash
 ```
 
 ### Homebrew (coming soon)
@@ -68,40 +68,40 @@ curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh 
 
 ### Download Binary
 
-Download the appropriate binary for your platform from the [latest release](https://github.com/pax8labs/agentsync/releases/latest):
+Download the appropriate binary for your platform from the [latest release](https://github.com/pax8labs/pax8-cta/releases/latest):
 
 #### macOS
 
 ```bash
 # Apple Silicon (M1/M2/M3)
-curl -fsSL https://github.com/pax8labs/agentsync/releases/latest/download/agentsync-macos-arm64 -o agentsync
-chmod +x agentsync
-sudo mv agentsync /usr/local/bin/
+curl -fsSL https://github.com/pax8labs/pax8-cta/releases/latest/download/pax8-cta-macos-arm64 -o pax8-cta
+chmod +x pax8-cta
+sudo mv pax8-cta /usr/local/bin/
 
 # Intel
-curl -fsSL https://github.com/pax8labs/agentsync/releases/latest/download/agentsync-macos-x64 -o agentsync
-chmod +x agentsync
-sudo mv agentsync /usr/local/bin/
+curl -fsSL https://github.com/pax8labs/pax8-cta/releases/latest/download/pax8-cta-macos-x64 -o pax8-cta
+chmod +x pax8-cta
+sudo mv pax8-cta /usr/local/bin/
 ```
 
 #### Linux
 
 ```bash
 # x64
-curl -fsSL https://github.com/pax8labs/agentsync/releases/latest/download/agentsync-linux-x64 -o agentsync
-chmod +x agentsync
-sudo mv agentsync /usr/local/bin/
+curl -fsSL https://github.com/pax8labs/pax8-cta/releases/latest/download/pax8-cta-linux-x64 -o pax8-cta
+chmod +x pax8-cta
+sudo mv pax8-cta /usr/local/bin/
 
 # ARM64
-curl -fsSL https://github.com/pax8labs/agentsync/releases/latest/download/agentsync-linux-arm64 -o agentsync
-chmod +x agentsync
-sudo mv agentsync /usr/local/bin/
+curl -fsSL https://github.com/pax8labs/pax8-cta/releases/latest/download/pax8-cta-linux-arm64 -o pax8-cta
+chmod +x pax8-cta
+sudo mv pax8-cta /usr/local/bin/
 ```
 
 #### Windows
 
-1. Download [agentsync-windows-x64.exe](https://github.com/pax8labs/agentsync/releases/latest/download/agentsync-windows-x64.exe)
-2. Rename to `agentsync.exe`
+1. Download [pax8-cta-windows-x64.exe](https://github.com/pax8labs/pax8-cta/releases/latest/download/pax8-cta-windows-x64.exe)
+2. Rename to `pax8-cta.exe`
 3. Add to your PATH or move to a directory in your PATH
 
 ### npm/npx (Alternative)
@@ -119,8 +119,8 @@ npx pax8-cta --help
 ### Verify Installation
 
 ```bash
-agentsync --version
-agentsync --help
+pax8-cta --version
+pax8-cta --help
 ```
 
 ## Quick Start
@@ -128,38 +128,38 @@ agentsync --help
 ### 1. Deploy an Agent to All Tenants
 
 ```bash
-agentsync deploy --all --solution ./myagent.zip
+pax8-cta deploy --all --solution ./myagent.zip
 ```
 
 ### 2. Deploy to Specific Tenants (by tag)
 
 ```bash
-agentsync deploy --tag production --solution ./myagent.zip
+pax8-cta deploy --tag production --solution ./myagent.zip
 ```
 
 ### 3. View Deployment History
 
 ```bash
 # List recent deployments
-agentsync deployments list
+pax8-cta deployments list
 
 # Show a specific deployment history entry
-agentsync deployments show dep-abc123
+pax8-cta deployments show dep-abc123
 
 # Check setup/readiness status
-agentsync status --setup
+pax8-cta status --setup
 ```
 
 ### 4. List Your Tenants
 
 ```bash
-agentsync tenants list
+pax8-cta tenants list
 ```
 
 ### 5. Validate Tenant Access
 
 ```bash
-agentsync tenants inspect
+pax8-cta tenants inspect
 ```
 
 ## Commands
@@ -170,13 +170,13 @@ Initialize AgentSync with guided setup.
 
 ```bash
 # Quick demo setup (no credentials needed)
-agentsync init --demo
+pax8-cta init --demo
 
 # Full production setup (interactive wizard)
-agentsync init
+pax8-cta init
 
 # Custom config location
-agentsync init --config ./custom/config.yaml
+pax8-cta init --config ./custom/config.yaml
 ```
 
 The setup wizard will prompt for:
@@ -197,16 +197,16 @@ Toggle demo mode for testing without credentials.
 
 ```bash
 # Enable demo mode
-agentsync demo on
+pax8-cta demo on
 
 # Disable demo mode
-agentsync demo off
+pax8-cta demo off
 
 # Toggle (switch between on/off)
-agentsync demo
+pax8-cta demo
 
 # Check current status
-agentsync demo status
+pax8-cta demo status
 ```
 
 Demo mode persists across sessions and allows you to explore all CLI features with mock data.
@@ -224,16 +224,16 @@ Analyze deployment risk before deploying to identify potential issues.
 
 ```bash
 # Analyze risk for all enabled tenants
-agentsync analyze --all --solution ./agent.zip
+pax8-cta analyze --all --solution ./agent.zip
 
 # Analyze risk for tenants with specific tags
-agentsync analyze --tag production --solution ./agent.zip
+pax8-cta analyze --tag production --solution ./agent.zip
 
 # Output results as JSON (for scripting)
-agentsync analyze --all --solution ./agent.zip --json
+pax8-cta analyze --all --solution ./agent.zip --json
 
 # Use custom config file
-agentsync analyze --all --solution ./agent.zip --config ./my-config.yaml
+pax8-cta analyze --all --solution ./agent.zip --config ./my-config.yaml
 ```
 
 The risk analyzer checks for:
@@ -279,16 +279,16 @@ Deploy agents to your tenants. (Alias: `ship`)
 
 ```bash
 # Deploy to all enabled tenants
-agentsync deploy --all --solution ./agent.zip
+pax8-cta deploy --all --solution ./agent.zip
 
 # Deploy to tenants with specific tags
-agentsync deploy --tag production --tag eu --solution ./agent.zip
+pax8-cta deploy --tag production --tag eu --solution ./agent.zip
 
 # Dry run (preview without deploying)
-agentsync deploy --all --solution ./agent.zip --dry-run
+pax8-cta deploy --all --solution ./agent.zip --dry-run
 
 # Use custom config file
-agentsync deploy --all --solution ./agent.zip --config ./my-config.yaml
+pax8-cta deploy --all --solution ./agent.zip --config ./my-config.yaml
 ```
 
 **Aliases**: `deploy`
@@ -307,10 +307,10 @@ Check deployment history in demo mode and setup readiness in real mode. (Alias: 
 
 ```bash
 # List recent demo shipments
-agentsync status --list
+pax8-cta status --list
 
 # Show setup/readiness status
-agentsync status --setup
+pax8-cta status --setup
 ```
 
 **Aliases**: `status`
@@ -326,16 +326,16 @@ Manage your tenants. (Alias: `fleet`)
 
 ```bash
 # List all tenants
-agentsync tenants list
+pax8-cta tenants list
 
 # List with filters
-agentsync tenants list --tag production
-agentsync tenants list --enabled
-agentsync tenants list --disabled
+pax8-cta tenants list --tag production
+pax8-cta tenants list --enabled
+pax8-cta tenants list --disabled
 
 # Validate tenant access (GDAP permissions)
-agentsync tenants inspect
-agentsync tenants inspect --tag production
+pax8-cta tenants inspect
+pax8-cta tenants inspect --tag production
 ```
 
 **Aliases**: `tenants`
@@ -353,13 +353,13 @@ Export a Copilot Studio agent to a solution ZIP file.
 
 ```bash
 # Export from source environment
-agentsync export --solution MyAgent --output ./myagent.zip
+pax8-cta export --solution MyAgent --output ./myagent.zip
 
 # Export specific version
-agentsync export --solution MyAgent --version 1.0.0.0 --output ./myagent.zip
+pax8-cta export --solution MyAgent --version 1.0.0.0 --output ./myagent.zip
 
 # Include dependencies
-agentsync export --solution MyAgent --output ./myagent.zip --managed
+pax8-cta export --solution MyAgent --output ./myagent.zip --managed
 ```
 
 **Aliases**: `export`
@@ -380,13 +380,13 @@ Deploy an agent to a single tenant (for testing).
 
 ```bash
 # Deploy to specific tenant
-agentsync import --tenant <tenant-id> --solution ./agent.zip
+pax8-cta import --tenant <tenant-id> --solution ./agent.zip
 
 # Don't overwrite customizations
-agentsync import --tenant <tenant-id> --solution ./agent.zip --no-overwrite
+pax8-cta import --tenant <tenant-id> --solution ./agent.zip --no-overwrite
 
 # Don't publish workflows
-agentsync import --tenant <tenant-id> --solution ./agent.zip --no-publish
+pax8-cta import --tenant <tenant-id> --solution ./agent.zip --no-publish
 ```
 
 **Aliases**: `import`
@@ -405,7 +405,7 @@ Resolve an M365 agent URL and export the containing solution.
 
 ```bash
 # Resolve and export
-agentsync resolve-url --url "https://..." --output ./agent.zip
+pax8-cta resolve-url --url "https://..." --output ./agent.zip
 ```
 
 **Options**:
@@ -517,7 +517,7 @@ For testing without Azure AD credentials:
 DEMO_MODE=true
 
 # Then use the CLI normally
-agentsync deploy --all --solution ./demo-agent.zip
+pax8-cta deploy --all --solution ./demo-agent.zip
 ```
 
 Demo mode uses in-memory tenants and simulates deployments.
@@ -526,15 +526,15 @@ Demo mode uses in-memory tenants and simulates deployments.
 
 ### Command Not Found
 
-If `agentsync` is not found after installation:
+If `pax8-cta` is not found after installation:
 
 ```bash
 # Add to PATH (add to ~/.bashrc or ~/.zshrc for persistence)
 export PATH="/usr/local/bin:$PATH"
 
 # Or install to a directory already in PATH
-curl -fsSL https://github.com/pax8labs/agentsync/releases/latest/download/agentsync-macos-arm64 -o ~/bin/agentsync
-chmod +x ~/bin/agentsync
+curl -fsSL https://github.com/pax8labs/pax8-cta/releases/latest/download/pax8-cta-macos-arm64 -o ~/bin/pax8-cta
+chmod +x ~/bin/pax8-cta
 ```
 
 ### Authentication Errors
@@ -544,20 +544,20 @@ chmod +x ~/bin/agentsync
 echo $PARTNER_CLIENT_SECRET
 
 # Verify tenant IDs are correct
-agentsync tenants list
+pax8-cta tenants list
 
 # Validate GDAP access
-agentsync tenants inspect
+pax8-cta tenants inspect
 ```
 
 ### Connection Errors
 
 ```bash
 # Run direct deployment mode
-agentsync deploy --all --direct --solution ./agent.zip
+pax8-cta deploy --all --direct --solution ./agent.zip
 
 # Verify tenant environment URLs
-agentsync tenants list
+pax8-cta tenants list
 ```
 
 ### Deployment Failures
@@ -566,9 +566,9 @@ AgentSync CLI deployments run directly now, so there is no worker process to sta
 If a deployment fails, inspect the tenant details and retry the command:
 
 ```bash
-agentsync deployments list
-agentsync deployments show <deployment-id>
-agentsync deploy --all --direct --solution ./agent.zip
+pax8-cta deployments list
+pax8-cta deployments show <deployment-id>
+pax8-cta deploy --all --direct --solution ./agent.zip
 ```
 
 ## Development
@@ -577,8 +577,8 @@ agentsync deploy --all --direct --solution ./agent.zip
 
 ```bash
 # Clone repository
-git clone https://github.com/pax8labs/agentsync.git
-cd agentsync
+git clone https://github.com/pax8labs/pax8-cta.git
+cd pax8-cta
 
 # Install dependencies
 pnpm install
@@ -633,7 +633,7 @@ AgentSync CLI collects anonymous usage analytics to help improve the tool. No pe
 **Opt out:**
 
 ```bash
-agentsync telemetry off
+pax8-cta telemetry off
 # or
 export PAX8_CTA_TELEMETRY_DISABLED=1
 ```
@@ -641,7 +641,7 @@ export PAX8_CTA_TELEMETRY_DISABLED=1
 **Check status:**
 
 ```bash
-agentsync telemetry status
+pax8-cta telemetry status
 ```
 
 ## License
@@ -650,9 +650,9 @@ Apache 2.0
 
 ## Support
 
-- **Documentation**: https://github.com/pax8labs/agentsync
-- **Issues**: https://github.com/pax8labs/agentsync/issues
-- **Discussions**: https://github.com/pax8labs/agentsync/discussions
+- **Documentation**: https://github.com/pax8labs/pax8-cta
+- **Issues**: https://github.com/pax8labs/pax8-cta/issues
+- **Discussions**: https://github.com/pax8labs/pax8-cta/discussions
 
 ## Related Projects
 

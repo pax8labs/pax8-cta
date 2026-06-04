@@ -14,8 +14,8 @@ NC='\033[0m' # No Color
 
 # Check if running from project root
 if [ ! -f "package.json" ]; then
-    echo "❌ Error: Must run from agentsync project root"
-    echo "   Run: cd /path/to/agentsync && ./scripts/start-demo.sh"
+    echo "❌ Error: Must run from pax8-cta project root"
+    echo "   Run: cd /path/to/pax8-cta && ./scripts/start-demo.sh"
     exit 1
 fi
 

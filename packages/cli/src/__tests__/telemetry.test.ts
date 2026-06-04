@@ -169,7 +169,7 @@ describe("Telemetry", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, "github.com/pax8labs/agentsync")).toBe(true);
+      expect(containsText(cleanOutput, "github.com/pax8labs/pax8-cta")).toBe(true);
     });
   });
 

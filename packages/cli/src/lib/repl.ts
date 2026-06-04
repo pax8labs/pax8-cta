@@ -50,8 +50,8 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
       const args = parseCommandLine(input);
 
       // Tolerate shell-style invocations: muscle memory from running
-      // `agentsync foo bar` outside the REPL shouldn't surface as an error.
-      if (args[0] === "agentsync") {
+      // `pax8-cta foo bar` outside the REPL shouldn't surface as an error.
+      if (args[0] === "pax8-cta") {
         args.shift();
       }
 

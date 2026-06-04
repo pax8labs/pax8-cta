@@ -547,7 +547,7 @@ function formatByRegex(error: unknown): AgentSyncError {
       "Verify your configuration and environment setup",
       "Try the command again with --verbose flag for more details (if available)",
       "If the issue persists, please report it on GitHub with the error details",
-      "  https://github.com/pax8labs/agentsync/issues",
+      "  https://github.com/pax8labs/pax8-cta/issues",
     ],
     context
   );

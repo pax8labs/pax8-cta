@@ -302,7 +302,7 @@ describe("output() — ids-only format", () => {
 // Subprocess test — piped stdout produces JSON (no ANSI/table)
 // ============================================================================
 
-describe("subprocess: agentsync tenants list with piped stdout", () => {
+describe("subprocess: pax8-cta tenants list with piped stdout", () => {
   it("outputs JSON when stdout is not a TTY", async () => {
     // runCli() spawns via child_process (stdout is not a TTY by default).
     // getDefaultFormat() detects process.stdout.isTTY === undefined and returns "json".
@@ -329,7 +329,7 @@ describe("subprocess: agentsync tenants list with piped stdout", () => {
 // Subprocess test — --ids-only produces one ID per line
 // ============================================================================
 
-describe("subprocess: agentsync tenants list --ids-only", () => {
+describe("subprocess: pax8-cta tenants list --ids-only", () => {
   it("outputs one tenant ID per line, no headers, no other text, exit 0", async () => {
     const result = await runCli(["tenants", "list", "--ids-only"], {
       env: { NO_COLOR: "1" },

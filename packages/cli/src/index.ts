@@ -96,7 +96,7 @@ export function createProgram(): Command {
   const program = new Command();
 
   program
-    .name("agentsync")
+    .name("pax8-cta")
     .description("AgentSync - Deploy and manage Power Platform agents across tenants")
     .version(VERSION)
     .option("--verbose", "Enable verbose output for debugging")

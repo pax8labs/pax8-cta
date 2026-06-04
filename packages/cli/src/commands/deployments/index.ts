@@ -22,7 +22,7 @@ import { undoCommand } from "./undo.js";
 /**
  * Deployments command - manage and view deployments
  *
- * Follows the resource-action pattern: `agentsync deployments <action>`
+ * Follows the resource-action pattern: `pax8-cta deployments <action>`
  */
 export const deploymentsCommand = new Command("deployments")
   .description("View deployment history")

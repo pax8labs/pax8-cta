@@ -189,13 +189,13 @@ jobs:
       - name: Build Windows binary
         run: |
           New-Item -ItemType Directory -Path dist/binaries -Force | Out-Null
-          bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist/binaries/agentsync-windows-x64.exe
+          bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist/binaries/pax8-cta-windows-x64.exe
         shell: pwsh
         working-directory: packages/cli
 
       - name: Smoke test binary
         run: |
-          $exe = "packages/cli/dist/binaries/agentsync-windows-x64.exe"
+          $exe = "packages/cli/dist/binaries/pax8-cta-windows-x64.exe"
           Write-Host "Testing --version..."
           & $exe --version
           Write-Host "Testing --help..."

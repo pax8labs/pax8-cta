@@ -1,11 +1,11 @@
 # AgentSync CLI Installation Script for Windows
-# Usage: irm https://raw.githubusercontent.com/pax8labs/agentsync/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "pax8labs/agentsync"
+$Repo = "pax8labs/pax8-cta"
 $Version = "latest"
-$InstallDir = if ($env:PAX8_CTA_INSTALL_DIR) { $env:PAX8_CTA_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "agentsync" }
+$InstallDir = if ($env:PAX8_CTA_INSTALL_DIR) { $env:PAX8_CTA_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "pax8-cta" }
 
 # --- Banner ---
 Write-Host ""
@@ -17,7 +17,7 @@ Write-Host ""
 # --- Detect Architecture ---
 $Arch = $env:PROCESSOR_ARCHITECTURE
 if ($Arch -eq "AMD64" -or $Arch -eq "x86_64") {
-    $Binary = "agentsync-windows-x64.exe"
+    $Binary = "pax8-cta-windows-x64.exe"
     Write-Host "[+] Platform: Windows (x64)" -ForegroundColor Green
 } else {
     Write-Host "[x] Unsupported architecture: $Arch" -ForegroundColor Red
@@ -44,9 +44,9 @@ if ($Version -eq "latest") {
 # --- Download Binary ---
 $DownloadUrl = "https://github.com/$Repo/releases/download/$Version/$Binary"
 $ChecksumUrl = "https://github.com/$Repo/releases/download/$Version/$Binary.sha256"
-$TmpDir = Join-Path $env:TEMP "agentsync-install-$(Get-Random)"
-$TmpBinary = Join-Path $TmpDir "agentsync.exe"
-$TmpChecksum = Join-Path $TmpDir "agentsync.exe.sha256"
+$TmpDir = Join-Path $env:TEMP "pax8-cta-install-$(Get-Random)"
+$TmpBinary = Join-Path $TmpDir "pax8-cta.exe"
+$TmpChecksum = Join-Path $TmpDir "pax8-cta.exe.sha256"
 
 try {
     New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null
@@ -87,7 +87,7 @@ try {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
 
-    $DestPath = Join-Path $InstallDir "agentsync.exe"
+    $DestPath = Join-Path $InstallDir "pax8-cta.exe"
     Copy-Item -Path $TmpBinary -Destination $DestPath -Force
 
     Write-Host "[+] Installed successfully" -ForegroundColor Green
@@ -121,9 +121,9 @@ try {
         Write-Host "Location: $DestPath" -ForegroundColor Blue
         Write-Host ""
         Write-Host "Get Started:" -ForegroundColor Blue
-        Write-Host "  agentsync --help"
-        Write-Host "  agentsync tenants list"
-        Write-Host "  agentsync deploy --help"
+        Write-Host "  pax8-cta --help"
+        Write-Host "  pax8-cta tenants list"
+        Write-Host "  pax8-cta deploy --help"
     } catch {
         Write-Host "[!] Installation succeeded but could not verify binary" -ForegroundColor Yellow
         Write-Host "    Try running: $DestPath --help" -ForegroundColor Yellow

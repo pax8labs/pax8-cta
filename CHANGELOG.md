@@ -46,8 +46,8 @@ Initial open source release.
 
 ### Added
 
-- **CLI tool** (`agentsync`) with commands: `init`, `validate`, `export`, `import`, `deploy`, `analyze`, `solutions`, `tenants`, `deployments`, `setup`, `auth`, `demo`, `telemetry`.
-- **Interactive REPL mode** — Run `agentsync` with no args for an interactive prompt.
+- **CLI tool** (`pax8-cta`) with commands: `init`, `validate`, `export`, `import`, `deploy`, `analyze`, `solutions`, `tenants`, `deployments`, `setup`, `auth`, `demo`, `telemetry`.
+- **Interactive REPL mode** — Run `pax8-cta` with no args for an interactive prompt.
 - **Guided setup wizard** (`init`) — Device code sign-in, GDAP tenant discovery, environment auto-discovery, credential testing.
 - **Multi-tenant deployment** (`deploy`) — Export from source, import to all configured tenants with progress tracking. Supports `--direct` for immediate deployment and `--tag` filtering.
 - **Solution management** (`export`, `import`, `solutions list`) — Export managed/unmanaged solutions, import to individual tenants, list solutions in source environment.

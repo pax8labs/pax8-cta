@@ -49,7 +49,7 @@ describe("SettingsService encryption", () => {
   });
 
   it("generates an encryption key file and encrypts integration secrets", async () => {
-    const settingsDir = mkdtempSync(join(tmpdir(), "agentsync-settings-"));
+    const settingsDir = mkdtempSync(join(tmpdir(), "pax8-cta-settings-"));
     tempDirs.push(settingsDir);
 
     const service = new SettingsService({ settingsDir });
@@ -71,7 +71,7 @@ describe("SettingsService encryption", () => {
   });
 
   it("encrypts webhook URLs in app settings", async () => {
-    const settingsDir = mkdtempSync(join(tmpdir(), "agentsync-settings-"));
+    const settingsDir = mkdtempSync(join(tmpdir(), "pax8-cta-settings-"));
     tempDirs.push(settingsDir);
 
     const service = new SettingsService({ settingsDir });
@@ -94,7 +94,7 @@ describe("SettingsService encryption", () => {
   it.skipIf(process.platform === "win32")(
     "fails sensitive writes when encryption key cannot be persisted",
     async () => {
-      const settingsDir = mkdtempSync(join(tmpdir(), "agentsync-settings-"));
+      const settingsDir = mkdtempSync(join(tmpdir(), "pax8-cta-settings-"));
       tempDirs.push(settingsDir);
       chmodSync(settingsDir, 0o500);
 

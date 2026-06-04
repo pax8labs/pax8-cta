@@ -15,7 +15,7 @@
  */
 
 /**
- * TTY-aware output helper for agentsync CLI commands.
+ * TTY-aware output helper for pax8-cta CLI commands.
  *
  * - When stdout is a TTY (interactive terminal): defaults to "table"
  * - When stdout is piped (subprocess / LLM agent): defaults to "json"

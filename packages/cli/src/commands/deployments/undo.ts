@@ -90,7 +90,7 @@ function buildDidYouMeanHint(): string {
   if (!isDemo()) {
     // Real-mode hint is intentionally minimal — we don't have a cheap way to
     // list recent deployments without GDAP credentials. Point at `list`.
-    return "Run 'agentsync deployments list' to see available deployments.";
+    return "Run 'pax8-cta deployments list' to see available deployments.";
   }
 
   const recent = demoDeploymentStore
@@ -99,13 +99,13 @@ function buildDidYouMeanHint(): string {
     .slice(0, 5);
 
   if (recent.length === 0) {
-    return "Run 'agentsync deployments list' to see available deployments.";
+    return "Run 'pax8-cta deployments list' to see available deployments.";
   }
 
   const lines = recent.map((d) => `  - ${d.id} (${d.solutionName})`);
   return (
     `Did you mean one of these?\n${lines.join("\n")}\n\n` +
-    `Run 'agentsync deployments list' to see all available deployments.`
+    `Run 'pax8-cta deployments list' to see all available deployments.`
   );
 }
 
@@ -158,7 +158,7 @@ async function demoUndo(id: string, options: UndoOptions): Promise<void> {
       `Deployment '${id}' is not eligible for rollback ` +
         `(canRollback: false). This is typically because the deploy already ` +
         `failed, was already rolled back, or is too old for a snapshot to ` +
-        `exist. Run 'agentsync deployments show ${id}' for details.`
+        `exist. Run 'pax8-cta deployments show ${id}' for details.`
     );
   }
 
@@ -166,7 +166,7 @@ async function demoUndo(id: string, options: UndoOptions): Promise<void> {
   if (succeededTenants.length === 0) {
     throw new CliError(
       `Deployment '${id}' has no successfully-deployed tenants to roll back. ` +
-        `Run 'agentsync deployments show ${id}' to inspect per-tenant status.`
+        `Run 'pax8-cta deployments show ${id}' to inspect per-tenant status.`
     );
   }
 
@@ -304,7 +304,7 @@ async function demoUndo(id: string, options: UndoOptions): Promise<void> {
  *
  * Today this is wired to `RollbackService` from `@pax8-cta/core` but the
  * snapshots that `RollbackService.rollback()` consumes are not yet created
- * by `agentsync deploy` (Phase 2 of #418). So the practical end-state for
+ * by `pax8-cta deploy` (Phase 2 of #418). So the practical end-state for
  * any current real-mode caller is "no snapshots → CliError with recovery
  * hint." We still instantiate the service and probe for snapshots so that
  * once Phase 2 lands, this path becomes complete without further wiring.
@@ -321,13 +321,13 @@ async function realUndo(id: string, options: UndoOptions): Promise<void> {
       `No rollback snapshots found for deployment '${id}'.\n` +
         `\n` +
         `Snapshots are written when a deploy runs with rollback enabled in ` +
-        `your config (RollbackSettings.enabled). Wiring this into 'agentsync ` +
+        `your config (RollbackSettings.enabled). Wiring this into 'pax8-cta ` +
         `deploy' is tracked as Phase 2 of #418 ` +
-        `(https://github.com/pax8labs/agentsync/issues/418).\n` +
+        `(https://github.com/pax8labs/pax8-cta/issues/418).\n` +
         `\n` +
         `Workaround: uninstall the solution per tenant with ` +
-        `'agentsync solutions remove <name> -t <tenant>'.\n` +
-        `Demo: 'DEMO_MODE=true agentsync deployments undo ${id} -y' shows the ` +
+        `'pax8-cta solutions remove <name> -t <tenant>'.\n` +
+        `Demo: 'DEMO_MODE=true pax8-cta deployments undo ${id} -y' shows the ` +
         `flow end-to-end.`
     );
   }
@@ -385,7 +385,7 @@ async function realUndo(id: string, options: UndoOptions): Promise<void> {
   throw new CliError(
     `Real-mode undo found ${snapshots.length} snapshot(s) for deployment '${id}', ` +
       `but the per-tenant Dataverse rollback path is not yet wired into the ` +
-      `CLI (Phase 2 of #418). Use 'agentsync solutions remove <name> -t <tenant>' ` +
+      `CLI (Phase 2 of #418). Use 'pax8-cta solutions remove <name> -t <tenant>' ` +
       `per tenant as a workaround.`
   );
 }

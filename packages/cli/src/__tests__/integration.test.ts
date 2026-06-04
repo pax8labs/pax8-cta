@@ -38,7 +38,7 @@ describe("CLI Integration Tests", () => {
       const result = await runCli(["--help"]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("agentsync");
+      expect(result.stdout).toContain("pax8-cta");
       expect(result.stderr).toBe("");
       expect(result.duration).toBeGreaterThan(0);
     });
@@ -119,7 +119,7 @@ describe("CLI Integration Tests", () => {
   });
 
   describe("parseTable utility", () => {
-    // Note: subprocess stdout is piped (non-TTY) so agentsync defaults to JSON.
+    // Note: subprocess stdout is piped (non-TTY) so pax8-cta defaults to JSON.
     // These tests use --json and verify JSON structure, which also exercises extractJson.
     it("should parse CLI JSON output for tenants list", async () => {
       const result = await runCliExpectSuccess(["tenants", "list", "--json"]);

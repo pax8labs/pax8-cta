@@ -13,25 +13,25 @@ pnpm cli
 For first-time setup:
 
 ```bash
-agentsync init
-agentsync auth login
-agentsync validate
+pax8-cta init
+pax8-cta auth login
+pax8-cta validate
 ```
 
 ## Production Usage Pattern
 
 1. Export from the source environment.
 2. Validate tenant access and configuration.
-3. Deploy directly with `agentsync deploy`.
-4. Inspect history via `agentsync deployments list/show`.
+3. Deploy directly with `pax8-cta deploy`.
+4. Inspect history via `pax8-cta deployments list/show`.
 
 Example:
 
 ```bash
-agentsync export --solution CustomerServiceAgent
-agentsync validate
-agentsync deploy --all --solution ./CustomerServiceAgent_managed.zip
-agentsync deployments list
+pax8-cta export --solution CustomerServiceAgent
+pax8-cta validate
+pax8-cta deploy --all --solution ./CustomerServiceAgent_managed.zip
+pax8-cta deployments list
 ```
 
 ## Running As A Scheduled Job
@@ -40,7 +40,7 @@ Use cron or your CI scheduler to run CLI commands.
 
 ```bash
 # Example: nightly validation
-0 2 * * * cd /path/to/agentsync && pnpm cli validate >> /var/log/agentsync-validate.log 2>&1
+0 2 * * * cd /path/to/pax8-cta && pnpm cli validate >> /var/log/pax8-cta-validate.log 2>&1
 ```
 
 ## Docker (CLI Image)
@@ -48,7 +48,7 @@ Use cron or your CI scheduler to run CLI commands.
 Build the CLI container image:
 
 ```bash
-docker build --target cli -t agentsync-cli:latest .
+docker build --target cli -t pax8-cta-cli:latest .
 ```
 
 Run a command:
@@ -58,7 +58,7 @@ docker run --rm -it \
   -v "$PWD/config:/app/config" \
   -v "$PWD/solutions:/app/solutions" \
   -e PARTNER_CLIENT_SECRET="$PARTNER_CLIENT_SECRET" \
-  agentsync-cli:latest --help
+  pax8-cta-cli:latest --help
 ```
 
 ## Required Environment Variables

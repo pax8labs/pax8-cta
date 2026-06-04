@@ -83,7 +83,7 @@ function showStatus(): void {
   console.log(chalk.gray("  • Any personally identifiable information"));
   console.log();
   console.log(
-    chalk.gray("Learn more: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry")
+    chalk.gray("Learn more: https://github.com/pax8labs/pax8-cta/tree/main/packages/cli#telemetry")
   );
   console.log();
 

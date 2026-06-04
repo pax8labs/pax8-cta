@@ -82,7 +82,7 @@ export class NotificationService {
           text: payload.message,
           title_link: payload.url,
           footer: "AgentSync",
-          footer_icon: "https://agentsync.app/logo.png",
+          footer_icon: "https://pax8-cta.app/logo.png",
           ts: Math.floor(Date.now() / 1000),
         },
       ],

@@ -28,7 +28,7 @@ import { tmpdir } from "node:os";
 import { runCli, containsText, stripAnsi, expectJson } from "./test-utils.js";
 
 // Create a temporary directory with a test config
-const TEST_DIR = join(tmpdir(), `agentsync-deploy-test-${Date.now()}`);
+const TEST_DIR = join(tmpdir(), `pax8-cta-deploy-test-${Date.now()}`);
 const CONFIG_PATH = join(TEST_DIR, "config", "tenants.yaml");
 const require = createRequire(import.meta.url);
 const { writeFileSync, mkdirSync, rmSync, existsSync } =

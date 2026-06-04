@@ -29,7 +29,7 @@ import { describe, it, expect } from "vitest";
 import { runCli } from "./test-utils.js";
 
 describe("deploy --quiet (issue #357)", () => {
-  it("agentsync deploy ... --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta deploy ... --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(
       ["deploy", "CustomerServiceAgent", "--tag", "enterprise", "--quiet"],
       {
@@ -44,7 +44,7 @@ describe("deploy --quiet (issue #357)", () => {
 });
 
 describe("deploy --json (issue #357)", () => {
-  it("agentsync deploy ... --json produces parseable JSON on stdout", async () => {
+  it("pax8-cta deploy ... --json produces parseable JSON on stdout", async () => {
     const result = await runCli(
       ["deploy", "CustomerServiceAgent", "--tag", "enterprise", "--json"],
       {

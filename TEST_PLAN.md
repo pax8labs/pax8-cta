@@ -4,7 +4,7 @@
 **Environment:** Power Platform (real credentials)
 **Tester prerequisites:**
 
-- Working directory: `cd /Users/jdulberger/Documents/agentsync`
+- Working directory: `cd /Users/jdulberger/Documents/pax8-cta`
 - The CLI is built: `node packages/cli/dist/index.js`
 - `PARTNER_CLIENT_SECRET` is set (loaded from `.env` or exported manually)
 - All commands below use `DEMO_MODE=false` to bypass the `.env` default of `DEMO_MODE=true`
@@ -384,7 +384,7 @@ DEMO_MODE=false node packages/cli/dist/index.js validate -c /tmp/nonexistent.yam
 **Expected:**
 
 - "File not found: /tmp/nonexistent.yaml"
-- Fix suggestion: "Run 'agentsync init' to create a configuration file"
+- Fix suggestion: "Run 'pax8-cta init' to create a configuration file"
 - Exit code 1
 
 ---

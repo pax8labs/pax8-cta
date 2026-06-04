@@ -87,7 +87,7 @@ Examples:
   )
   .action(async (name: string, options, cmd) => {
     // Merge local opts with globals so root-level `--json` / `--quiet`
-    // (`agentsync --json solutions show ...`) reach this command. Resolve the
+    // (`pax8-cta --json solutions show ...`) reach this command. Resolve the
     // effective output format up-front so every branch below can branch on a
     // single `fmt` value (issue #406).
     const opts = { ...options, ...cmd.optsWithGlobals() };

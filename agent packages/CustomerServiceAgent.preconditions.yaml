@@ -48,7 +48,7 @@ preconditions:
     remediation:
       kind: command
       title: "Refresh the Dataverse connection reference"
-      cmd: "agentsync auth refresh --tenant {tenantName}"
+      cmd: "pax8-cta auth refresh --tenant {tenantName}"
       description: "Re-runs OAuth for the Dataverse connection in {tenantName}."
 
   - id: transport-rule-block-autoforward

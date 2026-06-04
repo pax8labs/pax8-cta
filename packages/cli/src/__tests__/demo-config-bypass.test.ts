@@ -35,7 +35,7 @@ beforeAll(() => {
   // A clean cwd guarantees `./config/tenants.yaml` does NOT exist; any
   // command that still tries loadConfig() in demo mode will surface as
   // ERROR_CONFIG_NOT_FOUND.
-  workDir = mkdtempSync(join(tmpdir(), "agentsync-demo-385-"));
+  workDir = mkdtempSync(join(tmpdir(), "pax8-cta-demo-385-"));
 });
 
 afterAll(() => {
@@ -198,7 +198,7 @@ describe("issue #402: solutions remove -t fuzzy-matches tenant names", () => {
     const combined = stripAnsi(result.stdout + result.stderr);
     expect(combined.toLowerCase()).toContain("no tenant matches");
     expect(combined).toContain("'XX'");
-    expect(combined).toContain("agentsync tenants list");
+    expect(combined).toContain("pax8-cta tenants list");
   }, 90000);
 
   it("ambiguous query (matches multiple tenants) lists candidates", async () => {

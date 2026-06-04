@@ -14,9 +14,9 @@ AI-powered deployment management for AgentSync using Claude Code. Manage your Co
 **Option 1: From This Repository** (if you have access)
 
 ```bash
-# Already installed if you cloned the agentsync repo!
+# Already installed if you cloned the pax8-cta repo!
 # The skill lives at .claude/skills/pax8-cta/SKILL.md (skill name: pax8-cta;
-# CLI binary is still `agentsync` — see the skill body for the rebrand notes).
+# CLI binary is still `pax8-cta` — see the skill body for the rebrand notes).
 # Claude Code requires the <name>/SKILL.md directory layout to auto-discover
 # project skills; a flat `<name>.md` file will not be loaded.
 ```
@@ -61,7 +61,7 @@ Works seamlessly with AgentSync demo mode - no authentication required for testi
 ```
 You: Show me my tenants
 
-Claude: [Runs `agentsync fleet list`]
+Claude: [Runs `pax8-cta fleet list`]
 
         You have 10 customer tenants configured, with 9 currently active:
         - Contoso Corporation (enterprise, priority)
@@ -74,7 +74,7 @@ Claude: [Runs `agentsync fleet list`]
 ```
 You: What deployments are running?
 
-Claude: [Runs `agentsync track --list`]
+Claude: [Runs `pax8-cta track --list`]
 
         You have 3 recent deployments:
         - dep-demo-latest: CustomerSupportAgent (In Progress, 3/5 complete)
@@ -96,7 +96,7 @@ Claude: I'll deploy to your 4 enterprise tenants:
         [Runs deployment command with appropriate tags]
 
         Deployment created! Tracking ID: dep-xyz789
-        Monitor progress with: agentsync track --shipment dep-xyz789
+        Monitor progress with: pax8-cta track --shipment dep-xyz789
 ```
 
 ## ⚙️ Configuration
@@ -105,7 +105,7 @@ Claude: I'll deploy to your 4 enterprise tenants:
 
 ```bash
 # Enable demo mode for testing without credentials
-./packages/cli/agentsync demo on
+./packages/cli/pax8-cta demo on
 ```
 
 ### Production Mode
@@ -113,7 +113,7 @@ Claude: I'll deploy to your 4 enterprise tenants:
 Set up AgentSync with your Azure AD credentials:
 
 ```bash
-./packages/cli/agentsync init
+./packages/cli/pax8-cta init
 ```
 
 See main [AgentSync README](../README.md) for full configuration details.
@@ -122,7 +122,7 @@ See main [AgentSync README](../README.md) for full configuration details.
 
 The skill (`pax8-cta/SKILL.md`) provides Claude with:
 
-- **CLI Command Reference** - All agentsync commands and options
+- **CLI Command Reference** - All pax8-cta commands and options
 - **Common Workflows** - Step-by-step patterns for typical tasks
 - **Troubleshooting Guide** - How to diagnose and fix issues
 - **API Integration** - How to use the web API (optional)
@@ -130,26 +130,26 @@ The skill (`pax8-cta/SKILL.md`) provides Claude with:
 
 ## 🐛 Troubleshooting
 
-### "Command not found: agentsync"
+### "Command not found: pax8-cta"
 
 Make sure you've set up the alias:
 
 ```bash
-echo 'alias agentsync="/path/to/agentsync/packages/cli/agentsync"' >> ~/.zshrc
+echo 'alias pax8-cta="/path/to/pax8-cta/packages/cli/pax8-cta"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
 Or use the full path:
 
 ```bash
-./packages/cli/agentsync demo on
+./packages/cli/pax8-cta demo on
 ```
 
 ### "Demo mode not enabled"
 
 ```bash
-./packages/cli/agentsync demo on
-./packages/cli/agentsync demo status  # Verify
+./packages/cli/pax8-cta demo on
+./packages/cli/pax8-cta demo status  # Verify
 ```
 
 ### Claude doesn't recognize the skill
@@ -163,7 +163,7 @@ Make sure the skill file is in the right location:
 
 - [Main AgentSync README](../README.md) - Full AgentSync documentation
 - [CLI Binary Delivery](../CLI_BINARY_DELIVERY.md) - Binary distribution details
-- [Issue #61](https://github.com/pax8labs/agentsync/issues/61) - Skill publishing tracking
+- [Issue #61](https://github.com/pax8labs/pax8-cta/issues/61) - Skill publishing tracking
 
 ## 📝 License
 

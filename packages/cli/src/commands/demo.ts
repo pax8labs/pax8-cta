@@ -195,11 +195,11 @@ export const demoCommand = new Command("demo")
       if (effectiveMode) {
         console.log(chalk.bold("  To disable:"));
         console.log(chalk.gray("    demo off          # Update config file"));
-        console.log(chalk.gray("    DEMO_MODE=false agentsync   # Override for one command"));
+        console.log(chalk.gray("    DEMO_MODE=false pax8-cta   # Override for one command"));
       } else {
         console.log(chalk.bold("  To enable:"));
         console.log(chalk.gray("    demo on           # Update config file"));
-        console.log(chalk.gray("    DEMO_MODE=true agentsync    # Override for one command"));
+        console.log(chalk.gray("    DEMO_MODE=true pax8-cta    # Override for one command"));
       }
     } else {
       console.error(chalk.red(`Unknown action: ${action}`));
@@ -307,7 +307,7 @@ demoCommand
         // Execute command
         if (step.command) {
           // Show the command with typing animation
-          const prompt = chalk.cyan("  $ agentsync ");
+          const prompt = chalk.cyan("  $ pax8-cta ");
           if (useTyping) {
             await typeText(prompt + chalk.white(step.command), speedMultiplier);
           } else {

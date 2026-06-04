@@ -15,7 +15,7 @@
  */
 
 /**
- * `agentsync config` — print a structured report of the CLI's effective
+ * `pax8-cta config` — print a structured report of the CLI's effective
  * settings without ever revealing secret values. Probes:
  *   - demo mode (env vs config file)
  *   - default output format (TTY / piped / forced)

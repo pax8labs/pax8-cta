@@ -21,19 +21,19 @@ jobs:
         include:
           - os: macos-latest
             target: bun-darwin-arm64
-            name: agentsync-macos-arm64
+            name: pax8-cta-macos-arm64
           - os: macos-latest
             target: bun-darwin-x64
-            name: agentsync-macos-x64
+            name: pax8-cta-macos-x64
           - os: ubuntu-latest
             target: bun-linux-x64
-            name: agentsync-linux-x64
+            name: pax8-cta-linux-x64
           - os: ubuntu-latest
             target: bun-linux-arm64
-            name: agentsync-linux-arm64
+            name: pax8-cta-linux-arm64
           - os: windows-latest
             target: bun-windows-x64
-            name: agentsync-windows-x64.exe
+            name: pax8-cta-windows-x64.exe
 
     steps:
       - name: Checkout code
@@ -122,7 +122,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          find artifacts -type f -name 'agentsync-*' -exec cp {} release/ \;
+          find artifacts -type f -name 'pax8-cta-*' -exec cp {} release/ \;
           ls -lh release/
 
       - name: Extract version from tag
@@ -146,27 +146,27 @@ jobs:
           ### macOS
           ```bash
           # Apple Silicon (M1/M2/M3)
-          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-macos-arm64 -o agentsync
-          chmod +x agentsync
-          sudo mv agentsync /usr/local/bin/
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/pax8-cta-macos-arm64 -o pax8-cta
+          chmod +x pax8-cta
+          sudo mv pax8-cta /usr/local/bin/
 
           # Intel
-          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-macos-x64 -o agentsync
-          chmod +x agentsync
-          sudo mv agentsync /usr/local/bin/
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/pax8-cta-macos-x64 -o pax8-cta
+          chmod +x pax8-cta
+          sudo mv pax8-cta /usr/local/bin/
           ```
 
           ### Linux
           ```bash
           # x64
-          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-linux-x64 -o agentsync
-          chmod +x agentsync
-          sudo mv agentsync /usr/local/bin/
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/pax8-cta-linux-x64 -o pax8-cta
+          chmod +x pax8-cta
+          sudo mv pax8-cta /usr/local/bin/
 
           # ARM64
-          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-linux-arm64 -o agentsync
-          chmod +x agentsync
-          sudo mv agentsync /usr/local/bin/
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/pax8-cta-linux-arm64 -o pax8-cta
+          chmod +x pax8-cta
+          sudo mv pax8-cta /usr/local/bin/
           ```
 
           ### Windows
@@ -176,37 +176,37 @@ jobs:
 
           # Or download manually
           ```
-          Download [agentsync-windows-x64.exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/agentsync-windows-x64.exe) and add to your PATH.
+          Download [pax8-cta-windows-x64.exe](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/pax8-cta-windows-x64.exe) and add to your PATH.
 
           ## Verify Installation
           ```bash
-          agentsync --version
-          agentsync --help
+          pax8-cta --version
+          pax8-cta --help
           ```
 
           ## Usage
           ```bash
           # Deploy agents to all tenants
-          agentsync deploy --all --solution ./myagent.zip
+          pax8-cta deploy --all --solution ./myagent.zip
 
           # Deploy to specific tenants by tag
-          agentsync deploy --tag production --solution ./myagent.zip
+          pax8-cta deploy --tag production --solution ./myagent.zip
 
           # View deployment status
-          agentsync deployments show <deployment-id>
+          pax8-cta deployments show <deployment-id>
 
           # List tenants
-          agentsync tenants list
+          pax8-cta tenants list
 
           # Get help
-          agentsync --help
-          agentsync deploy --help
+          pax8-cta --help
+          pax8-cta deploy --help
           ```
 
           ## Checksums
           SHA256 checksums are provided for each binary. Verify with:
           ```bash
-          sha256sum -c agentsync-*.sha256
+          sha256sum -c pax8-cta-*.sha256
           ```
           EOF
 
@@ -216,7 +216,7 @@ jobs:
           name: AgentSync CLI ${{ steps.version.outputs.version }}
           body_path: release_notes.md
           files: |
-            release/agentsync-*
+            release/pax8-cta-*
           draft: false
           prerelease: false
         env:
