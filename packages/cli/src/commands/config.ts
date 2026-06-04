@@ -69,7 +69,7 @@ interface QuietSection {
 
 interface CredentialsSection {
   partnerClientSecretEnv: "set" | "not-set";
-  agentsyncClientSecretEnv: "set" | "not-set";
+  pax8CtaClientSecretEnv: "set" | "not-set";
   osKeychain: "set" | "not-set" | "unavailable";
   effectiveSource: "env" | "keychain" | "none";
 }
@@ -151,11 +151,11 @@ function probeQuietMode(opts: { quiet?: boolean }): QuietSection {
 
 async function probeCredentials(): Promise<CredentialsSection> {
   const partnerEnv: "set" | "not-set" = process.env.PARTNER_CLIENT_SECRET ? "set" : "not-set";
-  const agentsyncEnv: "set" | "not-set" = process.env.PAX8_CTA_CLIENT_SECRET ? "set" : "not-set";
+  const pax8CtaEnv: "set" | "not-set" = process.env.PAX8_CTA_CLIENT_SECRET ? "set" : "not-set";
   const keychain = await probeStoredSecret();
 
   let effectiveSource: "env" | "keychain" | "none";
-  if (partnerEnv === "set" || agentsyncEnv === "set") {
+  if (partnerEnv === "set" || pax8CtaEnv === "set") {
     effectiveSource = "env";
   } else if (keychain === "set") {
     effectiveSource = "keychain";
@@ -165,7 +165,7 @@ async function probeCredentials(): Promise<CredentialsSection> {
 
   return {
     partnerClientSecretEnv: partnerEnv,
-    agentsyncClientSecretEnv: agentsyncEnv,
+    pax8CtaClientSecretEnv: pax8CtaEnv,
     osKeychain: keychain,
     effectiveSource,
   };
@@ -307,7 +307,7 @@ function renderHumanReadable(report: ConfigReport): void {
   );
   console.log(
     `    PAX8_CTA_CLIENT_SECRET (env):  ${
-      report.credentials.pax8 - ctaClientSecretEnv === "set"
+      report.credentials.pax8CtaClientSecretEnv === "set"
         ? chalk.green("set")
         : chalk.gray("not set")
     }`

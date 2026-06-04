@@ -142,6 +142,6 @@ describe("pax8-cta config: secret hygiene", () => {
     expect(result.stdout).not.toContain(FAKE_SECRET);
     expect(result.stderr).not.toContain(FAKE_SECRET);
     const parsed = JSON.parse(result.stdout.slice(result.stdout.indexOf("{")));
-    expect(parsed.credentials.pax8 - ctaClientSecretEnv).toBe("set");
+    expect(parsed.credentials.pax8CtaClientSecretEnv).toBe("set");
   }, 60000);
 });
