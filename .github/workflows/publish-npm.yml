@@ -48,15 +48,18 @@ jobs:
       # Pack with pnpm so `workspace:*` gets rewritten to a concrete version,
       # then publish the resulting tarball with `npm publish` so we get npm's
       # native OIDC trusted-publisher auth. `pnpm publish` doesn't reliably
-      # engage OIDC; `npm publish --provenance` does.
+      # engage OIDC; `npm publish --provenance` does. pnpm pack doesn't
+      # support --filter, so we cd into each package dir.
       - name: Pack Core
-        run: pnpm --filter @pax8-cta/core pack --pack-destination /tmp/pkg-core
+        working-directory: packages/core
+        run: pnpm pack --pack-destination /tmp/pkg-core
 
       - name: Publish Core
         run: npm publish /tmp/pkg-core/pax8-cta-core-*.tgz --access public --provenance
 
       - name: Pack CLI
-        run: pnpm --filter pax8-cta pack --pack-destination /tmp/pkg-cli
+        working-directory: packages/cli
+        run: pnpm pack --pack-destination /tmp/pkg-cli
 
       - name: Publish CLI
         run: npm publish /tmp/pkg-cli/pax8-cta-*.tgz --access public --provenance
