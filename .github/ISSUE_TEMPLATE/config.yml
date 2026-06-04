@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/pax8labs/agentsync/blob/main/README.md
+    url: https://github.com/pax8labs/pax8-cta/blob/main/README.md
     about: Check the README for setup, GDAP prerequisites, and command reference before opening an issue.
   - name: CLI command reference
-    url: https://github.com/pax8labs/agentsync/blob/main/packages/cli/README.md
+    url: https://github.com/pax8labs/pax8-cta/blob/main/packages/cli/README.md
     about: Detailed flags and examples for every CLI subcommand.

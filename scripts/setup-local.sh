@@ -1,12 +1,12 @@
 #!/bin/bash
 # Local development setup without Docker
 #
-# This script sets up AgentSync for local development
+# This script sets up Pax8 CTA for local development
 # without requiring Docker or any background services.
 
 set -e
 
-echo "=== AgentSync - Local Setup ==="
+echo "=== Pax8 CTA - Local Setup ==="
 echo ""
 
 # Detect OS
@@ -73,7 +73,7 @@ echo "2. Create config/tenants.yaml with your tenant configuration"
 echo "3. Run the CLI in demo mode or watch builds:"
 echo ""
 echo "   # Start the CLI"
-echo "   pnpm --filter @agentsync/cli start -- tenants list"
+echo "   pnpm --filter pax8-cta start -- tenants list"
 echo ""
 echo "   # Or keep a CLI build watch running"
-echo "   pnpm --filter @agentsync/cli dev"
+echo "   pnpm --filter pax8-cta dev"

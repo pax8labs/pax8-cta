@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working in this
 
 ## Project Overview
 
-AgentSync is now a CLI-focused open-source tool for multi-tenant Copilot Studio deployments via GDAP.
+Pax8 CTA is now a CLI-focused open-source tool for multi-tenant Copilot Studio deployments via GDAP.
 
 ## Monorepo Structure
 
@@ -21,20 +21,20 @@ pnpm install && pnpm build
 
 # CLI
 pnpm cli
-pnpm --filter @agentsync/cli build
-pnpm --filter @agentsync/cli dev
+pnpm --filter pax8-cta build
+pnpm --filter pax8-cta dev
 
 # Tests
 pnpm test
-pnpm --filter @agentsync/cli test
-pnpm --filter @agentsync/core test
+pnpm --filter pax8-cta test
+pnpm --filter @pax8-cta/core test
 ```
 
 ## Architecture Notes
 
 - Auth flow: Partner Azure AD app -> GDAP delegation -> Dataverse API calls in customer tenants.
 - Data flow: export solution ZIP from source -> deploy/import to target tenants.
-- CLI loads `.env` with selective key filtering and supports `~/.agentsync/cli-config.json`.
+- CLI loads `.env` with selective key filtering and supports `~/.pax8-cta/cli-config.json`.
 - Demo mode: `DEMO_MODE=true` uses mock data and bypasses Azure auth.
 
 ## Conventions
@@ -51,5 +51,5 @@ pnpm --filter @agentsync/core test
 ## Key Config Files
 
 - `config/tenants.yaml`
-- `~/.agentsync/cli-config.json`
+- `~/.pax8-cta/cli-config.json`
 - `.env` / `.env.example`

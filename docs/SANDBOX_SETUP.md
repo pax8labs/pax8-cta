@@ -1,6 +1,6 @@
 # Sandbox Setup (CLI-Only)
 
-This guide configures a sandbox environment for AgentSync CLI testing.
+This guide configures a sandbox environment for Pax8 CTA CLI testing.
 
 ## Prerequisites
 

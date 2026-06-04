@@ -26,9 +26,9 @@ import type {
   TenantVersionStatus,
   VersionChecker,
   VersionDriftSummary,
-} from "@agentsync/core";
-import { DEMO_TENANTS } from "@agentsync/core";
-import type { UnmanagedCustomizationResult } from "@agentsync/core";
+} from "@pax8-cta/core";
+import { DEMO_TENANTS } from "@pax8-cta/core";
+import type { UnmanagedCustomizationResult } from "@pax8-cta/core";
 import { formatRecommendation, formatRiskLevel } from "./risk-calculator.js";
 
 /**
@@ -70,16 +70,16 @@ export function buildAfterActionHint(
 
   if (count <= 3) {
     lines.push("Suggested next action:");
-    lines.push(`  agentsync deploy ${solutionLabel} --tenant <name>`);
-    lines.push("or 'agentsync solutions drift --fix' to update them all.");
+    lines.push(`  pax8-cta deploy ${solutionLabel} --tenant <name>`);
+    lines.push("or 'pax8-cta solutions drift --fix' to update them all.");
   } else {
-    lines.push("Suggested next action: agentsync solutions drift --fix");
+    lines.push("Suggested next action: pax8-cta solutions drift --fix");
     lines.push("(review the list above first; --fix will deploy to every outdated tenant).");
   }
 
   if (hasHighRisk) {
     lines.push(
-      `Drill into risk before updating: agentsync analyze ${solutionLabel} --tenant <name>`
+      `Drill into risk before updating: pax8-cta analyze ${solutionLabel} --tenant <name>`
     );
   }
 

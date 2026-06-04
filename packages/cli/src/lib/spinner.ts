@@ -6,7 +6,7 @@
  * the same API but falls back to plain console.log when stdin
  * is being shared with readline (i.e. in REPL / interactive mode).
  *
- * In quiet mode (--quiet flag or AGENTSYNC_QUIET=1) all spinners are
+ * In quiet mode (--quiet flag or PAX8_CTA_QUIET=1) all spinners are
  * replaced with a no-op implementation that produces zero output.
  */
 
@@ -25,14 +25,14 @@ export function setReplMode(enabled: boolean): void {
  * Quiet mode is active when either:
  *   - `--quiet` appears anywhere in the raw argv (catches global flag before
  *     Commander has finished parsing subcommands), or
- *   - the environment variable `AGENTSYNC_QUIET` is set to "1" or "true"
+ *   - the environment variable `PAX8_CTA_QUIET` is set to "1" or "true"
  *     (allows CI pipelines to opt in without modifying every invocation).
  */
 export function isQuietMode(): boolean {
   return (
     process.argv.includes("--quiet") ||
-    process.env.AGENTSYNC_QUIET === "1" ||
-    process.env.AGENTSYNC_QUIET === "true"
+    process.env.PAX8_CTA_QUIET === "1" ||
+    process.env.PAX8_CTA_QUIET === "true"
   );
 }
 

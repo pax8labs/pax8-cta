@@ -21,7 +21,7 @@ import { Config, ConfigSchema } from "./schema.js";
 import { ConfigValidationError, ErrorCode } from "../errors.js";
 
 /**
- * @deprecated Use ConfigValidationError from @agentsync/core/errors instead.
+ * @deprecated Use ConfigValidationError from @pax8-cta/core/errors instead.
  * Kept for backwards compatibility.
  */
 export class ConfigError extends ConfigValidationError {

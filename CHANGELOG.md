@@ -1,21 +1,25 @@
 # Changelog
 
-All notable changes to AgentSync will be documented in this file.
+All notable changes to Pax8 CTA will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Rebrand from AgentSync to Pax8 Cross-Tenant Agents (Pax8 CTA)** for OSS launch. **Breaking change.** Affects every public surface — CLI binary (`agentsync` → `pax8-cta`), npm packages (`@agentsync/cli` → `pax8-cta`, `@agentsync/core` → `@pax8-cta/core`), config dir (`~/.agentsync/` → `~/.pax8-cta/`), env vars (`AGENTSYNC_*` → `PAX8_CTA_*`), and the exported error class (`AgentSyncError` → `CtaError`). No backward-compatibility aliases. The Azure-side resources used by the reference setup (Dataverse env `AgentSync-Test2`, security role `AgentSync Deployment Access`, app registration `AgentSync Deployment Tool`) still need to be renamed by an admin in Azure/Power Platform separately — docs reference the new target names (`Pax8CTA-Test2`, `Pax8 CTA Deployment Access`, `Pax8 CTA Deployment Tool`).
+
 ### Added
 
 - **GDAP testing suite** — 74 unit tests covering all GdapClient auth logic (#262), plus MSW record/replay integration tests for Graph API calls (#263).
 - **OData pagination and retry with backoff** — GdapClient now follows `@odata.nextLink` for paginated Graph API results and retries transient failures with exponential backoff (#267, #268).
 - **Token refresh fix** — Refresh access token on each retry attempt in `GdapClient.graphGet` to avoid retrying with an expired token.
-- **Structured error codes** — `AgentSyncError` base class with 30+ typed error codes replacing regex-based error matching (#244).
+- **Structured error codes** — `CtaError` base class with 30+ typed error codes replacing regex-based error matching (#244).
 - **Named constants** — Extracted magic numbers throughout core into named constants for clarity and maintainability (#212).
 - **Logger configureLogging/resetLogging** — Testable Logger singletons with explicit configuration and reset functions (#209).
-- **Business logic extracted to core** — Moved auth-error-parser, environment-setup, and solution-mode-detector from CLI commands into `@agentsync/core` for reuse (#241).
+- **Business logic extracted to core** — Moved auth-error-parser, environment-setup, and solution-mode-detector from CLI commands into `@pax8-cta/core` for reuse (#241).
 - **GDAP scenario simulator** — Generates realistic Graph API test fixtures for GDAP relationship scenarios (#264).
 - **Property-based testing** — fast-check property-based tests for GDAP validation and risk analysis (#266).
 - **Risk-gated drift fix command** — `agents drift --fix` with `--max-risk`, `--force`, and `--dry-run` flags for safe remediation (#258).
@@ -46,8 +50,8 @@ Initial open source release.
 
 ### Added
 
-- **CLI tool** (`agentsync`) with commands: `init`, `validate`, `export`, `import`, `deploy`, `analyze`, `solutions`, `tenants`, `deployments`, `setup`, `auth`, `demo`, `telemetry`.
-- **Interactive REPL mode** — Run `agentsync` with no args for an interactive prompt.
+- **CLI tool** (`pax8-cta`) with commands: `init`, `validate`, `export`, `import`, `deploy`, `analyze`, `solutions`, `tenants`, `deployments`, `setup`, `auth`, `demo`, `telemetry`.
+- **Interactive REPL mode** — Run `pax8-cta` with no args for an interactive prompt.
 - **Guided setup wizard** (`init`) — Device code sign-in, GDAP tenant discovery, environment auto-discovery, credential testing.
 - **Multi-tenant deployment** (`deploy`) — Export from source, import to all configured tenants with progress tracking. Supports `--direct` for immediate deployment and `--tag` filtering.
 - **Solution management** (`export`, `import`, `solutions list`) — Export managed/unmanaged solutions, import to individual tenants, list solutions in source environment.
@@ -58,5 +62,5 @@ Initial open source release.
 - **App user setup** (`setup`) — Register application users in tenant environments via Dataverse Web API.
 - **Auth management** (`auth store`, `auth status`, `auth remove`) — OS keychain integration for client secrets.
 - **Demo mode** — Full mock data mode for testing without Azure credentials.
-- **Core package** (`@agentsync/core`) — Shared services: Azure AD token management, Dataverse client, GDAP auth, config schema (Zod), health checks, risk analysis, URL templating, audit logging.
+- **Core package** (`@pax8-cta/core`) — Shared services: Azure AD token management, Dataverse client, GDAP auth, config schema (Zod), health checks, risk analysis, URL templating, audit logging.
 - **Standalone binary builds** — Compile to single executables via Bun for macOS (arm64/x64), Linux (x64/arm64), Windows (x64).

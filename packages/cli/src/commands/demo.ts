@@ -20,15 +20,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
-import { DEMO_TENANTS, type TenantConfig } from "@agentsync/core";
+import { DEMO_TENANTS, type TenantConfig } from "@pax8-cta/core";
 
-const CONFIG_DIR = join(homedir(), ".agentsync");
+const CONFIG_DIR = join(homedir(), ".pax8-cta");
 const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
 
 // Demo script - sequence of commands to showcase CLI capabilities
 const DEMO_SCRIPT = [
   {
-    comment: "Welcome to AgentSync! Let's explore the CLI.",
+    comment: "Welcome to Pax8 CTA! Let's explore the CLI.",
     delay: 2000,
   },
   {
@@ -195,11 +195,11 @@ export const demoCommand = new Command("demo")
       if (effectiveMode) {
         console.log(chalk.bold("  To disable:"));
         console.log(chalk.gray("    demo off          # Update config file"));
-        console.log(chalk.gray("    DEMO_MODE=false agentsync   # Override for one command"));
+        console.log(chalk.gray("    DEMO_MODE=false pax8-cta   # Override for one command"));
       } else {
         console.log(chalk.bold("  To enable:"));
         console.log(chalk.gray("    demo on           # Update config file"));
-        console.log(chalk.gray("    DEMO_MODE=true agentsync    # Override for one command"));
+        console.log(chalk.gray("    DEMO_MODE=true pax8-cta    # Override for one command"));
       }
     } else {
       console.error(chalk.red(`Unknown action: ${action}`));
@@ -229,7 +229,7 @@ export function isDemoModeEnabled(): boolean {
 }
 
 function hasRealCredentials(): boolean {
-  return Boolean(process.env.PARTNER_CLIENT_SECRET || process.env.AGENTSYNC_CLIENT_SECRET);
+  return Boolean(process.env.PARTNER_CLIENT_SECRET || process.env.PAX8_CTA_CLIENT_SECRET);
 }
 
 /**
@@ -307,7 +307,7 @@ demoCommand
         // Execute command
         if (step.command) {
           // Show the command with typing animation
-          const prompt = chalk.cyan("  $ agentsync ");
+          const prompt = chalk.cyan("  $ pax8-cta ");
           if (useTyping) {
             await typeText(prompt + chalk.white(step.command), speedMultiplier);
           } else {

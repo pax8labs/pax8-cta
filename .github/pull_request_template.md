@@ -6,9 +6,9 @@
 
 <!-- Check off what you ran. Add new bullets for any manual verification steps. -->
 
-- [ ] `pnpm --filter @agentsync/cli build` clean
-- [ ] `pnpm --filter @agentsync/cli test` green
-- [ ] `pnpm --filter @agentsync/core test` green (if core changed)
+- [ ] `pnpm --filter pax8-cta build` clean
+- [ ] `pnpm --filter pax8-cta test` green
+- [ ] `pnpm --filter @pax8-cta/core test` green (if core changed)
 - [ ] Manual verification (describe below)
 
 <!-- Manual verification notes, screenshots of CLI output, etc. -->

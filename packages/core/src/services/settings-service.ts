@@ -105,8 +105,8 @@ export class SettingsService {
 
   constructor(options?: { settingsDir?: string; encryptionSecret?: string }) {
     this.settingsDir = options?.settingsDir || process.cwd();
-    this.encryptionSecretPath = join(this.settingsDir, ".agentsync-encryption-key");
-    this.settingsFilePath = join(this.settingsDir, ".agentsync-settings.json");
+    this.encryptionSecretPath = join(this.settingsDir, ".pax8-cta-encryption-key");
+    this.settingsFilePath = join(this.settingsDir, ".pax8-cta-settings.json");
 
     // Derive encryption key from secret
     const secret =
@@ -361,7 +361,7 @@ export class SettingsService {
   }
 
   private getOrCreateSalt(settingsDir: string): Buffer {
-    const saltPath = join(settingsDir, ".agentsync-salt");
+    const saltPath = join(settingsDir, ".pax8-cta-salt");
     try {
       if (existsSync(saltPath)) {
         return Buffer.from(readFileSync(saltPath, "utf-8"), "hex");

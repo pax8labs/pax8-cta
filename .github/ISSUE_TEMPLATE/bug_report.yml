@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with the AgentSync CLI
+description: Report a problem with the Pax8 CTA CLI
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -12,7 +12,7 @@ body:
     id: cli-version
     attributes:
       label: CLI version
-      description: Output of `agentsync --version`.
+      description: Output of `pax8-cta --version`.
       placeholder: "0.1.0"
     validations:
       required: true
@@ -41,7 +41,7 @@ body:
       label: Mode
       description: Were you running in demo mode or against real tenants?
       options:
-        - Demo mode (DEMO_MODE=true or `agentsync demo on`)
+        - Demo mode (DEMO_MODE=true or `pax8-cta demo on`)
         - Real environment (GDAP / live Dataverse)
         - Not sure
     validations:
@@ -53,8 +53,8 @@ body:
       label: Steps to reproduce
       description: A minimal sequence of commands that reproduces the issue.
       placeholder: |
-        1. Run `agentsync demo on`
-        2. Run `agentsync tenants list`
+        1. Run `pax8-cta demo on`
+        2. Run `pax8-cta tenants list`
         3. ...
     validations:
       required: true
@@ -88,7 +88,7 @@ body:
     id: config
     attributes:
       label: Config snippet
-      description: Relevant excerpt from `config/tenants.yaml` or `~/.agentsync/cli-config.json`. **Redact client secrets, tenant IDs, and customer names.**
+      description: Relevant excerpt from `config/tenants.yaml` or `~/.pax8-cta/cli-config.json`. **Redact client secrets, tenant IDs, and customer names.**
       render: yaml
     validations:
       required: false

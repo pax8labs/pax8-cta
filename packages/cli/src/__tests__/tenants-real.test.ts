@@ -26,10 +26,10 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runCli, containsText, extractJson, stripAnsi } from "./test-utils.js";
-import type { TenantConfig } from "@agentsync/core";
+import type { TenantConfig } from "@pax8-cta/core";
 
 // Create a temporary directory with a test config
-const TEST_DIR = join(tmpdir(), `agentsync-test-${Date.now()}`);
+const TEST_DIR = join(tmpdir(), `pax8-cta-test-${Date.now()}`);
 const CONFIG_PATH = join(TEST_DIR, "config", "tenants.yaml");
 const require = createRequire(import.meta.url);
 const { writeFileSync, mkdirSync, rmSync, existsSync } =
@@ -77,10 +77,10 @@ describe("Tenants Command (Real Mode - Config File)", () => {
     // Create test directory and config
     mkdirSync(join(TEST_DIR, "config"), { recursive: true });
     writeFileSync(CONFIG_PATH, TEST_CONFIG);
-    // Create empty .agentsync config to disable demo mode
-    mkdirSync(join(TEST_DIR, ".agentsync"), { recursive: true });
+    // Create empty .pax8-cta config to disable demo mode
+    mkdirSync(join(TEST_DIR, ".pax8-cta"), { recursive: true });
     writeFileSync(
-      join(TEST_DIR, ".agentsync", "cli-config.json"),
+      join(TEST_DIR, ".pax8-cta", "cli-config.json"),
       JSON.stringify({ demoMode: false })
     );
   });

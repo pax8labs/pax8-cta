@@ -49,7 +49,7 @@ function openUrl(url: string): void {
  * Run the standard (non-interactive) init wizard flow.
  */
 export async function runInitWizard(options: InitWizardOptions): Promise<void> {
-  console.log(chalk.cyan.bold("\n🚀 AgentSync Setup Wizard\n"));
+  console.log(chalk.cyan.bold("\n🚀 Pax8 CTA Setup Wizard\n"));
 
   // If the user is currently in demo mode and didn't pass --demo, confirm
   // before switching them to a real-mode setup. Real init writes Azure AD
@@ -94,7 +94,7 @@ export async function runInitWizard(options: InitWizardOptions): Promise<void> {
   if (options.demo) {
     // Demo mode setup
     console.log(chalk.yellow("Setting up in DEMO MODE..."));
-    console.log(chalk.gray("You can explore AgentSync features without credentials.\n"));
+    console.log(chalk.gray("You can explore Pax8 CTA features without credentials.\n"));
 
     const spinner = createSpinner("Enabling demo mode...").start();
 
@@ -200,7 +200,7 @@ export async function runInitWizard(options: InitWizardOptions): Promise<void> {
               try {
                 const secret = await graphClient.createClientSecret(
                   selectedApp.id,
-                  "AgentSync CLI",
+                  "Pax8 CTA CLI",
                   24
                 );
 
@@ -356,7 +356,7 @@ export async function runInitWizard(options: InitWizardOptions): Promise<void> {
     // Try discovering environments via Global Discovery Service
     if (partnerClientSecret) {
       try {
-        const { TokenManager } = await import("@agentsync/core");
+        const { TokenManager } = await import("@pax8-cta/core");
         const tokenManager = new TokenManager({
           tenantId: partnerTenantId,
           clientId: partnerClientId,

@@ -5,9 +5,9 @@ Routine tasks for keeping a CLI sandbox healthy.
 ## Daily / Weekly Checks
 
 ```bash
-pnpm --filter @agentsync/core build
-pnpm --filter @agentsync/cli build
-pnpm --filter @agentsync/cli test -- --run src/__tests__/integration.test.ts
+pnpm --filter @pax8-cta/core build
+pnpm --filter pax8-cta build
+pnpm --filter pax8-cta test -- --run src/__tests__/integration.test.ts
 ```
 
 ## Clean Old Artifacts

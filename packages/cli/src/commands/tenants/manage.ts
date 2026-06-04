@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../../lib/spinner.js";
-import { DEMO_TENANTS } from "@agentsync/core";
+import { DEMO_TENANTS } from "@pax8-cta/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";

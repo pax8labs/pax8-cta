@@ -29,7 +29,7 @@ import { describe, it, expect } from "vitest";
 import { runCli } from "./test-utils.js";
 
 describe("deploy --quiet (issue #357)", () => {
-  it("agentsync deploy ... --quiet produces zero stdout and exits 0", async () => {
+  it("pax8-cta deploy ... --quiet produces zero stdout and exits 0", async () => {
     const result = await runCli(
       ["deploy", "CustomerServiceAgent", "--tag", "enterprise", "--quiet"],
       {
@@ -44,7 +44,7 @@ describe("deploy --quiet (issue #357)", () => {
 });
 
 describe("deploy --json (issue #357)", () => {
-  it("agentsync deploy ... --json produces parseable JSON on stdout", async () => {
+  it("pax8-cta deploy ... --json produces parseable JSON on stdout", async () => {
     const result = await runCli(
       ["deploy", "CustomerServiceAgent", "--tag", "enterprise", "--json"],
       {
@@ -65,7 +65,7 @@ describe("deploy --json (issue #357)", () => {
   }, 60000);
 
   it("piped stdout (no --json) defaults to JSON for agent/script callers", async () => {
-    // The CLI sets AGENTSYNC_DEFAULT_FORMAT=json when stdout is not a TTY.
+    // The CLI sets PAX8_CTA_DEFAULT_FORMAT=json when stdout is not a TTY.
     // Subprocess invocation is non-TTY, so the deploy command should emit
     // its JSON envelope without an explicit --json flag.
     const result = await runCli(["deploy", "CustomerServiceAgent", "--tag", "enterprise"], {

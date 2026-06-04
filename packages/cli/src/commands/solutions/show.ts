@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import { DEMO_SOLUTIONS } from "@agentsync/core";
+import { DEMO_SOLUTIONS } from "@pax8-cta/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findSolution, getTenantDeploymentStatus } from "./helpers.js";
@@ -87,7 +87,7 @@ Examples:
   )
   .action(async (name: string, options, cmd) => {
     // Merge local opts with globals so root-level `--json` / `--quiet`
-    // (`agentsync --json solutions show ...`) reach this command. Resolve the
+    // (`pax8-cta --json solutions show ...`) reach this command. Resolve the
     // effective output format up-front so every branch below can branch on a
     // single `fmt` value (issue #406).
     const opts = { ...options, ...cmd.optsWithGlobals() };

@@ -165,7 +165,7 @@ describe("Init Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "AgentSync Setup Wizard")).toBe(true);
+      expect(containsText(output, "Pax8 CTA Setup Wizard")).toBe(true);
       expect(containsText(output, "Setting up in DEMO MODE")).toBe(true);
       expect(containsText(output, "Demo mode enabled")).toBe(true);
       expect(containsText(output, "Setup complete")).toBe(true);
@@ -260,7 +260,7 @@ describe("Init Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "AgentSync Setup Wizard")).toBe(true);
+      expect(containsText(output, "Pax8 CTA Setup Wizard")).toBe(true);
       expect(containsText(output, "Partner Tenant ID")).toBe(true);
       expect(containsText(output, "App Registration Client ID")).toBe(true);
       expect(containsText(output, "Client Secret")).toBe(true);
@@ -300,7 +300,7 @@ describe("Init Command", () => {
       expect(normalizePathForAssert(configPath)).toContain("config/tenants.yaml");
       expect(configContent).toContain("my-tenant-id-123");
       expect(configContent).toContain("my-client-id-456");
-      expect(configContent).toContain("AgentSync Configuration");
+      expect(configContent).toContain("Pax8 CTA Configuration");
     });
 
     it("should include source environment in config when provided", async () => {
@@ -590,7 +590,7 @@ describe("Init Command", () => {
       const { initCommand } = await import("../commands/init.js");
 
       expect(initCommand.description()).toContain("Initialize");
-      expect(initCommand.description()).toContain("AgentSync");
+      expect(initCommand.description()).toContain("Pax8 CTA");
     });
   });
 });

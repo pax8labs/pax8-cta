@@ -1,10 +1,10 @@
-# Contributing to AgentSync
+# Contributing to Pax8 CTA
 
-Thank you for your interest in AgentSync! We appreciate bug reports, feature requests, questions, and feedback from the community.
+Thank you for your interest in Pax8 CTA! We appreciate bug reports, feature requests, questions, and feedback from the community.
 
 ## Contribution Model
 
-AgentSync is currently maintained by Pax8 under a **publish-only** open source model. This means:
+Pax8 CTA is currently maintained by Pax8 under a **publish-only** open source model. This means:
 
 - Pax8 develops and publishes all code changes.
 - External pull requests are **not accepted** at this time.
@@ -14,7 +14,7 @@ We plan to accept community contributions once we have a CLA and review process 
 
 ## Reporting Bugs
 
-If you find a bug, please [open an issue](https://github.com/pax8labs/agentsync/issues/new) and include:
+If you find a bug, please [open an issue](https://github.com/pax8labs/pax8-cta/issues/new) and include:
 
 - A clear, descriptive title
 - Steps to reproduce the problem
@@ -29,7 +29,7 @@ We welcome feature requests. When opening one, please include:
 
 - A description of the problem you are trying to solve
 - Your proposed solution or desired behavior
-- Your use case (how you use AgentSync, what tenant scale you operate at)
+- Your use case (how you use Pax8 CTA, what tenant scale you operate at)
 - Whether any workarounds exist today
 
 ## Running Locally
@@ -38,21 +38,21 @@ If you want to explore the codebase or reproduce an issue locally:
 
 ```bash
 # Clone and install
-git clone https://github.com/pax8labs/agentsync.git
-cd agentsync
+git clone https://github.com/pax8labs/pax8-cta.git
+cd pax8-cta
 pnpm install
 
 # Build all packages
 pnpm build
 
 # Run CLI tests (uses DEMO_MODE, no Azure AD credentials needed)
-pnpm --filter @agentsync/cli test
+pnpm --filter pax8-cta test
 
 # Run a single test file
-pnpm --filter @agentsync/cli test -- --run src/__tests__/init.test.ts
+pnpm --filter pax8-cta test -- --run src/__tests__/init.test.ts
 
 # Run with coverage
-pnpm --filter @agentsync/cli test:coverage
+pnpm --filter pax8-cta test:coverage
 
 # Type-check and lint
 pnpm typecheck

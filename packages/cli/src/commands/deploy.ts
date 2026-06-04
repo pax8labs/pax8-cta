@@ -50,7 +50,7 @@ import {
   environmentSetupService,
   detectSolutionMode,
   getDemoTenantMetadata,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 import { isDemo, withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError, handleCommandError } from "../lib/errors.js";
@@ -448,7 +448,7 @@ Examples:
           console.log(`  Target tenants: ${destinations.length}`);
           console.log();
           console.log(
-            chalk.gray(`Use 'agentsync deployments show ${demoDeploymentId}' to track progress`)
+            chalk.gray(`Use 'pax8-cta deployments show ${demoDeploymentId}' to track progress`)
           );
           return null;
         },
@@ -1558,7 +1558,7 @@ async function applyUrlReplacements(
   const modifiedBuffer = await templater.modifySolution(zipBuffer, replacements, new JSZip());
 
   // Write to temp file
-  const tempPath = join(tmpdir(), `agentsync-deploy-${randomUUID()}.zip`);
+  const tempPath = join(tmpdir(), `pax8-cta-deploy-${randomUUID()}.zip`);
   writeFileSync(tempPath, modifiedBuffer);
 
   return tempPath;

@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../../lib/spinner.js";
-import { DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@agentsync/core";
+import { DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@pax8-cta/core";
 import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";
@@ -72,7 +72,7 @@ export const healthCommand = new Command("health")
     `
 Examples:
   tenants health                            Show fleet-wide health summary
-  tenants health AgentSync-Test2            Check health for a specific tenant
+  tenants health Pax8CTA-Test2            Check health for a specific tenant
   tenants health --json                     Output health data as JSON
 `
   )

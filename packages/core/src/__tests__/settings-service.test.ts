@@ -49,15 +49,15 @@ describe("SettingsService encryption", () => {
   });
 
   it("generates an encryption key file and encrypts integration secrets", async () => {
-    const settingsDir = mkdtempSync(join(tmpdir(), "agentsync-settings-"));
+    const settingsDir = mkdtempSync(join(tmpdir(), "pax8-cta-settings-"));
     tempDirs.push(settingsDir);
 
     const service = new SettingsService({ settingsDir });
 
     await service.updateIntegrationSettings({ partnerClientSecret: "top-secret" }, "test-user");
 
-    const settingsPath = join(settingsDir, ".agentsync-settings.json");
-    const keyPath = join(settingsDir, ".agentsync-encryption-key");
+    const settingsPath = join(settingsDir, ".pax8-cta-settings.json");
+    const keyPath = join(settingsDir, ".pax8-cta-encryption-key");
     const raw = JSON.parse(readFileSync(settingsPath, "utf-8")) as {
       integration: { partnerClientSecret: string };
     };
@@ -71,7 +71,7 @@ describe("SettingsService encryption", () => {
   });
 
   it("encrypts webhook URLs in app settings", async () => {
-    const settingsDir = mkdtempSync(join(tmpdir(), "agentsync-settings-"));
+    const settingsDir = mkdtempSync(join(tmpdir(), "pax8-cta-settings-"));
     tempDirs.push(settingsDir);
 
     const service = new SettingsService({ settingsDir });
@@ -79,7 +79,7 @@ describe("SettingsService encryption", () => {
 
     await service.updateAppSettings({ slackWebhookUrl: webhookUrl });
 
-    const settingsPath = join(settingsDir, ".agentsync-settings.json");
+    const settingsPath = join(settingsDir, ".pax8-cta-settings.json");
     const raw = JSON.parse(readFileSync(settingsPath, "utf-8")) as {
       app: { slackWebhookUrl: string };
     };
@@ -94,7 +94,7 @@ describe("SettingsService encryption", () => {
   it.skipIf(process.platform === "win32")(
     "fails sensitive writes when encryption key cannot be persisted",
     async () => {
-      const settingsDir = mkdtempSync(join(tmpdir(), "agentsync-settings-"));
+      const settingsDir = mkdtempSync(join(tmpdir(), "pax8-cta-settings-"));
       tempDirs.push(settingsDir);
       chmodSync(settingsDir, 0o500);
 

@@ -41,7 +41,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@agentsync/core':
+      '@pax8-cta/core':
         specifier: workspace:*
         version: link:../core
       chalk:

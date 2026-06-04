@@ -26,7 +26,7 @@ import {
   DataverseClient,
   environmentSetupService,
   type SetupStatus,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { UsageError, CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
@@ -43,7 +43,7 @@ export const setupCommand = new Command("setup")
 Examples:
   setup --check                             Check setup status without making changes
   setup --all                               Register app user in all environments
-  setup -t AgentSync-Test2                  Setup a specific tenant environment
+  setup -t Pax8CTA-Test2                  Setup a specific tenant environment
 `
   )
   .action(async (options, cmd) => {

@@ -67,7 +67,7 @@ describe("Telemetry", () => {
     // Disable telemetry in tests by default
     restoreEnv = mockEnv({
       DEMO_MODE: "true",
-      AGENTSYNC_TELEMETRY_DISABLED: "1",
+      PAX8_CTA_TELEMETRY_DISABLED: "1",
     });
 
     vi.resetModules();
@@ -169,7 +169,7 @@ describe("Telemetry", () => {
       const output = consoleCapture.getAllOutput();
       const cleanOutput = stripAnsi(output);
 
-      expect(containsText(cleanOutput, "github.com/pax8labs/agentsync")).toBe(true);
+      expect(containsText(cleanOutput, "github.com/pax8labs/pax8-cta")).toBe(true);
     });
   });
 
@@ -186,7 +186,7 @@ describe("Telemetry", () => {
 
     it("should be disabled when env var is set", async () => {
       restoreEnv();
-      restoreEnv = mockEnv({ AGENTSYNC_TELEMETRY_DISABLED: "1" });
+      restoreEnv = mockEnv({ PAX8_CTA_TELEMETRY_DISABLED: "1" });
 
       vi.resetModules();
       const { isTelemetryEnabled } = await import("../lib/telemetry.js");
@@ -272,7 +272,7 @@ describe("Telemetry", () => {
       // import throws (e.g. trimmed bundle, broken install), tracking
       // should still complete without surfacing an error to the CLI.
       restoreEnv();
-      restoreEnv = mockEnv({ AGENTSYNC_POSTHOG_KEY: "phc_test_lazy_load" });
+      restoreEnv = mockEnv({ PAX8_CTA_POSTHOG_KEY: "phc_test_lazy_load" });
       mockStore.telemetryEnabled = true;
 
       vi.resetModules();

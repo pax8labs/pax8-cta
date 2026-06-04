@@ -48,7 +48,7 @@ export interface PreconditionRequirement {
 /**
  * Structured remediation. Three kinds, mutually exclusive:
  *  - `link` — open a deep link to fix in a portal.
- *  - `command` — runnable CLI command the user can fire from agentsync.
+ *  - `command` — runnable CLI command the user can fire from pax8-cta.
  *  - `manual` — list of instructions when no automation exists.
  *
  * `urlTemplate` and any string in `manualSteps` / `cmd` may include `{tenantId}`

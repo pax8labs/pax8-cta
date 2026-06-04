@@ -34,8 +34,8 @@ import {
   getDemoCustomizationSummary,
   type FleetDriftAnalysis,
   type TenantDriftAnalysis,
-} from "@agentsync/core";
-import type { TenantVersionStatus } from "@agentsync/core";
+} from "@pax8-cta/core";
+import type { TenantVersionStatus } from "@pax8-cta/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
@@ -164,7 +164,7 @@ export function createDriftCommand(): Command {
       `
 Examples:
   solutions drift                           Show fleet-wide version drift summary
-  solutions drift -t AgentSync-Test2        Check drift for a specific tenant
+  solutions drift -t Pax8CTA-Test2        Check drift for a specific tenant
   solutions drift --outdated                Show only outdated tenants
   solutions drift --risk                    Show drift with risk scores
   solutions drift --risk high               Show only high-risk tenants
@@ -174,7 +174,7 @@ Examples:
     )
     .action(async (options, cmd) => {
       // Merge local opts with globals so root-level `--json` / `--quiet`
-      // (`agentsync --json solutions drift ...`) reach this command. Then
+      // (`pax8-cta --json solutions drift ...`) reach this command. Then
       // resolve the effective output format up-front so every branch below
       // can branch on a single `fmt` value (issue #401).
       const merged = { ...options, ...cmd.optsWithGlobals() };

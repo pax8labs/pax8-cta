@@ -1,5 +1,5 @@
 /**
- * Shared test utilities for @agentsync packages
+ * Shared test utilities for @pax8-cta packages
  *
  * Provides common mock factories, test fixtures, and helper functions
  * to reduce duplication across test files.

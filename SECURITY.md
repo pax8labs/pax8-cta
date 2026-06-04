@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We actively support the following versions of AgentSync with security updates:
+We actively support the following versions of Pax8 CTA with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -10,7 +10,7 @@ We actively support the following versions of AgentSync with security updates:
 
 ## Reporting a Vulnerability
 
-The AgentSync team takes security vulnerabilities seriously. We appreciate your efforts to responsibly disclose your findings.
+The Pax8 CTA team takes security vulnerabilities seriously. We appreciate your efforts to responsibly disclose your findings.
 
 ### How to Report
 
@@ -33,7 +33,7 @@ To help us better understand and resolve the issue, please include the following
   - What data could be exposed
   - What systems could be compromised
   - Potential attack vectors
-- **Environment Details**: Information about the environment where you discovered the issue (OS, Node.js version, AgentSync version, etc.)
+- **Environment Details**: Information about the environment where you discovered the issue (OS, Node.js version, Pax8 CTA version, etc.)
 - **Suggested Fix**: If you have recommendations for remediation, please include them
 
 ### Response Timeline
@@ -63,7 +63,7 @@ We believe in coordinated disclosure to protect our users:
 
 The following are within scope for security vulnerability reports:
 
-- The AgentSync codebase in this repository
+- The Pax8 CTA codebase in this repository
 - CLI commands and their implementation
 - Core deployment and configuration services
 - Authentication and authorization mechanisms
@@ -85,11 +85,11 @@ The following are outside the scope of this security policy:
 
 ## Security Best Practices
 
-When using AgentSync, we recommend following these security best practices:
+When using Pax8 CTA, we recommend following these security best practices:
 
 1. **Credentials Management**: Store credentials securely using environment variables or secure credential management systems
 2. **Access Control**: Follow the principle of least privilege when configuring service accounts
-3. **Updates**: Keep AgentSync and its dependencies up to date
+3. **Updates**: Keep Pax8 CTA and its dependencies up to date
 4. **Audit Logging**: Enable and regularly review audit logs
 5. **Network Security**: Use secure network connections and restrict access to deployment systems
 
@@ -100,4 +100,4 @@ For general security questions or concerns that are not vulnerability reports, y
 - Open a discussion in the GitHub Discussions section
 - Contact us at security@pax8.com
 
-Thank you for helping keep AgentSync and its users secure!
+Thank you for helping keep Pax8 CTA and its users secure!

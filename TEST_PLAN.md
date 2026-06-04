@@ -1,10 +1,10 @@
-# AgentSync CLI Manual Test Plan
+# Pax8 CTA CLI Manual Test Plan
 
 **Date:** 2026-03-11
 **Environment:** Power Platform (real credentials)
 **Tester prerequisites:**
 
-- Working directory: `cd /Users/jdulberger/Documents/agentsync`
+- Working directory: `cd /Users/jdulberger/Documents/pax8-cta`
 - The CLI is built: `node packages/cli/dist/index.js`
 - `PARTNER_CLIENT_SECRET` is set (loaded from `.env` or exported manually)
 - All commands below use `DEMO_MODE=false` to bypass the `.env` default of `DEMO_MODE=true`
@@ -19,14 +19,14 @@ Run `export CLI="DEMO_MODE=false node packages/cli/dist/index.js"` first, then c
 
 **Tenant info for reference:**
 
-| Key           | Value                                                    |
-| ------------- | -------------------------------------------------------- |
-| Tenant ID     | `5ef655fa-32f3-44b2-bdc9-86a50b667ea0`                   |
-| Client ID     | `391d47c5-fb76-492a-a0c8-c9ce6a237eff`                   |
-| Source env    | `https://org60b532ae.crm.dynamics.com`                   |
-| Target env    | `https://org54870a4d.crm.dynamics.com` (AgentSync-Test2) |
-| Config file   | `config/tenants.yaml`                                    |
-| Test solution | `TestDeploy` (exists in source)                          |
+| Key           | Value                                                  |
+| ------------- | ------------------------------------------------------ |
+| Tenant ID     | `5ef655fa-32f3-44b2-bdc9-86a50b667ea0`                 |
+| Client ID     | `391d47c5-fb76-492a-a0c8-c9ce6a237eff`                 |
+| Source env    | `https://org60b532ae.crm.dynamics.com`                 |
+| Target env    | `https://org54870a4d.crm.dynamics.com` (Pax8CTA-Test2) |
+| Config file   | `config/tenants.yaml`                                  |
+| Test solution | `TestDeploy` (exists in source)                        |
 
 ---
 
@@ -52,7 +52,7 @@ DEMO_MODE=false node packages/cli/dist/index.js validate
 
 - "Configuration file valid" with 1 tenant configured
 - "Client secret found"
-- "AgentSync-Test2: Ready" (app user configured with System Administrator role)
+- "Pax8CTA-Test2: Ready" (app user configured with System Administrator role)
 - "Source environment reachable"
 - Final line: "All validation checks passed!"
 - Exit code 0
@@ -62,10 +62,10 @@ DEMO_MODE=false node packages/cli/dist/index.js validate
 ### Test 1.3: Validate a specific tenant by name
 
 ```bash
-DEMO_MODE=false node packages/cli/dist/index.js validate -t AgentSync-Test2
+DEMO_MODE=false node packages/cli/dist/index.js validate -t Pax8CTA-Test2
 ```
 
-**Expected:** Same as 1.2 but scoped to only the AgentSync-Test2 tenant. Should still check source environment. Exit code 0.
+**Expected:** Same as 1.2 but scoped to only the Pax8CTA-Test2 tenant. Should still check source environment. Exit code 0.
 
 ---
 
@@ -90,12 +90,12 @@ DEMO_MODE=false node packages/cli/dist/index.js solutions list
 ### Test 2.2: List solutions in target environment
 
 ```bash
-DEMO_MODE=false node packages/cli/dist/index.js solutions list -t AgentSync-Test2
+DEMO_MODE=false node packages/cli/dist/index.js solutions list -t Pax8CTA-Test2
 ```
 
 **Expected:**
 
-- Same table format, but for the AgentSync-Test2 environment
+- Same table format, but for the Pax8CTA-Test2 environment
 - May or may not contain `TestDeploy` depending on prior test runs
 - Exit code 0
 
@@ -131,7 +131,7 @@ DEMO_MODE=false node packages/cli/dist/index.js deploy TestDeploy --all --dry-ru
 
 - "Manifest loaded"
 - Exports solution from source (shows version and managed/unmanaged)
-- Shows "Shipping Destinations (1)" table with AgentSync-Test2
+- Shows "Shipping Destinations (1)" table with Pax8CTA-Test2
 - Prints "Dry run - no agent packages will be shipped"
 - Exit code 0
 
@@ -149,9 +149,9 @@ DEMO_MODE=false node packages/cli/dist/index.js deploy TestDeploy --all --direct
 - Auto-detects solution mode (managed or unmanaged)
 - Exports solution from source with version number
 - Shows destinations table
-- "Checking application users..." with "AgentSync-Test2: Ready"
-- "Deploying to AgentSync-Test2..." with progress percentage
-- "AgentSync-Test2: Deployed successfully"
+- "Checking application users..." with "Pax8CTA-Test2: Ready"
+- "Deploying to Pax8CTA-Test2..." with progress percentage
+- "Pax8CTA-Test2: Deployed successfully"
 - Deployment Summary: Total 1, Success 1
 - Exit code 0
 
@@ -162,12 +162,12 @@ DEMO_MODE=false node packages/cli/dist/index.js deploy TestDeploy --all --direct
 ### Test 3.3: Verify deployment - list solutions in target
 
 ```bash
-DEMO_MODE=false node packages/cli/dist/index.js solutions list -t AgentSync-Test2
+DEMO_MODE=false node packages/cli/dist/index.js solutions list -t Pax8CTA-Test2
 ```
 
 **Expected:**
 
-- `TestDeploy` now appears in the solution list for AgentSync-Test2
+- `TestDeploy` now appears in the solution list for Pax8CTA-Test2
 - Version matches what was exported in Test 3.2
 - Type shows as "Managed" (or "Unmanaged" if auto-detected as unmanaged)
 - Exit code 0
@@ -191,16 +191,16 @@ DEMO_MODE=false node packages/cli/dist/index.js deployments list
 ### Test 3.5: Remove deployed solution (cleanup)
 
 ```bash
-DEMO_MODE=false node packages/cli/dist/index.js solutions remove TestDeploy -t AgentSync-Test2 -y
+DEMO_MODE=false node packages/cli/dist/index.js solutions remove TestDeploy -t Pax8CTA-Test2 -y
 ```
 
 **Expected:**
 
-- "Target: AgentSync-Test2 (https://org54870a4d.crm.dynamics.com)"
-- "Uninstalled 'TestDeploy' from AgentSync-Test2"
+- "Target: Pax8CTA-Test2 (https://org54870a4d.crm.dynamics.com)"
+- "Uninstalled 'TestDeploy' from Pax8CTA-Test2"
 - Exit code 0
 
-**Verification:** Re-run Test 2.2 (`solutions list -t AgentSync-Test2`) and confirm `TestDeploy` is no longer listed.
+**Verification:** Re-run Test 2.2 (`solutions list -t Pax8CTA-Test2`) and confirm `TestDeploy` is no longer listed.
 
 ---
 
@@ -216,7 +216,7 @@ DEMO_MODE=false node packages/cli/dist/index.js tenants list
 
 - "Loaded 1 destinations from manifest"
 - Table with columns: Destination, Tenant ID, Port (Environment), Tags, Active
-- Row shows: AgentSync-Test2, tenant ID prefix, environment URL, tags (or `-`), `Yes`
+- Row shows: Pax8CTA-Test2, tenant ID prefix, environment URL, tags (or `-`), `Yes`
 - Fleet size: 1 destinations (1 active)
 - Exit code 0
 
@@ -245,7 +245,7 @@ DEMO_MODE=false node packages/cli/dist/index.js tenants inspect
 
 - "Loaded 1 destinations to inspect"
 - "Inspecting Shipping Routes"
-- AgentSync-Test2 result (either "Route clear" or details about GDAP status)
+- Pax8CTA-Test2 result (either "Route clear" or details about GDAP status)
 - Inspection Report summary
 - Exit code 0
 
@@ -264,7 +264,7 @@ DEMO_MODE=false node packages/cli/dist/index.js setup --check
 - "Configuration loaded"
 - "Checking 1 environment(s)..."
 - Table with columns: Environment, App Registered, Role, Status
-- AgentSync-Test2 row shows: checkmark for App Registered, "System Admin" for Role, "Ready" for Status
+- Pax8CTA-Test2 row shows: checkmark for App Registered, "System Admin" for Role, "Ready" for Status
 - Exit code 0
 
 ---
@@ -280,7 +280,7 @@ DEMO_MODE=false node packages/cli/dist/index.js analyze TestDeploy
 **Expected:**
 
 - "Manifest loaded"
-- "Analyzing Risk for 1 Destinations" with table showing AgentSync-Test2
+- "Analyzing Risk for 1 Destinations" with table showing Pax8CTA-Test2
 - "Risk analysis complete"
 - Risk Analysis Report with:
   - Risk Score (low/medium/high)
@@ -351,7 +351,7 @@ DEMO_MODE=false node packages/cli/dist/index.js validate -t NoSuchTenant
 ### Test 6.4: Remove a solution that is not installed
 
 ```bash
-DEMO_MODE=false node packages/cli/dist/index.js solutions remove FakeSolution_xyz -t AgentSync-Test2 -y
+DEMO_MODE=false node packages/cli/dist/index.js solutions remove FakeSolution_xyz -t Pax8CTA-Test2 -y
 ```
 
 **Expected:**
@@ -384,7 +384,7 @@ DEMO_MODE=false node packages/cli/dist/index.js validate -c /tmp/nonexistent.yam
 **Expected:**
 
 - "File not found: /tmp/nonexistent.yaml"
-- Fix suggestion: "Run 'agentsync init' to create a configuration file"
+- Fix suggestion: "Run 'pax8-cta init' to create a configuration file"
 - Exit code 1
 
 ---

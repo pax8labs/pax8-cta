@@ -15,7 +15,7 @@
  */
 
 /**
- * Subprocess tests for `agentsync config` (issue #309).
+ * Subprocess tests for `pax8-cta config` (issue #309).
  *
  * Coverage:
  *   - Bare run prints expected sections (Demo mode, Credentials, Config file, Paths)
@@ -29,17 +29,17 @@ import { runCli, runCliExpectSuccess, stripAnsi } from "./test-utils.js";
 
 const FAKE_SECRET = "fake-secret-do-not-leak-309";
 
-describe("agentsync config (human-readable)", () => {
+describe("pax8-cta config (human-readable)", () => {
   it("renders all expected sections", async () => {
     // Subprocess stdout is piped, which would otherwise default to JSON.
-    // Force the human-readable format via AGENTSYNC_DEFAULT_FORMAT.
+    // Force the human-readable format via PAX8_CTA_DEFAULT_FORMAT.
     const result = await runCliExpectSuccess(["config"], {
-      env: { NO_COLOR: "1", AGENTSYNC_DEFAULT_FORMAT: "table" },
+      env: { NO_COLOR: "1", PAX8_CTA_DEFAULT_FORMAT: "table" },
       timeout: 60000,
     });
 
     const text = stripAnsi(result.stdout);
-    expect(text).toContain("AgentSync Configuration");
+    expect(text).toContain("Pax8 CTA Configuration");
     expect(text).toContain("Demo mode:");
     expect(text).toContain("Default format:");
     expect(text).toContain("Quiet mode:");
@@ -53,7 +53,7 @@ describe("agentsync config (human-readable)", () => {
 
   it("reports demo mode ENABLED when DEMO_MODE=true", async () => {
     const result = await runCliExpectSuccess(["config"], {
-      env: { NO_COLOR: "1", DEMO_MODE: "true", AGENTSYNC_DEFAULT_FORMAT: "table" },
+      env: { NO_COLOR: "1", DEMO_MODE: "true", PAX8_CTA_DEFAULT_FORMAT: "table" },
       timeout: 60000,
     });
     const text = stripAnsi(result.stdout);
@@ -61,7 +61,7 @@ describe("agentsync config (human-readable)", () => {
   }, 60000);
 });
 
-describe("agentsync config --json", () => {
+describe("pax8-cta config --json", () => {
   it("emits parseable JSON with all top-level sections", async () => {
     const result = await runCliExpectSuccess(["config", "--json"], {
       env: { NO_COLOR: "1" },
@@ -104,7 +104,7 @@ describe("agentsync config --json", () => {
   }, 60000);
 });
 
-describe("agentsync config --quiet", () => {
+describe("pax8-cta config --quiet", () => {
   it("produces zero stdout and exits 0", async () => {
     const result = await runCli(["config", "--quiet"], {
       env: { NO_COLOR: "1" },
@@ -116,12 +116,12 @@ describe("agentsync config --quiet", () => {
   }, 60000);
 });
 
-describe("agentsync config: secret hygiene", () => {
+describe("pax8-cta config: secret hygiene", () => {
   it("never echoes PARTNER_CLIENT_SECRET in human-readable output", async () => {
     const result = await runCliExpectSuccess(["config"], {
       env: {
         NO_COLOR: "1",
-        AGENTSYNC_DEFAULT_FORMAT: "table",
+        PAX8_CTA_DEFAULT_FORMAT: "table",
         PARTNER_CLIENT_SECRET: FAKE_SECRET,
       },
       timeout: 60000,
@@ -133,15 +133,15 @@ describe("agentsync config: secret hygiene", () => {
     expect(stripAnsi(result.stdout)).toContain("PARTNER_CLIENT_SECRET");
   }, 60000);
 
-  it("never echoes AGENTSYNC_CLIENT_SECRET even when only that alias is set", async () => {
+  it("never echoes PAX8_CTA_CLIENT_SECRET even when only that alias is set", async () => {
     const result = await runCliExpectSuccess(["config", "--json"], {
-      env: { NO_COLOR: "1", AGENTSYNC_CLIENT_SECRET: FAKE_SECRET },
+      env: { NO_COLOR: "1", PAX8_CTA_CLIENT_SECRET: FAKE_SECRET },
       timeout: 60000,
     });
 
     expect(result.stdout).not.toContain(FAKE_SECRET);
     expect(result.stderr).not.toContain(FAKE_SECRET);
     const parsed = JSON.parse(result.stdout.slice(result.stdout.indexOf("{")));
-    expect(parsed.credentials.agentsyncClientSecretEnv).toBe("set");
+    expect(parsed.credentials.pax8CtaClientSecretEnv).toBe("set");
   }, 60000);
 });

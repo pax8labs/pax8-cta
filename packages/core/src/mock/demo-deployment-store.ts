@@ -18,7 +18,7 @@
  * In-process store for demo-mode deployments.
  *
  * Why this exists:
- *   The demo `agentsync deploy` flow prints a tracking ID like `dep-demo-mos0ueva`
+ *   The demo `pax8-cta deploy` flow prints a tracking ID like `dep-demo-mos0ueva`
  *   for visual continuity, but the demo `deployments list` / `deployments show`
  *   commands previously read from `generateMockDeploymentHistory()` only — which
  *   meant a freshly-printed tracking ID did not appear when the user looked at

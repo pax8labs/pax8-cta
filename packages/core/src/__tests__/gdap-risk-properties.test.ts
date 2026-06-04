@@ -5,7 +5,7 @@
  * that must hold for any combination of relationships, roles,
  * tenants, and deployment histories.
  *
- * Ref: https://github.com/pax8labs/agentsync/issues/266
+ * Ref: https://github.com/pax8labs/pax8-cta/issues/266
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";

@@ -39,7 +39,7 @@ telemetryCommand
     enableTelemetry();
     console.log(chalk.green("✓ Telemetry enabled"));
     console.log();
-    console.log(chalk.gray("Thank you for helping improve AgentSync CLI!"));
+    console.log(chalk.gray("Thank you for helping improve Pax8 CTA CLI!"));
     console.log(
       chalk.gray("We collect only anonymous usage data - never any personal or tenant information.")
     );
@@ -83,13 +83,13 @@ function showStatus(): void {
   console.log(chalk.gray("  • Any personally identifiable information"));
   console.log();
   console.log(
-    chalk.gray("Learn more: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry")
+    chalk.gray("Learn more: https://github.com/pax8labs/pax8-cta/tree/main/packages/cli#telemetry")
   );
   console.log();
 
   if (enabled) {
     console.log(chalk.gray("To disable: telemetry off"));
-    console.log(chalk.gray("  Or set: AGENTSYNC_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1"));
+    console.log(chalk.gray("  Or set: PAX8_CTA_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1"));
   } else {
     console.log(chalk.gray("To enable: telemetry on"));
   }

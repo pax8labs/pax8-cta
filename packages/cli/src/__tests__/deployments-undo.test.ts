@@ -18,7 +18,7 @@
  * Subprocess integration tests for `deployments undo` (issue #418).
  *
  * Demo-mode end-to-end checks. Real-mode rollback paths are out of scope —
- * `RollbackService` has its own unit tests in @agentsync/core, and the
+ * `RollbackService` has its own unit tests in @pax8-cta/core, and the
  * per-tenant Dataverse plumbing is Phase 2.
  *
  * Demo-store determinism: each `runCli` spawns a fresh subprocess, so the
@@ -46,7 +46,7 @@ describe("deployments undo (subprocess)", () => {
   it("undoes a known deployment with -y and prints a rollback summary", async () => {
     const result = await runCliExpectSuccess(["deployments", "undo", DEMO_TARGET_ID, "-y"]);
 
-    // Subprocess stdout is piped (non-TTY) → AGENTSYNC_DEFAULT_FORMAT=json,
+    // Subprocess stdout is piped (non-TTY) → PAX8_CTA_DEFAULT_FORMAT=json,
     // so we get the JSON envelope rather than the human summary.
     const json = extractJson(result.output) as {
       deploymentId?: string;

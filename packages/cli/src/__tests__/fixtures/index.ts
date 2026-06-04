@@ -28,7 +28,7 @@ export {
   DEMO_SOLUTIONS,
   generateMockDeployment,
   generateMockDeploymentHistory,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 
 // ============================================================================
 // CLI-specific fixtures

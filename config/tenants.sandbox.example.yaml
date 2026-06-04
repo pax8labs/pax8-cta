@@ -1,4 +1,4 @@
-# AgentSync Sandbox Tenant Configuration
+# Pax8 CTA Sandbox Tenant Configuration
 # Copy this file to tenants.sandbox.yaml and fill in your test tenant values
 # This configuration is for TESTING ONLY - do not use production tenants
 
@@ -14,7 +14,7 @@ partner:
 # This is where your test Copilot Studio agents are developed
 source:
   tenantId: "your-sandbox-tenant-id"  # Can be same as partner tenant
-  environmentUrl: "https://agentsync-dev-source.crm.dynamics.com"
+  environmentUrl: "https://pax8-cta-dev-source.crm.dynamics.com"
 
   # Connection references in source environment (for mapping)
   connectionReferences:

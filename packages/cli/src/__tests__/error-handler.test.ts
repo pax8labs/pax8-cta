@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AgentSyncError, formatError, printError } from "../lib/error-handler.js";
+import { CtaError, formatError, printError } from "../lib/error-handler.js";
 import { handleCommandError, isJsonOutputMode, CliError, UsageError } from "../lib/errors.js";
 import {
   AuthError,
@@ -26,12 +26,12 @@ import {
   ConfigValidationError,
   NetworkError,
   ErrorCode,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 
 describe("Error Handler", () => {
-  describe("AgentSyncError", () => {
+  describe("CtaError", () => {
     it("should create error with all properties", () => {
-      const error = new AgentSyncError(
+      const error = new CtaError(
         "TEST_ERROR",
         "Test error message",
         ["Cause 1", "Cause 2"],
@@ -44,7 +44,7 @@ describe("Error Handler", () => {
       expect(error.causes).toEqual(["Cause 1", "Cause 2"]);
       expect(error.recovery).toEqual(["Step 1", "Step 2"]);
       expect(error.context?.environmentUrl).toBe("https://test.crm.dynamics.com");
-      expect(error.name).toBe("AgentSyncError");
+      expect(error.name).toBe("CtaError");
     });
   });
 
@@ -254,9 +254,7 @@ describe("Error Handler", () => {
       expect(formatted.code).toBe("ERROR_UNKNOWN");
       expect(formatted.message).toBe("Some unexpected error");
       expect(formatted.causes).toContain("An unexpected error occurred");
-      expect(formatted.recovery.join(" ")).toContain(
-        "https://github.com/pax8labs/agentsync/issues"
-      );
+      expect(formatted.recovery.join(" ")).toContain("https://github.com/pax8labs/pax8-cta/issues");
     });
 
     it("should handle non-Error objects", () => {
@@ -288,7 +286,7 @@ describe("Error Handler", () => {
     });
 
     it("should print formatted error with all sections", () => {
-      const error = new AgentSyncError(
+      const error = new CtaError(
         "TEST_ERROR",
         "Test error message",
         ["Cause 1", "Cause 2"],
@@ -322,7 +320,7 @@ describe("Error Handler", () => {
     });
 
     it("should handle recovery steps with sub-steps", () => {
-      const error = new AgentSyncError(
+      const error = new CtaError(
         "TEST_ERROR",
         "Test",
         ["Cause"],
@@ -339,7 +337,7 @@ describe("Error Handler", () => {
     });
 
     it("should not print context section if empty", () => {
-      const error = new AgentSyncError("TEST_ERROR", "Test error", ["Cause"], ["Step"]);
+      const error = new CtaError("TEST_ERROR", "Test error", ["Cause"], ["Step"]);
 
       printError(error);
 
@@ -367,12 +365,12 @@ describe("Error Handler", () => {
     });
 
     it("returns true when --json is in argv", () => {
-      process.argv = ["node", "agentsync", "tenants", "list", "--json"];
+      process.argv = ["node", "pax8-cta", "tenants", "list", "--json"];
       expect(isJsonOutputMode()).toBe(true);
     });
 
     it("returns true when stdout is not a TTY (piped)", () => {
-      process.argv = ["node", "agentsync", "tenants", "list"];
+      process.argv = ["node", "pax8-cta", "tenants", "list"];
       Object.defineProperty(process.stdout, "isTTY", {
         value: false,
         writable: true,
@@ -382,7 +380,7 @@ describe("Error Handler", () => {
     });
 
     it("returns false when no --json and stdout is a TTY", () => {
-      process.argv = ["node", "agentsync", "tenants", "list"];
+      process.argv = ["node", "pax8-cta", "tenants", "list"];
       Object.defineProperty(process.stdout, "isTTY", {
         value: true,
         writable: true,
@@ -408,7 +406,7 @@ describe("Error Handler", () => {
       originalIsTTY = process.stdout.isTTY;
 
       // Force JSON mode via --json argv
-      process.argv = ["node", "agentsync", "tenants", "list", "--json"];
+      process.argv = ["node", "pax8-cta", "tenants", "list", "--json"];
 
       stderrChunks = [];
       originalWrite = process.stderr.write.bind(process.stderr);

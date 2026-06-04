@@ -37,7 +37,7 @@ authCommand
   .command("login")
   .description("Store client secret securely in OS keychain")
   .action(async () => {
-    console.log(chalk.cyan.bold("\n🔐 AgentSync Login\n"));
+    console.log(chalk.cyan.bold("\n🔐 Pax8 CTA Login\n"));
     console.log(chalk.gray("Your client secret will be stored securely in your OS keychain.\n"));
 
     try {
@@ -75,7 +75,7 @@ authCommand
       console.log(chalk.green("\n✓ Client secret stored securely!"));
       console.log();
       console.log(chalk.gray("Your secret is now stored in your OS keychain and will be"));
-      console.log(chalk.gray("used automatically by AgentSync commands."));
+      console.log(chalk.gray("used automatically by Pax8 CTA commands."));
       console.log();
       console.log(chalk.cyan("Next steps:"));
       console.log(chalk.white("  auth status  ") + chalk.dim("# Verify credentials"));
@@ -91,7 +91,7 @@ authCommand
   .command("logout")
   .description("Remove stored credentials from OS keychain")
   .action(async () => {
-    console.log(chalk.cyan.bold("\n🔓 AgentSync Logout\n"));
+    console.log(chalk.cyan.bold("\n🔓 Pax8 CTA Logout\n"));
 
     try {
       const existingSecret = await getStoredSecret();
@@ -138,7 +138,7 @@ authCommand
 
     try {
       // Check both possible environment variable names
-      const envVars = ["PARTNER_CLIENT_SECRET", "AGENTSYNC_CLIENT_SECRET"];
+      const envVars = ["PARTNER_CLIENT_SECRET", "PAX8_CTA_CLIENT_SECRET"];
       const foundEnvVars = envVars.filter((v) => !!process.env[v]);
       const hasEnvVar = foundEnvVars.length > 0;
 
@@ -179,7 +179,7 @@ authCommand
       } else {
         console.log(chalk.gray("Authentication method priority:"));
         console.log(
-          chalk.gray("  1. Environment variable (PARTNER_CLIENT_SECRET or AGENTSYNC_CLIENT_SECRET)")
+          chalk.gray("  1. Environment variable (PARTNER_CLIENT_SECRET or PAX8_CTA_CLIENT_SECRET)")
         );
         console.log(chalk.gray("  2. OS keychain (fallback)"));
         console.log();

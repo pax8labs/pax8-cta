@@ -1,18 +1,22 @@
 {
-  "name": "@agentsync/core",
+  "name": "@pax8-cta/core",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "author": "Pax8, Inc.",
-  "homepage": "https://github.com/pax8labs/agentsync",
+  "homepage": "https://github.com/pax8labs/pax8-cta",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pax8labs/agentsync.git",
+    "url": "https://github.com/pax8labs/pax8-cta.git",
     "directory": "packages/core"
   },
-  "description": "Core logic for AgentSync - sync and track agent deployments",
+  "description": "Core logic for Pax8 Cross-Tenant Agents (CTA) — cross-tenant Copilot Studio deployments",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/__tests__"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

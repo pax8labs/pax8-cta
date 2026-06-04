@@ -15,7 +15,7 @@
  */
 
 /**
- * TTY-aware output helper for agentsync CLI commands.
+ * TTY-aware output helper for pax8-cta CLI commands.
  *
  * - When stdout is a TTY (interactive terminal): defaults to "table"
  * - When stdout is piped (subprocess / LLM agent): defaults to "json"
@@ -57,7 +57,7 @@ export interface Column<T> {
  * Downstream callers (LLM agents, shell pipelines) therefore receive clean
  * JSON without needing to pass --json explicitly.
  *
- * This reads from the `AGENTSYNC_DEFAULT_FORMAT` environment variable which
+ * This reads from the `PAX8_CTA_DEFAULT_FORMAT` environment variable which
  * is set by the CLI entry point (`src/index.ts`) based on `process.stdout.isTTY`.
  * Reading the env var rather than `isTTY` directly means unit tests (which run
  * in a non-TTY vitest worker) still default to "table" unless the CLI binary
@@ -68,11 +68,11 @@ export interface Column<T> {
 export function getDefaultFormat(): OutputFormat {
   // Quiet mode wins over all TTY/env-based defaults.
   if (isQuietMode()) return "quiet";
-  if (process.env.AGENTSYNC_DEFAULT_FORMAT === "json") return "json";
-  if (process.env.AGENTSYNC_DEFAULT_FORMAT === "table") return "table";
+  if (process.env.PAX8_CTA_DEFAULT_FORMAT === "json") return "json";
+  if (process.env.PAX8_CTA_DEFAULT_FORMAT === "table") return "table";
   // Fallback: "table" is the safe default when called in-process (unit tests,
   // programmatic use). The CLI entry point (src/index.ts) sets
-  // AGENTSYNC_DEFAULT_FORMAT based on isTTY before any commands run, so
+  // PAX8_CTA_DEFAULT_FORMAT based on isTTY before any commands run, so
   // subprocess invocations that pipe stdout automatically get "json".
   return "table";
 }
@@ -81,7 +81,7 @@ export function getDefaultFormat(): OutputFormat {
  * Resolve the effective output format from command option flags.
  *
  * Precedence (highest → lowest):
- *   1. quiet mode (--quiet flag or AGENTSYNC_QUIET env var) — silent wins.
+ *   1. quiet mode (--quiet flag or PAX8_CTA_QUIET env var) — silent wins.
  *      If both --quiet and --json are set, --quiet takes effect.
  *   2. --ids-only flag (mutually exclusive with --json/--csv; root program guards this)
  *   3. --json flag

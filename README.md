@@ -1,35 +1,35 @@
-# AgentSync
+# Pax8 Cross-Tenant Agents (CTA)
 
-Multi-tenant Copilot Studio deployment tool for MSPs.
+Multi-tenant Copilot Studio deployment tool for MSPs. Short name: **Pax8 CTA**.
 
-[![CI](https://github.com/pax8labs/agentsync/actions/workflows/ci.yml/badge.svg)](https://github.com/pax8labs/agentsync/actions/workflows/ci.yml)
+[![CI](https://github.com/pax8labs/pax8-cta/actions/workflows/ci.yml/badge.svg)](https://github.com/pax8labs/pax8-cta/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![npm version](https://img.shields.io/npm/v/@agentsync/cli.svg)](https://www.npmjs.com/package/@agentsync/cli)
+[![npm version](https://img.shields.io/npm/v/pax8-cta.svg)](https://www.npmjs.com/package/pax8-cta)
 
 ---
 
 ## Try it in 30 seconds (no install)
 
 ```bash
-npx -y @agentsync/cli demo on && npx -y @agentsync/cli tenants list
+npx -y pax8-cta demo on && npx -y pax8-cta tenants list
 ```
 
-That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y @agentsync/cli --help` shows every command.
+That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y pax8-cta --help` shows every command.
 
 ---
 
 ## What It Does
 
-AgentSync exports Power Platform solutions (Copilot Studio agents) from a source Dataverse environment and imports them into customer tenants via GDAP (Granular Delegated Admin Privileges). It handles authentication, connection reference mapping, environment variables, staged rollouts, and rollback -- so you can deploy one agent to hundreds of customer environments in minutes.
+Pax8 CTA exports Power Platform solutions (Copilot Studio agents) from a source Dataverse environment and imports them into customer tenants via GDAP (Granular Delegated Admin Privileges). It handles authentication, connection reference mapping, environment variables, staged rollouts, and rollback -- so you can deploy one agent to hundreds of customer environments in minutes.
 
 ## Quick Start
 
 ```bash
-npm install -g @agentsync/cli
-agentsync init                    # Set up credentials and config
-agentsync validate                # Verify GDAP access to all tenants
-agentsync export --solution "CustomerServiceAgent"
-agentsync deploy --solution ./exports/CustomerServiceAgent_managed.zip --all
+npm install -g pax8-cta
+pax8-cta init                    # Set up credentials and config
+pax8-cta validate                # Verify GDAP access to all tenants
+pax8-cta export --solution "CustomerServiceAgent"
+pax8-cta deploy --solution ./exports/CustomerServiceAgent_managed.zip --all
 ```
 
 **Time to first deployment:** ~15 minutes (including GDAP setup).
@@ -49,14 +49,14 @@ agentsync deploy --solution ./exports/CustomerServiceAgent_managed.zip --all
 2. Go to **Account** > **Admin relationships**
 3. Click **"Request a delegated admin relationship"**
 4. Configure:
-   - Relationship name: `AgentSync Deployment Access`
+   - Relationship name: `Pax8 CTA Deployment Access`
    - Duration: 2 years (default)
    - Roles to request: **Power Platform Administrator** (required)
 5. Send invitation link to customer
 6. Customer approves in their Microsoft 365 Admin Center
 7. Status changes to **"Active"**
 
-Once active, AgentSync automatically discovers this customer. No manual tenant configuration needed.
+Once active, Pax8 CTA automatically discovers this customer. No manual tenant configuration needed.
 
 ### 2. Azure AD App Registration (One-Time)
 
@@ -64,7 +64,7 @@ Once active, AgentSync automatically discovers this customer. No manual tenant c
 
 1. Navigate to **Azure Active Directory** > **App registrations** > **New registration**
 2. Configure:
-   - Name: `AgentSync Deployment Tool`
+   - Name: `Pax8 CTA Deployment Tool`
    - Supported account types: **Accounts in any organizational directory (Multitenant)**
 3. After creation, note these values:
    - **Application (client) ID**
@@ -98,30 +98,30 @@ If required, in each customer's environment:
 ### From npm (recommended)
 
 ```bash
-npm install -g @agentsync/cli
+npm install -g pax8-cta
 ```
 
 ### Standalone Binaries
 
-Pre-built binaries are available for macOS (arm64, x64), Linux (arm64, x64), and Windows (x64). Download from the [Releases](https://github.com/pax8labs/agentsync/releases) page, or use the install scripts:
+Pre-built binaries are available for macOS (arm64, x64), Linux (arm64, x64), and Windows (x64). Download from the [Releases](https://github.com/pax8labs/pax8-cta/releases) page, or use the install scripts:
 
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pax8labs/agentsync/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/pax8labs/agentsync/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.ps1 | iex
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/pax8labs/agentsync.git
-cd agentsync
+git clone https://github.com/pax8labs/pax8-cta.git
+cd pax8-cta
 npm install -g pnpm
 pnpm install && pnpm build
 pnpm cli    # Run the CLI
@@ -131,24 +131,24 @@ pnpm cli    # Run the CLI
 
 ## CLI Command Reference
 
-Run `agentsync` with no arguments to enter interactive REPL mode, or use commands directly:
+Run `pax8-cta` with no arguments to enter interactive REPL mode, or use commands directly:
 
-| Command                 | Description                                          |
-| ----------------------- | ---------------------------------------------------- |
-| `agentsync deploy`      | Deploy a solution to multiple tenants                |
-| `agentsync export`      | Export a solution from the source environment        |
-| `agentsync import`      | Import a solution into a single tenant               |
-| `agentsync validate`    | Verify GDAP access and connectivity for all tenants  |
-| `agentsync analyze`     | Analyze a solution package before deployment         |
-| `agentsync tenants`     | List, inspect, and manage customer tenants           |
-| `agentsync solutions`   | List solutions in the source environment             |
-| `agentsync agents`      | List agents and analyze drift across tenants         |
-| `agentsync deployments` | View deployment history and status                   |
-| `agentsync auth`        | Test authentication and token acquisition            |
-| `agentsync setup`       | Configure credentials interactively                  |
-| `agentsync init`        | Initialize a new AgentSync project with config files |
-| `agentsync status`      | Show current configuration and connection status     |
-| `agentsync telemetry`   | View or change anonymous usage telemetry settings    |
+| Command                | Description                                         |
+| ---------------------- | --------------------------------------------------- |
+| `pax8-cta deploy`      | Deploy a solution to multiple tenants               |
+| `pax8-cta export`      | Export a solution from the source environment       |
+| `pax8-cta import`      | Import a solution into a single tenant              |
+| `pax8-cta validate`    | Verify GDAP access and connectivity for all tenants |
+| `pax8-cta analyze`     | Analyze a solution package before deployment        |
+| `pax8-cta tenants`     | List, inspect, and manage customer tenants          |
+| `pax8-cta solutions`   | List solutions in the source environment            |
+| `pax8-cta agents`      | List agents and analyze drift across tenants        |
+| `pax8-cta deployments` | View deployment history and status                  |
+| `pax8-cta auth`        | Test authentication and token acquisition           |
+| `pax8-cta setup`       | Configure credentials interactively                 |
+| `pax8-cta init`        | Initialize a new Pax8 CTA project with config files |
+| `pax8-cta status`      | Show current configuration and connection status    |
+| `pax8-cta telemetry`   | View or change anonymous usage telemetry settings   |
 
 ### Deploy
 
@@ -156,16 +156,16 @@ Deploy a solution to multiple tenants at once.
 
 ```bash
 # Deploy to all enabled tenants
-agentsync deploy --solution ./exports/CustomerServiceAgent_managed.zip --all
+pax8-cta deploy --solution ./exports/CustomerServiceAgent_managed.zip --all
 
 # Deploy to tenants with a specific tag
-agentsync deploy --solution ./exports/CustomerServiceAgent_managed.zip --tag enterprise
+pax8-cta deploy --solution ./exports/CustomerServiceAgent_managed.zip --tag enterprise
 
 # Deploy to multiple tag groups
-agentsync deploy --solution ./exports/CustomerServiceAgent_managed.zip --tag enterprise --tag pilot
+pax8-cta deploy --solution ./exports/CustomerServiceAgent_managed.zip --tag enterprise --tag pilot
 
 # Dry run (see what would be deployed without deploying)
-agentsync deploy --solution ./exports/CustomerServiceAgent_managed.zip --all --dry-run
+pax8-cta deploy --solution ./exports/CustomerServiceAgent_managed.zip --all --dry-run
 ```
 
 ### Export
@@ -174,10 +174,10 @@ Export a solution from your source environment.
 
 ```bash
 # Export as managed (default)
-agentsync export --solution "CustomerServiceAgent"
+pax8-cta export --solution "CustomerServiceAgent"
 
 # Export as unmanaged
-agentsync export --solution "CustomerServiceAgent" --unmanaged
+pax8-cta export --solution "CustomerServiceAgent" --unmanaged
 ```
 
 ### Import
@@ -185,7 +185,7 @@ agentsync export --solution "CustomerServiceAgent" --unmanaged
 Import a solution into a single tenant (useful for testing).
 
 ```bash
-agentsync import --solution ./exports/CustomerServiceAgent_managed.zip --tenant <tenant-id>
+pax8-cta import --solution ./exports/CustomerServiceAgent_managed.zip --tenant <tenant-id>
 ```
 
 ### Validate
@@ -193,7 +193,7 @@ agentsync import --solution ./exports/CustomerServiceAgent_managed.zip --tenant 
 Check GDAP access and environment connectivity for all configured tenants.
 
 ```bash
-agentsync validate
+pax8-cta validate
 ```
 
 ### Analyze
@@ -201,7 +201,7 @@ agentsync validate
 Inspect a solution package to see components, dependencies, and connection references before deploying.
 
 ```bash
-agentsync analyze --solution ./exports/CustomerServiceAgent_managed.zip
+pax8-cta analyze --solution ./exports/CustomerServiceAgent_managed.zip
 ```
 
 ### Tenants
@@ -210,16 +210,16 @@ Manage and inspect your customer tenant fleet.
 
 ```bash
 # List all tenants
-agentsync tenants list
+pax8-cta tenants list
 
 # Filter by tag
-agentsync tenants list --tag enterprise
+pax8-cta tenants list --tag enterprise
 
 # Inspect a specific tenant
-agentsync tenants show <tenant-id>
+pax8-cta tenants show <tenant-id>
 
 # Run health check
-agentsync tenants health <tenant-id>
+pax8-cta tenants health <tenant-id>
 ```
 
 ### Solutions
@@ -227,7 +227,7 @@ agentsync tenants health <tenant-id>
 List solutions available in the source environment.
 
 ```bash
-agentsync solutions list
+pax8-cta solutions list
 ```
 
 ### Agents
@@ -236,13 +236,13 @@ View deployed agents and analyze drift across tenants.
 
 ```bash
 # List agents
-agentsync agents list
+pax8-cta agents list
 
 # Show agent details
-agentsync agents show <agent-id>
+pax8-cta agents show <agent-id>
 
 # Analyze agent drift across tenants
-agentsync agents drift
+pax8-cta agents drift
 ```
 
 ### JSON Output
@@ -250,8 +250,8 @@ agentsync agents drift
 Most commands support `--format json` for scripting and automation:
 
 ```bash
-agentsync tenants list --format json
-agentsync deployments list --format json
+pax8-cta tenants list --format json
+pax8-cta deployments list --format json
 ```
 
 ---
@@ -279,7 +279,7 @@ tenants:
     enabled: true
 ```
 
-Run `agentsync init` to generate this file interactively.
+Run `pax8-cta init` to generate this file interactively.
 
 ### Connection Reference Mapping
 
@@ -373,7 +373,7 @@ settings:
 | `DEMO_MODE`             | Enable demo mode with mock data  | `false`                 |
 | `SNAPSHOTS_DIR`         | Directory for rollback snapshots | `./snapshots`           |
 
-Set credentials via `agentsync setup` or export them directly:
+Set credentials via `pax8-cta setup` or export them directly:
 
 ```bash
 export PARTNER_CLIENT_SECRET="your-secret"
@@ -383,7 +383,7 @@ export PARTNER_CLIENT_SECRET="your-secret"
 
 ## Security and Credentials
 
-- **No credential storage** -- AgentSync uses GDAP delegation and never stores customer credentials
+- **No credential storage** -- Pax8 CTA uses GDAP delegation and never stores customer credentials
 - **Token lifecycle** -- Access tokens expire after 1 hour and are automatically refreshed
 - **Least privilege** -- Only requests minimum required API permissions
 - **Audit logging** -- All operations are logged with timestamps and outcomes
@@ -393,7 +393,7 @@ export PARTNER_CLIENT_SECRET="your-secret"
 
 ## Testing
 
-AgentSync has comprehensive test coverage:
+Pax8 CTA has comprehensive test coverage:
 
 - **Core library**: 511 tests covering auth, config, Dataverse client, and services
 - **CLI**: ~180 integration tests covering all commands, error handling, and edge cases
@@ -403,16 +403,16 @@ AgentSync has comprehensive test coverage:
 pnpm test
 
 # CLI tests only
-pnpm --filter @agentsync/cli test
+pnpm --filter pax8-cta test
 
 # CLI tests with coverage
-pnpm --filter @agentsync/cli test:coverage
+pnpm --filter pax8-cta test:coverage
 
 # Single test file
-pnpm --filter @agentsync/cli test -- --run src/__tests__/deploy.test.ts
+pnpm --filter pax8-cta test -- --run src/__tests__/deploy.test.ts
 
 # Core tests only
-pnpm --filter @agentsync/core test
+pnpm --filter @pax8-cta/core test
 ```
 
 Tests run in demo mode by default (no Azure AD credentials or customer tenants required).
@@ -422,7 +422,7 @@ Tests run in demo mode by default (no Azure AD credentials or customer tenants r
 ## Architecture
 
 ```
-agentsync
+pax8-cta
 ├── packages/
 │   ├── cli/             # CLI application (Commander.js)
 │   │   └── src/
@@ -443,7 +443,7 @@ agentsync
 
 ```
                     ┌──────────────┐
-                    │  agentsync   │
+                    │  pax8-cta   │
                     │    CLI       │
                     └──────┬───────┘
                            │
@@ -467,7 +467,7 @@ agentsync
    └─────────────┘└─────────────┘└─────────────┘
 ```
 
-**How it works:** Copilot Studio agents are stored in Microsoft Dataverse (the database behind Power Platform). AgentSync uses the Dataverse API to export your agent as a "solution" from your development environment, then imports it into each customer's environment using GDAP for cross-tenant authentication.
+**How it works:** Copilot Studio agents are stored in Microsoft Dataverse (the database behind Power Platform). Pax8 CTA uses the Dataverse API to export your agent as a "solution" from your development environment, then imports it into each customer's environment using GDAP for cross-tenant authentication.
 
 ---
 
@@ -502,7 +502,7 @@ agentsync
 
 ```mermaid
 sequenceDiagram
-    participant CLI as AgentSync CLI
+    participant CLI as Pax8 CTA CLI
     participant Entra as Entra ID
     participant GDAP as Partner Center
     participant Tenant as Customer Tenant
@@ -537,7 +537,7 @@ sequenceDiagram
 
 - Verify GDAP relationship is approved in Partner Center
 - Check that the relationship includes Power Platform Administrator role
-- Run `agentsync validate` to check all tenants
+- Run `pax8-cta validate` to check all tenants
 
 ### "Import failed: missing dependencies"
 
@@ -546,7 +546,7 @@ sequenceDiagram
 
 ### "Rate limited"
 
-- AgentSync automatically retries with exponential backoff
+- Pax8 CTA automatically retries with exponential backoff
 - For large fleets, use deployment waves to stagger the rollout
 
 ### "Connection reference not found"
@@ -565,7 +565,7 @@ sequenceDiagram
 
 ## Telemetry
 
-AgentSync can collect anonymous usage telemetry to help improve the tool. Telemetry is **disabled by default** and must be explicitly opted into.
+Pax8 CTA can collect anonymous usage telemetry to help improve the tool. Telemetry is **disabled by default** and must be explicitly opted into.
 
 **What's collected (when enabled):** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
 
@@ -574,15 +574,15 @@ AgentSync can collect anonymous usage telemetry to help improve the tool. Teleme
 **Opt in:**
 
 ```bash
-agentsync telemetry on
+pax8-cta telemetry on
 ```
 
 **Opt out:**
 
 ```bash
-agentsync telemetry off
+pax8-cta telemetry off
 # or
-export AGENTSYNC_TELEMETRY_DISABLED=1
+export PAX8_CTA_TELEMETRY_DISABLED=1
 ```
 
 Telemetry is also automatically disabled in CI environments (`CI=true`) and respects the [`DO_NOT_TRACK`](https://consoledonottrack.com/) standard.

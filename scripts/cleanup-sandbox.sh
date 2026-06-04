@@ -1,5 +1,5 @@
 #!/bin/bash
-# AgentSync sandbox cleanup script (CLI-only)
+# Pax8 CTA sandbox cleanup script (CLI-only)
 
 set -e
 
@@ -13,7 +13,7 @@ SOLUTION_DIR="${SOLUTIONS_DIR:-./sandbox-data/solutions}"
 LOG_DIR="${LOG_DIR:-./logs}"
 
 echo ""
-echo -e "${BLUE}AgentSync Sandbox Cleanup${NC}"
+echo -e "${BLUE}Pax8 CTA Sandbox Cleanup${NC}"
 echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
 
 total_cleaned=0

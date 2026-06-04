@@ -70,8 +70,8 @@ describe("CLI Entry Point", () => {
 
       const program = createProgram();
 
-      expect(program.name()).toBe("agentsync");
-      expect(program.description()).toContain("AgentSync");
+      expect(program.name()).toBe("pax8-cta");
+      expect(program.description()).toContain("Pax8 CTA");
     });
 
     it("should have all expected commands registered", async () => {

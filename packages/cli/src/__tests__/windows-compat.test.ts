@@ -24,7 +24,7 @@ describe("CRLF line ending compatibility", () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = join(tmpdir(), `agentsync-test-${randomUUID()}`);
+    tempDir = join(tmpdir(), `pax8-cta-test-${randomUUID()}`);
     mkdirSync(tempDir, { recursive: true });
   });
 
@@ -61,8 +61,7 @@ describe("CRLF line ending compatibility", () => {
   });
 
   it("should parse .env files with Unix LF line endings (regression check)", () => {
-    const envContent =
-      "# Comment\nPARTNER_CLIENT_ID=test-id\nPARTNER_CLIENT_SECRET=test-secret\n";
+    const envContent = "# Comment\nPARTNER_CLIENT_ID=test-id\nPARTNER_CLIENT_SECRET=test-secret\n";
     const envPath = join(tempDir, ".env");
     writeFileSync(envPath, envContent);
 
@@ -139,8 +138,8 @@ describe("parseTable with CRLF output", () => {
 
 describe("cross-platform path handling", () => {
   it("path.join should produce platform-correct separators", () => {
-    const result = join("data", "agentsync.db");
-    expect(result).toBe(`data${sep}agentsync.db`);
+    const result = join("data", "pax8-cta.db");
+    expect(result).toBe(`data${sep}pax8-cta.db`);
   });
 
   it("path.resolve normalizes forward slashes on all platforms", () => {
@@ -156,8 +155,8 @@ describe("cross-platform path handling", () => {
     expect(typeof home).toBe("string");
 
     // Config dir should be constructable
-    const configDir = join(home, ".agentsync");
-    expect(configDir).toContain(".agentsync");
+    const configDir = join(home, ".pax8-cta");
+    expect(configDir).toContain(".pax8-cta");
   });
 
   it("tmpdir() returns a valid path on all platforms", () => {
@@ -286,8 +285,8 @@ describe.skipIf(process.platform !== "win32")("Windows-specific tests", () => {
   });
 
   it("should create config directory under user profile", () => {
-    const configDir = join(homedir(), ".agentsync");
-    expect(configDir).toMatch(/^[A-Z]:\\.+\\.agentsync$/i);
+    const configDir = join(homedir(), ".pax8-cta");
+    expect(configDir).toMatch(/^[A-Z]:\\.+\\.pax8-cta$/i);
   });
 
   it("should handle Windows temp directory path", () => {

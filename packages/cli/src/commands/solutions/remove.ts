@@ -25,7 +25,7 @@ import {
   DataverseClient,
   SolutionOperations,
   type TenantConfig,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { question } from "../../lib/input.js";
 import { handleCommandError } from "../../lib/errors.js";
@@ -47,8 +47,8 @@ export const removeCommand = new Command("remove")
     "after",
     `
 Examples:
-  solutions remove TestDeploy -t AgentSync-Test2       Uninstall with confirmation
-  solutions remove TestDeploy -t AgentSync-Test2 -y    Uninstall without confirmation
+  solutions remove TestDeploy -t Pax8CTA-Test2       Uninstall with confirmation
+  solutions remove TestDeploy -t Pax8CTA-Test2 -y    Uninstall without confirmation
 `
   )
   .action(async (solutionName: string, options, cmd) => {
@@ -138,7 +138,7 @@ async function runDemoRemove(
   if (matches.length === 0) {
     spinner.fail(
       chalk.red(
-        `No tenant matches '${options.tenant}'; run 'agentsync tenants list' to see available tenants.`
+        `No tenant matches '${options.tenant}'; run 'pax8-cta tenants list' to see available tenants.`
       )
     );
     process.exit(1);

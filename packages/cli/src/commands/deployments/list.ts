@@ -49,7 +49,7 @@ export const listCommand = new Command("list")
     `
 Examples:
   deployments list                          Show recent import history
-  deployments list -t AgentSync-Test2       History for a specific tenant
+  deployments list -t Pax8CTA-Test2       History for a specific tenant
   deployments list -a TestDeploy            History for a specific solution
   deployments list --since 7d               Imports in the last 7 days
   deployments list --ids-only | xargs -I{} deployments show {}

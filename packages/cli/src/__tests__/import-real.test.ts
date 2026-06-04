@@ -30,7 +30,7 @@ import { tmpdir } from "node:os";
 import { runCli, containsText, stripAnsi } from "./test-utils.js";
 
 // Create a temporary directory with a test config
-const TEST_DIR = join(tmpdir(), `agentsync-import-test-${Date.now()}`);
+const TEST_DIR = join(tmpdir(), `pax8-cta-import-test-${Date.now()}`);
 const CONFIG_PATH = join(TEST_DIR, "config", "tenants.yaml");
 const require = createRequire(import.meta.url);
 const { writeFileSync, mkdirSync, rmSync, existsSync } =
@@ -76,9 +76,9 @@ describe("Import Command (Real Mode - Config File)", () => {
   beforeAll(() => {
     mkdirSync(join(TEST_DIR, "config"), { recursive: true });
     writeFileSync(CONFIG_PATH, TEST_CONFIG);
-    mkdirSync(join(TEST_DIR, ".agentsync"), { recursive: true });
+    mkdirSync(join(TEST_DIR, ".pax8-cta"), { recursive: true });
     writeFileSync(
-      join(TEST_DIR, ".agentsync", "cli-config.json"),
+      join(TEST_DIR, ".pax8-cta", "cli-config.json"),
       JSON.stringify({ demoMode: false })
     );
   });
@@ -106,7 +106,7 @@ describe("Import Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }
@@ -140,7 +140,7 @@ describe("Import Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }
@@ -242,7 +242,7 @@ describe("Import Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }
@@ -276,7 +276,7 @@ describe("Import Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }
@@ -311,7 +311,7 @@ describe("Import Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }

@@ -18,7 +18,7 @@ import { Command } from "commander";
 import { resolve } from "node:path";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import { loadConfig, DEMO_TENANTS } from "@agentsync/core";
+import { loadConfig, DEMO_TENANTS } from "@pax8-cta/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { output, resolveFormat, type Column } from "../../lib/output.js";

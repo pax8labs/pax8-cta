@@ -17,7 +17,7 @@
 /**
  * Subprocess tests for the demo-mode solution-name validation added to the
  * analyze command. The bug being covered (#387): in demo mode,
- * `agentsync analyze` previously accepted any string as the solution name and
+ * `pax8-cta analyze` previously accepted any string as the solution name and
  * ran a full synthetic risk analysis — printing a confident "READY TO DEPLOY"
  * verdict for typos like "CusteomrServiceAgent". That hides typos during
  * demos and trains users to expect the CLI to accept garbage.

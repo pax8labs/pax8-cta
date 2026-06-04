@@ -25,7 +25,7 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError, handleCommandError } from "../lib/errors.js";
 
@@ -43,8 +43,8 @@ export const importCommand = new Command("import")
     "after",
     `
 Examples:
-  import ./TestDeploy.zip -t AgentSync-Test2      Import to a specific tenant
-  import ./TestDeploy.zip -t AgentSync-Test2 --no-publish
+  import ./TestDeploy.zip -t Pax8CTA-Test2      Import to a specific tenant
+  import ./TestDeploy.zip -t Pax8CTA-Test2 --no-publish
 `
   )
   .action(async (solutionArg: string | undefined, options) => {

@@ -29,7 +29,7 @@ import {
   GdapClient,
   parseAuthError,
   environmentSetupService,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError } from "../lib/errors.js";
 import { isDemo } from "../lib/command-wrapper.js";
@@ -90,7 +90,7 @@ export const validateCommand = new Command("validate")
 Examples:
   validate                              Check everything
   validate --gdap                       Also verify GDAP delegation
-  validate -t AgentSync-Test2           Check a specific tenant
+  validate -t Pax8CTA-Test2           Check a specific tenant
   validate --skip-source                Check only tenants, not source
   validate --json                       Emit structured results for scripts/agents
 `

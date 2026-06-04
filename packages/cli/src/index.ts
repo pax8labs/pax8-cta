@@ -20,7 +20,7 @@
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "error";
 
 // Load .env file from CWD (if it exists) so commands can find PARTNER_CLIENT_SECRET etc.
-// Skip keys the CLI manages independently (demo mode via ~/.agentsync/cli-config.json,
+// Skip keys the CLI manages independently (demo mode via ~/.pax8-cta/cli-config.json,
 // log level set above, and web-app-only keys).
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -55,8 +55,8 @@ if (existsSync(envPath)) {
 // Detect TTY early so subcommands can read getDefaultFormat() consistently.
 // Unit tests run in non-TTY vitest workers but should still default to "table";
 // only set this when actually invoked as a CLI binary subprocess.
-if (!process.env.AGENTSYNC_DEFAULT_FORMAT) {
-  process.env.AGENTSYNC_DEFAULT_FORMAT = process.stdout.isTTY ? "table" : "json";
+if (!process.env.PAX8_CTA_DEFAULT_FORMAT) {
+  process.env.PAX8_CTA_DEFAULT_FORMAT = process.stdout.isTTY ? "table" : "json";
 }
 
 import { Command } from "commander";
@@ -96,8 +96,8 @@ export function createProgram(): Command {
   const program = new Command();
 
   program
-    .name("agentsync")
-    .description("AgentSync - Deploy and manage Power Platform agents across tenants")
+    .name("pax8-cta")
+    .description("Pax8 CTA - Deploy and manage Power Platform agents across tenants")
     .version(VERSION)
     .option("--verbose", "Enable verbose output for debugging")
     .option("--json", "Output as JSON (default when stdout is not a TTY)")

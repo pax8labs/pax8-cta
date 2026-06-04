@@ -25,7 +25,7 @@ import {
   DataverseClient,
   SolutionOperations,
   type SolutionHistoryRecord,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 import { isDemo } from "../../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import {
