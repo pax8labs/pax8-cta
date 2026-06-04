@@ -36,7 +36,7 @@
  *
  * Opt-out:
  * - Run: agentsync telemetry off
- * - Or set: AGENTSYNC_TELEMETRY_DISABLED=1
+ * - Or set: PAX8_CTA_TELEMETRY_DISABLED=1
  * - Or set: DO_NOT_TRACK=1 (https://consoledonottrack.com)
  *
  * More info: https://github.com/pax8labs/agentsync/tree/main/packages/cli#telemetry
@@ -54,8 +54,8 @@ import { hostname } from "os";
 const CLI_VERSION = "0.1.0";
 
 // PostHog project key - safe to be public, only allows event ingestion
-const POSTHOG_KEY = process.env.AGENTSYNC_POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_KEY || "";
-const POSTHOG_HOST = process.env.AGENTSYNC_POSTHOG_HOST || "https://us.i.posthog.com";
+const POSTHOG_KEY = process.env.PAX8_CTA_POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_KEY || "";
+const POSTHOG_HOST = process.env.PAX8_CTA_POSTHOG_HOST || "https://us.i.posthog.com";
 
 // Config store for telemetry preferences
 const config = new Conf<{
@@ -103,8 +103,8 @@ function getMachineId(): string {
 export function isTelemetryEnabled(): boolean {
   // Environment variable override (highest priority)
   if (
-    process.env.AGENTSYNC_TELEMETRY_DISABLED === "1" ||
-    process.env.AGENTSYNC_TELEMETRY_DISABLED === "true"
+    process.env.PAX8_CTA_TELEMETRY_DISABLED === "1" ||
+    process.env.PAX8_CTA_TELEMETRY_DISABLED === "true"
   ) {
     return false;
   }
@@ -188,7 +188,7 @@ export function getTelemetryConfigPath(): string {
  * Stored telemetry preference (ignores env-var overrides).
  *
  * `isTelemetryEnabled()` factors in env-var opt-outs (DO_NOT_TRACK,
- * AGENTSYNC_TELEMETRY_DISABLED, CI, missing PostHog key). This raw getter
+ * PAX8_CTA_TELEMETRY_DISABLED, CI, missing PostHog key). This raw getter
  * lets `config` distinguish a user's saved choice from a runtime override.
  */
 export function getStoredTelemetryPreference(): boolean {
@@ -203,7 +203,7 @@ export function getStoredTelemetryPreference(): boolean {
  * Reason telemetry is currently disabled, if it is.
  *
  * Mirrors the precedence inside `isTelemetryEnabled()`:
- *   1. AGENTSYNC_TELEMETRY_DISABLED env var
+ *   1. PAX8_CTA_TELEMETRY_DISABLED env var
  *   2. DO_NOT_TRACK env var
  *   3. CI env var
  *   4. Missing PostHog key
@@ -219,8 +219,8 @@ export function getTelemetryDisabledSource():
   | "config"
   | null {
   if (
-    process.env.AGENTSYNC_TELEMETRY_DISABLED === "1" ||
-    process.env.AGENTSYNC_TELEMETRY_DISABLED === "true"
+    process.env.PAX8_CTA_TELEMETRY_DISABLED === "1" ||
+    process.env.PAX8_CTA_TELEMETRY_DISABLED === "true"
   ) {
     return "env";
   }

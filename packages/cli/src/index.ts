@@ -55,8 +55,8 @@ if (existsSync(envPath)) {
 // Detect TTY early so subcommands can read getDefaultFormat() consistently.
 // Unit tests run in non-TTY vitest workers but should still default to "table";
 // only set this when actually invoked as a CLI binary subprocess.
-if (!process.env.AGENTSYNC_DEFAULT_FORMAT) {
-  process.env.AGENTSYNC_DEFAULT_FORMAT = process.stdout.isTTY ? "table" : "json";
+if (!process.env.PAX8_CTA_DEFAULT_FORMAT) {
+  process.env.PAX8_CTA_DEFAULT_FORMAT = process.stdout.isTTY ? "table" : "json";
 }
 
 import { Command } from "commander";

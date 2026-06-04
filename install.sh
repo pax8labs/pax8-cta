@@ -6,7 +6,7 @@ set -e
 
 REPO="pax8labs/agentsync"
 VERSION="latest"
-INSTALL_DIR="${AGENTSYNC_INSTALL_DIR:-/usr/local/bin}"
+INSTALL_DIR="${PAX8_CTA_INSTALL_DIR:-/usr/local/bin}"
 
 # Colors
 RED='\033[0;31m'

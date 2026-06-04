@@ -229,7 +229,7 @@ export function isDemoModeEnabled(): boolean {
 }
 
 function hasRealCredentials(): boolean {
-  return Boolean(process.env.PARTNER_CLIENT_SECRET || process.env.AGENTSYNC_CLIENT_SECRET);
+  return Boolean(process.env.PARTNER_CLIENT_SECRET || process.env.PAX8_CTA_CLIENT_SECRET);
 }
 
 /**

@@ -138,7 +138,7 @@ authCommand
 
     try {
       // Check both possible environment variable names
-      const envVars = ["PARTNER_CLIENT_SECRET", "AGENTSYNC_CLIENT_SECRET"];
+      const envVars = ["PARTNER_CLIENT_SECRET", "PAX8_CTA_CLIENT_SECRET"];
       const foundEnvVars = envVars.filter((v) => !!process.env[v]);
       const hasEnvVar = foundEnvVars.length > 0;
 
@@ -179,7 +179,7 @@ authCommand
       } else {
         console.log(chalk.gray("Authentication method priority:"));
         console.log(
-          chalk.gray("  1. Environment variable (PARTNER_CLIENT_SECRET or AGENTSYNC_CLIENT_SECRET)")
+          chalk.gray("  1. Environment variable (PARTNER_CLIENT_SECRET or PAX8_CTA_CLIENT_SECRET)")
         );
         console.log(chalk.gray("  2. OS keychain (fallback)"));
         console.log();

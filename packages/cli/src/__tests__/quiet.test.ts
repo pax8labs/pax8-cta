@@ -15,7 +15,7 @@
  */
 
 /**
- * Subprocess tests for --quiet / AGENTSYNC_QUIET=1 behavior.
+ * Subprocess tests for --quiet / PAX8_CTA_QUIET=1 behavior.
  *
  * Issue #347: CI and LLM agent flows that only care about exit codes should
  * get zero stdout when --quiet is set; genuine errors must still appear on
@@ -42,13 +42,13 @@ describe("--quiet flag", () => {
 });
 
 // ============================================================================
-// AGENTSYNC_QUIET=1 env var: same guarantee without the CLI flag
+// PAX8_CTA_QUIET=1 env var: same guarantee without the CLI flag
 // ============================================================================
 
-describe("AGENTSYNC_QUIET=1 env var", () => {
-  it("AGENTSYNC_QUIET=1 agentsync tenants list produces zero stdout and exits 0", async () => {
+describe("PAX8_CTA_QUIET=1 env var", () => {
+  it("PAX8_CTA_QUIET=1 agentsync tenants list produces zero stdout and exits 0", async () => {
     const result = await runCli(["tenants", "list"], {
-      env: { NO_COLOR: "1", AGENTSYNC_QUIET: "1" },
+      env: { NO_COLOR: "1", PAX8_CTA_QUIET: "1" },
       timeout: 60000,
     });
 
@@ -91,7 +91,7 @@ describe("--quiet error path", () => {
 describe("validate command (issue #358)", () => {
   it("agentsync validate --quiet produces zero stdout", async () => {
     const result = await runCli(["validate"], {
-      env: { NO_COLOR: "1", AGENTSYNC_QUIET: "1" },
+      env: { NO_COLOR: "1", PAX8_CTA_QUIET: "1" },
       timeout: 60000,
     });
 

@@ -42,7 +42,7 @@ export interface InteractivePromptOptions {
  *
  * Returns false when:
  *   - `--json` is set (we'd corrupt the JSON output)
- *   - `--quiet` is set (or `AGENTSYNC_QUIET` env)
+ *   - `--quiet` is set (or `PAX8_CTA_QUIET` env)
  *   - stdout or stdin isn't a TTY (piped, redirected, CI, etc.)
  */
 export function isInteractivePrompt(opts: InteractivePromptOptions = {}): boolean {

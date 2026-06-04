@@ -82,7 +82,7 @@ describe("Export Command (Real Mode - Config File)", () => {
           DEMO_MODE: "",
           HOME: TEST_DIR,
           PARTNER_CLIENT_SECRET: "",
-          AGENTSYNC_CLIENT_SECRET: "",
+          PAX8_CTA_CLIENT_SECRET: "",
         },
         cwd: TEST_DIR,
       });
@@ -96,7 +96,7 @@ describe("Export Command (Real Mode - Config File)", () => {
           DEMO_MODE: "",
           HOME: TEST_DIR,
           PARTNER_CLIENT_SECRET: "",
-          AGENTSYNC_CLIENT_SECRET: "",
+          PAX8_CTA_CLIENT_SECRET: "",
         },
         cwd: TEST_DIR,
       });
@@ -117,7 +117,7 @@ describe("Export Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }
@@ -139,7 +139,7 @@ describe("Export Command (Real Mode - Config File)", () => {
           DEMO_MODE: "",
           HOME: TEST_DIR,
           PARTNER_CLIENT_SECRET: "",
-          AGENTSYNC_CLIENT_SECRET: "",
+          PAX8_CTA_CLIENT_SECRET: "",
         },
         cwd: TEST_DIR,
       });
@@ -156,7 +156,7 @@ describe("Export Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }
@@ -182,7 +182,7 @@ describe("Export Command (Real Mode - Config File)", () => {
             DEMO_MODE: "",
             HOME: TEST_DIR,
             PARTNER_CLIENT_SECRET: "",
-            AGENTSYNC_CLIENT_SECRET: "",
+            PAX8_CTA_CLIENT_SECRET: "",
           },
           cwd: TEST_DIR,
         }
@@ -203,7 +203,7 @@ describe("Export Command (Real Mode - Config File)", () => {
           DEMO_MODE: "",
           HOME: TEST_DIR,
           PARTNER_CLIENT_SECRET: "",
-          AGENTSYNC_CLIENT_SECRET: "",
+          PAX8_CTA_CLIENT_SECRET: "",
         },
         cwd: TEST_DIR,
       });

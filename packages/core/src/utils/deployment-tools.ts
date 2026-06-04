@@ -19,7 +19,7 @@
  * Used by MCP server for creating deployments via the web API
  */
 
-const API_BASE_URL = process.env.AGENTSYNC_API_URL || "http://localhost:3000";
+const API_BASE_URL = process.env.PAX8_CTA_API_URL || "http://localhost:3000";
 
 export interface CreateDeploymentParams {
   agentId: string;

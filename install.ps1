@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 
 $Repo = "pax8labs/agentsync"
 $Version = "latest"
-$InstallDir = if ($env:AGENTSYNC_INSTALL_DIR) { $env:AGENTSYNC_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "agentsync" }
+$InstallDir = if ($env:PAX8_CTA_INSTALL_DIR) { $env:PAX8_CTA_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "agentsync" }
 
 # --- Banner ---
 Write-Host ""

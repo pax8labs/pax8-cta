@@ -47,21 +47,21 @@ const FRUIT_COLUMNS: Column<Fruit>[] = [
 describe("getDefaultFormat()", () => {
   afterEach(() => {
     // Reset env var after each test so defaults are restored
-    delete process.env.AGENTSYNC_DEFAULT_FORMAT;
+    delete process.env.PAX8_CTA_DEFAULT_FORMAT;
   });
 
-  it("returns 'table' when AGENTSYNC_DEFAULT_FORMAT=table", () => {
-    process.env.AGENTSYNC_DEFAULT_FORMAT = "table";
+  it("returns 'table' when PAX8_CTA_DEFAULT_FORMAT=table", () => {
+    process.env.PAX8_CTA_DEFAULT_FORMAT = "table";
     expect(getDefaultFormat()).toBe("table");
   });
 
-  it("returns 'json' when AGENTSYNC_DEFAULT_FORMAT=json", () => {
-    process.env.AGENTSYNC_DEFAULT_FORMAT = "json";
+  it("returns 'json' when PAX8_CTA_DEFAULT_FORMAT=json", () => {
+    process.env.PAX8_CTA_DEFAULT_FORMAT = "json";
     expect(getDefaultFormat()).toBe("json");
   });
 
   it("falls back to 'table' when env var is unset (safe default for in-process use)", () => {
-    delete process.env.AGENTSYNC_DEFAULT_FORMAT;
+    delete process.env.PAX8_CTA_DEFAULT_FORMAT;
     expect(getDefaultFormat()).toBe("table");
   });
 });
@@ -330,47 +330,39 @@ describe("subprocess: agentsync tenants list with piped stdout", () => {
 // ============================================================================
 
 describe("subprocess: agentsync tenants list --ids-only", () => {
-  it(
-    "outputs one tenant ID per line, no headers, no other text, exit 0",
-    async () => {
-      const result = await runCli(["tenants", "list", "--ids-only"], {
-        env: { NO_COLOR: "1" },
-        timeout: 60000,
-      });
+  it("outputs one tenant ID per line, no headers, no other text, exit 0", async () => {
+    const result = await runCli(["tenants", "list", "--ids-only"], {
+      env: { NO_COLOR: "1" },
+      timeout: 60000,
+    });
 
-      expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(0);
 
-      // stdout must be non-empty
-      expect(result.stdout.trim().length).toBeGreaterThan(0);
+    // stdout must be non-empty
+    expect(result.stdout.trim().length).toBeGreaterThan(0);
 
-      // Each non-empty line should be a tenant ID (UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-      const lines = result.stdout.trim().split(/\r?\n/).filter(Boolean);
-      expect(lines.length).toBeGreaterThan(0);
-      for (const line of lines) {
-        // Demo tenant IDs are UUIDs (e.g. 11111111-1111-1111-1111-111111111111)
-        expect(line).toMatch(/^[0-9a-f-]+$/i);
-      }
+    // Each non-empty line should be a tenant ID (UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    const lines = result.stdout.trim().split(/\r?\n/).filter(Boolean);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      // Demo tenant IDs are UUIDs (e.g. 11111111-1111-1111-1111-111111111111)
+      expect(line).toMatch(/^[0-9a-f-]+$/i);
+    }
 
-      // No table chrome (box drawing, headers, etc.)
-      expect(result.stdout).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);
-      expect(result.stdout).not.toContain("Destination");
-      expect(result.stdout).not.toContain("Tenant ID");
-      expect(result.stdout).not.toContain("Tags");
-    },
-    60000
-  );
+    // No table chrome (box drawing, headers, etc.)
+    expect(result.stdout).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);
+    expect(result.stdout).not.toContain("Destination");
+    expect(result.stdout).not.toContain("Tenant ID");
+    expect(result.stdout).not.toContain("Tags");
+  }, 60000);
 
-  it(
-    "errors when combined with --json",
-    async () => {
-      const result = await runCli(["tenants", "list", "--ids-only", "--json"], {
-        env: { NO_COLOR: "1" },
-        timeout: 60000,
-      });
+  it("errors when combined with --json", async () => {
+    const result = await runCli(["tenants", "list", "--ids-only", "--json"], {
+      env: { NO_COLOR: "1" },
+      timeout: 60000,
+    });
 
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr + result.stdout).toMatch(/mutually exclusive/i);
-    },
-    60000
-  );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr + result.stdout).toMatch(/mutually exclusive/i);
+  }, 60000);
 });

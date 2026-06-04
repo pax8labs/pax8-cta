@@ -123,10 +123,10 @@ function probeDemoMode(): DemoSection {
 }
 
 function probeDefaultFormat(): FormatSection {
-  // The CLI entry point sets AGENTSYNC_DEFAULT_FORMAT based on isTTY when invoked
+  // The CLI entry point sets PAX8_CTA_DEFAULT_FORMAT based on isTTY when invoked
   // as a subprocess. If a user has set it explicitly in their shell, treat that
   // as the source.
-  const envForced = process.env.AGENTSYNC_DEFAULT_FORMAT;
+  const envForced = process.env.PAX8_CTA_DEFAULT_FORMAT;
   if (envForced === "table" || envForced === "json") {
     // Distinguish "the CLI entry set this from isTTY" vs "user set this explicitly"
     // by checking process.stdout.isTTY against the value. If they agree, attribute
@@ -143,7 +143,7 @@ function probeDefaultFormat(): FormatSection {
 
 function probeQuietMode(opts: { quiet?: boolean }): QuietSection {
   if (opts.quiet) return { enabled: true, source: "flag" };
-  if (process.env.AGENTSYNC_QUIET === "1" || process.env.AGENTSYNC_QUIET === "true") {
+  if (process.env.PAX8_CTA_QUIET === "1" || process.env.PAX8_CTA_QUIET === "true") {
     return { enabled: true, source: "env" };
   }
   return { enabled: false, source: null };
@@ -151,7 +151,7 @@ function probeQuietMode(opts: { quiet?: boolean }): QuietSection {
 
 async function probeCredentials(): Promise<CredentialsSection> {
   const partnerEnv: "set" | "not-set" = process.env.PARTNER_CLIENT_SECRET ? "set" : "not-set";
-  const agentsyncEnv: "set" | "not-set" = process.env.AGENTSYNC_CLIENT_SECRET ? "set" : "not-set";
+  const agentsyncEnv: "set" | "not-set" = process.env.PAX8_CTA_CLIENT_SECRET ? "set" : "not-set";
   const keychain = await probeStoredSecret();
 
   let effectiveSource: "env" | "keychain" | "none";
@@ -234,7 +234,7 @@ function describeFormat(f: FormatSection): string {
       ? "TTY"
       : f.source === "piped"
         ? "piped (non-TTY)"
-        : "AGENTSYNC_DEFAULT_FORMAT env";
+        : "PAX8_CTA_DEFAULT_FORMAT env";
   return `${f.effective} (${sourceText})`;
 }
 
@@ -247,7 +247,7 @@ function describeDemo(d: DemoSection): string {
 
 function describeQuiet(q: QuietSection): string {
   if (!q.enabled) return chalk.gray("off");
-  return `${chalk.yellow("on")} (${q.source === "flag" ? "--quiet" : "AGENTSYNC_QUIET env"})`;
+  return `${chalk.yellow("on")} (${q.source === "flag" ? "--quiet" : "PAX8_CTA_QUIET env"})`;
 }
 
 function describeKeychain(s: "set" | "not-set" | "unavailable"): string {
@@ -267,7 +267,7 @@ function describeTelemetry(t: TelemetrySection): string {
   const reason = t.disabledSource ?? "config";
   const reasonText =
     reason === "env"
-      ? "AGENTSYNC_TELEMETRY_DISABLED"
+      ? "PAX8_CTA_TELEMETRY_DISABLED"
       : reason === "do-not-track"
         ? "DO_NOT_TRACK"
         : reason === "ci"
@@ -306,7 +306,7 @@ function renderHumanReadable(report: ConfigReport): void {
     }`
   );
   console.log(
-    `    AGENTSYNC_CLIENT_SECRET (env):  ${
+    `    PAX8_CTA_CLIENT_SECRET (env):  ${
       report.credentials.agentsyncClientSecretEnv === "set"
         ? chalk.green("set")
         : chalk.gray("not set")

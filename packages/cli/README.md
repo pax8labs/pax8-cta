@@ -427,7 +427,7 @@ AgentSync uses a YAML configuration file to define your tenants and partner cred
 partner:
   tenantId: "your-partner-tenant-id"
   clientId: "your-app-client-id"
-  # Client secret should be in AGENTSYNC_CLIENT_SECRET env var
+  # Client secret should be in PAX8_CTA_CLIENT_SECRET env var
 
 # Settings
 settings:
@@ -470,8 +470,8 @@ tenants:
 
 ## Environment Variables
 
-- `AGENTSYNC_CLIENT_SECRET` - Azure AD app client secret (required)
-- `AGENTSYNC_INSTALL_DIR` - Custom installation directory (default: `/usr/local/bin`)
+- `PAX8_CTA_CLIENT_SECRET` - Azure AD app client secret (required)
+- `PAX8_CTA_INSTALL_DIR` - Custom installation directory (default: `/usr/local/bin`)
 - `CONFIG_PATH` - Custom config file path (default: `./config/tenants.yaml`)
 
 ## Authentication
@@ -501,7 +501,7 @@ AgentSync uses Azure AD with GDAP (Granular Delegated Admin Privileges) for secu
 5. **Set Environment Variable**
 
    ```bash
-   export AGENTSYNC_CLIENT_SECRET="your-client-secret"
+   export PAX8_CTA_CLIENT_SECRET="your-client-secret"
    ```
 
 6. **Update Configuration**
@@ -635,7 +635,7 @@ AgentSync CLI collects anonymous usage analytics to help improve the tool. No pe
 ```bash
 agentsync telemetry off
 # or
-export AGENTSYNC_TELEMETRY_DISABLED=1
+export PAX8_CTA_TELEMETRY_DISABLED=1
 ```
 
 **Check status:**

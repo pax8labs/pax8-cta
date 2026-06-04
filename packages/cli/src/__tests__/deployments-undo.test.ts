@@ -46,7 +46,7 @@ describe("deployments undo (subprocess)", () => {
   it("undoes a known deployment with -y and prints a rollback summary", async () => {
     const result = await runCliExpectSuccess(["deployments", "undo", DEMO_TARGET_ID, "-y"]);
 
-    // Subprocess stdout is piped (non-TTY) → AGENTSYNC_DEFAULT_FORMAT=json,
+    // Subprocess stdout is piped (non-TTY) → PAX8_CTA_DEFAULT_FORMAT=json,
     // so we get the JSON envelope rather than the human summary.
     const json = extractJson(result.output) as {
       deploymentId?: string;

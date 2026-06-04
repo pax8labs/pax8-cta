@@ -32,9 +32,9 @@ const FAKE_SECRET = "fake-secret-do-not-leak-309";
 describe("agentsync config (human-readable)", () => {
   it("renders all expected sections", async () => {
     // Subprocess stdout is piped, which would otherwise default to JSON.
-    // Force the human-readable format via AGENTSYNC_DEFAULT_FORMAT.
+    // Force the human-readable format via PAX8_CTA_DEFAULT_FORMAT.
     const result = await runCliExpectSuccess(["config"], {
-      env: { NO_COLOR: "1", AGENTSYNC_DEFAULT_FORMAT: "table" },
+      env: { NO_COLOR: "1", PAX8_CTA_DEFAULT_FORMAT: "table" },
       timeout: 60000,
     });
 
@@ -53,7 +53,7 @@ describe("agentsync config (human-readable)", () => {
 
   it("reports demo mode ENABLED when DEMO_MODE=true", async () => {
     const result = await runCliExpectSuccess(["config"], {
-      env: { NO_COLOR: "1", DEMO_MODE: "true", AGENTSYNC_DEFAULT_FORMAT: "table" },
+      env: { NO_COLOR: "1", DEMO_MODE: "true", PAX8_CTA_DEFAULT_FORMAT: "table" },
       timeout: 60000,
     });
     const text = stripAnsi(result.stdout);
@@ -121,7 +121,7 @@ describe("agentsync config: secret hygiene", () => {
     const result = await runCliExpectSuccess(["config"], {
       env: {
         NO_COLOR: "1",
-        AGENTSYNC_DEFAULT_FORMAT: "table",
+        PAX8_CTA_DEFAULT_FORMAT: "table",
         PARTNER_CLIENT_SECRET: FAKE_SECRET,
       },
       timeout: 60000,
@@ -133,9 +133,9 @@ describe("agentsync config: secret hygiene", () => {
     expect(stripAnsi(result.stdout)).toContain("PARTNER_CLIENT_SECRET");
   }, 60000);
 
-  it("never echoes AGENTSYNC_CLIENT_SECRET even when only that alias is set", async () => {
+  it("never echoes PAX8_CTA_CLIENT_SECRET even when only that alias is set", async () => {
     const result = await runCliExpectSuccess(["config", "--json"], {
-      env: { NO_COLOR: "1", AGENTSYNC_CLIENT_SECRET: FAKE_SECRET },
+      env: { NO_COLOR: "1", PAX8_CTA_CLIENT_SECRET: FAKE_SECRET },
       timeout: 60000,
     });
 

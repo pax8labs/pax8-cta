@@ -582,7 +582,7 @@ agentsync telemetry on
 ```bash
 agentsync telemetry off
 # or
-export AGENTSYNC_TELEMETRY_DISABLED=1
+export PAX8_CTA_TELEMETRY_DISABLED=1
 ```
 
 Telemetry is also automatically disabled in CI environments (`CI=true`) and respects the [`DO_NOT_TRACK`](https://consoledonottrack.com/) standard.

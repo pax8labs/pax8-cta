@@ -185,7 +185,7 @@ describe("CLI Integration Tests", () => {
       // Force the human-readable path here by pretending stdout is a TTY so
       // we can still assert on the pirate-themed chrome.
       const result = await runCliExpectSuccess(["deploy", "--solution", "./test.zip", "--all"], {
-        env: { AGENTSYNC_DEFAULT_FORMAT: "table" },
+        env: { PAX8_CTA_DEFAULT_FORMAT: "table" },
       });
 
       expect(containsText(result.output, "DEMO MODE")).toBe(true);

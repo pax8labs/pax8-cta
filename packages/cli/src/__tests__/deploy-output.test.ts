@@ -65,7 +65,7 @@ describe("deploy --json (issue #357)", () => {
   }, 60000);
 
   it("piped stdout (no --json) defaults to JSON for agent/script callers", async () => {
-    // The CLI sets AGENTSYNC_DEFAULT_FORMAT=json when stdout is not a TTY.
+    // The CLI sets PAX8_CTA_DEFAULT_FORMAT=json when stdout is not a TTY.
     // Subprocess invocation is non-TTY, so the deploy command should emit
     // its JSON envelope without an explicit --json flag.
     const result = await runCli(["deploy", "CustomerServiceAgent", "--tag", "enterprise"], {

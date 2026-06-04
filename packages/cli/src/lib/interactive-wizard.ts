@@ -575,7 +575,7 @@ export async function runInteractiveWizard(configPath: string): Promise<WizardRe
       console.log(chalk.gray(`   auth login`));
       console.log(
         chalk.gray(
-          `   (or set environment variable: export AGENTSYNC_CLIENT_SECRET="your-secret")\n`
+          `   (or set environment variable: export PAX8_CTA_CLIENT_SECRET="your-secret")\n`
         )
       );
       stepNumber++;
@@ -652,7 +652,7 @@ function generateConfig(options: ConfigOptions): string {
 partner:
   tenantId: "${tenantId}"
   clientId: "${clientId}"
-  # Client secret should be in AGENTSYNC_CLIENT_SECRET env var
+  # Client secret should be in PAX8_CTA_CLIENT_SECRET env var
 
 # Settings
 settings:

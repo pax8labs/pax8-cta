@@ -49,7 +49,7 @@ describe("Demo Command", () => {
     restoreEnv = mockEnv({});
     delete process.env.DEMO_MODE;
     delete process.env.PARTNER_CLIENT_SECRET;
-    delete process.env.AGENTSYNC_CLIENT_SECRET;
+    delete process.env.PAX8_CTA_CLIENT_SECRET;
 
     // Mock process.exit
     exitSpy = mockProcessExit();

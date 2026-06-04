@@ -12,16 +12,16 @@ Multi-tenant deployment for Copilot Studio / Power Platform solutions, via GDAP 
 
 The product is in the middle of a rebrand. The two names refer to the same tool:
 
-| Surface                 | Name                                                               |
-| ----------------------- | ------------------------------------------------------------------ |
-| **CLI binary you type** | `agentsync`                                                        |
-| **npm package**         | `pax8-cta`                                                         |
-| **Env vars**            | `AGENTSYNC_*` (e.g. `AGENTSYNC_QUIET`, `AGENTSYNC_DEFAULT_FORMAT`) |
-| **Config directory**    | `~/.agentsync/`                                                    |
-| **Repo / project root** | `agentsync`                                                        |
-| **REPL prompt**         | `pax8-cta>`                                                        |
-| **Demo banner**         | "Pax8 CTA CLI"                                                     |
-| **User-facing brand**   | "Pax8 CTA"                                                         |
+| Surface                 | Name                                                            |
+| ----------------------- | --------------------------------------------------------------- |
+| **CLI binary you type** | `agentsync`                                                     |
+| **npm package**         | `pax8-cta`                                                      |
+| **Env vars**            | `PAX8_CTA_*` (e.g. `PAX8_CTA_QUIET`, `PAX8_CTA_DEFAULT_FORMAT`) |
+| **Config directory**    | `~/.agentsync/`                                                 |
+| **Repo / project root** | `agentsync`                                                     |
+| **REPL prompt**         | `pax8-cta>`                                                     |
+| **Demo banner**         | "Pax8 CTA CLI"                                                  |
+| **User-facing brand**   | "Pax8 CTA"                                                      |
 
 When constructing commands, always use the binary name (`agentsync deploy ...`). When talking about the product to the user, follow their lead — they may say "agentsync", "pax8-cta", or "Pax8 CTA"; treat all three as the same tool.
 
