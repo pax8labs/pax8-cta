@@ -49,7 +49,7 @@ pax8-cta deploy --solution ./exports/CustomerServiceAgent_managed.zip --all
 2. Go to **Account** > **Admin relationships**
 3. Click **"Request a delegated admin relationship"**
 4. Configure:
-   - Relationship name: `AgentSync Deployment Access`
+   - Relationship name: `Pax8 CTA Deployment Access`
    - Duration: 2 years (default)
    - Roles to request: **Power Platform Administrator** (required)
 5. Send invitation link to customer
@@ -64,7 +64,7 @@ Once active, Pax8 CTA automatically discovers this customer. No manual tenant co
 
 1. Navigate to **Azure Active Directory** > **App registrations** > **New registration**
 2. Configure:
-   - Name: `AgentSync Deployment Tool`
+   - Name: `Pax8 CTA Deployment Tool`
    - Supported account types: **Accounts in any organizational directory (Multitenant)**
 3. After creation, note these values:
    - **Application (client) ID**

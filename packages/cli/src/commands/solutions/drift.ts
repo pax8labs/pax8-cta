@@ -164,7 +164,7 @@ export function createDriftCommand(): Command {
       `
 Examples:
   solutions drift                           Show fleet-wide version drift summary
-  solutions drift -t AgentSync-Test2        Check drift for a specific tenant
+  solutions drift -t Pax8CTA-Test2        Check drift for a specific tenant
   solutions drift --outdated                Show only outdated tenants
   solutions drift --risk                    Show drift with risk scores
   solutions drift --risk high               Show only high-risk tenants

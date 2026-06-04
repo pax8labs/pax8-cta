@@ -10,7 +10,7 @@ source:
   environmentUrl: "https://org60b532ae.crm.dynamics.com"
 
 tenants:
-  - name: "AgentSync-Prod"
+  - name: "Pax8CTA-Prod"
     tenantId: "5ef655fa-32f3-44b2-bdc9-86a50b667ea0"
     environmentUrl: "https://org54870a4d.crm.dynamics.com"
     tags:

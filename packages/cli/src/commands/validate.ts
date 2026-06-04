@@ -90,7 +90,7 @@ export const validateCommand = new Command("validate")
 Examples:
   validate                              Check everything
   validate --gdap                       Also verify GDAP delegation
-  validate -t AgentSync-Test2           Check a specific tenant
+  validate -t Pax8CTA-Test2           Check a specific tenant
   validate --skip-source                Check only tenants, not source
   validate --json                       Emit structured results for scripts/agents
 `

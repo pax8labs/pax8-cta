@@ -72,7 +72,7 @@ export const healthCommand = new Command("health")
     `
 Examples:
   tenants health                            Show fleet-wide health summary
-  tenants health AgentSync-Test2            Check health for a specific tenant
+  tenants health Pax8CTA-Test2            Check health for a specific tenant
   tenants health --json                     Output health data as JSON
 `
   )

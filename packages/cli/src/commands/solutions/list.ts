@@ -68,7 +68,7 @@ export const listCommand = new Command("list")
     `
 Examples:
   solutions list                             List solutions in source environment
-  solutions list -t AgentSync-Test2          List solutions in a target tenant
+  solutions list -t Pax8CTA-Test2          List solutions in a target tenant
   solutions list --json                      Output as JSON
   solutions list --ids-only | xargs -I{} deploy {} --all
 `

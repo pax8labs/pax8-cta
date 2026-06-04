@@ -43,7 +43,7 @@ export const setupCommand = new Command("setup")
 Examples:
   setup --check                             Check setup status without making changes
   setup --all                               Register app user in all environments
-  setup -t AgentSync-Test2                  Setup a specific tenant environment
+  setup -t Pax8CTA-Test2                  Setup a specific tenant environment
 `
   )
   .action(async (options, cmd) => {
