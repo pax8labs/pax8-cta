@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [core@0.1.1] - 2026-06-04
+
+### Added
+
+- **`@pax8-cta/core` README** — the v0.1.0 publish shipped without a package-level README, so the npm page rendered empty. v0.1.1 is a docs-only patch that adds the README; no code changes.
+
+## [0.1.0] - 2026-06-04 — Initial OSS release
+
 ### Changed
 
 - **Rebrand from AgentSync to Pax8 Cross-Tenant Agents (Pax8 CTA)** for OSS launch. **Breaking change.** Affects every public surface — CLI binary (`agentsync` → `pax8-cta`), npm packages (`@agentsync/cli` → `pax8-cta`, `@agentsync/core` → `@pax8-cta/core`), config dir (`~/.agentsync/` → `~/.pax8-cta/`), env vars (`AGENTSYNC_*` → `PAX8_CTA_*`), and the exported error class (`AgentSyncError` → `CtaError`). No backward-compatibility aliases. The Azure-side resources used by the reference setup (Dataverse env `AgentSync-Test2`, security role `AgentSync Deployment Access`, app registration `AgentSync Deployment Tool`) still need to be renamed by an admin in Azure/Power Platform separately — docs reference the new target names (`Pax8CTA-Test2`, `Pax8 CTA Deployment Access`, `Pax8 CTA Deployment Tool`).
