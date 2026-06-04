@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [core@0.1.1] - 2026-06-04
+## [0.1.1] - 2026-06-04
 
 ### Added
 
-- **`@pax8-cta/core` README** — the v0.1.0 publish shipped without a package-level README, so the npm page rendered empty. v0.1.1 is a docs-only patch that adds the README; no code changes.
+- **`@pax8-cta/core` README** — v0.1.0 of `@pax8-cta/core` shipped without a package-level README, so the npm page rendered empty. v0.1.1 adds it.
+
+### Fixed
+
+- **EBADENGINE warning on install** — pinned `posthog-node` to `5.21.0` (the last version with the looser `>=20` engines requirement) so users on Node 20.12–20.19 or 22.0–22.21 no longer see `npm warn EBADENGINE` when installing the CLI. `posthog-node` 5.22+ tightened to `^20.20.0 || >=22.22.0`.
+
+### Internal
+
+- First release published via GitHub Actions trusted publishers (OIDC) rather than a local OTP-gated publish. v0.1.0 was the bootstrap.
 
 ## [0.1.0] - 2026-06-04 — Initial OSS release
 
