@@ -10,7 +10,7 @@ permissions:
   id-token: write
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
 
 jobs:
   publish:
@@ -39,12 +39,13 @@ jobs:
       - name: Build CLI
         run: pnpm --filter pax8-cta build
 
+      # Auth via npm trusted publishers (OIDC). Requires id-token: write
+      # permission (above) and a trusted publisher configured on npmjs.com
+      # for each package pointing at this workflow file. --provenance both
+      # opts into the provenance attestation and tells npm to obtain the
+      # OIDC token used for auth.
       - name: Publish Core
-        run: pnpm --filter @pax8-cta/core publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm --filter @pax8-cta/core publish --no-git-checks --access public --provenance
 
       - name: Publish CLI
-        run: pnpm --filter pax8-cta publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm --filter pax8-cta publish --no-git-checks --access public --provenance
