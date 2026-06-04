@@ -1,13 +1,13 @@
-# AgentSync Claude Code Skill
+# Pax8 CTA Claude Code Skill
 
-AI-powered deployment management for AgentSync using Claude Code. Manage your Copilot Studio deployments using natural language directly from your terminal or IDE.
+AI-powered deployment management for Pax8 CTA using Claude Code. Manage your Copilot Studio deployments using natural language directly from your terminal or IDE.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - [Claude Code CLI](https://docs.anthropic.com/claude-code) installed
-- AgentSync running locally or accessible via API
+- Pax8 CTA running locally or accessible via API
 
 ### Installation
 
@@ -52,7 +52,7 @@ Quick shortcuts for common tasks:
 
 ### Demo Mode Support
 
-Works seamlessly with AgentSync demo mode - no authentication required for testing!
+Works seamlessly with Pax8 CTA demo mode - no authentication required for testing!
 
 ## 🎯 Usage Examples
 
@@ -110,13 +110,13 @@ Claude: I'll deploy to your 4 enterprise tenants:
 
 ### Production Mode
 
-Set up AgentSync with your Azure AD credentials:
+Set up Pax8 CTA with your Azure AD credentials:
 
 ```bash
 ./packages/cli/pax8-cta init
 ```
 
-See main [AgentSync README](../README.md) for full configuration details.
+See main [Pax8 CTA README](../README.md) for full configuration details.
 
 ## 📚 What the Skill Provides
 
@@ -161,10 +161,10 @@ Make sure the skill file is in the right location:
 
 ## 🔗 Resources
 
-- [Main AgentSync README](../README.md) - Full AgentSync documentation
+- [Main Pax8 CTA README](../README.md) - Full Pax8 CTA documentation
 - [CLI Binary Delivery](../CLI_BINARY_DELIVERY.md) - Binary distribution details
 - [Issue #61](https://github.com/pax8labs/pax8-cta/issues/61) - Skill publishing tracking
 
 ## 📝 License
 
-Same as AgentSync main repository.
+Same as Pax8 CTA main repository.

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# AgentSync CLI Installation Script
+# Pax8 CTA CLI Installation Script
 # Usage: curl -fsSL https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.sh | bash
 
 REPO="pax8labs/pax8-cta"
@@ -20,7 +20,7 @@ OS=$(uname -s)
 ARCH=$(uname -m)
 
 echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║    AgentSync CLI Installer           ║${NC}"
+echo -e "${BLUE}║    Pax8 CTA CLI Installer           ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════╝${NC}"
 echo ""
 
@@ -72,7 +72,7 @@ CHECKSUM_URL="https://github.com/$REPO/releases/download/$VERSION/$BINARY.sha256
 TMP_DIR=$(mktemp -d)
 trap "rm -rf $TMP_DIR" EXIT
 
-echo -e "${BLUE}→${NC} Downloading AgentSync CLI..."
+echo -e "${BLUE}→${NC} Downloading Pax8 CTA CLI..."
 if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/pax8-cta"; then
   echo -e "${RED}✗${NC} Failed to download binary"
   echo -e "${YELLOW}→${NC} URL: $DOWNLOAD_URL"

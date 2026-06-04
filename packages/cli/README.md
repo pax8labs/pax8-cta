@@ -1,4 +1,4 @@
-# AgentSync CLI
+# Pax8 CTA CLI
 
 Sync your Copilot Studio agents to all your tenants from the command line.
 
@@ -40,13 +40,13 @@ Sync your agents to all your tenants | v0.1.0
 
 Interactive mode - Type 'help' for commands or 'exit' to quit
 
-AgentSync> tenants list
+Pax8 CTA> tenants list
 (displays tenants)
 
-AgentSync> demo status
+Pax8 CTA> demo status
 Demo mode: ENABLED
 
-AgentSync> exit
+Pax8 CTA> exit
 Goodbye!
 $
 ```
@@ -166,7 +166,7 @@ pax8-cta tenants inspect
 
 ### Init (Setup)
 
-Initialize AgentSync with guided setup.
+Initialize Pax8 CTA with guided setup.
 
 ```bash
 # Quick demo setup (no credentials needed)
@@ -416,7 +416,7 @@ pax8-cta resolve-url --url "https://..." --output ./agent.zip
 
 ## Configuration
 
-AgentSync uses a YAML configuration file to define your tenants and partner credentials.
+Pax8 CTA uses a YAML configuration file to define your tenants and partner credentials.
 
 **Default location**: `./config/tenants.yaml`
 
@@ -476,7 +476,7 @@ tenants:
 
 ## Authentication
 
-AgentSync uses Azure AD with GDAP (Granular Delegated Admin Privileges) for secure multi-tenant access.
+Pax8 CTA uses Azure AD with GDAP (Granular Delegated Admin Privileges) for secure multi-tenant access.
 
 ### Setup
 
@@ -562,7 +562,7 @@ pax8-cta tenants list
 
 ### Deployment Failures
 
-AgentSync CLI deployments run directly now, so there is no worker process to start.
+Pax8 CTA CLI deployments run directly now, so there is no worker process to start.
 If a deployment fails, inspect the tenant details and retry the command:
 
 ```bash
@@ -624,7 +624,7 @@ Binaries are standalone and include the Bun runtime and all dependencies.
 
 ## Telemetry
 
-AgentSync CLI collects anonymous usage analytics to help improve the tool. No personally identifiable information is collected.
+Pax8 CTA CLI collects anonymous usage analytics to help improve the tool. No personally identifiable information is collected.
 
 **What's collected:** command names, flags used, success/failure, duration, CLI version, OS type.
 
@@ -656,4 +656,4 @@ Apache 2.0
 
 ## Related Projects
 
-- **AgentSync Core**: Core library for Dataverse/Dynamics 365 operations
+- **Pax8 CTA Core**: Core library for Dataverse/Dynamics 365 operations

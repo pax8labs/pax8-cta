@@ -1,6 +1,6 @@
 # Notification Setup Guide
 
-AgentSync supports notifications via Slack, Microsoft Teams, and Email for deployment events.
+Pax8 CTA supports notifications via Slack, Microsoft Teams, and Email for deployment events.
 
 ## Notification Events
 
@@ -17,7 +17,7 @@ Notifications are sent for:
 
 1. Go to https://api.slack.com/apps
 2. Click "Create New App" → "From scratch"
-3. Name it "AgentSync Notifications" and select your workspace
+3. Name it "Pax8 CTA Notifications" and select your workspace
 4. Click "Create App"
 
 ### Step 2: Enable Incoming Webhooks
@@ -33,7 +33,7 @@ Notifications are sent for:
 1. Your webhook URL will look like: `https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX`
 2. Copy this URL
 
-### Step 4: Configure in AgentSync
+### Step 4: Configure in Pax8 CTA
 
 1. Go to http://localhost:3000/settings
 2. Navigate to the "Notifications" tab
@@ -64,13 +64,13 @@ If your organization still has this enabled:
 2. Go to your desired channel → More options (...) → **Connectors**
 3. Search for "Incoming Webhook"
 4. Click "Configure"
-5. Name it "AgentSync Notifications"
+5. Name it "Pax8 CTA Notifications"
 6. Upload an icon (optional)
 7. Click "Create"
 8. Copy the webhook URL
 9. Click "Done"
 
-### Configure in AgentSync
+### Configure in Pax8 CTA
 
 1. Go to http://localhost:3000/settings
 2. Navigate to the "Notifications" tab

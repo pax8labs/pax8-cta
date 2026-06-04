@@ -37,7 +37,7 @@ authCommand
   .command("login")
   .description("Store client secret securely in OS keychain")
   .action(async () => {
-    console.log(chalk.cyan.bold("\n🔐 AgentSync Login\n"));
+    console.log(chalk.cyan.bold("\n🔐 Pax8 CTA Login\n"));
     console.log(chalk.gray("Your client secret will be stored securely in your OS keychain.\n"));
 
     try {
@@ -75,7 +75,7 @@ authCommand
       console.log(chalk.green("\n✓ Client secret stored securely!"));
       console.log();
       console.log(chalk.gray("Your secret is now stored in your OS keychain and will be"));
-      console.log(chalk.gray("used automatically by AgentSync commands."));
+      console.log(chalk.gray("used automatically by Pax8 CTA commands."));
       console.log();
       console.log(chalk.cyan("Next steps:"));
       console.log(chalk.white("  auth status  ") + chalk.dim("# Verify credentials"));
@@ -91,7 +91,7 @@ authCommand
   .command("logout")
   .description("Remove stored credentials from OS keychain")
   .action(async () => {
-    console.log(chalk.cyan.bold("\n🔓 AgentSync Logout\n"));
+    console.log(chalk.cyan.bold("\n🔓 Pax8 CTA Logout\n"));
 
     try {
       const existingSecret = await getStoredSecret();

@@ -21,7 +21,7 @@ import { runInitWizard } from "./init-wizard.js";
 const DEFAULT_CONFIG_PATH = "./config/tenants.yaml";
 
 export const initCommand = new Command("init")
-  .description("Initialize AgentSync with guided setup")
+  .description("Initialize Pax8 CTA with guided setup")
   .option("-c, --config <path>", "Path to create manifest file", DEFAULT_CONFIG_PATH)
   .option("--demo", "Set up in demo mode (skip credential prompts)")
   .option("--no-gdap", "Skip automatic GDAP tenant discovery (for non-MSP setups)")

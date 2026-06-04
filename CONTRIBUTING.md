@@ -1,10 +1,10 @@
-# Contributing to AgentSync
+# Contributing to Pax8 CTA
 
-Thank you for your interest in AgentSync! We appreciate bug reports, feature requests, questions, and feedback from the community.
+Thank you for your interest in Pax8 CTA! We appreciate bug reports, feature requests, questions, and feedback from the community.
 
 ## Contribution Model
 
-AgentSync is currently maintained by Pax8 under a **publish-only** open source model. This means:
+Pax8 CTA is currently maintained by Pax8 under a **publish-only** open source model. This means:
 
 - Pax8 develops and publishes all code changes.
 - External pull requests are **not accepted** at this time.
@@ -29,7 +29,7 @@ We welcome feature requests. When opening one, please include:
 
 - A description of the problem you are trying to solve
 - Your proposed solution or desired behavior
-- Your use case (how you use AgentSync, what tenant scale you operate at)
+- Your use case (how you use Pax8 CTA, what tenant scale you operate at)
 - Whether any workarounds exist today
 
 ## Running Locally

@@ -1,5 +1,5 @@
 #!/bin/bash
-# AgentSync Sandbox Environment Setup Script
+# Pax8 CTA Sandbox Environment Setup Script
 # This script automates the creation of Power Platform environments for sandbox testing
 #
 # Prerequisites:
@@ -26,7 +26,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   AgentSync Sandbox Environment Setup                    ║${NC}"
+echo -e "${BLUE}║   Pax8 CTA Sandbox Environment Setup                    ║${NC}"
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════╗${NC}"
 echo ""
 
@@ -76,12 +76,12 @@ echo -e "${BLUE}  Step 1: Creating Source Environment${NC}"
 echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
 echo ""
 
-echo "Creating 'AgentSync Dev Source' environment..."
+echo "Creating 'Pax8 CTA Dev Source' environment..."
 
 # Create source environment
 # Note: Remove --async flag if you want to wait for each environment to complete before moving on
 pac admin create \
-  --name "AgentSync Dev Source" \
+  --name "Pax8 CTA Dev Source" \
   --type Sandbox \
   --region "$REGION" \
   --currency "$CURRENCY" \
@@ -181,7 +181,7 @@ echo ""
 echo "4. Create application users in each environment:"
 echo "   - Go to https://admin.powerplatform.microsoft.com"
 echo "   - For each environment: Settings > Users + permissions > Application users"
-echo "   - Add your AgentSync app registration"
+echo "   - Add your Pax8 CTA app registration"
 echo "   - Grant System Administrator role"
 echo ""
 echo "5. Test authentication:"

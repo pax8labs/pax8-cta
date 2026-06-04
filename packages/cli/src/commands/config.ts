@@ -290,7 +290,7 @@ function describeTenantsStatus(t: TenantsSection): string {
 
 function renderHumanReadable(report: ConfigReport): void {
   console.log();
-  console.log(chalk.bold("AgentSync Configuration"));
+  console.log(chalk.bold("Pax8 CTA Configuration"));
   console.log();
   console.log(`  Demo mode:       ${describeDemo(report.demoMode)}`);
   console.log(`  Default format:  ${describeFormat(report.defaultFormat)}`);

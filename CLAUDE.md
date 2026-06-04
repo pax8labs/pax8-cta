@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working in this
 
 ## Project Overview
 
-AgentSync is now a CLI-focused open-source tool for multi-tenant Copilot Studio deployments via GDAP.
+Pax8 CTA is now a CLI-focused open-source tool for multi-tenant Copilot Studio deployments via GDAP.
 
 ## Monorepo Structure
 

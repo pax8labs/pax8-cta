@@ -1,4 +1,4 @@
-# AgentSync CLI Installation Script for Windows
+# Pax8 CTA CLI Installation Script for Windows
 # Usage: irm https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
@@ -10,7 +10,7 @@ $InstallDir = if ($env:PAX8_CTA_INSTALL_DIR) { $env:PAX8_CTA_INSTALL_DIR } else 
 # --- Banner ---
 Write-Host ""
 Write-Host "+===========================================+" -ForegroundColor Blue
-Write-Host "|    AgentSync CLI Installer (Windows)      |" -ForegroundColor Blue
+Write-Host "|    Pax8 CTA CLI Installer (Windows)      |" -ForegroundColor Blue
 Write-Host "+===========================================+" -ForegroundColor Blue
 Write-Host ""
 
@@ -51,7 +51,7 @@ $TmpChecksum = Join-Path $TmpDir "pax8-cta.exe.sha256"
 try {
     New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null
 
-    Write-Host "[>] Downloading AgentSync CLI..." -ForegroundColor Blue
+    Write-Host "[>] Downloading Pax8 CTA CLI..." -ForegroundColor Blue
     try {
         Invoke-WebRequest -Uri $DownloadUrl -OutFile $TmpBinary -UseBasicParsing
         Write-Host "[+] Downloaded successfully" -ForegroundColor Green

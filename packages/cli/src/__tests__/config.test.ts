@@ -39,7 +39,7 @@ describe("pax8-cta config (human-readable)", () => {
     });
 
     const text = stripAnsi(result.stdout);
-    expect(text).toContain("AgentSync Configuration");
+    expect(text).toContain("Pax8 CTA Configuration");
     expect(text).toContain("Demo mode:");
     expect(text).toContain("Default format:");
     expect(text).toContain("Quiet mode:");

@@ -1,6 +1,6 @@
 ---
 name: pax8-cta
-description: Use when the user asks to deploy, manage, audit, or troubleshoot Power Platform / Copilot Studio solutions ("agents") across multiple Microsoft 365 customer tenants — the tool is branded "Pax8 CTA" but the CLI binary is `pax8-cta`. Triggers include "deploy <solution> to <tenants>", "what's deployed where", "fleet drift", "tenant health", "GDAP issues", "rollback", "preview a deploy", "is my fleet healthy", and direct mentions of "pax8-cta", "pax8-cta", "pax8 cta", or the REPL prompt `pax8-cta>`. Run from a checkout of the pax8-cta repo or anywhere `pax8-cta` is on PATH. Skip for unrelated Power Platform work that doesn't involve multi-tenant fleet deployment.
+description: Use when the user asks to deploy, manage, audit, or troubleshoot Power Platform / Copilot Studio solutions ("agents") across multiple Microsoft 365 customer tenants — the tool is "Pax8 Cross-Tenant Agents" (short: "Pax8 CTA"); the CLI binary is `pax8-cta`. Triggers include "deploy <solution> to <tenants>", "what's deployed where", "fleet drift", "tenant health", "GDAP issues", "rollback", "preview a deploy", "is my fleet healthy", and direct mentions of "pax8-cta", "Pax8 CTA", "Pax8 Cross-Tenant Agents", or the REPL prompt `pax8-cta>`. Run from a checkout of the pax8-cta repo or anywhere `pax8-cta` is on PATH. Skip for unrelated Power Platform work that doesn't involve multi-tenant fleet deployment.
 tools: Bash, Read, Grep, Glob
 ---
 
@@ -8,22 +8,20 @@ tools: Bash, Read, Grep, Glob
 
 Multi-tenant deployment for Copilot Studio / Power Platform solutions, via GDAP delegation. The user has a partner Azure AD app, a fleet of customer tenants in `config/tenants.yaml`, and wants to ship the same solution to many tenants without clicking through each one. Translate natural-language requests into `pax8-cta` commands, run them, and interpret the output.
 
-## Naming — read this first
-
-The product is in the middle of a rebrand. The two names refer to the same tool:
+## Naming
 
 | Surface                 | Name                                                            |
 | ----------------------- | --------------------------------------------------------------- |
+| **Full product name**   | Pax8 Cross-Tenant Agents                                        |
+| **Short name**          | Pax8 CTA                                                        |
 | **CLI binary you type** | `pax8-cta`                                                      |
 | **npm package**         | `pax8-cta`                                                      |
 | **Env vars**            | `PAX8_CTA_*` (e.g. `PAX8_CTA_QUIET`, `PAX8_CTA_DEFAULT_FORMAT`) |
 | **Config directory**    | `~/.pax8-cta/`                                                  |
 | **Repo / project root** | `pax8-cta`                                                      |
 | **REPL prompt**         | `pax8-cta>`                                                     |
-| **Demo banner**         | "Pax8 CTA CLI"                                                  |
-| **User-facing brand**   | "Pax8 CTA"                                                      |
 
-When constructing commands, always use the binary name (`pax8-cta deploy ...`). When talking about the product to the user, follow their lead — they may say "pax8-cta", "pax8-cta", or "Pax8 CTA"; treat all three as the same tool.
+When constructing commands, always use the binary name (`pax8-cta deploy ...`). When talking about the product to the user, follow their lead — they may say "pax8-cta", "CTA", or "Pax8 CTA"; treat all as the same tool.
 
 If credentials aren't configured, suggest `pax8-cta demo on` first — the CLI ships with mock fleet data so the user can try every command before connecting real tenants.
 

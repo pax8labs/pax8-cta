@@ -539,11 +539,11 @@ function formatByRegex(error: unknown): CtaError {
     [
       "An unexpected error occurred",
       "The error details are shown above",
-      "This may be a temporary issue or a bug in AgentSync",
+      "This may be a temporary issue or a bug in Pax8 CTA",
     ],
     [
       "Review the error message above for specific details",
-      "Check the AgentSync documentation for common issues",
+      "Check the Pax8 CTA documentation for common issues",
       "Verify your configuration and environment setup",
       "Try the command again with --verbose flag for more details (if available)",
       "If the issue persists, please report it on GitHub with the error details",

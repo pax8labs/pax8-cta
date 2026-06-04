@@ -1,4 +1,4 @@
-# AgentSync Scripts
+# Pax8 CTA Scripts
 
 This directory contains helper scripts for CLI-only sandbox setup, demos, and maintenance.
 
@@ -6,7 +6,7 @@ This directory contains helper scripts for CLI-only sandbox setup, demos, and ma
 
 ### `start-demo.sh`
 
-Starts AgentSync CLI in demo mode.
+Starts Pax8 CTA CLI in demo mode.
 
 ```bash
 ./scripts/start-demo.sh

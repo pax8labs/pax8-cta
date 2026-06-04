@@ -1,5 +1,5 @@
 #!/bin/bash
-# AgentSync CLI smoke test
+# Pax8 CTA CLI smoke test
 
 set -e
 
@@ -40,7 +40,7 @@ run_check() {
 }
 
 main() {
-  echo "AgentSync CLI smoke test"
+  echo "Pax8 CTA CLI smoke test"
   echo "========================="
 
   run_check "core build" pnpm --filter @pax8-cta/core build

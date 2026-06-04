@@ -15,7 +15,7 @@
  */
 
 /**
- * Centralized constants for the AgentSync application
+ * Centralized constants for the Pax8 CTA application
  *
  * All magic numbers, timeouts, and configuration values should be defined here
  * to ensure consistency and maintainability across the codebase.

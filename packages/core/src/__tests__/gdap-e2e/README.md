@@ -22,7 +22,7 @@ You need **two** tenants: one acting as the MSP (partner) and one acting as the 
 In the **partner** tenant's Azure portal:
 
 1. Go to **Azure Active Directory** > **App registrations** > **New registration**
-2. Name: `AgentSync GDAP E2E` (or similar)
+2. Name: `Pax8 CTA GDAP E2E` (or similar)
 3. Supported account types: **Accounts in any organizational directory** (Multitenant)
 4. Redirect URI: Leave blank (we use client credentials only)
 5. Click **Register**
@@ -71,7 +71,7 @@ curl -X POST "https://graph.microsoft.com/v1.0/tenantRelationships/delegatedAdmi
   -H "Authorization: Bearer $PARTNER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "displayName": "AgentSync E2E Test",
+    "displayName": "Pax8 CTA E2E Test",
     "customer": {
       "tenantId": "<CUSTOMER_TENANT_ID>"
     },

@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with the AgentSync CLI
+description: Report a problem with the Pax8 CTA CLI
 title: "[Bug]: "
 labels: ["bug"]
 body:

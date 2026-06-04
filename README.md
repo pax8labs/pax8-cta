@@ -1,6 +1,6 @@
-# AgentSync
+# Pax8 Cross-Tenant Agents (CTA)
 
-Multi-tenant Copilot Studio deployment tool for MSPs.
+Multi-tenant Copilot Studio deployment tool for MSPs. Short name: **Pax8 CTA**.
 
 [![CI](https://github.com/pax8labs/pax8-cta/actions/workflows/ci.yml/badge.svg)](https://github.com/pax8labs/pax8-cta/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -20,7 +20,7 @@ That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample t
 
 ## What It Does
 
-AgentSync exports Power Platform solutions (Copilot Studio agents) from a source Dataverse environment and imports them into customer tenants via GDAP (Granular Delegated Admin Privileges). It handles authentication, connection reference mapping, environment variables, staged rollouts, and rollback -- so you can deploy one agent to hundreds of customer environments in minutes.
+Pax8 CTA exports Power Platform solutions (Copilot Studio agents) from a source Dataverse environment and imports them into customer tenants via GDAP (Granular Delegated Admin Privileges). It handles authentication, connection reference mapping, environment variables, staged rollouts, and rollback -- so you can deploy one agent to hundreds of customer environments in minutes.
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ pax8-cta deploy --solution ./exports/CustomerServiceAgent_managed.zip --all
 6. Customer approves in their Microsoft 365 Admin Center
 7. Status changes to **"Active"**
 
-Once active, AgentSync automatically discovers this customer. No manual tenant configuration needed.
+Once active, Pax8 CTA automatically discovers this customer. No manual tenant configuration needed.
 
 ### 2. Azure AD App Registration (One-Time)
 
@@ -133,22 +133,22 @@ pnpm cli    # Run the CLI
 
 Run `pax8-cta` with no arguments to enter interactive REPL mode, or use commands directly:
 
-| Command                | Description                                          |
-| ---------------------- | ---------------------------------------------------- |
-| `pax8-cta deploy`      | Deploy a solution to multiple tenants                |
-| `pax8-cta export`      | Export a solution from the source environment        |
-| `pax8-cta import`      | Import a solution into a single tenant               |
-| `pax8-cta validate`    | Verify GDAP access and connectivity for all tenants  |
-| `pax8-cta analyze`     | Analyze a solution package before deployment         |
-| `pax8-cta tenants`     | List, inspect, and manage customer tenants           |
-| `pax8-cta solutions`   | List solutions in the source environment             |
-| `pax8-cta agents`      | List agents and analyze drift across tenants         |
-| `pax8-cta deployments` | View deployment history and status                   |
-| `pax8-cta auth`        | Test authentication and token acquisition            |
-| `pax8-cta setup`       | Configure credentials interactively                  |
-| `pax8-cta init`        | Initialize a new AgentSync project with config files |
-| `pax8-cta status`      | Show current configuration and connection status     |
-| `pax8-cta telemetry`   | View or change anonymous usage telemetry settings    |
+| Command                | Description                                         |
+| ---------------------- | --------------------------------------------------- |
+| `pax8-cta deploy`      | Deploy a solution to multiple tenants               |
+| `pax8-cta export`      | Export a solution from the source environment       |
+| `pax8-cta import`      | Import a solution into a single tenant              |
+| `pax8-cta validate`    | Verify GDAP access and connectivity for all tenants |
+| `pax8-cta analyze`     | Analyze a solution package before deployment        |
+| `pax8-cta tenants`     | List, inspect, and manage customer tenants          |
+| `pax8-cta solutions`   | List solutions in the source environment            |
+| `pax8-cta agents`      | List agents and analyze drift across tenants        |
+| `pax8-cta deployments` | View deployment history and status                  |
+| `pax8-cta auth`        | Test authentication and token acquisition           |
+| `pax8-cta setup`       | Configure credentials interactively                 |
+| `pax8-cta init`        | Initialize a new Pax8 CTA project with config files |
+| `pax8-cta status`      | Show current configuration and connection status    |
+| `pax8-cta telemetry`   | View or change anonymous usage telemetry settings   |
 
 ### Deploy
 
@@ -383,7 +383,7 @@ export PARTNER_CLIENT_SECRET="your-secret"
 
 ## Security and Credentials
 
-- **No credential storage** -- AgentSync uses GDAP delegation and never stores customer credentials
+- **No credential storage** -- Pax8 CTA uses GDAP delegation and never stores customer credentials
 - **Token lifecycle** -- Access tokens expire after 1 hour and are automatically refreshed
 - **Least privilege** -- Only requests minimum required API permissions
 - **Audit logging** -- All operations are logged with timestamps and outcomes
@@ -393,7 +393,7 @@ export PARTNER_CLIENT_SECRET="your-secret"
 
 ## Testing
 
-AgentSync has comprehensive test coverage:
+Pax8 CTA has comprehensive test coverage:
 
 - **Core library**: 511 tests covering auth, config, Dataverse client, and services
 - **CLI**: ~180 integration tests covering all commands, error handling, and edge cases
@@ -467,7 +467,7 @@ pax8-cta
    └─────────────┘└─────────────┘└─────────────┘
 ```
 
-**How it works:** Copilot Studio agents are stored in Microsoft Dataverse (the database behind Power Platform). AgentSync uses the Dataverse API to export your agent as a "solution" from your development environment, then imports it into each customer's environment using GDAP for cross-tenant authentication.
+**How it works:** Copilot Studio agents are stored in Microsoft Dataverse (the database behind Power Platform). Pax8 CTA uses the Dataverse API to export your agent as a "solution" from your development environment, then imports it into each customer's environment using GDAP for cross-tenant authentication.
 
 ---
 
@@ -502,7 +502,7 @@ pax8-cta
 
 ```mermaid
 sequenceDiagram
-    participant CLI as AgentSync CLI
+    participant CLI as Pax8 CTA CLI
     participant Entra as Entra ID
     participant GDAP as Partner Center
     participant Tenant as Customer Tenant
@@ -546,7 +546,7 @@ sequenceDiagram
 
 ### "Rate limited"
 
-- AgentSync automatically retries with exponential backoff
+- Pax8 CTA automatically retries with exponential backoff
 - For large fleets, use deployment waves to stagger the rollout
 
 ### "Connection reference not found"
@@ -565,7 +565,7 @@ sequenceDiagram
 
 ## Telemetry
 
-AgentSync can collect anonymous usage telemetry to help improve the tool. Telemetry is **disabled by default** and must be explicitly opted into.
+Pax8 CTA can collect anonymous usage telemetry to help improve the tool. Telemetry is **disabled by default** and must be explicitly opted into.
 
 **What's collected (when enabled):** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
 

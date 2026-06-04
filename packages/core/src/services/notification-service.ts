@@ -81,7 +81,7 @@ export class NotificationService {
           title: payload.title,
           text: payload.message,
           title_link: payload.url,
-          footer: "AgentSync",
+          footer: "Pax8 CTA",
           footer_icon: "https://pax8-cta.app/logo.png",
           ts: Math.floor(Date.now() / 1000),
         },
@@ -173,8 +173,8 @@ export class NotificationService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const testPayload: NotificationPayload = {
-        title: "AgentSync Test Notification",
-        message: `This is a test notification from AgentSync. If you see this, your ${channel} integration is working correctly!`,
+        title: "Pax8 CTA Test Notification",
+        message: `This is a test notification from Pax8 CTA. If you see this, your ${channel} integration is working correctly!`,
         color: "info",
       };
 

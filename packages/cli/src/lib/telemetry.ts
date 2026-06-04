@@ -17,7 +17,7 @@
 /**
  * CLI Telemetry Module
  *
- * Collects anonymous usage data to help improve AgentSync CLI.
+ * Collects anonymous usage data to help improve Pax8 CTA CLI.
  *
  * What we track:
  * - Command name (e.g., "deploy", "fleet list")
@@ -438,7 +438,7 @@ export function trackFirstRun(): void {
 export function getFirstRunNotice(): string {
   return `
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  AgentSync CLI can collect anonymous usage data to help improve the tool.  │
+│  Pax8 CTA CLI can collect anonymous usage data to help improve the tool.  │
 │                                                                           │
 │  Telemetry is disabled by default. To opt in:                             │
 │  • Run 'telemetry on'                                                     │

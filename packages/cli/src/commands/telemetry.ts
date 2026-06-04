@@ -39,7 +39,7 @@ telemetryCommand
     enableTelemetry();
     console.log(chalk.green("✓ Telemetry enabled"));
     console.log();
-    console.log(chalk.gray("Thank you for helping improve AgentSync CLI!"));
+    console.log(chalk.gray("Thank you for helping improve Pax8 CTA CLI!"));
     console.log(
       chalk.gray("We collect only anonymous usage data - never any personal or tenant information.")
     );

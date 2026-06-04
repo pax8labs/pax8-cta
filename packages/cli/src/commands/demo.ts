@@ -28,7 +28,7 @@ const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
 // Demo script - sequence of commands to showcase CLI capabilities
 const DEMO_SCRIPT = [
   {
-    comment: "Welcome to AgentSync! Let's explore the CLI.",
+    comment: "Welcome to Pax8 CTA! Let's explore the CLI.",
     delay: 2000,
   },
   {

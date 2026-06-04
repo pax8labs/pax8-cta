@@ -15,7 +15,7 @@
  */
 
 /**
- * Structured error codes for AgentSync.
+ * Structured error codes for Pax8 CTA.
  *
  * These codes are used by the CLI error handler to provide actionable
  * recovery guidance. When adding a new code, also update the CLI
@@ -96,7 +96,7 @@ export interface CtaErrorContext {
 }
 
 /**
- * Base error class for all AgentSync errors.
+ * Base error class for all Pax8 CTA errors.
  *
  * Extends the native Error with a machine-readable `code` field
  * (from the ErrorCode enum) and optional structured context, so the

@@ -137,9 +137,9 @@ jobs:
       - name: Create Release Notes
         run: |
           cat > release_notes.md << 'EOF'
-          # AgentSync CLI ${{ steps.version.outputs.version }}
+          # Pax8 CTA CLI ${{ steps.version.outputs.version }}
 
-          Standalone binary releases for the AgentSync CLI.
+          Standalone binary releases for the Pax8 CTA CLI.
 
           ## Installation
 
@@ -213,7 +213,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: AgentSync CLI ${{ steps.version.outputs.version }}
+          name: Pax8 CTA CLI ${{ steps.version.outputs.version }}
           body_path: release_notes.md
           files: |
             release/pax8-cta-*

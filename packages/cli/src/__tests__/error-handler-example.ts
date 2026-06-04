@@ -25,7 +25,7 @@ import { formatError, printError } from "../lib/error-handler.js";
 import { GdapError, AuthError, SolutionError, NetworkError, ErrorCode } from "@pax8-cta/core";
 
 console.log("=".repeat(80));
-console.log("AgentSync Error Handler Examples");
+console.log("Pax8 CTA Error Handler Examples");
 console.log("=".repeat(80));
 
 // Example 1: Structured GdapError (new code path)

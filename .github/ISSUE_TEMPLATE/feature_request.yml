@@ -1,12 +1,12 @@
 name: Feature request
-description: Suggest a new capability or improvement for the AgentSync CLI
+description: Suggest a new capability or improvement for the Pax8 CTA CLI
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for proposing a feature. AgentSync is built for MSPs running multi-tenant Copilot Studio deployments via GDAP, so context about your environment and workflow really helps us prioritize.
+        Thanks for proposing a feature. Pax8 CTA is built for MSPs running multi-tenant Copilot Studio deployments via GDAP, so context about your environment and workflow really helps us prioritize.
 
   - type: textarea
     id: use-case
@@ -37,7 +37,7 @@ body:
     id: tenant-scale
     attributes:
       label: Tenant scale
-      description: Roughly how many customer tenants do you manage with AgentSync?
+      description: Roughly how many customer tenants do you manage with Pax8 CTA?
       options:
         - 1-10
         - 11-50

@@ -1,4 +1,4 @@
-# AgentSync CLI Manual Test Plan
+# Pax8 CTA CLI Manual Test Plan
 
 **Date:** 2026-03-11
 **Environment:** Power Platform (real credentials)

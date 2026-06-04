@@ -97,7 +97,7 @@ export function createProgram(): Command {
 
   program
     .name("pax8-cta")
-    .description("AgentSync - Deploy and manage Power Platform agents across tenants")
+    .description("Pax8 CTA - Deploy and manage Power Platform agents across tenants")
     .version(VERSION)
     .option("--verbose", "Enable verbose output for debugging")
     .option("--json", "Output as JSON (default when stdout is not a TTY)")

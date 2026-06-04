@@ -1,9 +1,9 @@
 #!/bin/bash
-# Start AgentSync in demo mode for recording
+# Start Pax8 CTA in demo mode for recording
 
 set -e
 
-echo "🎬 Starting AgentSync CLI demo environment..."
+echo "🎬 Starting Pax8 CTA CLI demo environment..."
 echo ""
 
 # Colors for output

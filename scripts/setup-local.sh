@@ -1,12 +1,12 @@
 #!/bin/bash
 # Local development setup without Docker
 #
-# This script sets up AgentSync for local development
+# This script sets up Pax8 CTA for local development
 # without requiring Docker or any background services.
 
 set -e
 
-echo "=== AgentSync - Local Setup ==="
+echo "=== Pax8 CTA - Local Setup ==="
 echo ""
 
 # Detect OS
