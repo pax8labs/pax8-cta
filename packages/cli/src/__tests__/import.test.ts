@@ -24,9 +24,9 @@ import {
   mockProcessExit,
 } from "./test-utils.js";
 
-// Mock @agentsync/core
-vi.mock("@agentsync/core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@agentsync/core")>();
+// Mock @pax8-cta/core
+vi.mock("@pax8-cta/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@pax8-cta/core")>();
 
   return {
     ...actual,
@@ -120,7 +120,7 @@ describe("Import Command", () => {
 
   describe("error handling", () => {
     it("should error when tenant not found in config", async () => {
-      const { loadConfig, findTenant } = await import("@agentsync/core");
+      const { loadConfig, findTenant } = await import("@pax8-cta/core");
 
       vi.mocked(loadConfig).mockResolvedValue({
         version: "2.0",
@@ -175,7 +175,7 @@ describe("Import Command", () => {
 
   describe("configuration", () => {
     it("should use default config path if not specified", async () => {
-      const { loadConfig } = await import("@agentsync/core");
+      const { loadConfig } = await import("@pax8-cta/core");
 
       vi.mocked(loadConfig).mockResolvedValue({
         version: "2.0",
@@ -233,7 +233,7 @@ describe("Import Command", () => {
         TokenManager,
         DataverseClient,
         SolutionOperations,
-      } = await import("@agentsync/core");
+      } = await import("@pax8-cta/core");
 
       // Mock config
       vi.mocked(loadConfig).mockResolvedValue({
@@ -307,7 +307,7 @@ describe("Import Command", () => {
         TokenManager,
         DataverseClient,
         SolutionOperations,
-      } = await import("@agentsync/core");
+      } = await import("@pax8-cta/core");
 
       vi.mocked(loadConfig).mockResolvedValue({
         version: "2.0",

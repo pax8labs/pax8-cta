@@ -24,7 +24,7 @@ import {
   mockSpinner,
   extractJson,
 } from "./test-utils.js";
-import { DEMO_TENANTS } from "@agentsync/core";
+import { DEMO_TENANTS } from "@pax8-cta/core";
 
 // Mock ora to avoid spinner interference with console capture
 vi.mock("ora", () => ({

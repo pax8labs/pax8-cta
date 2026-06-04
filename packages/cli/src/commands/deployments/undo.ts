@@ -16,7 +16,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { type DeploymentJob, demoDeploymentStore, RollbackService } from "@agentsync/core";
+import { type DeploymentJob, demoDeploymentStore, RollbackService } from "@pax8-cta/core";
 import { createSpinner } from "../../lib/spinner.js";
 import { withDemoMode, isDemo } from "../../lib/command-wrapper.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";
@@ -302,7 +302,7 @@ async function demoUndo(id: string, options: UndoOptions): Promise<void> {
 /**
  * Real-mode undo path.
  *
- * Today this is wired to `RollbackService` from `@agentsync/core` but the
+ * Today this is wired to `RollbackService` from `@pax8-cta/core` but the
  * snapshots that `RollbackService.rollback()` consumes are not yet created
  * by `agentsync deploy` (Phase 2 of #418). So the practical end-state for
  * any current real-mode caller is "no snapshots → CliError with recovery

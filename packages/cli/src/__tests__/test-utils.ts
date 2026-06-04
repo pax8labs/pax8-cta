@@ -109,13 +109,13 @@ async function ensureCliBuilt(): Promise<void> {
   if (!cliBuildPromise) {
     cliBuildPromise = new Promise<void>((resolveBuild, rejectBuild) => {
       const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-      // Build core first (CLI imports compiled artifacts from `@agentsync/core`),
+      // Build core first (CLI imports compiled artifacts from `@pax8-cta/core`),
       // then build CLI. Using `-r build` from the workspace root would do both,
       // but we drive them sequentially here so an error in core surfaces clearly.
       const workspaceRoot = resolve(CLI_PACKAGE_ROOT, "../..");
       const proc = spawn(
         pnpmCommand,
-        ["-r", "--filter", "@agentsync/core", "--filter", "@agentsync/cli", "build"],
+        ["-r", "--filter", "@pax8-cta/core", "--filter", "pax8-cta", "build"],
         {
           cwd: workspaceRoot,
           env: process.env,

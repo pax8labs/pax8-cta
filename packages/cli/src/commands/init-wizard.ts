@@ -356,7 +356,7 @@ export async function runInitWizard(options: InitWizardOptions): Promise<void> {
     // Try discovering environments via Global Discovery Service
     if (partnerClientSecret) {
       try {
-        const { TokenManager } = await import("@agentsync/core");
+        const { TokenManager } = await import("@pax8-cta/core");
         const tokenManager = new TokenManager({
           tenantId: partnerTenantId,
           clientId: partnerClientId,

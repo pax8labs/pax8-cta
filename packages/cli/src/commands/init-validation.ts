@@ -34,7 +34,7 @@ export async function showEnvironmentSummary(
 
   try {
     const { TokenManager, DataverseClient, VersionChecker, DriftAnalyzer } =
-      await import("@agentsync/core");
+      await import("@pax8-cta/core");
 
     // Query source environment for solutions
     if (sourceEnvironmentUrl) {
@@ -191,7 +191,7 @@ export async function testCredentialsAndGdap(
   console.log(chalk.cyan("  Testing credentials..."));
 
   try {
-    const { TokenManager } = await import("@agentsync/core");
+    const { TokenManager } = await import("@pax8-cta/core");
     const tokenManager = new TokenManager({
       tenantId: partnerTenantId,
       clientId: partnerClientId,
@@ -205,7 +205,7 @@ export async function testCredentialsAndGdap(
     // Try to discover GDAP relationships
     console.log(chalk.cyan("  Checking GDAP relationships..."));
     try {
-      const { GdapClient } = await import("@agentsync/core");
+      const { GdapClient } = await import("@pax8-cta/core");
       const gdapClient = new GdapClient({
         tenantId: partnerTenantId,
         clientId: partnerClientId,
@@ -275,7 +275,7 @@ export async function testCredentialsAndGdap(
             clientSecret,
           });
 
-          const { DataverseClient } = await import("@agentsync/core");
+          const { DataverseClient } = await import("@pax8-cta/core");
           const client = new DataverseClient({
             environmentUrl: tenant.environmentUrl,
             tokenManager: tenantTokenManager,
@@ -344,7 +344,7 @@ export async function discoverGdapTenantsWithEnvironments(
   console.log(chalk.cyan("  Discovering GDAP customers..."));
 
   try {
-    const { GdapClient, TokenManager, PowerPlatformAdminClient } = await import("@agentsync/core");
+    const { GdapClient, TokenManager, PowerPlatformAdminClient } = await import("@pax8-cta/core");
     const gdapClient = new GdapClient({
       tenantId: partnerTenantId,
       clientId: partnerClientId,

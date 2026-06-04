@@ -19,8 +19,8 @@ import chalk from "chalk";
 import ora, { Ora } from "ora";
 import { interactiveLogin, storeCredentials } from "./auth.js";
 import { GraphClient } from "./graph-client.js";
-import { TenantDiscoveryService, TokenManager, PowerPlatformAdminClient } from "@agentsync/core";
-import type { DiscoveredTenant, EnvironmentSummary } from "@agentsync/core";
+import { TenantDiscoveryService, TokenManager, PowerPlatformAdminClient } from "@pax8-cta/core";
+import type { DiscoveredTenant, EnvironmentSummary } from "@pax8-cta/core";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 

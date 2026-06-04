@@ -43,8 +43,8 @@ main() {
   echo "AgentSync CLI smoke test"
   echo "========================="
 
-  run_check "core build" pnpm --filter @agentsync/core build
-  run_check "cli build" pnpm --filter @agentsync/cli build
+  run_check "core build" pnpm --filter @pax8-cta/core build
+  run_check "cli build" pnpm --filter pax8-cta build
   run_check "cli help" node packages/cli/dist/index.js --help
   run_check "demo tenants list" env DEMO_MODE=true node packages/cli/dist/index.js tenants list
   run_check "demo deployments list" env DEMO_MODE=true node packages/cli/dist/index.js deployments list

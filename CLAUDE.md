@@ -21,13 +21,13 @@ pnpm install && pnpm build
 
 # CLI
 pnpm cli
-pnpm --filter @agentsync/cli build
-pnpm --filter @agentsync/cli dev
+pnpm --filter pax8-cta build
+pnpm --filter pax8-cta dev
 
 # Tests
 pnpm test
-pnpm --filter @agentsync/cli test
-pnpm --filter @agentsync/core test
+pnpm --filter pax8-cta test
+pnpm --filter @pax8-cta/core test
 ```
 
 ## Architecture Notes

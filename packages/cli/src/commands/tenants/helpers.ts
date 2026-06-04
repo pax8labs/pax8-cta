@@ -20,7 +20,7 @@ import {
   DEMO_TENANTS,
   type DemoTenantMetadata,
   type DemoDeployedSolution,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 
 export function findTenant(tenants: TenantConfig[], query: string): TenantConfig | undefined {
   const q = query.toLowerCase();

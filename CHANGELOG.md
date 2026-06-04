@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Structured error codes** — `AgentSyncError` base class with 30+ typed error codes replacing regex-based error matching (#244).
 - **Named constants** — Extracted magic numbers throughout core into named constants for clarity and maintainability (#212).
 - **Logger configureLogging/resetLogging** — Testable Logger singletons with explicit configuration and reset functions (#209).
-- **Business logic extracted to core** — Moved auth-error-parser, environment-setup, and solution-mode-detector from CLI commands into `@agentsync/core` for reuse (#241).
+- **Business logic extracted to core** — Moved auth-error-parser, environment-setup, and solution-mode-detector from CLI commands into `@pax8-cta/core` for reuse (#241).
 - **GDAP scenario simulator** — Generates realistic Graph API test fixtures for GDAP relationship scenarios (#264).
 - **Property-based testing** — fast-check property-based tests for GDAP validation and risk analysis (#266).
 - **Risk-gated drift fix command** — `agents drift --fix` with `--max-risk`, `--force`, and `--dry-run` flags for safe remediation (#258).
@@ -58,5 +58,5 @@ Initial open source release.
 - **App user setup** (`setup`) — Register application users in tenant environments via Dataverse Web API.
 - **Auth management** (`auth store`, `auth status`, `auth remove`) — OS keychain integration for client secrets.
 - **Demo mode** — Full mock data mode for testing without Azure credentials.
-- **Core package** (`@agentsync/core`) — Shared services: Azure AD token management, Dataverse client, GDAP auth, config schema (Zod), health checks, risk analysis, URL templating, audit logging.
+- **Core package** (`@pax8-cta/core`) — Shared services: Azure AD token management, Dataverse client, GDAP auth, config schema (Zod), health checks, risk analysis, URL templating, audit logging.
 - **Standalone binary builds** — Compile to single executables via Bun for macOS (arm64/x64), Linux (x64/arm64), Windows (x64).

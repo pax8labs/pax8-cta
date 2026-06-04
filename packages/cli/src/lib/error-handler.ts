@@ -25,7 +25,7 @@ import {
   NetworkError,
   ErrorCode,
   isAgentSyncError,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 
 const LEGACY_QUEUE_ERROR_MESSAGE =
   "Legacy deployment queue support is unavailable in the open-source CLI";
@@ -66,7 +66,7 @@ export class AgentSyncError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Code-based mapping: structured errors from @agentsync/core
+// Code-based mapping: structured errors from @pax8-cta/core
 // ---------------------------------------------------------------------------
 
 function formatByErrorCode(error: CoreError): AgentSyncError | null {
@@ -560,7 +560,7 @@ function formatByRegex(error: unknown): AgentSyncError {
 /**
  * Maps any error to a structured AgentSyncError with recovery guidance.
  *
- * 1. If the error is a typed AgentSyncError from @agentsync/core, the
+ * 1. If the error is a typed AgentSyncError from @pax8-cta/core, the
  *    error code is used to select the appropriate guidance (no regex).
  * 2. Otherwise, falls back to regex matching on the error message.
  */

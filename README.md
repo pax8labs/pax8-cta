@@ -4,17 +4,17 @@ Multi-tenant Copilot Studio deployment tool for MSPs.
 
 [![CI](https://github.com/pax8labs/agentsync/actions/workflows/ci.yml/badge.svg)](https://github.com/pax8labs/agentsync/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![npm version](https://img.shields.io/npm/v/@agentsync/cli.svg)](https://www.npmjs.com/package/@agentsync/cli)
+[![npm version](https://img.shields.io/npm/v/pax8-cta.svg)](https://www.npmjs.com/package/pax8-cta)
 
 ---
 
 ## Try it in 30 seconds (no install)
 
 ```bash
-npx -y @agentsync/cli demo on && npx -y @agentsync/cli tenants list
+npx -y pax8-cta demo on && npx -y pax8-cta tenants list
 ```
 
-That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y @agentsync/cli --help` shows every command.
+That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y pax8-cta --help` shows every command.
 
 ---
 
@@ -25,7 +25,7 @@ AgentSync exports Power Platform solutions (Copilot Studio agents) from a source
 ## Quick Start
 
 ```bash
-npm install -g @agentsync/cli
+npm install -g pax8-cta
 agentsync init                    # Set up credentials and config
 agentsync validate                # Verify GDAP access to all tenants
 agentsync export --solution "CustomerServiceAgent"
@@ -98,7 +98,7 @@ If required, in each customer's environment:
 ### From npm (recommended)
 
 ```bash
-npm install -g @agentsync/cli
+npm install -g pax8-cta
 ```
 
 ### Standalone Binaries
@@ -403,16 +403,16 @@ AgentSync has comprehensive test coverage:
 pnpm test
 
 # CLI tests only
-pnpm --filter @agentsync/cli test
+pnpm --filter pax8-cta test
 
 # CLI tests with coverage
-pnpm --filter @agentsync/cli test:coverage
+pnpm --filter pax8-cta test:coverage
 
 # Single test file
-pnpm --filter @agentsync/cli test -- --run src/__tests__/deploy.test.ts
+pnpm --filter pax8-cta test -- --run src/__tests__/deploy.test.ts
 
 # Core tests only
-pnpm --filter @agentsync/core test
+pnpm --filter @pax8-cta/core test
 ```
 
 Tests run in demo mode by default (no Azure AD credentials or customer tenants required).

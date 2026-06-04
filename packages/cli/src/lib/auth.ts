@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { deviceCodeLogin } from "@agentsync/core";
-import type { DeviceCodeLoginResult } from "@agentsync/core";
+import { deviceCodeLogin } from "@pax8-cta/core";
+import type { DeviceCodeLoginResult } from "@pax8-cta/core";
 import open from "open";
 import chalk from "chalk";
 import { storeSecret } from "./credentials.js";

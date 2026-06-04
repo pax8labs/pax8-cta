@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import { demoDeploymentStore } from "@agentsync/core";
+import { demoDeploymentStore } from "@pax8-cta/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import {
   getDeploymentById,

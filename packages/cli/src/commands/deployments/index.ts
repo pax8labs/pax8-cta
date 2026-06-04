@@ -39,7 +39,7 @@ Examples:
 
 Note:
   Queue management actions (cancel, retry, watch) are not available in the open-source CLI.
-  Real-mode undo is wired through @agentsync/core's RollbackService; it requires
+  Real-mode undo is wired through @pax8-cta/core's RollbackService; it requires
   pre-deploy snapshots to exist (Phase 2 of #418). Demo mode supports undo end-to-end.
 `
   );

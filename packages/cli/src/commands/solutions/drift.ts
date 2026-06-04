@@ -34,8 +34,8 @@ import {
   getDemoCustomizationSummary,
   type FleetDriftAnalysis,
   type TenantDriftAnalysis,
-} from "@agentsync/core";
-import type { TenantVersionStatus } from "@agentsync/core";
+} from "@pax8-cta/core";
+import type { TenantVersionStatus } from "@pax8-cta/core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";

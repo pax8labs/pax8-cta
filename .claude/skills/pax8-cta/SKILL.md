@@ -15,7 +15,7 @@ The product is in the middle of a rebrand. The two names refer to the same tool:
 | Surface                 | Name                                                               |
 | ----------------------- | ------------------------------------------------------------------ |
 | **CLI binary you type** | `agentsync`                                                        |
-| **npm package**         | `@agentsync/cli`                                                   |
+| **npm package**         | `pax8-cta`                                                         |
 | **Env vars**            | `AGENTSYNC_*` (e.g. `AGENTSYNC_QUIET`, `AGENTSYNC_DEFAULT_FORMAT`) |
 | **Config directory**    | `~/.agentsync/`                                                    |
 | **Repo / project root** | `agentsync`                                                        |

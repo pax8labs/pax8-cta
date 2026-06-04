@@ -26,7 +26,7 @@ import {
   ConfigValidationError,
   NetworkError,
   ErrorCode,
-} from "@agentsync/core";
+} from "@pax8-cta/core";
 
 describe("Error Handler", () => {
   describe("AgentSyncError", () => {

@@ -37,7 +37,7 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { loadConfig } from "@agentsync/core";
+import { loadConfig } from "@pax8-cta/core";
 import { resolveFormat } from "../lib/output.js";
 import { isDemoModeEnabled } from "./demo.js";
 import { probeStoredSecret } from "../lib/credentials.js";

@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
-import { DEMO_TENANTS, type TenantConfig } from "@agentsync/core";
+import { DEMO_TENANTS, type TenantConfig } from "@pax8-cta/core";
 
 const CONFIG_DIR = join(homedir(), ".agentsync");
 const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");

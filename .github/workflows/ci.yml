@@ -31,8 +31,8 @@ jobs:
 
       - name: Lint
         run: |
-          pnpm --filter @agentsync/core lint
-          pnpm --filter @agentsync/cli lint
+          pnpm --filter @pax8-cta/core lint
+          pnpm --filter pax8-cta lint
 
   typecheck:
     name: Type Check
@@ -55,8 +55,8 @@ jobs:
 
       - name: Type check
         run: |
-          pnpm --filter @agentsync/core build
-          pnpm --filter @agentsync/cli build
+          pnpm --filter @pax8-cta/core build
+          pnpm --filter pax8-cta build
 
   test:
     name: Test
@@ -80,9 +80,9 @@ jobs:
 
       - name: Run tests
         run: |
-          pnpm --filter @agentsync/core build
-          pnpm --filter @agentsync/core test
-          pnpm --filter @agentsync/cli test
+          pnpm --filter @pax8-cta/core build
+          pnpm --filter @pax8-cta/core test
+          pnpm --filter pax8-cta test
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
@@ -113,8 +113,8 @@ jobs:
 
       - name: Build packages
         run: |
-          pnpm --filter @agentsync/core build
-          pnpm --filter @agentsync/cli build
+          pnpm --filter @pax8-cta/core build
+          pnpm --filter pax8-cta build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -146,16 +146,16 @@ jobs:
 
       - name: Build packages
         run: |
-          pnpm --filter @agentsync/core build
-          pnpm --filter @agentsync/cli build
+          pnpm --filter @pax8-cta/core build
+          pnpm --filter pax8-cta build
 
       - name: Run CLI tests
-        run: pnpm --filter @agentsync/cli test
+        run: pnpm --filter pax8-cta test
         env:
           DEMO_MODE: 'true'
 
       - name: Run core tests
-        run: pnpm --filter @agentsync/core test -- --run --testPathIgnorePatterns=gdap-e2e
+        run: pnpm --filter @pax8-cta/core test -- --run --testPathIgnorePatterns=gdap-e2e
         continue-on-error: true
 
   test-windows-binary:
@@ -184,7 +184,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Core
-        run: pnpm --filter @agentsync/core build
+        run: pnpm --filter @pax8-cta/core build
 
       - name: Build Windows binary
         run: |

@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { TenantDriftAnalysis } from "@agentsync/core";
+import type { TenantDriftAnalysis } from "@pax8-cta/core";
 import { buildAfterActionHint } from "../commands/solutions/drift-analysis.js";
 
 function makeTenant(
