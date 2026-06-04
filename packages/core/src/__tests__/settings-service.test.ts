@@ -56,8 +56,8 @@ describe("SettingsService encryption", () => {
 
     await service.updateIntegrationSettings({ partnerClientSecret: "top-secret" }, "test-user");
 
-    const settingsPath = join(settingsDir, ".agentsync-settings.json");
-    const keyPath = join(settingsDir, ".agentsync-encryption-key");
+    const settingsPath = join(settingsDir, ".pax8-cta-settings.json");
+    const keyPath = join(settingsDir, ".pax8-cta-encryption-key");
     const raw = JSON.parse(readFileSync(settingsPath, "utf-8")) as {
       integration: { partnerClientSecret: string };
     };
@@ -79,7 +79,7 @@ describe("SettingsService encryption", () => {
 
     await service.updateAppSettings({ slackWebhookUrl: webhookUrl });
 
-    const settingsPath = join(settingsDir, ".agentsync-settings.json");
+    const settingsPath = join(settingsDir, ".pax8-cta-settings.json");
     const raw = JSON.parse(readFileSync(settingsPath, "utf-8")) as {
       app: { slackWebhookUrl: string };
     };

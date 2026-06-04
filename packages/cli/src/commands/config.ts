@@ -218,7 +218,7 @@ async function probeTenantsConfig(configPath: string): Promise<TenantsSection> {
 
 function probePaths(configPath: string): PathsSection {
   return {
-    cliConfig: join(homedir(), ".agentsync", "cli-config.json"),
+    cliConfig: join(homedir(), ".pax8-cta", "cli-config.json"),
     telemetryConfig: getTelemetryConfigPath(),
     projectConfig: resolve(process.cwd(), configPath),
   };
@@ -307,7 +307,7 @@ function renderHumanReadable(report: ConfigReport): void {
   );
   console.log(
     `    PAX8_CTA_CLIENT_SECRET (env):  ${
-      report.credentials.agentsyncClientSecretEnv === "set"
+      report.credentials.pax8 - ctaClientSecretEnv === "set"
         ? chalk.green("set")
         : chalk.gray("not set")
     }`

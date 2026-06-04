@@ -88,7 +88,7 @@ body:
     id: config
     attributes:
       label: Config snippet
-      description: Relevant excerpt from `config/tenants.yaml` or `~/.agentsync/cli-config.json`. **Redact client secrets, tenant IDs, and customer names.**
+      description: Relevant excerpt from `config/tenants.yaml` or `~/.pax8-cta/cli-config.json`. **Redact client secrets, tenant IDs, and customer names.**
       render: yaml
     validations:
       required: false

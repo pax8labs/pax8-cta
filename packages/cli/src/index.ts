@@ -20,7 +20,7 @@
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "error";
 
 // Load .env file from CWD (if it exists) so commands can find PARTNER_CLIENT_SECRET etc.
-// Skip keys the CLI manages independently (demo mode via ~/.agentsync/cli-config.json,
+// Skip keys the CLI manages independently (demo mode via ~/.pax8-cta/cli-config.json,
 // log level set above, and web-app-only keys).
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";

@@ -62,9 +62,9 @@ describe("Export Command (Real Mode - Config File)", () => {
   beforeAll(() => {
     mkdirSync(join(TEST_DIR, "config"), { recursive: true });
     writeFileSync(CONFIG_PATH, TEST_CONFIG);
-    mkdirSync(join(TEST_DIR, ".agentsync"), { recursive: true });
+    mkdirSync(join(TEST_DIR, ".pax8-cta"), { recursive: true });
     writeFileSync(
-      join(TEST_DIR, ".agentsync", "cli-config.json"),
+      join(TEST_DIR, ".pax8-cta", "cli-config.json"),
       JSON.stringify({ demoMode: false })
     );
   });

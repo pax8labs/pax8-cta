@@ -94,10 +94,10 @@ describe("Deploy Command (Real Mode - Config File)", () => {
     // Create test directory and config
     mkdirSync(join(TEST_DIR, "config"), { recursive: true });
     writeFileSync(CONFIG_PATH, TEST_CONFIG);
-    // Create empty .agentsync config to disable demo mode
-    mkdirSync(join(TEST_DIR, ".agentsync"), { recursive: true });
+    // Create empty .pax8-cta config to disable demo mode
+    mkdirSync(join(TEST_DIR, ".pax8-cta"), { recursive: true });
     writeFileSync(
-      join(TEST_DIR, ".agentsync", "cli-config.json"),
+      join(TEST_DIR, ".pax8-cta", "cli-config.json"),
       JSON.stringify({ demoMode: false })
     );
   });

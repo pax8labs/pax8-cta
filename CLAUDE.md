@@ -34,7 +34,7 @@ pnpm --filter @pax8-cta/core test
 
 - Auth flow: Partner Azure AD app -> GDAP delegation -> Dataverse API calls in customer tenants.
 - Data flow: export solution ZIP from source -> deploy/import to target tenants.
-- CLI loads `.env` with selective key filtering and supports `~/.agentsync/cli-config.json`.
+- CLI loads `.env` with selective key filtering and supports `~/.pax8-cta/cli-config.json`.
 - Demo mode: `DEMO_MODE=true` uses mock data and bypasses Azure auth.
 
 ## Conventions
@@ -51,5 +51,5 @@ pnpm --filter @pax8-cta/core test
 ## Key Config Files
 
 - `config/tenants.yaml`
-- `~/.agentsync/cli-config.json`
+- `~/.pax8-cta/cli-config.json`
 - `.env` / `.env.example`

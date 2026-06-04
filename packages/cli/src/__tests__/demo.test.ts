@@ -33,7 +33,7 @@ vi.mock("node:os", () => ({
 }));
 
 const TEST_HOME = "/tmp/test-home";
-const CONFIG_DIR = join(TEST_HOME, ".agentsync");
+const CONFIG_DIR = join(TEST_HOME, ".pax8-cta");
 const CONFIG_FILE = join(CONFIG_DIR, "cli-config.json");
 
 describe("Demo Command", () => {

@@ -17,7 +17,7 @@ The product is in the middle of a rebrand. The two names refer to the same tool:
 | **CLI binary you type** | `agentsync`                                                     |
 | **npm package**         | `pax8-cta`                                                      |
 | **Env vars**            | `PAX8_CTA_*` (e.g. `PAX8_CTA_QUIET`, `PAX8_CTA_DEFAULT_FORMAT`) |
-| **Config directory**    | `~/.agentsync/`                                                 |
+| **Config directory**    | `~/.pax8-cta/`                                                  |
 | **Repo / project root** | `agentsync`                                                     |
 | **REPL prompt**         | `pax8-cta>`                                                     |
 | **Demo banner**         | "Pax8 CTA CLI"                                                  |
@@ -184,7 +184,7 @@ When in doubt, prefer asking once over a stuck deployment. The cost of a redunda
 - **Solution argument** is either a name (looked up in source env and exported on the fly) or a path to a `.zip`. Prefer the name unless the user has a pre-built zip.
 - **Tenant argument** accepts either the friendly name from `config/tenants.yaml` or the tenant GUID.
 - **Default targeting** for `deploy` is `--all`. Always check whether the user meant the full fleet or a slice — confirm before running unscoped deploys against >5 tenants.
-- **Demo mode is sticky** (`~/.agentsync/cli-config.json`). The per-command `⚠️ DEMO MODE` banner is the signal that what you just ran was mock data — don't claim real changes happened.
+- **Demo mode is sticky** (`~/.pax8-cta/cli-config.json`). The per-command `⚠️ DEMO MODE` banner is the signal that what you just ran was mock data — don't claim real changes happened.
 - **`--dry-run` before `deploy`** is the safe default for any deployment >1 tenant. Pair with `--json` if the user wants to script approval.
 - **Config lives at `./config/tenants.yaml`** by default. Override with `-c <path>` per command.
 - **`agentsync init` writes a `config/tenants.yaml`** with example tenants and inline comments showing the schema — point users there rather than dictating the format from memory.
