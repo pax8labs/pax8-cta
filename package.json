@@ -1,9 +1,9 @@
 {
-  "name": "agentsync",
+  "name": "pax8-cta-monorepo",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "private": true,
-  "description": "Sync your Copilot Studio agents to all your tenants",
+  "description": "Pax8 Cross-Tenant Agents (CTA) — multi-tenant Copilot Studio deployments via GDAP",
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
@@ -12,9 +12,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @agentsync/core build && pnpm -r test",
-    "test:coverage": "pnpm --filter @agentsync/core build && pnpm -r test -- --coverage",
-    "cli": "pnpm --filter @agentsync/cli start",
+    "test": "pnpm --filter @pax8-cta/core build && pnpm -r test",
+    "test:coverage": "pnpm --filter @pax8-cta/core build && pnpm -r test -- --coverage",
+    "cli": "pnpm --filter pax8-cta start",
     "db:migrate": "echo 'Run: psql $DATABASE_URL < packages/core/src/db/schema.sql'",
     "clean": "pnpm -r exec node -e \"var fs=require('fs');['dist','.next','node_modules/.cache'].forEach(function(d){fs.rmSync(d,{recursive:true,force:true})})\"",
     "prepare": "husky || true"
