@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-06-05
+
+### Fixed
+
+- **Replaced abandoned `keytar` with `@napi-rs/keyring`** (#436). The `keytar` package was archived upstream in 2024 and its `prebuild-install` dependency was the source of the `npm warn deprecated` on every install. `@napi-rs/keyring` is the actively maintained equivalent with the same OS keychain support (macOS / Windows / Linux). The on-disk credential format is unchanged — service name `"pax8-cta-cli"` is preserved verbatim — so anyone who ran `auth login` on a prior version will keep their stored secret without re-entering it.
+- **`pax8-cta status` (no args)** (#434) now shows a clean missing-required-argument error pointing to `deployments list`, instead of the misleading legacy `'status --list' is not available in the open-source CLI` message.
+- **`pax8-cta tenants inspect <name>`** (#435) now actually filters to that tenant rather than ignoring the positional and running fleet-wide. Reuses the same `findTenantMatches` helper as `solutions remove -t`, so substring matching, exact-match disambiguation, and "did you mean" hints behave consistently across the CLI. Inactive tenants (e.g. demo `Crown Auto Group`) are now reachable by name from `inspect`, where the fleet-wide path would have hidden them.
+
+### Known issue
+
+- **`uuid@8.3.2` deprecation warning persists on `npm install`.** Comes transitively from `@azure/msal-node@5.1.2` (Microsoft's official auth SDK). Our `pnpm.overrides` forces `uuid@11` during local development, but npm does not honor a dependency's `pnpm.overrides` at consumer install time. Until Microsoft bumps the pin in `@azure/msal-node`, the warning will appear on `npm install @pax8/cta`. It's informational — installs and auth still work.
+
 ## [0.1.4] - 2026-06-05
 
 ### Changed

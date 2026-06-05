@@ -1,6 +1,6 @@
 {
   "name": "@pax8/cta",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Pax8 Cross-Tenant Agents (CTA) — deploy Copilot Studio agents across a customer fleet via GDAP",
   "license": "Apache-2.0",
   "author": "Pax8, Inc.",
