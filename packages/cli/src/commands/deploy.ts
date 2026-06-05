@@ -50,7 +50,7 @@ import {
   environmentSetupService,
   detectSolutionMode,
   getDemoTenantMetadata,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { isDemo, withResolvedDestinations, type LoadedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError, handleCommandError } from "../lib/errors.js";

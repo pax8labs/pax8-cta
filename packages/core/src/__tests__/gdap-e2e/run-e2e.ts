@@ -5,7 +5,7 @@
  * A convenience script that validates environment variables are present
  * before launching the E2E test suite. Can be run directly or via:
  *
- *   pnpm --filter @pax8-cta/core test -- --run src/__tests__/gdap-e2e/
+ *   pnpm --filter @pax8/cta-core test -- --run src/__tests__/gdap-e2e/
  *
  * Usage:
  *   npx tsx packages/core/src/__tests__/gdap-e2e/run-e2e.ts

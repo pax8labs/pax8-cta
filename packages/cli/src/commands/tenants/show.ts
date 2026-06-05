@@ -22,7 +22,7 @@ import {
   DEMO_SOLUTIONS,
   generateMockHealthCheck,
   TenantConfig,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findTenant, getDeployedAgentsForTenant } from "./helpers.js";

@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner } from "../../lib/spinner.js";
-import { DEMO_SOLUTIONS } from "@pax8-cta/core";
+import { DEMO_SOLUTIONS } from "@pax8/cta-core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { formatTimeAgo } from "../../lib/formatters.js";
 import { findSolution, getTenantDeploymentStatus } from "./helpers.js";

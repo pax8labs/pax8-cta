@@ -24,7 +24,7 @@ import {
   DataverseClient,
   SolutionOperations,
   DEMO_SOLUTIONS,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";

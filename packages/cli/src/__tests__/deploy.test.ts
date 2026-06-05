@@ -24,7 +24,7 @@ import {
   mockSpinner,
   mockProcessExit,
 } from "./test-utils.js";
-import { DEMO_TENANTS } from "@pax8-cta/core";
+import { DEMO_TENANTS } from "@pax8/cta-core";
 
 // Mock ora
 vi.mock("ora", () => ({

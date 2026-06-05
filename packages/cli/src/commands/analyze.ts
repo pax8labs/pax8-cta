@@ -30,7 +30,7 @@ import {
   type TenantConfig,
   type PreconditionFailure,
   type Remediation,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import open from "open";
 import { withResolvedDestinations } from "../lib/command-wrapper.js";
 import { CliError, handleCommandError } from "../lib/errors.js";

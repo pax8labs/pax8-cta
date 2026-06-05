@@ -46,5 +46,5 @@ export * from "./mock/demo-deployment-store.js";
 export * from "./preconditions/index.js";
 
 // Test utilities are available at:
-// import { createMockTokenManager, ... } from '@pax8-cta/core/dist/__tests__/test-utils.js'
+// import { createMockTokenManager, ... } from '@pax8/cta-core/dist/__tests__/test-utils.js'
 // Do NOT export them from main index to avoid vitest being bundled in production

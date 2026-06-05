@@ -20,7 +20,7 @@ import {
   isDemoMode as isDemoModeCore,
   loadConfig,
   type TenantConfig,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { getDemoTenants, isDemoModeEnabled } from "../commands/demo.js";
 
 /**

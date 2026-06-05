@@ -26,7 +26,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runCli, containsText, extractJson, stripAnsi } from "./test-utils.js";
-import type { TenantConfig } from "@pax8-cta/core";
+import type { TenantConfig } from "@pax8/cta-core";
 
 // Create a temporary directory with a test config
 const TEST_DIR = join(tmpdir(), `pax8-cta-test-${Date.now()}`);

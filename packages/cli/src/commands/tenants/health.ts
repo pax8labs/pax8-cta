@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../../lib/spinner.js";
-import { DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@pax8-cta/core";
+import { DEMO_TENANTS, generateMockHealthCheck, TenantConfig } from "@pax8/cta-core";
 import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";

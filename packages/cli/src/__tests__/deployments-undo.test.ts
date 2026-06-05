@@ -18,7 +18,7 @@
  * Subprocess integration tests for `deployments undo` (issue #418).
  *
  * Demo-mode end-to-end checks. Real-mode rollback paths are out of scope —
- * `RollbackService` has its own unit tests in @pax8-cta/core, and the
+ * `RollbackService` has its own unit tests in @pax8/cta-core, and the
  * per-tenant Dataverse plumbing is Phase 2.
  *
  * Demo-store determinism: each `runCli` spawns a fresh subprocess, so the

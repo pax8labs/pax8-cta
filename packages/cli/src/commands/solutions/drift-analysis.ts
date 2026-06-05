@@ -26,9 +26,9 @@ import type {
   TenantVersionStatus,
   VersionChecker,
   VersionDriftSummary,
-} from "@pax8-cta/core";
-import { DEMO_TENANTS } from "@pax8-cta/core";
-import type { UnmanagedCustomizationResult } from "@pax8-cta/core";
+} from "@pax8/cta-core";
+import { DEMO_TENANTS } from "@pax8/cta-core";
+import type { UnmanagedCustomizationResult } from "@pax8/cta-core";
 import { formatRecommendation, formatRiskLevel } from "./risk-calculator.js";
 
 /**

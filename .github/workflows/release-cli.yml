@@ -57,7 +57,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Core
-        run: pnpm --filter @pax8-cta/core build
+        run: pnpm --filter @pax8/cta-core build
 
       - name: Build binary (Unix)
         if: runner.os != 'Windows'

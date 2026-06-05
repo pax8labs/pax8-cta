@@ -12,9 +12,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @pax8-cta/core build && pnpm -r test",
-    "test:coverage": "pnpm --filter @pax8-cta/core build && pnpm -r test -- --coverage",
-    "cli": "pnpm --filter pax8-cta start",
+    "test": "pnpm --filter @pax8/cta-core build && pnpm -r test",
+    "test:coverage": "pnpm --filter @pax8/cta-core build && pnpm -r test -- --coverage",
+    "cli": "pnpm --filter @pax8/cta start",
     "db:migrate": "echo 'Run: psql $DATABASE_URL < packages/core/src/db/schema.sql'",
     "clean": "pnpm -r exec node -e \"var fs=require('fs');['dist','.next','node_modules/.cache'].forEach(function(d){fs.rmSync(d,{recursive:true,force:true})})\"",
     "prepare": "husky || true"

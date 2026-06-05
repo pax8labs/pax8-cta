@@ -5,10 +5,10 @@ Sync your Copilot Studio agents to all your tenants from the command line.
 ## Try it in 30 seconds (no install)
 
 ```bash
-npx -y pax8-cta demo on && npx -y pax8-cta tenants list
+npx -y -p @pax8/cta pax8-cta demo on && npx -y -p @pax8/cta pax8-cta tenants list
 ```
 
-Mock-data mode, no credentials, no Azure setup. Then run `npx -y pax8-cta --help` to explore every command.
+Mock-data mode, no credentials, no Azure setup. Then run `npx -y -p @pax8/cta pax8-cta --help` to explore every command.
 
 ## Quick Start
 
@@ -110,10 +110,10 @@ If you have Node.js installed:
 
 ```bash
 # Global install
-npm install -g pax8-cta
+npm install -g @pax8/cta
 
 # Or run with npx (no install needed)
-npx pax8-cta --help
+npx -p @pax8/cta pax8-cta --help
 ```
 
 ### Verify Installation

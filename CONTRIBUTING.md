@@ -46,13 +46,13 @@ pnpm install
 pnpm build
 
 # Run CLI tests (uses DEMO_MODE, no Azure AD credentials needed)
-pnpm --filter pax8-cta test
+pnpm --filter @pax8/cta test
 
 # Run a single test file
-pnpm --filter pax8-cta test -- --run src/__tests__/init.test.ts
+pnpm --filter @pax8/cta test -- --run src/__tests__/init.test.ts
 
 # Run with coverage
-pnpm --filter pax8-cta test:coverage
+pnpm --filter @pax8/cta test:coverage
 
 # Type-check and lint
 pnpm typecheck

@@ -19,7 +19,7 @@ import {
   DEMO_TENANTS,
   type DemoTenantMetadata,
   type DemoDeployedSolution,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 
 // Solution type from DEMO_SOLUTIONS
 export type Solution = (typeof DEMO_SOLUTIONS)[number];

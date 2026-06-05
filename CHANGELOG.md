@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-06-05
+
+### Changed
+
+- **npm packages renamed to live under the `@pax8` org.** **Breaking change to install commands.** Pax8 publishes multiple OSS products under `@pax8/*` (e.g. `@pax8/cli` for the marketplace); CTA now joins them:
+  - `pax8-cta` → `@pax8/cta`
+  - `@pax8-cta/core` → `@pax8/cta-core`
+
+  The CLI binary name stays `pax8-cta` — only the npm package name changes. Update your install command:
+
+  ```bash
+  # Before
+  npm install -g pax8-cta
+
+  # After
+  npm install -g @pax8/cta
+  ```
+
+  The previous package names (`pax8-cta@0.1.0–0.1.3`, `@pax8-cta/core@0.1.0–0.1.3`) have been unpublished. No production users existed yet, so there's no transition window — all docs, install scripts, and the GitHub repo now reference the new names.
+
 ## [0.1.3] - 2026-06-05
 
 ### Fixed
@@ -24,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`@pax8-cta/core` README** — v0.1.0 of `@pax8-cta/core` shipped without a package-level README, so the npm page rendered empty. v0.1.1 adds it.
+- **`@pax8/cta-core` README** — v0.1.0 of `@pax8/cta-core` shipped without a package-level README, so the npm page rendered empty. v0.1.1 adds it.
 
 ### Fixed
 
@@ -38,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Rebrand from AgentSync to Pax8 Cross-Tenant Agents (Pax8 CTA)** for OSS launch. **Breaking change.** Affects every public surface — CLI binary (`agentsync` → `pax8-cta`), npm packages (`@agentsync/cli` → `pax8-cta`, `@agentsync/core` → `@pax8-cta/core`), config dir (`~/.agentsync/` → `~/.pax8-cta/`), env vars (`AGENTSYNC_*` → `PAX8_CTA_*`), and the exported error class (`AgentSyncError` → `CtaError`). No backward-compatibility aliases. The Azure-side resources used by the reference setup (Dataverse env `AgentSync-Test2`, security role `AgentSync Deployment Access`, app registration `AgentSync Deployment Tool`) still need to be renamed by an admin in Azure/Power Platform separately — docs reference the new target names (`Pax8CTA-Test2`, `Pax8 CTA Deployment Access`, `Pax8 CTA Deployment Tool`).
+- **Rebrand from AgentSync to Pax8 Cross-Tenant Agents (Pax8 CTA)** for OSS launch. **Breaking change.** Affects every public surface — CLI binary (`agentsync` → `pax8-cta`), npm packages (`@agentsync/cli` → `pax8-cta`, `@agentsync/core` → `@pax8/cta-core`), config dir (`~/.agentsync/` → `~/.pax8-cta/`), env vars (`AGENTSYNC_*` → `PAX8_CTA_*`), and the exported error class (`AgentSyncError` → `CtaError`). No backward-compatibility aliases. The Azure-side resources used by the reference setup (Dataverse env `AgentSync-Test2`, security role `AgentSync Deployment Access`, app registration `AgentSync Deployment Tool`) still need to be renamed by an admin in Azure/Power Platform separately — docs reference the new target names (`Pax8CTA-Test2`, `Pax8 CTA Deployment Access`, `Pax8 CTA Deployment Tool`).
 
 ### Added
 
@@ -48,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Structured error codes** — `CtaError` base class with 30+ typed error codes replacing regex-based error matching (#244).
 - **Named constants** — Extracted magic numbers throughout core into named constants for clarity and maintainability (#212).
 - **Logger configureLogging/resetLogging** — Testable Logger singletons with explicit configuration and reset functions (#209).
-- **Business logic extracted to core** — Moved auth-error-parser, environment-setup, and solution-mode-detector from CLI commands into `@pax8-cta/core` for reuse (#241).
+- **Business logic extracted to core** — Moved auth-error-parser, environment-setup, and solution-mode-detector from CLI commands into `@pax8/cta-core` for reuse (#241).
 - **GDAP scenario simulator** — Generates realistic Graph API test fixtures for GDAP relationship scenarios (#264).
 - **Property-based testing** — fast-check property-based tests for GDAP validation and risk analysis (#266).
 - **Risk-gated drift fix command** — `agents drift --fix` with `--max-risk`, `--force`, and `--dry-run` flags for safe remediation (#258).
@@ -91,5 +111,5 @@ Initial open source release.
 - **App user setup** (`setup`) — Register application users in tenant environments via Dataverse Web API.
 - **Auth management** (`auth store`, `auth status`, `auth remove`) — OS keychain integration for client secrets.
 - **Demo mode** — Full mock data mode for testing without Azure credentials.
-- **Core package** (`@pax8-cta/core`) — Shared services: Azure AD token management, Dataverse client, GDAP auth, config schema (Zod), health checks, risk analysis, URL templating, audit logging.
+- **Core package** (`@pax8/cta-core`) — Shared services: Azure AD token management, Dataverse client, GDAP auth, config schema (Zod), health checks, risk analysis, URL templating, audit logging.
 - **Standalone binary builds** — Compile to single executables via Bun for macOS (arm64/x64), Linux (x64/arm64), Windows (x64).

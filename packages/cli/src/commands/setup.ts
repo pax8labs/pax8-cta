@@ -26,7 +26,7 @@ import {
   DataverseClient,
   environmentSetupService,
   type SetupStatus,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { UsageError, CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";

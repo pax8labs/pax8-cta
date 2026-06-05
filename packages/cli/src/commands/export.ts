@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { copyFileSync, mkdirSync, existsSync } from "node:fs";
 import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../lib/spinner.js";
-import { TokenManager, DataverseClient, SolutionOperations } from "@pax8-cta/core";
+import { TokenManager, DataverseClient, SolutionOperations } from "@pax8/cta-core";
 import { withResolvedConfig } from "../lib/command-wrapper.js";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";

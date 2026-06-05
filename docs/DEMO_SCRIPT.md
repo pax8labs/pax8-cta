@@ -238,7 +238,7 @@ pnpm cli config
 ```
 
 > "Demo mode is a one-line toggle. The whole thing is open source —
-> `npm install -g pax8-cta`, run `pax8-cta demo on`, and every
+> `npm install -g @pax8/cta`, run `pax8-cta demo on`, and every
 > command I just showed works on your laptop tonight against the same
 > mock fleet. When you're ready, `pax8-cta init`, point it at your
 > real GDAP tenants, and the only thing that changes is the data."

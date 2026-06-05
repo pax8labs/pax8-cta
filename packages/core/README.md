@@ -1,4 +1,4 @@
-# @pax8-cta/core
+# @pax8/cta-core
 
 Core logic for [Pax8 Cross-Tenant Agents (Pax8 CTA)](https://github.com/pax8labs/pax8-cta) — the multi-tenant Copilot Studio deployment toolkit for MSPs.
 
@@ -9,10 +9,10 @@ This package contains the shared building blocks used by the [`pax8-cta`](https:
 If you're a CLI user, **install [`pax8-cta`](https://www.npmjs.com/package/pax8-cta) instead** — it depends on this package and bundles the command surface you actually want:
 
 ```bash
-npm install -g pax8-cta
+npm install -g @pax8/cta
 ```
 
-Install `@pax8-cta/core` directly only if you're:
+Install `@pax8/cta-core` directly only if you're:
 
 - Embedding deployment logic into your own tooling (custom dashboards, scheduled jobs, internal automation)
 - Building an alternative front-end (web UI, MCP server, Slack bot) on top of the same primitives
@@ -21,7 +21,7 @@ Install `@pax8-cta/core` directly only if you're:
 ## Installation
 
 ```bash
-npm install @pax8-cta/core
+npm install @pax8/cta-core
 ```
 
 Requires Node `>=20.12.0`.
@@ -29,7 +29,7 @@ Requires Node `>=20.12.0`.
 ## Usage
 
 ```ts
-import { Client } from "@pax8-cta/core";
+import { Client } from "@pax8/cta-core";
 
 const client = new Client({
   partnerTenantId: process.env.PARTNER_TENANT_ID!,

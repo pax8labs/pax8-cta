@@ -1,6 +1,6 @@
 {
-  "name": "@pax8-cta/core",
-  "version": "0.1.3",
+  "name": "@pax8/cta-core",
+  "version": "0.1.4",
   "license": "Apache-2.0",
   "author": "Pax8, Inc.",
   "homepage": "https://github.com/pax8labs/pax8-cta",

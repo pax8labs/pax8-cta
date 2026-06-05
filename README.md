@@ -11,10 +11,10 @@ Multi-tenant Copilot Studio deployment tool for MSPs. Short name: **Pax8 CTA**.
 ## Try it in 30 seconds (no install)
 
 ```bash
-npx -y pax8-cta demo on && npx -y pax8-cta tenants list
+npx -y -p @pax8/cta pax8-cta demo on && npx -y -p @pax8/cta pax8-cta tenants list
 ```
 
-That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y pax8-cta --help` shows every command.
+That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y -p @pax8/cta pax8-cta --help` shows every command.
 
 ---
 
@@ -25,7 +25,7 @@ Pax8 CTA exports Power Platform solutions (Copilot Studio agents) from a source 
 ## Quick Start
 
 ```bash
-npm install -g pax8-cta
+npm install -g @pax8/cta
 pax8-cta init                    # Set up credentials and config
 pax8-cta validate                # Verify GDAP access to all tenants
 pax8-cta export --solution "CustomerServiceAgent"
@@ -98,7 +98,7 @@ If required, in each customer's environment:
 ### From npm (recommended)
 
 ```bash
-npm install -g pax8-cta
+npm install -g @pax8/cta
 ```
 
 ### Standalone Binaries
@@ -403,16 +403,16 @@ Pax8 CTA has comprehensive test coverage:
 pnpm test
 
 # CLI tests only
-pnpm --filter pax8-cta test
+pnpm --filter @pax8/cta test
 
 # CLI tests with coverage
-pnpm --filter pax8-cta test:coverage
+pnpm --filter @pax8/cta test:coverage
 
 # Single test file
-pnpm --filter pax8-cta test -- --run src/__tests__/deploy.test.ts
+pnpm --filter @pax8/cta test -- --run src/__tests__/deploy.test.ts
 
 # Core tests only
-pnpm --filter @pax8-cta/core test
+pnpm --filter @pax8/cta-core test
 ```
 
 Tests run in demo mode by default (no Azure AD credentials or customer tenants required).

@@ -25,7 +25,7 @@ import {
   TokenManager,
   DataverseClient,
   SolutionOperations,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError, handleCommandError } from "../lib/errors.js";
 

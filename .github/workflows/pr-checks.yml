@@ -33,27 +33,27 @@ jobs:
 
       - name: Run linter
         run: |
-          pnpm --filter @pax8-cta/core lint
-          pnpm --filter pax8-cta lint
+          pnpm --filter @pax8/cta-core lint
+          pnpm --filter @pax8/cta lint
           echo "Linting complete for core + cli"
         continue-on-error: true
 
       - name: Type check
         run: |
-          pnpm --filter @pax8-cta/core build
-          pnpm --filter pax8-cta build
+          pnpm --filter @pax8/cta-core build
+          pnpm --filter @pax8/cta build
 
       - name: Run tests
         run: |
-          pnpm --filter @pax8-cta/core test
-          pnpm --filter pax8-cta test
+          pnpm --filter @pax8/cta-core test
+          pnpm --filter @pax8/cta test
         env:
           CI: true
 
       - name: Build
         run: |
-          pnpm --filter @pax8-cta/core build
-          pnpm --filter pax8-cta build
+          pnpm --filter @pax8/cta-core build
+          pnpm --filter @pax8/cta build
         env:
           DEMO_MODE: true
 

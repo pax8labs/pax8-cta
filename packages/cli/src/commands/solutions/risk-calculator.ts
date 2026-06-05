@@ -15,7 +15,7 @@
  */
 
 import chalk from "chalk";
-import type { DriftRecommendation, TenantVersionStatus } from "@pax8-cta/core";
+import type { DriftRecommendation, TenantVersionStatus } from "@pax8/cta-core";
 
 /** Risk level for a tenant based on its drift state */
 export type DriftRiskLevel = "low" | "medium" | "high";

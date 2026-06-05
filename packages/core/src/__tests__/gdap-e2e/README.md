@@ -125,7 +125,7 @@ For CI, store these as GitHub Actions secrets and reference them in the workflow
 
 ```bash
 # Run GDAP E2E tests only
-pnpm --filter @pax8-cta/core test -- --run src/__tests__/gdap-e2e/
+pnpm --filter @pax8/cta-core test -- --run src/__tests__/gdap-e2e/
 
 # These tests are excluded from the default test suite. They only run when
 # the required GDAP_* environment variables are present.

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { TenantVersionStatus } from "@pax8-cta/core";
+import type { TenantVersionStatus } from "@pax8/cta-core";
 import { calculateDriftRisk, type DriftRiskLevel } from "./risk-calculator.js";
 
 /** A tenant's drift fix plan entry */

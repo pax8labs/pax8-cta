@@ -24,7 +24,7 @@ import {
   mockSpinner,
   extractJson,
 } from "./test-utils.js";
-import { DEMO_SOLUTIONS } from "@pax8-cta/core";
+import { DEMO_SOLUTIONS } from "@pax8/cta-core";
 
 // Mock ora to avoid spinner interference with console capture
 vi.mock("ora", () => ({
@@ -787,7 +787,7 @@ describe("Agents Command", () => {
   describe("drift risk calculation", () => {
     it("should calculate risk levels correctly", async () => {
       const { buildDriftFixPlan } = await import("../commands/solutions/drift.js");
-      const { getDemoTenantVersionStatus, DEMO_TENANTS } = await import("@pax8-cta/core");
+      const { getDemoTenantVersionStatus, DEMO_TENANTS } = await import("@pax8/cta-core");
 
       const enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);
       const tenantStatuses = enabledTenants.map((tenant) => ({

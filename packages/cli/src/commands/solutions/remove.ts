@@ -25,7 +25,7 @@ import {
   DataverseClient,
   SolutionOperations,
   type TenantConfig,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { question } from "../../lib/input.js";
 import { handleCommandError } from "../../lib/errors.js";

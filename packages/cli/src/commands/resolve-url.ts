@@ -25,7 +25,7 @@ import {
   DataverseClient,
   SolutionOperations,
   AgentResolver,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { handleCommandError } from "../lib/errors.js";
 

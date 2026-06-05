@@ -17,7 +17,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner, isQuietMode, type Spinner } from "../../lib/spinner.js";
-import { GdapClient, type TenantConfig } from "@pax8-cta/core";
+import { GdapClient, type TenantConfig } from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { withResolvedDestinations } from "../../lib/command-wrapper.js";

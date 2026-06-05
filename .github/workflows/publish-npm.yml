@@ -40,10 +40,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Core
-        run: pnpm --filter @pax8-cta/core build
+        run: pnpm --filter @pax8/cta-core build
 
       - name: Build CLI
-        run: pnpm --filter pax8-cta build
+        run: pnpm --filter @pax8/cta build
 
       # Pack with pnpm so `workspace:*` gets rewritten to a concrete version,
       # then publish the resulting tarball with `npm publish` so we get npm's

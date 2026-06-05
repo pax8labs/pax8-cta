@@ -29,7 +29,7 @@ import {
   GdapClient,
   parseAuthError,
   environmentSetupService,
-} from "@pax8-cta/core";
+} from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { CliError } from "../lib/errors.js";
 import { isDemo } from "../lib/command-wrapper.js";
