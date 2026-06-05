@@ -86,7 +86,7 @@ vi.mock("../lib/credentials.js", () => ({
 
 // Mock auth
 vi.mock("../lib/auth.js", () => ({
-  storeCredentials: vi.fn().mockRejectedValue(new Error("keytar not available")),
+  storeCredentials: vi.fn().mockRejectedValue(new Error("OS keychain not available")),
   interactiveLogin: vi.fn(),
 }));
 

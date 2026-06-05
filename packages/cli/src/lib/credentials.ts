@@ -18,24 +18,52 @@ const SERVICE_NAME = "pax8-cta";
 const ACCOUNT_NAME = "client-secret";
 
 /**
- * Lazily load keytar (optional dependency — may not be installed if native
- * compilation failed, e.g. on Windows without Visual Studio Build Tools).
+ * Lazily load @napi-rs/keyring (optional dependency — native bindings may not
+ * be available on every platform, e.g. unsupported architectures). The package
+ * exposes an `Entry` class with synchronous methods; we wrap it to preserve
+ * the existing async, keytar-shaped (`getPassword(service, account)`) interface
+ * so callers across the CLI don't need to change.
  */
-type KeytarModule = typeof import("keytar");
-type KeytarLike = Pick<KeytarModule, "getPassword" | "setPassword" | "deletePassword">;
+export interface KeyringLike {
+  getPassword(service: string, account: string): Promise<string | null>;
+  setPassword(service: string, account: string, password: string): Promise<void>;
+  deletePassword(service: string, account: string): Promise<boolean>;
+}
 
-async function getKeytar(): Promise<KeytarLike | null> {
+type KeyringModule = {
+  Entry: new (
+    service: string,
+    account: string
+  ) => {
+    getPassword(): string | null;
+    setPassword(password: string): void;
+    deletePassword(): boolean;
+  };
+};
+
+async function getKeyring(): Promise<KeyringLike | null> {
   try {
-    const mod = (await import("keytar")) as KeytarModule & { default?: KeytarModule };
-    const keytar = (mod.default || mod) as KeytarLike;
-    if (
-      typeof keytar.getPassword === "function" &&
-      typeof keytar.setPassword === "function" &&
-      typeof keytar.deletePassword === "function"
-    ) {
-      return keytar;
+    const mod = (await import("@napi-rs/keyring")) as KeyringModule & {
+      default?: KeyringModule;
+    };
+    const keyring = (mod.default || mod) as KeyringModule;
+    if (typeof keyring.Entry !== "function") {
+      return null;
     }
-    return null;
+    return {
+      async getPassword(service: string, account: string): Promise<string | null> {
+        const entry = new keyring.Entry(service, account);
+        return entry.getPassword();
+      },
+      async setPassword(service: string, account: string, password: string): Promise<void> {
+        const entry = new keyring.Entry(service, account);
+        entry.setPassword(password);
+      },
+      async deletePassword(service: string, account: string): Promise<boolean> {
+        const entry = new keyring.Entry(service, account);
+        return entry.deletePassword();
+      },
+    };
   } catch {
     return null;
   }
@@ -46,11 +74,11 @@ async function getKeytar(): Promise<KeytarLike | null> {
  */
 export async function getStoredSecret(): Promise<string | null> {
   try {
-    const keytar = await getKeytar();
-    if (!keytar) return null;
-    return await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+    const keyring = await getKeyring();
+    if (!keyring) return null;
+    return await keyring.getPassword(SERVICE_NAME, ACCOUNT_NAME);
   } catch {
-    // If keytar fails (e.g., on unsupported platforms), return null
+    // If the keychain fails (e.g., on unsupported platforms), return null
     return null;
   }
 }
@@ -62,15 +90,15 @@ export async function getStoredSecret(): Promise<string | null> {
  * credential exists. Returns one of:
  *   - "set"         — keychain available and a secret is stored
  *   - "not-set"     — keychain available but no secret stored
- *   - "unavailable" — keytar not installed or keychain unreadable
+ *   - "unavailable" — keychain bindings not installed or keychain unreadable
  *
  * Never returns or logs the secret value.
  */
 export async function probeStoredSecret(): Promise<"set" | "not-set" | "unavailable"> {
-  const keytar = await getKeytar();
-  if (!keytar) return "unavailable";
+  const keyring = await getKeyring();
+  if (!keyring) return "unavailable";
   try {
-    const value = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+    const value = await keyring.getPassword(SERVICE_NAME, ACCOUNT_NAME);
     return value ? "set" : "not-set";
   } catch {
     return "unavailable";
@@ -85,17 +113,17 @@ export async function storeSecret(secret: string): Promise<void> {
     throw new Error("Secret cannot be empty");
   }
 
-  const keytar = await getKeytar();
-  if (!keytar) {
+  const keyring = await getKeyring();
+  if (!keyring) {
     const hint =
       process.platform === "win32"
-        ? "OS keychain is unavailable (keytar not installed — requires Visual Studio Build Tools on Windows).\n  Set the PARTNER_CLIENT_SECRET environment variable or add it to .env instead."
-        : "OS keychain is unavailable (keytar not installed).\n  Set the PARTNER_CLIENT_SECRET environment variable or add it to .env instead.";
+        ? "OS keychain is unavailable (native bindings not installed — may require Visual Studio Build Tools on Windows).\n  Set the PARTNER_CLIENT_SECRET environment variable or add it to .env instead."
+        : "OS keychain is unavailable (native bindings not installed).\n  Set the PARTNER_CLIENT_SECRET environment variable or add it to .env instead.";
     throw new Error(hint);
   }
 
   try {
-    await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, secret);
+    await keyring.setPassword(SERVICE_NAME, ACCOUNT_NAME, secret);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to store secret in keychain: ${msg}`);
@@ -107,9 +135,9 @@ export async function storeSecret(secret: string): Promise<void> {
  */
 export async function deleteSecret(): Promise<void> {
   try {
-    const keytar = await getKeytar();
-    if (!keytar) return;
-    await keytar.deletePassword(SERVICE_NAME, ACCOUNT_NAME);
+    const keyring = await getKeyring();
+    if (!keyring) return;
+    await keyring.deletePassword(SERVICE_NAME, ACCOUNT_NAME);
   } catch {
     // Ignore errors when deleting (secret may not exist)
   }

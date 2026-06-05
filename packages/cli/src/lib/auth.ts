@@ -20,27 +20,56 @@ import open from "open";
 import chalk from "chalk";
 import { storeSecret } from "./credentials.js";
 
-const KEYTAR_SERVICE = "pax8-cta-cli";
+// Keychain "service" string — preserved verbatim for backwards compatibility
+// with credentials already stored on user machines by earlier versions.
+const KEYRING_SERVICE = "pax8-cta-cli";
 
 /**
- * Lazily load keytar (optional dependency — may not be installed if native
- * compilation failed, e.g. on Windows without Visual Studio Build Tools).
+ * Lazily load @napi-rs/keyring (optional dependency — native bindings may not
+ * be available on every platform). The package exposes a synchronous `Entry`
+ * class; we wrap it in a keytar-shaped async interface so call sites here
+ * stay compact and consistent with credentials.ts.
  */
-type KeytarModule = typeof import("keytar");
-type KeytarLike = Pick<KeytarModule, "getPassword" | "setPassword" | "deletePassword">;
+interface KeyringLike {
+  getPassword(service: string, account: string): Promise<string | null>;
+  setPassword(service: string, account: string, password: string): Promise<void>;
+  deletePassword(service: string, account: string): Promise<boolean>;
+}
 
-async function getKeytar(): Promise<KeytarLike | null> {
+type KeyringModule = {
+  Entry: new (
+    service: string,
+    account: string
+  ) => {
+    getPassword(): string | null;
+    setPassword(password: string): void;
+    deletePassword(): boolean;
+  };
+};
+
+async function getKeyring(): Promise<KeyringLike | null> {
   try {
-    const mod = (await import("keytar")) as KeytarModule & { default?: KeytarModule };
-    const keytar = (mod.default || mod) as KeytarLike;
-    if (
-      typeof keytar.getPassword === "function" &&
-      typeof keytar.setPassword === "function" &&
-      typeof keytar.deletePassword === "function"
-    ) {
-      return keytar;
+    const mod = (await import("@napi-rs/keyring")) as KeyringModule & {
+      default?: KeyringModule;
+    };
+    const keyring = (mod.default || mod) as KeyringModule;
+    if (typeof keyring.Entry !== "function") {
+      return null;
     }
-    return null;
+    return {
+      async getPassword(service: string, account: string): Promise<string | null> {
+        const entry = new keyring.Entry(service, account);
+        return entry.getPassword();
+      },
+      async setPassword(service: string, account: string, password: string): Promise<void> {
+        const entry = new keyring.Entry(service, account);
+        entry.setPassword(password);
+      },
+      async deletePassword(service: string, account: string): Promise<boolean> {
+        const entry = new keyring.Entry(service, account);
+        return entry.deletePassword();
+      },
+    };
   } catch {
     return null;
   }
@@ -108,15 +137,15 @@ export async function storeCredentials(
   // Store in the canonical location so getClientSecretWithFallback() can find it
   await storeSecret(clientSecret);
 
-  const keytar = await getKeytar();
-  if (keytar) {
+  const keyring = await getKeyring();
+  if (keyring) {
     try {
       // Also store per-clientId for tenant-specific retrieval
-      await keytar.setPassword(KEYTAR_SERVICE, `clientSecret:${clientId}`, clientSecret);
+      await keyring.setPassword(KEYRING_SERVICE, `clientSecret:${clientId}`, clientSecret);
 
       // Store tenant ID if provided
       if (tenantId) {
-        await keytar.setPassword(KEYTAR_SERVICE, `tenantId:${clientId}`, tenantId);
+        await keyring.setPassword(KEYRING_SERVICE, `tenantId:${clientId}`, tenantId);
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -134,16 +163,16 @@ export async function getStoredCredentials(
   clientId: string
 ): Promise<{ clientSecret: string; tenantId?: string } | null> {
   try {
-    const keytar = await getKeytar();
-    if (!keytar) return null;
+    const keyring = await getKeyring();
+    if (!keyring) return null;
 
-    const clientSecret = await keytar.getPassword(KEYTAR_SERVICE, `clientSecret:${clientId}`);
+    const clientSecret = await keyring.getPassword(KEYRING_SERVICE, `clientSecret:${clientId}`);
 
     if (!clientSecret) {
       return null;
     }
 
-    const tenantId = await keytar.getPassword(KEYTAR_SERVICE, `tenantId:${clientId}`);
+    const tenantId = await keyring.getPassword(KEYRING_SERVICE, `tenantId:${clientId}`);
 
     return {
       clientSecret,
@@ -160,10 +189,10 @@ export async function getStoredCredentials(
  */
 export async function clearCredentials(clientId: string): Promise<void> {
   try {
-    const keytar = await getKeytar();
-    if (!keytar) return;
-    await keytar.deletePassword(KEYTAR_SERVICE, `clientSecret:${clientId}`);
-    await keytar.deletePassword(KEYTAR_SERVICE, `tenantId:${clientId}`);
+    const keyring = await getKeyring();
+    if (!keyring) return;
+    await keyring.deletePassword(KEYRING_SERVICE, `clientSecret:${clientId}`);
+    await keyring.deletePassword(KEYRING_SERVICE, `tenantId:${clientId}`);
   } catch {
     // Ignore errors when clearing (credential may not exist)
   }
