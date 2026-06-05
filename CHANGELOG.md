@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-06-05
+
+### Fixed
+
+- **Telemetry now actually works** (#441). Prior versions wired up PostHog event capture but shipped without a project key baked in, so every `posthog.capture()` call silently no-op'd — opt-in worked at the UX level but no data ever flowed. v0.1.6 bakes the public Pax8 PostHog project key into the build (similar to how Vercel CLI / Next.js / Sentry SDKs ship their public client keys in source). **Telemetry remains opt-in** — users must explicitly run `pax8-cta telemetry on` before any data is sent. All existing privacy guarantees still apply: no tenant IDs, names, solution names, configuration values, or PII are captured. Set `PAX8_CTA_POSTHOG_KEY` to route telemetry elsewhere for local dev / staging, or `PAX8_CTA_TELEMETRY_DISABLED=1` to kill switch.
+
+### Added
+
+- **`product` tag on every telemetry event.** All captured events now carry `product: "@pax8/cta"` so the shared Pax8 PostHog project can distinguish CTA events from any other Pax8 CLI that later adopts the same project.
+- **Regression tests for telemetry key shape.** Three new tests (`telemetry-key.test.ts`) catch the previous "dead telemetry" bug: assert the baked-in key is well-formed (`/^phc_[a-zA-Z0-9_-]{20,}$/`), not a placeholder, and that the env-var override path still works for contributors.
+
 ## [0.1.5] - 2026-06-05
 
 ### Fixed

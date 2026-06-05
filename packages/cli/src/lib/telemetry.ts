@@ -46,6 +46,7 @@ import type { PostHog } from "posthog-node";
 import Conf from "conf";
 import { createHash } from "crypto";
 import { hostname } from "os";
+import { resolveTelemetryKey, TELEMETRY_PRODUCT } from "./telemetry-key.js";
 
 // ============================================================================
 // Configuration
@@ -53,9 +54,25 @@ import { hostname } from "os";
 
 const CLI_VERSION = "0.1.0";
 
-// PostHog project key - safe to be public, only allows event ingestion
-const POSTHOG_KEY = process.env.PAX8_CTA_POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_KEY || "";
+// PostHog project key - safe to be public, only allows event ingestion.
+// Resolved at module-load time so process.env mutations after this point
+// are not picked up (tests use vi.resetModules() to pick up overrides).
+const POSTHOG_KEY = resolveTelemetryKey();
 const POSTHOG_HOST = process.env.PAX8_CTA_POSTHOG_HOST || "https://us.i.posthog.com";
+
+/**
+ * Properties attached to every captured event. The `product` tag lets the
+ * shared Pax8 PostHog project distinguish CTA events from any other
+ * Pax8 CLI (e.g. `@pax8/cli` if it later adds telemetry).
+ */
+function commonProperties(): Record<string, string> {
+  return {
+    product: TELEMETRY_PRODUCT,
+    cli_version: CLI_VERSION,
+    os: process.platform,
+    node_version: process.version,
+  };
+}
 
 // Config store for telemetry preferences
 const config = new Conf<{
@@ -323,6 +340,7 @@ export function trackCommand(ctx: CommandContext): void {
         distinctId: getMachineId(),
         event: "cli_command",
         properties: {
+          ...commonProperties(),
           command: ctx.command,
           subcommand: ctx.subcommand,
           flags: ctx.flags,
@@ -330,9 +348,6 @@ export function trackCommand(ctx: CommandContext): void {
           duration_ms: ctx.durationMs,
           error_type: ctx.errorType,
           demo_mode: ctx.demoMode,
-          cli_version: CLI_VERSION,
-          os: process.platform,
-          node_version: process.version,
         },
       });
     } catch {
@@ -363,10 +378,9 @@ export function trackNotFound(
         distinctId: getMachineId(),
         event: "cli_not_found",
         properties: {
+          ...commonProperties(),
           resource_type: resource,
           query_hash: queryHash,
-          cli_version: CLI_VERSION,
-          os: process.platform,
         },
       });
     } catch {
@@ -390,10 +404,9 @@ export function trackError(errorType: string, command?: string): void {
         distinctId: getMachineId(),
         event: "cli_error",
         properties: {
+          ...commonProperties(),
           error_type: errorType,
           command,
-          cli_version: CLI_VERSION,
-          os: process.platform,
         },
       });
     } catch {
@@ -417,9 +430,7 @@ export function trackFirstRun(): void {
         distinctId: getMachineId(),
         event: "cli_first_run",
         properties: {
-          cli_version: CLI_VERSION,
-          os: process.platform,
-          node_version: process.version,
+          ...commonProperties(),
         },
       });
     } catch {
