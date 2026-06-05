@@ -23,7 +23,8 @@ process.env.LOG_LEVEL = process.env.LOG_LEVEL || "error";
 // Skip keys the CLI manages independently (demo mode via ~/.pax8-cta/cli-config.json,
 // log level set above, and web-app-only keys).
 import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 const ENV_SKIP_KEYS = new Set([
   "DEMO_MODE",
   "NEXT_PUBLIC_DEMO_MODE",
@@ -89,7 +90,11 @@ import {
 import { isQuietMode } from "./lib/spinner.js";
 import chalk from "chalk";
 
-const VERSION = "0.1.0";
+// Read the version from the installed package.json so it stays in sync
+// across releases without a manual code edit.
+const VERSION = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf-8")
+).version as string;
 
 // Factory function to create a program instance
 export function createProgram(): Command {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-04
+
+### Fixed
+
+- **`pax8-cta --version` reports the actual installed version.** Previously the version was hardcoded in `src/index.ts`, so `--version` continued to report `0.1.0` even after the package was bumped to `0.1.1`. Now reads from `package.json` at runtime.
+
 ## [0.1.1] - 2026-06-04
 
 ### Added
