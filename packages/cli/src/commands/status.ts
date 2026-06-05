@@ -19,7 +19,7 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../lib/spinner.js";
-import { withDemoMode } from "../lib/command-wrapper.js";
+import { isDemo, withDemoMode } from "../lib/command-wrapper.js";
 import { DEMO_TENANTS } from "@pax8/cta-core";
 import { formatStatus, formatTimeAgo, calculateDuration, truncate } from "../lib/formatters.js";
 import { loadConfig, TenantConfig, TokenManager, DataverseClient } from "@pax8/cta-core";
@@ -240,9 +240,17 @@ export const statusCommand = new Command("status")
     // Default to --list behavior when no specific flag is provided.
     // "pax8-cta status" with no args is the natural way users ask
     // "what's running" — treating it as an error (issue #384) was hostile.
+    // Track whether the user passed --list explicitly so we can show a
+    // friendlier "missing deployment ID" error in non-demo mode (issue #434),
+    // while still preserving the bare-`status` → list shortcut in demo mode.
     const trackingId = options.shipment || options.deployment;
+    const explicitList = Boolean(options.list);
     if (!options.list && !trackingId) {
-      if (!isQuietMode() && !structured) {
+      // Only show the friendly "defaulting to --list" breadcrumb when the
+      // list path is actually going to render something — i.e. demo mode.
+      // Outside demo mode the bare-status default leads to a missing-arg
+      // error (issue #434), so the breadcrumb would be misleading.
+      if (!isQuietMode() && !structured && isDemo()) {
         console.error(
           chalk.gray("(no flags given — showing recent deployments; use --help for options)")
         );
@@ -289,9 +297,24 @@ export const statusCommand = new Command("status")
           console.log(chalk.gray(`Use 'pax8-cta deployments show <id>' to view details`));
         },
         () => {
-          exitOssUnavailable("'status --list'", {
-            alternatives: ["deployments list"],
-          });
+          if (explicitList) {
+            exitOssUnavailable("'status --list'", {
+              alternatives: ["deployments list"],
+            });
+          }
+          // Bare `pax8-cta status` outside demo mode: the user didn't pick a
+          // mode, and the real path can't show anything useful without a
+          // deployment ID. Issue #434: emit a missing-required-arg error
+          // instead of the stale OSS-unavailable message that referenced a
+          // flag the user never typed.
+          console.error(chalk.red("Error: A deployment ID is required."));
+          console.error();
+          console.error("Usage:");
+          console.error("  pax8-cta status <deploymentId>");
+          console.error();
+          console.error("To list recent deployments and their IDs, run:");
+          console.error("  pax8-cta deployments list");
+          process.exit(2);
         }
       );
       return;

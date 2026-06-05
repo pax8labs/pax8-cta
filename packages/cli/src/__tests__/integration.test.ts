@@ -242,6 +242,25 @@ describe("CLI Integration Tests", () => {
       expect(result.exitCode).toBe(2);
       expect(containsText(result.output, "open-source CLI")).toBe(true);
     });
+
+    // Issue #434: bare `pax8-cta status` outside demo mode used to show the
+    // stale "status --list is not available in the open-source CLI" message
+    // — confusing because the user never typed --list. It should instead read
+    // as a missing-required-argument error and point at `deployments list`.
+    it("bare status outside demo mode shows missing-deployment-id error (issue #434)", async () => {
+      const result = await runCliExpectFailure(["status"], {
+        env: { DEMO_MODE: "false", NO_COLOR: "1" },
+      });
+
+      expect(result.exitCode).toBe(2);
+      const text = stripAnsi(result.output);
+      expect(text).toContain("A deployment ID is required");
+      expect(text).toContain("pax8-cta status <deploymentId>");
+      expect(text).toContain("pax8-cta deployments list");
+      // The legacy framing must not leak through for the no-args case.
+      expect(text).not.toContain("'status --list' is not available");
+      expect(text).not.toContain("open-source CLI");
+    });
   });
 
   describe("error handling", () => {
