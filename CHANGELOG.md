@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-05
+
+### Fixed
+
+- **Bun-compiled binaries crashed on startup.** The v0.1.2 GitHub Release binaries (downloaded via `install.sh`/`install.ps1`) errored with `ENOENT: no such file or directory, open '/$bunfs/package.json'` because the runtime `package.json` read introduced in v0.1.2 doesn't work inside Bun's single-file binary virtual filesystem. Switched to a static `import pkgJson from "../package.json" with { type: "json" }` so Bun inlines the JSON at compile time while Node still resolves it normally from disk for the npm-installed CLI. v0.1.2 binaries are still on GitHub Releases but should not be used.
+- **`install.sh` checksum verification failed.** The script renamed the downloaded binary from its platform-suffixed name (e.g. `pax8-cta-macos-arm64`) to `pax8-cta` before running `sha256sum -c`, but the `.sha256` file references the original filename, so the check always failed. Now compares hashes directly instead of relying on filename matching. `install.ps1` already did the right thing.
+
 ## [0.1.2] - 2026-06-04
 
 ### Fixed

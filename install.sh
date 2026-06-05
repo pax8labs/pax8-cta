@@ -81,24 +81,31 @@ fi
 echo -e "${GREEN}✓${NC} Downloaded successfully"
 
 # Download and verify checksum
+# Compare hashes directly rather than running `sha256sum -c` against the
+# .sha256 file: the file references the platform-suffixed filename (e.g.
+# `pax8-cta-macos-arm64`) but we've renamed our local copy to `pax8-cta`,
+# so a filename-based check would fail.
 echo -e "${BLUE}→${NC} Verifying checksum..."
 if curl -fsSL "$CHECKSUM_URL" -o "$TMP_DIR/pax8-cta.sha256" 2>/dev/null; then
-  cd "$TMP_DIR"
+  EXPECTED_HASH=$(awk '{print $1}' "$TMP_DIR/pax8-cta.sha256" | tr '[:upper:]' '[:lower:]')
   if command -v sha256sum &> /dev/null; then
-    if ! sha256sum -c pax8-cta.sha256 &> /dev/null; then
-      echo -e "${RED}✗${NC} Checksum verification failed"
-      exit 1
-    fi
+    ACTUAL_HASH=$(sha256sum "$TMP_DIR/pax8-cta" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
   elif command -v shasum &> /dev/null; then
-    if ! shasum -a 256 -c pax8-cta.sha256 &> /dev/null; then
-      echo -e "${RED}✗${NC} Checksum verification failed"
-      exit 1
-    fi
+    ACTUAL_HASH=$(shasum -a 256 "$TMP_DIR/pax8-cta" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
   else
     echo -e "${YELLOW}⚠${NC}  sha256sum not found, skipping checksum verification"
+    ACTUAL_HASH=""
+    EXPECTED_HASH=""
   fi
-  cd - > /dev/null
-  echo -e "${GREEN}✓${NC} Checksum verified"
+  if [ -n "$EXPECTED_HASH" ]; then
+    if [ "$ACTUAL_HASH" != "$EXPECTED_HASH" ]; then
+      echo -e "${RED}✗${NC} Checksum verification failed"
+      echo -e "${YELLOW}→${NC} Expected: $EXPECTED_HASH"
+      echo -e "${YELLOW}→${NC} Actual:   $ACTUAL_HASH"
+      exit 1
+    fi
+    echo -e "${GREEN}✓${NC} Checksum verified"
+  fi
 else
   echo -e "${YELLOW}⚠${NC}  Checksum not available, skipping verification"
 fi

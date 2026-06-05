@@ -62,7 +62,7 @@ describe("CLI Integration Tests", () => {
   describe("runCliExpectSuccess utility", () => {
     it("should return result on success", async () => {
       const result = await runCliExpectSuccess(["--version"]);
-      expect(result.stdout).toContain("0.1.0");
+      expect(result.stdout).toMatch(/^\d+\.\d+\.\d+/);
     });
 
     it("should throw on failure", async () => {
