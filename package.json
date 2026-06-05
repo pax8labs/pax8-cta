@@ -47,5 +47,10 @@
   "workspaces": [
     "packages/cli",
     "packages/core"
-  ]
+  ],
+  "pnpm": {
+    "overrides": {
+      "uuid": "^11"
+    }
+  }
 }
