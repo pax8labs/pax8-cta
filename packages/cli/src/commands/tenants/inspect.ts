@@ -17,14 +17,54 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { createSpinner, isQuietMode, type Spinner } from "../../lib/spinner.js";
-import { GdapClient, type TenantConfig } from "@pax8/cta-core";
+import { DEMO_TENANTS, GdapClient, type TenantConfig } from "@pax8/cta-core";
 import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { withResolvedDestinations } from "../../lib/command-wrapper.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
+import { findTenantMatches } from "./helpers.js";
+
+/**
+ * Issue #435: narrow the fleet down to a single tenant when a positional
+ * `<name>` argument was supplied.
+ *
+ * Matching reuses {@link findTenantMatches} (case-insensitive substring across
+ * name/tenantId/environmentUrl, with exact match short-circuiting ambiguity)
+ * so `tenants inspect` behaves identically to `tenants show`, `solutions
+ * remove -t`, etc.
+ *
+ * The candidate pool is the full tenant list — not the active-only
+ * `destinations` — because users asking for a specific tenant by name almost
+ * certainly want diagnostic info even (especially) when it's disabled. That
+ * is the whole point of `inspect`. Fleet-wide mode (no positional) keeps the
+ * active-only behavior unchanged.
+ */
+function narrowToTenant(fullPool: TenantConfig[], tenantQuery: string): TenantConfig[] {
+  const matches = findTenantMatches(fullPool, tenantQuery);
+
+  if (matches.length === 0) {
+    console.error(
+      chalk.red(
+        `No tenant matches "${tenantQuery}". Try 'pax8-cta tenants list' to see available tenants.`
+      )
+    );
+    process.exit(1);
+  }
+
+  if (matches.length > 1) {
+    console.error(chalk.red(`Tenant '${tenantQuery}' is ambiguous. Did you mean:`));
+    for (const candidate of matches) {
+      console.error(chalk.gray(`  - ${candidate.name}`));
+    }
+    process.exit(1);
+  }
+
+  return matches;
+}
 
 export const inspectCommand = new Command("inspect")
   .alias("validate")
+  .argument("[tenant]", "Tenant name, ID, or URL fragment (omit for fleet-wide inspection)")
   .description("Validate connectivity and permissions for each tenant")
   .option("-c, --config <path>", "Path to config file", "./config/tenants.yaml")
   .option("-t, --tag <tags...>", "Filter by tags")
@@ -33,10 +73,11 @@ export const inspectCommand = new Command("inspect")
     `
 Examples:
   tenants inspect                           Validate all enabled tenants
+  tenants inspect Contoso                   Validate only tenants matching "Contoso"
   tenants inspect -t production             Validate only tenants tagged "production"
 `
   )
-  .action(async (options) => {
+  .action(async (tenantQuery: string | undefined, options) => {
     const spinner = createSpinner("Loading fleet manifest...").start();
 
     try {
@@ -46,8 +87,18 @@ Examples:
       // status from each tenant's riskProfile metadata.
       await withResolvedDestinations<void>(
         options,
-        (destinations) => runDemoInspection(spinner, destinations),
-        ({ config, destinations }) => runRealInspection(spinner, destinations, config.partner)
+        (destinations) => {
+          // Issue #435: positional `<name>` narrows the fleet to a single match.
+          // For the targeted path we search the full DEMO_TENANTS list (not the
+          // active-only `destinations`) so users can inspect disabled tenants
+          // by name — that's the whole point of the diagnostic command.
+          const targeted = tenantQuery ? narrowToTenant(DEMO_TENANTS, tenantQuery) : destinations;
+          return runDemoInspection(spinner, targeted);
+        },
+        ({ config, destinations }) => {
+          const targeted = tenantQuery ? narrowToTenant(config.tenants, tenantQuery) : destinations;
+          return runRealInspection(spinner, targeted, config.partner);
+        }
       );
     } catch (error) {
       handleCommandError(error, spinner, "Inspection failed");

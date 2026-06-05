@@ -94,6 +94,76 @@ describe("issue #385: tenants inspect in demo mode", () => {
   }, 90000);
 });
 
+describe("issue #435: tenants inspect <name> positional", () => {
+  it("narrows to the requested tenant and ignores the rest of the fleet", async () => {
+    const result = await runCli(["tenants", "inspect", "Contoso"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      cwd: workDir,
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined).toContain("Inspection Report");
+    // The targeted tenant gets its per-tenant connectivity line…
+    expect(combined).toContain("Contoso Corporation");
+    // …and no other demo tenant shows up.
+    expect(combined).not.toContain("Fabrikam Inc");
+    expect(combined).not.toContain("Litware Inc");
+    // Exactly one destination is loaded for inspection.
+    expect(combined).toMatch(/Loaded 1 destinations? to inspect/);
+  }, 90000);
+
+  it("inspects an inactive tenant when asked for by name", async () => {
+    // Crown Auto Group has `enabled: false` in DEMO_TENANTS. The fleet-wide
+    // path filters it out, but an explicit positional should still inspect
+    // it — that's the whole point of the diagnostic command (issue #435).
+    const result = await runCli(["tenants", "inspect", "Crown"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      cwd: workDir,
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined).toContain("Crown Auto Group");
+    expect(combined).toMatch(/Loaded 1 destinations? to inspect/);
+  }, 90000);
+
+  it("errors cleanly when no tenant matches", async () => {
+    const result = await runCli(["tenants", "inspect", "ZzzNoSuchTenant"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      cwd: workDir,
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined.toLowerCase()).toContain("no tenant matches");
+    expect(combined).toContain('"ZzzNoSuchTenant"');
+    expect(combined).toContain("pax8-cta tenants list");
+  }, 90000);
+
+  it("no-args fleet-wide path still inspects every active tenant", async () => {
+    const result = await runCli(["tenants", "inspect"], {
+      env: { NO_COLOR: "1", DEMO_MODE: "true" },
+      cwd: workDir,
+      timeout: 60000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const combined = stripAnsi(result.stdout + result.stderr);
+    expect(combined).toContain("Inspection Report");
+    // Multiple distinct tenants appear in the fleet-wide path
+    expect(combined).toContain("Contoso Corporation");
+    expect(combined).toContain("Fabrikam Inc");
+    // 11 demo tenants total, 10 active (Crown Auto Group is disabled).
+    expect(combined).toMatch(/Loaded 10 destinations? to inspect/);
+    // Crown is filtered out of the fleet-wide view.
+    expect(combined).not.toContain("Crown Auto Group");
+  }, 90000);
+});
+
 describe("issue #385: solutions remove in demo mode", () => {
   it("solutions remove <name> -t <tenant> -y succeeds and prints a simulation", async () => {
     const result = await runCli(
