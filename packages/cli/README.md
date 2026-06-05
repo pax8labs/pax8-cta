@@ -5,7 +5,7 @@ Sync your Copilot Studio agents to all your tenants from the command line.
 ## Try it in 30 seconds (no install)
 
 ```bash
-npx -y -p @pax8/cta pax8-cta demo on && npx -y -p @pax8/cta pax8-cta tenants list
+DEMO_MODE=true npx -y -p @pax8/cta pax8-cta tenants list
 ```
 
 Mock-data mode, no credentials, no Azure setup. Then run `npx -y -p @pax8/cta pax8-cta --help` to explore every command.
