@@ -46,7 +46,7 @@ import type { PostHog } from "posthog-node";
 import Conf from "conf";
 import { createHash } from "crypto";
 import { hostname } from "os";
-import { resolveTelemetryKey, TELEMETRY_PRODUCT } from "./telemetry-key.js";
+import { resolveTelemetryKey, TELEMETRY_APP } from "./telemetry-key.js";
 
 // ============================================================================
 // Configuration
@@ -61,13 +61,13 @@ const POSTHOG_KEY = resolveTelemetryKey();
 const POSTHOG_HOST = process.env.PAX8_CTA_POSTHOG_HOST || "https://us.i.posthog.com";
 
 /**
- * Properties attached to every captured event. The `product` tag lets the
+ * Properties attached to every captured event. The `app` tag lets the
  * shared Pax8 PostHog project distinguish CTA events from any other
- * Pax8 CLI (e.g. `@pax8/cli` if it later adds telemetry).
+ * Pax8 CLI (e.g. `@pax8/cli`, which tags its events with `app: "pax8-cli"`).
  */
 function commonProperties(): Record<string, string> {
   return {
-    product: TELEMETRY_PRODUCT,
+    app: TELEMETRY_APP,
     cli_version: CLI_VERSION,
     os: process.platform,
     node_version: process.version,
@@ -274,8 +274,14 @@ async function getClient(): Promise<PostHog | null> {
         const PostHogCtor = mod.PostHog;
         client = new PostHogCtor(POSTHOG_KEY, {
           host: POSTHOG_HOST,
-          flushAt: 10,
-          flushInterval: 30000, // 30 seconds
+          // The CLI exits in <1s after a command, so we cannot rely on the
+          // default batching (flush every 10 events or 30s) — events would
+          // be lost. flushAt: 1 starts the HTTP request immediately after
+          // each capture. The caller is still responsible for awaiting
+          // shutdownTelemetry() before process exit to let the in-flight
+          // request finish.
+          flushAt: 1,
+          flushInterval: 5000,
         });
         return client;
       } catch {

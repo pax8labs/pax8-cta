@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { POSTHOG_PROJECT_KEY, TELEMETRY_PRODUCT } from "../lib/telemetry-key.js";
+import { POSTHOG_PROJECT_KEY, TELEMETRY_APP } from "../lib/telemetry-key.js";
 
 describe("PostHog project key", () => {
   it("is non-empty and well-formed (catches the 'dead telemetry' bug)", () => {
@@ -27,8 +27,8 @@ describe("PostHog project key", () => {
     expect(POSTHOG_PROJECT_KEY).not.toMatch(/REPLACE|PLACEHOLDER|TODO|XXX/i);
   });
 
-  it("tags every event with the @pax8/cta product identifier", () => {
-    expect(TELEMETRY_PRODUCT).toBe("@pax8/cta");
+  it("tags every event with the pax8-cta app identifier (matches @pax8/cli's `app: pax8-cli` convention)", () => {
+    expect(TELEMETRY_APP).toBe("pax8-cta");
   });
 });
 

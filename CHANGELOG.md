@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-06-06
+
+### Fixed
+
+- **Telemetry events were being silently dropped on every CLI exit.** The PostHog client was configured with `flushAt: 10` and `flushInterval: 30000`, but the CLI exits in under a second after a command completes. `shutdownTelemetry()` (which forces the flush) was only called from signal and crash handlers, never from the normal command-completion path. So `pnpm cli telemetry on` then `pax8-cta tenants list` would queue an event in the SDK buffer and then evaporate the buffer when the process exited. Fix: switch `program.parse()` → `await program.parseAsync()` so the action handler resolves, then `await shutdownTelemetry()` to flush the buffer before exit. Also lowered `flushAt` to `1` so the HTTP request starts immediately on each capture.
+
+### Changed
+
+- **Telemetry event property renamed `product` → `app`** to match the convention used by `@pax8/cli` (the Pax8 Marketplace CLI), which tags its events with `app: "pax8-cli"`. CTA events are now tagged `app: "pax8-cta"` (no `@pax8/` scope prefix). Shared PostHog dashboards can now filter cleanly across both Pax8 CLIs using a single property name.
+
 ## [0.1.6] - 2026-06-05
 
 ### Fixed

@@ -33,10 +33,13 @@ export const POSTHOG_PROJECT_KEY = "phc_XKIa0EPGDACY1p4Cczk6IWXFa3n9E7htSxcVIg70
 
 /**
  * Identifies which Pax8 CLI is emitting events when the PostHog project
- * is shared across multiple Pax8 products. Set as a property on every
- * captured event so dashboards can filter by product cleanly.
+ * is shared across multiple Pax8 products. Set as the `app` property on
+ * every captured event so dashboards can filter cleanly across products.
+ *
+ * Matches the convention used by `@pax8/cli` (the Pax8 Marketplace CLI),
+ * which tags its events with `app: "pax8-cli"`.
  */
-export const TELEMETRY_PRODUCT = "@pax8/cta";
+export const TELEMETRY_APP = "pax8-cta";
 
 /**
  * Resolve the effective PostHog key at runtime, honoring the

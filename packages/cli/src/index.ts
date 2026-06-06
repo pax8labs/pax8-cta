@@ -296,5 +296,10 @@ if (args.length === 0) {
     process.exit(1);
   });
 
-  program.parse();
+  // Use parseAsync so we can await the command's action handler and flush
+  // telemetry before the process exits. With program.parse() (sync), the
+  // CLI would exit before posthog-node finished sending its HTTP request,
+  // and events would be lost.
+  await program.parseAsync(process.argv);
+  await shutdownTelemetry();
 }
