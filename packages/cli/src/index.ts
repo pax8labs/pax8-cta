@@ -230,14 +230,25 @@ if (args.length === 0) {
   const startTime = Date.now();
   const program = createProgram();
 
-  // Track command execution
-  program.hook("postAction", (thisCommand) => {
+  // Track command execution.
+  // Commander's hook callback gets two args: `thisCommand` is the command
+  // the hook was registered on (always `program` here), and `actionCommand`
+  // is the leaf command that actually ran. We must use actionCommand to get
+  // the real command/subcommand names — using thisCommand reports "pax8-cta"
+  // for everything (the program name) and no subcommand.
+  program.hook("postAction", (_thisCommand, actionCommand) => {
     const durationMs = Date.now() - startTime;
-    const command = thisCommand.parent?.name() || thisCommand.name();
-    const subcommand = thisCommand.parent ? thisCommand.name() : undefined;
 
-    // Extract flags (without values for privacy)
-    const flags = Object.keys(thisCommand.opts());
+    // For `pax8-cta deploy ...`           actionCommand.parent === program
+    //                                     → command = "deploy", no subcommand
+    // For `pax8-cta tenants list`         actionCommand.parent === tenants group
+    //                                     → command = "tenants", subcommand = "list"
+    const parentIsProgram = actionCommand.parent === program;
+    const command = parentIsProgram ? actionCommand.name() : actionCommand.parent!.name();
+    const subcommand = parentIsProgram ? undefined : actionCommand.name();
+
+    // Extract flag names (no values, for privacy)
+    const flags = Object.keys(actionCommand.opts());
 
     trackCommand({
       command,

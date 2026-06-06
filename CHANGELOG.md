@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-06-06
+
+### Fixed
+
+- **Telemetry events were labeled `command: "pax8-cta"` for everything, with no subcommand.** The `postAction` hook in `packages/cli/src/index.ts` was reading `thisCommand` (which is the command the hook was _registered on_ — always `program`, name "pax8-cta") instead of `actionCommand` (the leaf that actually ran). So `pax8-cta tenants list` was tracked as `command="pax8-cta", subcommand=undefined` instead of `command="tenants", subcommand="list"`. v0.1.8 reads `actionCommand` and computes command/subcommand from its position in the command tree. Events captured before v0.1.8 in PostHog will need to be filtered out by date — they're unrecoverably mislabeled.
+
 ## [0.1.7] - 2026-06-06
 
 ### Fixed
