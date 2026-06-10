@@ -11,7 +11,7 @@ Multi-tenant Copilot Studio deployment tool for MSPs. Short name: **Pax8 CTA**.
 ## Try it in 30 seconds (no install)
 
 ```bash
-npx -y -p @pax8/cta pax8-cta demo on && npx -y -p @pax8/cta pax8-cta tenants list
+DEMO_MODE=true npx -y -p @pax8/cta pax8-cta tenants list
 ```
 
 That flips on demo mode (mock data, no Azure/GDAP needed) and lists the sample tenant fleet. From there, `npx -y -p @pax8/cta pax8-cta --help` shows every command.
