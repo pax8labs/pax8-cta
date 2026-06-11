@@ -18,9 +18,11 @@
     "dist",
     "!dist/__tests__",
     "!dist/binaries",
-    "demo-data"
+    "demo-data",
+    "scripts"
   ],
   "scripts": {
+    "postinstall": "node ./scripts/postinstall.js",
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
