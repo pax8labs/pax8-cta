@@ -4,7 +4,7 @@ Multi-tenant Copilot Studio deployment tool for MSPs. Short name: **Pax8 CTA**.
 
 [![CI](https://github.com/pax8labs/pax8-cta/actions/workflows/ci.yml/badge.svg)](https://github.com/pax8labs/pax8-cta/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![npm version](https://img.shields.io/npm/v/pax8-cta.svg)](https://www.npmjs.com/package/pax8-cta)
+[![npm version](https://img.shields.io/npm/v/@pax8/cta)](https://www.npmjs.com/package/@pax8/cta)
 
 ---
 
@@ -16,9 +16,14 @@ Pax8 CTA runs on Node.js, including the no-install `npx` path shown below. Check
 node --version
 ```
 
-If it prints `v20.12` or newer (CTA's declared engines floor), you're set — continue to the next section. If it prints an older version, or you see `command not found`, install Node before going further. The easiest path is the LTS installer from https://nodejs.org. If you already use Homebrew, `brew install node` works too — it installs current Node, which is fine because it's past the floor.
+If it prints `v20.12` or newer (CTA's declared engines floor), you're set — continue to the next section. If it prints an older version, or you see `command not found`, pick one of the install paths below.
 
-After installing, close the terminal, open a new one, and re-run `node --version` to confirm it now reports v20.12 or newer. If something goes wrong, see the [Troubleshooting](#troubleshooting) section below.
+- **Any OS, no extra tooling required (recommended default):** download the Node.js LTS installer from https://nodejs.org and run it. Works the same way on macOS, Windows, and Linux.
+- **Windows (built-in package manager):** `winget install OpenJS.NodeJS.LTS` — winget ships with Windows 10 and 11, no setup needed.
+- **macOS or Linux with Homebrew:** `brew install node` — installs current Node, which is fine because it's past the v20.12 floor. (Homebrew is not native on Windows; use the installer or winget instead.)
+- **No Node available, or a locked-down endpoint where you can't install runtimes:** skip Node entirely and use the prebuilt **Standalone Binaries** under [Installation](#installation) — they're self-contained and need nothing else on the machine.
+
+After any install path above, close the terminal, open a new one, and re-run `node --version` to confirm it now reports v20.12 or newer. The reopen step matters for both the installer and winget — they update `PATH` for new shells, not for shells that were already open. If something goes wrong, see the [Troubleshooting](#troubleshooting) section below.
 
 ---
 
@@ -130,6 +135,8 @@ curl -fsSL https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.sh |
 ```powershell
 irm https://raw.githubusercontent.com/pax8labs/pax8-cta/main/install.ps1 | iex
 ```
+
+**Integrity and OS warnings.** Each release publishes a `.sha256` file next to every binary, and the install scripts above verify the SHA256 checksum before installing. The binaries are **not yet code-signed or notarized**, so on first run you may see a Gatekeeper warning on macOS ("cannot be opened because the developer cannot be verified") or a SmartScreen warning on Windows ("Windows protected your PC"). On macOS you can clear the quarantine attribute with `xattr -d com.apple.quarantine /usr/local/bin/pax8-cta`; on Windows, click "More info" then "Run anyway." Signed and notarized binaries are tracked separately and will land in a future release.
 
 ### From Source
 
@@ -380,12 +387,12 @@ settings:
 
 ### Environment Variables (Shell)
 
-| Variable                | Description                      | Default                 |
-| ----------------------- | -------------------------------- | ----------------------- |
-| `PARTNER_CLIENT_SECRET` | Azure AD app client secret       | Required                |
-| `CONFIG_PATH`           | Path to tenants.yaml             | `./config/tenants.yaml` |
-| `DEMO_MODE`             | Enable demo mode with mock data  | `false`                 |
-| `SNAPSHOTS_DIR`         | Directory for rollback snapshots | `./snapshots`           |
+| Variable                | Description                                                                                                                  | Default                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `PARTNER_CLIENT_SECRET` | Azure AD app client secret                                                                                                   | Required                |
+| `CONFIG_PATH`           | Path to tenants.yaml                                                                                                         | `./config/tenants.yaml` |
+| `DEMO_MODE`             | Enable demo mode with mock data. Per-process override that takes precedence over the persistent `demo on`/`demo off` setting | `false`                 |
+| `SNAPSHOTS_DIR`         | Directory for rollback snapshots                                                                                             | `./snapshots`           |
 
 Set credentials via `pax8-cta setup` or export them directly:
 
@@ -462,8 +469,8 @@ pax8-cta
                     └──────┬───────┘
                            │
                     ┌──────▼───────┐
-                    │    @agent-   │
-                    │  sync/core   │
+                    │  @pax8/      │
+                    │  cta-core    │
                     └──────┬───────┘
                            │
               ┌────────────┼────────────┐
