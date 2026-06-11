@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 
-console.log("\n\x1b[32m\x1b[1m✓ @pax8/cta installed successfully!\x1b[0m\n");
-console.log("\x1b[90mQuick start:\n");
-console.log("\x1b[36m  pax8-cta init    \x1b[90m— Initialize and authenticate");
-console.log("\x1b[36m  pax8-cta deploy  \x1b[90m— Deploy agents to your customers");
-console.log("\x1b[36m  pax8-cta --help  \x1b[90m— Show all commands");
-console.log("\n\x1b[90mDocumentation: https://github.com/pax8labs/pax8-cta\n\x1b[0m");
+if (process.env.CI === "true") process.exit(0);
+
+const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
+const c = (code, text) => (useColor ? `\x1b[${code}m${text}\x1b[0m` : text);
+const green = (t) => c("32;1", t);
+const cyan = (t) => c("36", t);
+const dim = (t) => c("90", t);
+
+console.log(`\n${green("✓ @pax8/cta installed successfully!")}\n`);
+console.log(`${dim("Quick start:")}\n`);
+console.log(
+  `  ${cyan("pax8-cta demo on")} ${dim("— Try it with mock data, no credentials needed")}`
+);
+console.log(`  ${cyan("pax8-cta init")}    ${dim("— Initialize real config and authenticate")}`);
+console.log(`  ${cyan("pax8-cta --help")}  ${dim("— Show all commands")}`);
+console.log(`\n${dim("Documentation: https://github.com/pax8labs/pax8-cta")}\n`);
