@@ -18,6 +18,9 @@ config/tenants.yaml
 .vscode/
 .idea/
 
+# Claude Code agent worktrees (harness scratch, not source)
+.claude/worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
