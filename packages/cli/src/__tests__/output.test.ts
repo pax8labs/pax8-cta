@@ -45,24 +45,22 @@ const FRUIT_COLUMNS: Column<Fruit>[] = [
 // ============================================================================
 
 describe("getDefaultFormat()", () => {
-  afterEach(() => {
-    // Reset env var after each test so defaults are restored
-    delete process.env.PAX8_CTA_DEFAULT_FORMAT;
-  });
-
+  // Pass an explicit env object to each call so these tests don't mutate the
+  // shared `process.env`. With vitest's default threads pool, parallel
+  // subprocess tests (runCli) would otherwise see "table" leak in mid-spawn
+  // and assert against a leaked table render. See issue #444.
   it("returns 'table' when PAX8_CTA_DEFAULT_FORMAT=table", () => {
-    process.env.PAX8_CTA_DEFAULT_FORMAT = "table";
-    expect(getDefaultFormat()).toBe("table");
+    expect(getDefaultFormat({ PAX8_CTA_DEFAULT_FORMAT: "table" } as NodeJS.ProcessEnv)).toBe(
+      "table"
+    );
   });
 
   it("returns 'json' when PAX8_CTA_DEFAULT_FORMAT=json", () => {
-    process.env.PAX8_CTA_DEFAULT_FORMAT = "json";
-    expect(getDefaultFormat()).toBe("json");
+    expect(getDefaultFormat({ PAX8_CTA_DEFAULT_FORMAT: "json" } as NodeJS.ProcessEnv)).toBe("json");
   });
 
   it("falls back to 'table' when env var is unset (safe default for in-process use)", () => {
-    delete process.env.PAX8_CTA_DEFAULT_FORMAT;
-    expect(getDefaultFormat()).toBe("table");
+    expect(getDefaultFormat({} as NodeJS.ProcessEnv)).toBe("table");
   });
 });
 
