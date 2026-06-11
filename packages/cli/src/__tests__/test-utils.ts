@@ -115,7 +115,7 @@ async function ensureCliBuilt(): Promise<void> {
       const workspaceRoot = resolve(CLI_PACKAGE_ROOT, "../..");
       const proc = spawn(
         pnpmCommand,
-        ["-r", "--filter", "@pax8/cta-core", "--filter", "pax8-cta", "build"],
+        ["-r", "--filter", "@pax8/cta-core", "--filter", "@pax8/cta", "build"],
         {
           cwd: workspaceRoot,
           env: process.env,
@@ -326,11 +326,22 @@ export async function runCli(args: string[], options: CliRunnerOptions = {}): Pr
   await ensureCliBuilt();
   const cliPath = resolve(CLI_PACKAGE_ROOT, "dist/index.js");
 
+  // Strip PAX8_CTA_DEFAULT_FORMAT from the inherited env. The vitest worker
+  // mutates this in-process for `output.test.ts`'s `getDefaultFormat()` tests
+  // (and vitest's default `threads` pool shares process.env across files), so
+  // a concurrent subprocess can inherit a contaminated "table" or "json"
+  // instead of deriving its own from `process.stdout.isTTY`. The CLI's entry
+  // point sets the var defensively based on isTTY when it's unset — stripping
+  // here lets that detection run cleanly. Tests that need an explicit format
+  // still pass it via the `env` option, which overrides this default below.
+  const parentEnv: NodeJS.ProcessEnv = { ...process.env };
+  delete parentEnv.PAX8_CTA_DEFAULT_FORMAT;
+
   return new Promise((resolvePromise, reject) => {
     const proc = spawn(process.execPath, [cliPath, ...args], {
       cwd,
       env: {
-        ...process.env,
+        ...parentEnv,
         DEMO_MODE: "true", // Default to demo mode in tests
         NO_COLOR: "1", // Disable colors for easier parsing
         ...env,

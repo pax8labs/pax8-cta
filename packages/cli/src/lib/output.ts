@@ -64,12 +64,16 @@ export interface Column<T> {
  * is explicitly invoked as a subprocess.
  *
  * Always returns "quiet" when quiet mode is active, overriding TTY detection.
+ *
+ * The optional `env` parameter is for unit tests: passing an explicit env
+ * object lets tests verify the lookup without mutating `process.env`, which
+ * would race with concurrent subprocess tests in vitest's threads pool.
  */
-export function getDefaultFormat(): OutputFormat {
+export function getDefaultFormat(env: NodeJS.ProcessEnv = process.env): OutputFormat {
   // Quiet mode wins over all TTY/env-based defaults.
   if (isQuietMode()) return "quiet";
-  if (process.env.PAX8_CTA_DEFAULT_FORMAT === "json") return "json";
-  if (process.env.PAX8_CTA_DEFAULT_FORMAT === "table") return "table";
+  if (env.PAX8_CTA_DEFAULT_FORMAT === "json") return "json";
+  if (env.PAX8_CTA_DEFAULT_FORMAT === "table") return "table";
   // Fallback: "table" is the safe default when called in-process (unit tests,
   // programmatic use). The CLI entry point (src/index.ts) sets
   // PAX8_CTA_DEFAULT_FORMAT based on isTTY before any commands run, so
