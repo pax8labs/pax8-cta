@@ -18,6 +18,13 @@ config/tenants.yaml
 .vscode/
 .idea/
 
+# Claude Code: agent worktrees are harness scratch; settings.local.json
+# is per-user local config (permissions, env, etc.) and must never be
+# committed. Other .claude/ content (skills, commands, settings.json) is
+# intentionally checked in.
+.claude/worktrees/
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
