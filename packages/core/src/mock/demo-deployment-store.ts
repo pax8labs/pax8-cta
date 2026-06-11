@@ -76,6 +76,29 @@ class DemoDeploymentStoreImpl {
     if (existingIndex >= 0) {
       this.records.splice(existingIndex, 1);
     }
+    // Why: `ensureSeeded()` runs `generateMockDeploymentHistory()` which calls
+    // its own `Date.now()` AFTER the caller computed `deployment.createdAt`.
+    // On a sub-millisecond gap that puts `demo-hist-000`'s createdAt strictly
+    // newer than the deploy the user just performed, so downstream
+    // sort-by-createdAt-desc (in `filterDeployments`) bumps the user's deploy
+    // off index 0. Force fresh deploys (createdAt within 1s of "now") to win
+    // that sort; back-dated records (e.g. tests intentionally inserting 2020
+    // timestamps) are left alone so `list({ since })` semantics still work.
+    const now = Date.now();
+    const deployCreatedAt = new Date(deployment.createdAt).getTime();
+    const isFreshDeploy = Math.abs(now - deployCreatedAt) < 1000;
+    if (isFreshDeploy) {
+      const maxExistingCreatedAt = this.records.reduce(
+        (max, r) => Math.max(max, new Date(r.createdAt).getTime()),
+        0
+      );
+      if (deployCreatedAt <= maxExistingCreatedAt) {
+        deployment = {
+          ...deployment,
+          createdAt: new Date(maxExistingCreatedAt + 1).toISOString(),
+        };
+      }
+    }
     this.records.unshift(deployment);
   }
 

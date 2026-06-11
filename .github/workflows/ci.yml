@@ -81,6 +81,7 @@ jobs:
       - name: Run tests
         run: |
           pnpm --filter @pax8/cta-core build
+          pnpm --filter @pax8/cta build
           pnpm --filter @pax8/cta-core test
           pnpm --filter @pax8/cta test
 
