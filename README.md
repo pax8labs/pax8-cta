@@ -8,6 +8,20 @@ Multi-tenant Copilot Studio deployment tool for MSPs. Short name: **Pax8 CTA**.
 
 ---
 
+## Prerequisites: Node.js
+
+Pax8 CTA runs on Node.js, including the no-install `npx` path shown below. Check your version first:
+
+```bash
+node --version
+```
+
+If it prints `v20.12` or newer (CTA's declared engines floor), you're set — continue to the next section. If it prints an older version, or you see `command not found`, install Node before going further. The easiest path is the LTS installer from https://nodejs.org. If you already use Homebrew, `brew install node` works too — it installs current Node, which is fine because it's past the floor.
+
+After installing, close the terminal, open a new one, and re-run `node --version` to confirm it now reports v20.12 or newer. If something goes wrong, see the [Troubleshooting](#troubleshooting) section below.
+
+---
+
 ## Try it in 30 seconds (no install)
 
 ```bash
@@ -526,6 +540,18 @@ sequenceDiagram
 ---
 
 ## Troubleshooting
+
+### `command not found` after installing Node
+
+- The terminal was open before the Node installer finished, so it still has the old `PATH`. Close that terminal and open a new one (or run `exec $SHELL`), then try the command again.
+- If a fresh shell still fails, run `node --version` in that new shell. If `node --version` reports v20.12 or newer but the command you actually wanted (such as `npx` or a globally installed binary) is still missing, that's a real `PATH` issue — check where your Node install put its `bin` directory and make sure it's on `PATH`.
+- If `node --version` also fails in a brand-new shell, the Node install didn't actually complete. Reinstall from https://nodejs.org and let the installer finish before opening a new terminal.
+
+### `EACCES` / permission denied on `npm install -g`
+
+- Don't reach for `sudo`. It papers over the install once but leaves root-owned files in the global npm tree that npm itself can't manage later, which creates worse problems on the next upgrade.
+- The simplest fix is to skip the global install entirely and use the no-install `npx` path documented near the top of this README.
+- If you do want a global install, reinstall Node via a version manager (such as `nvm` or `fnm`) so the global prefix lives inside your home directory. Global installs then no longer need root.
 
 ### "Failed to acquire token"
 
