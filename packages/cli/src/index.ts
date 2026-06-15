@@ -192,7 +192,9 @@ if (args.length > 0 && !isQuietMode()) {
   }
 
   if (shouldShowFirstRunNotice) {
-    console.log(chalk.gray(getFirstRunNotice()));
+    // Notice goes to stderr so it doesn't pollute stdout for JSON/script
+    // callers piping output (same convention as the demo banner).
+    console.error(chalk.gray(getFirstRunNotice()));
     try {
       markFirstRunNoticeShown();
     } catch {

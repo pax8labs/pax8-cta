@@ -106,24 +106,12 @@ describe("validate command (issue #358)", () => {
     // mode; explicitly disable it here to preserve the original assertion
     // that the failure path still produces a parseable envelope.)
     const result = await runCli(["validate"], {
-      env: { NO_COLOR: "1", DEMO_MODE: "false", PAX8_CTA_DEBUG_FMT: "1" },
+      env: { NO_COLOR: "1", DEMO_MODE: "false" },
       timeout: 60000,
     });
 
     // No config in test cwd → validate fails fast on the config-file check.
     expect(result.exitCode).toBe(1);
-
-    // TEMP DEBUG (revert): dump the full stdout/stderr if JSON.parse will fail,
-    // so the CI log surfaces what validate actually emitted.
-    try {
-      JSON.parse(result.stdout);
-    } catch (e) {
-      console.error("---DEBUG quiet.test.ts validate-json---");
-      console.error("stderr:", JSON.stringify(result.stderr));
-      console.error("stdout:", JSON.stringify(result.stdout));
-      console.error("---END DEBUG---");
-      throw e;
-    }
 
     // Subprocess stdout is non-TTY, so validate defaults to JSON. Parse the
     // entire stdout — the envelope is the only thing on stdout.

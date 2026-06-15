@@ -104,18 +104,6 @@ Examples:
       json: options.json,
       quiet: options.quiet,
     });
-    // TEMP DEBUG (revert): diagnose why CI sees table output where local sees JSON
-    if (process.env.PAX8_CTA_DEBUG_FMT === "1") {
-      console.error(
-        JSON.stringify({
-          debug: "validate-fmt",
-          PAX8_CTA_DEFAULT_FORMAT: process.env.PAX8_CTA_DEFAULT_FORMAT ?? null,
-          stdoutIsTTY: process.stdout.isTTY ?? null,
-          argv1: process.argv[1] ?? null,
-          fmt,
-        })
-      );
-    }
     const structured = isStructured(fmt);
 
     // Demo mode short-circuits all real I/O — no config file, no Azure auth,
