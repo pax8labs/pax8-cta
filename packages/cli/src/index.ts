@@ -54,9 +54,15 @@ if (existsSync(envPath)) {
 }
 
 // Detect TTY early so subcommands can read getDefaultFormat() consistently.
-// Unit tests run in non-TTY vitest workers but should still default to "table";
-// only set this when actually invoked as a CLI binary subprocess.
-if (!process.env.PAX8_CTA_DEFAULT_FORMAT) {
+// Only mutate process.env when this module is the actual entry point — when a
+// test (e.g. index.test.ts) dynamically imports this file under vite-node, we
+// must not pollute the vitest worker's process.env, because vitest's default
+// threads pool shares process.env across all workers and that contamination
+// leaks into spawned subprocess CLIs that then mis-render JSON output as
+// box-drawing tables.
+const isCliEntryPoint =
+  process.argv[1]?.endsWith("dist/index.js") || process.argv[1]?.endsWith("dist\\index.js");
+if (isCliEntryPoint && !process.env.PAX8_CTA_DEFAULT_FORMAT) {
   process.env.PAX8_CTA_DEFAULT_FORMAT = process.stdout.isTTY ? "table" : "json";
 }
 
@@ -186,7 +192,9 @@ if (args.length > 0 && !isQuietMode()) {
   }
 
   if (shouldShowFirstRunNotice) {
-    console.log(chalk.gray(getFirstRunNotice()));
+    // Notice goes to stderr so it doesn't pollute stdout for JSON/script
+    // callers piping output (same convention as the demo banner).
+    console.error(chalk.gray(getFirstRunNotice()));
     try {
       markFirstRunNoticeShown();
     } catch {
