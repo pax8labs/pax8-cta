@@ -204,14 +204,23 @@ describe("Telemetry", () => {
       expect(isTelemetryEnabled()).toBe(false);
     });
 
-    it("should provide first run notice text", async () => {
+    it("should provide first run notice text with quick-start hints and telemetry opt-in", async () => {
       const { getFirstRunNotice } = await import("../lib/telemetry.js");
 
       const notice = getFirstRunNotice();
 
+      // Telemetry disclosure (load-bearing for the privacy contract).
       expect(notice).toContain("anonymous usage data");
       expect(notice).toContain("telemetry on");
       expect(notice).toContain("disabled by default");
+
+      // Quick-start hints (closes #447 — the in-CLI welcome covers every
+      // install surface, including pnpm where the postinstall banner is
+      // blocked by default).
+      expect(notice).toContain("Welcome to Pax8 CTA");
+      expect(notice).toContain("demo on");
+      expect(notice).toContain("init");
+      expect(notice).toContain("--help");
     });
 
     it("should track first run shown state", async () => {

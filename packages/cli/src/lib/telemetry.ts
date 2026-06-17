@@ -502,16 +502,28 @@ export function trackFirstRun(): void {
 // ============================================================================
 
 /**
- * Get the first run notice text
+ * Get the first run notice text.
+ *
+ * Combines a quick-start hint (closes #447 — pnpm 10 default settings block
+ * the npm postinstall banner, so the install-time welcome doesn't fire for
+ * `pnpm add` users or for users running the prebuilt standalone binaries;
+ * routing the welcome through this first-run code path covers every install
+ * surface) with the telemetry opt-in disclosure.
  */
 export function getFirstRunNotice(): string {
   return `
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  Pax8 CTA CLI can collect anonymous usage data to help improve the tool.  │
+│  ✓ Welcome to Pax8 CTA!                                                   │
 │                                                                           │
+│  Quick start:                                                             │
+│  • pax8-cta demo on       — try it with mock data, no credentials needed  │
+│  • pax8-cta init          — initialize real config and authenticate       │
+│  • pax8-cta --help        — show all commands                             │
+│                                                                           │
+│  Pax8 CTA CLI can collect anonymous usage data to help improve the tool.  │
 │  Telemetry is disabled by default. To opt in:                             │
 │  • Run 'telemetry on'                                                     │
-│  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli       │
+│  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli         │
 └────────────────────────────────────────────────────────────────────────────┘
 `;
 }
