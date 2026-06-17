@@ -289,4 +289,118 @@ describe("Telemetry", () => {
       vi.doUnmock("posthog-node");
     });
   });
+
+  describe("getCredentialedStatus (issue #450)", () => {
+    let workDir: string;
+    let originalCwd: string;
+
+    beforeEach(async () => {
+      const { mkdtempSync } = await import("node:fs");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      originalCwd = process.cwd();
+      workDir = mkdtempSync(join(tmpdir(), "creds-status-"));
+      process.chdir(workDir);
+    });
+
+    afterEach(async () => {
+      process.chdir(originalCwd);
+      const { rmSync } = await import("node:fs");
+      rmSync(workDir, { recursive: true, force: true });
+    });
+
+    it("returns 'demo' when DEMO_MODE=true (overrides any other signals)", async () => {
+      // Outer beforeEach already sets DEMO_MODE=true. Even if the user also
+      // has a real secret env set, the demo-mode signal must win.
+      restoreEnv = mockEnv({
+        DEMO_MODE: "true",
+        PARTNER_CLIENT_SECRET: "should-be-ignored",
+        PAX8_CTA_TELEMETRY_DISABLED: "1",
+      });
+      const { getCredentialedStatus, resetCredentialedStatusCacheForTests } =
+        await import("../lib/telemetry.js");
+      resetCredentialedStatusCacheForTests();
+      expect(getCredentialedStatus()).toBe("demo");
+    });
+
+    it("returns 'unconfigured' when DEMO_MODE off and neither secret nor tenants.yaml present", async () => {
+      restoreEnv = mockEnv({
+        DEMO_MODE: "false",
+        PAX8_CTA_TELEMETRY_DISABLED: "1",
+      });
+      const { getCredentialedStatus, resetCredentialedStatusCacheForTests } =
+        await import("../lib/telemetry.js");
+      resetCredentialedStatusCacheForTests();
+      expect(getCredentialedStatus()).toBe("unconfigured");
+    });
+
+    it("returns 'partial' when the secret env var is set but tenants.yaml is missing", async () => {
+      restoreEnv = mockEnv({
+        DEMO_MODE: "false",
+        PARTNER_CLIENT_SECRET: "fake-secret-for-test",
+        PAX8_CTA_TELEMETRY_DISABLED: "1",
+      });
+      const { getCredentialedStatus, resetCredentialedStatusCacheForTests } =
+        await import("../lib/telemetry.js");
+      resetCredentialedStatusCacheForTests();
+      expect(getCredentialedStatus()).toBe("partial");
+    });
+
+    it("returns 'partial' when tenants.yaml exists but no secret env var is set", async () => {
+      const { mkdirSync, writeFileSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      mkdirSync(join(workDir, "config"));
+      writeFileSync(join(workDir, "config", "tenants.yaml"), 'version: "2.0"\n');
+
+      restoreEnv = mockEnv({
+        DEMO_MODE: "false",
+        PAX8_CTA_TELEMETRY_DISABLED: "1",
+      });
+      const { getCredentialedStatus, resetCredentialedStatusCacheForTests } =
+        await import("../lib/telemetry.js");
+      resetCredentialedStatusCacheForTests();
+      expect(getCredentialedStatus()).toBe("partial");
+    });
+
+    it("returns 'configured' when both the secret and tenants.yaml are present", async () => {
+      const { mkdirSync, writeFileSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      mkdirSync(join(workDir, "config"));
+      writeFileSync(join(workDir, "config", "tenants.yaml"), 'version: "2.0"\n');
+
+      restoreEnv = mockEnv({
+        DEMO_MODE: "false",
+        PARTNER_CLIENT_SECRET: "fake-secret-for-test",
+        PAX8_CTA_TELEMETRY_DISABLED: "1",
+      });
+      const { getCredentialedStatus, resetCredentialedStatusCacheForTests } =
+        await import("../lib/telemetry.js");
+      resetCredentialedStatusCacheForTests();
+      expect(getCredentialedStatus()).toBe("configured");
+    });
+
+    it("honors the PAX8_CTA_CLIENT_SECRET alias for the secret check", async () => {
+      restoreEnv = mockEnv({
+        DEMO_MODE: "false",
+        PAX8_CTA_CLIENT_SECRET: "fake-alias-secret",
+        PAX8_CTA_TELEMETRY_DISABLED: "1",
+      });
+      const { getCredentialedStatus, resetCredentialedStatusCacheForTests } =
+        await import("../lib/telemetry.js");
+      resetCredentialedStatusCacheForTests();
+      expect(getCredentialedStatus()).toBe("partial");
+    });
+
+    it("treats an empty secret env var as 'unset' (boolean coercion, not just defined)", async () => {
+      restoreEnv = mockEnv({
+        DEMO_MODE: "false",
+        PARTNER_CLIENT_SECRET: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "1",
+      });
+      const { getCredentialedStatus, resetCredentialedStatusCacheForTests } =
+        await import("../lib/telemetry.js");
+      resetCredentialedStatusCacheForTests();
+      expect(getCredentialedStatus()).toBe("unconfigured");
+    });
+  });
 });

@@ -46,7 +46,10 @@ import type { PostHog } from "posthog-node";
 import Conf from "conf";
 import { createHash } from "crypto";
 import { hostname } from "os";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { resolveTelemetryKey, TELEMETRY_APP } from "./telemetry-key.js";
+import { isDemoModeEnabled } from "../commands/demo.js";
 
 // ============================================================================
 // Configuration
@@ -71,7 +74,56 @@ function commonProperties(): Record<string, string> {
     cli_version: CLI_VERSION,
     os: process.platform,
     node_version: process.version,
+    credentialed_status: getCredentialedStatus(),
   };
+}
+
+// ============================================================================
+// Credentialed status (issue #450)
+// ============================================================================
+
+/**
+ * Coarse, anonymous classification of the user's setup state, reported as a
+ * property on every telemetry event so PostHog funnel analysis can show the
+ * demo → configured conversion path without any PII.
+ *
+ *   "demo"         — DEMO_MODE env var or persistent `demo on` flag is active.
+ *   "unconfigured" — no client secret and no tenants.yaml at default path.
+ *   "partial"      — secret OR tenants.yaml present, but not both.
+ *   "configured"   — both present (real config, ready to validate/deploy).
+ *
+ * Categorical only. We never read the secret value, the file contents, or any
+ * config field — only the presence/absence of two signals. See issue #450.
+ */
+export type CredentialedStatus = "demo" | "unconfigured" | "partial" | "configured";
+
+const CLIENT_SECRET_ENV_VARS = ["PARTNER_CLIENT_SECRET", "PAX8_CTA_CLIENT_SECRET"] as const;
+const DEFAULT_CONFIG_PATH = "config/tenants.yaml";
+
+let cachedCredentialedStatus: CredentialedStatus | null = null;
+
+/**
+ * Resolve credentialed status, cached for the process lifetime. Setup state
+ * doesn't meaningfully change inside a single CLI invocation and a per-event
+ * `existsSync` on every captured event would be unnecessary work.
+ */
+export function getCredentialedStatus(): CredentialedStatus {
+  if (cachedCredentialedStatus) return cachedCredentialedStatus;
+  if (isDemoModeEnabled()) {
+    cachedCredentialedStatus = "demo";
+    return cachedCredentialedStatus;
+  }
+  const hasSecret = CLIENT_SECRET_ENV_VARS.some((k) => Boolean(process.env[k]));
+  const hasConfig = existsSync(resolve(process.cwd(), DEFAULT_CONFIG_PATH));
+  if (hasSecret && hasConfig) cachedCredentialedStatus = "configured";
+  else if (hasSecret || hasConfig) cachedCredentialedStatus = "partial";
+  else cachedCredentialedStatus = "unconfigured";
+  return cachedCredentialedStatus;
+}
+
+/** Test-only: invalidate the per-process cache so a new resolution can run. */
+export function resetCredentialedStatusCacheForTests(): void {
+  cachedCredentialedStatus = null;
 }
 
 // Config store for telemetry preferences
