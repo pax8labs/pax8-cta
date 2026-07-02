@@ -43,14 +43,6 @@ import { isInteractivePrompt, printRunningCommand } from "../../lib/picker.js";
 import { question } from "../../lib/input.js";
 import { resolveFormat, type OutputFormat } from "../../lib/output.js";
 import { didYouMean } from "../../lib/did-you-mean.js";
-
-function tenantNotFoundHint(query: string, allTenants: readonly { name: string }[]): string {
-  return didYouMean(
-    query,
-    allTenants.map((t) => t.name),
-    { listCommand: "pax8-cta tenants list", noun: "tenants" }
-  );
-}
 import { type DriftRiskLevel, riskLevelValue, formatRiskLevel } from "./risk-calculator.js";
 import { buildDriftFixPlan, type DriftFixResult } from "./fix-planner.js";
 import {
@@ -66,6 +58,14 @@ import {
   selectOutdated,
 } from "./drift-analysis.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
+
+function tenantNotFoundHint(query: string, allTenants: readonly { name: string }[]): string {
+  return didYouMean(
+    query,
+    allTenants.map((t) => t.name),
+    { listCommand: "pax8-cta tenants list", noun: "tenants" }
+  );
+}
 
 // ============================================================================
 // Fleet drift risk row schema (issue #401)
