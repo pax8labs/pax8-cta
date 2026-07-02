@@ -33,6 +33,7 @@ import { isDemo } from "../../lib/command-wrapper.js";
 import { resolveFormat } from "../../lib/output.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
 import { findTenantMatches } from "../tenants/helpers.js";
+import { didYouMean } from "../../lib/did-you-mean.js";
 
 export const removeCommand = new Command("remove")
   .alias("uninstall")
@@ -76,6 +77,15 @@ Examples:
 
       if (!tenant) {
         spinner.fail(chalk.red(`Tenant '${options.tenant}' not found in config`));
+        console.log(
+          chalk.gray(
+            didYouMean(
+              options.tenant,
+              config.tenants.map((t) => t.name),
+              { listCommand: "pax8-cta tenants list", noun: "tenants" }
+            )
+          )
+        );
         process.exit(1);
       }
 

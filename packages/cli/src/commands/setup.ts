@@ -30,6 +30,7 @@ import {
 import { getClientSecretWithFallback } from "../lib/credentials.js";
 import { UsageError, CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
+import { didYouMean } from "../lib/did-you-mean.js";
 
 export const setupCommand = new Command("setup")
   .description("Register your app as an application user in tenant environments")
@@ -115,9 +116,12 @@ Examples:
         );
         if (!tenant) {
           spinner.stop();
-          throw new CliError(
-            `Tenant '${options.tenant}' not found in configuration. Run 'tenants list' to see available tenants.`
+          const hint = didYouMean(
+            options.tenant,
+            config.tenants.map((t) => t.name),
+            { listCommand: "pax8-cta tenants list", noun: "tenants" }
           );
+          throw new CliError(`Tenant '${options.tenant}' not found in configuration.\n${hint}`);
         }
         targets = [tenant];
       } else {

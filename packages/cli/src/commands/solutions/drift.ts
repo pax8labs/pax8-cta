@@ -42,6 +42,15 @@ import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { isInteractivePrompt, printRunningCommand } from "../../lib/picker.js";
 import { question } from "../../lib/input.js";
 import { resolveFormat, type OutputFormat } from "../../lib/output.js";
+import { didYouMean } from "../../lib/did-you-mean.js";
+
+function tenantNotFoundHint(query: string, allTenants: readonly { name: string }[]): string {
+  return didYouMean(
+    query,
+    allTenants.map((t) => t.name),
+    { listCommand: "pax8-cta tenants list", noun: "tenants" }
+  );
+}
 import { type DriftRiskLevel, riskLevelValue, formatRiskLevel } from "./risk-calculator.js";
 import { buildDriftFixPlan, type DriftFixResult } from "./fix-planner.js";
 import {
@@ -224,6 +233,14 @@ Examples:
 
                 if (enabledTenants.length === 0) {
                   console.log(chalk.red(`Tenant '${options.tenant}' not found`));
+                  console.log(
+                    chalk.gray(
+                      tenantNotFoundHint(
+                        options.tenant,
+                        DEMO_TENANTS.filter((t) => t.enabled)
+                      )
+                    )
+                  );
                   process.exit(1);
                 }
               }
@@ -407,6 +424,7 @@ Examples:
 
               if (!tenant) {
                 console.log(chalk.red(`Tenant '${options.tenant}' not found`));
+                console.log(chalk.gray(tenantNotFoundHint(options.tenant, enabledTenants)));
                 process.exit(1);
               }
 
@@ -623,6 +641,7 @@ Examples:
               );
               if (!match) {
                 spinner.fail(chalk.red(`Tenant '${options.tenant}' not found`));
+                console.log(chalk.gray(tenantNotFoundHint(options.tenant, tenants)));
                 process.exit(1);
               }
               tenants = [match];

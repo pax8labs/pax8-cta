@@ -35,6 +35,7 @@ import { CliError } from "../lib/errors.js";
 import { isDemo } from "../lib/command-wrapper.js";
 import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
 import { showDemoBanner } from "../lib/demo-banner.js";
+import { didYouMean } from "../lib/did-you-mean.js";
 
 interface ValidationCheck {
   name: string;
@@ -147,8 +148,13 @@ Examples:
           (t) => t.name.toLowerCase() === options.tenant.toLowerCase()
         );
         if (!tenant) {
+          const hint = didYouMean(
+            options.tenant,
+            enabledTenants.map((t) => t.name),
+            { listCommand: "pax8-cta tenants list", noun: "tenants" }
+          );
           throw new CliError(
-            `Tenant '${options.tenant}' not found in configuration or not enabled. Run 'tenants list' to see available tenants.`
+            `Tenant '${options.tenant}' not found in configuration or not enabled.\n${hint}`
           );
         }
         enabledTenants = [tenant];
@@ -489,11 +495,16 @@ function runDemoValidation(
   if (options.tenant) {
     const match = demoTenants.find((t) => t.name.toLowerCase() === options.tenant!.toLowerCase());
     if (!match) {
+      const hint = didYouMean(
+        options.tenant,
+        demoTenants.map((t) => t.name),
+        { listCommand: "pax8-cta tenants list", noun: "demo tenants" }
+      );
       checks.push({
         name: "Tenant filter",
         status: "fail",
         message: `Tenant '${options.tenant}' not found in demo fleet.`,
-        fix: "Run 'tenants list' to see available demo tenants.",
+        fix: hint,
       });
       displayResults(checks, fmt);
       process.exit(1);

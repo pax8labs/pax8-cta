@@ -30,6 +30,7 @@ import { CliError, handleCommandError } from "../../lib/errors.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../../lib/picker.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
+import { didYouMean } from "../../lib/did-you-mean.js";
 
 interface AgentRow {
   name: string;
@@ -112,20 +113,14 @@ export const showCommand = new Command("show")
         // Issue #360: route the "not found" path through handleCommandError
         // (via CliError) so --json callers get the structured envelope
         // (`{ error: { code, message, causes, recovery } }`) instead of
-        // ANSI-coloured stdout text. The "available tenants" hint moves into
-        // the error message itself so it survives the JSON envelope.
-        const availableHint = tenants
-          .slice(0, 5)
-          .map((t) => `${t.name} (${t.tenantId.slice(0, 8)}...)`);
-        if (tenants.length > 5) {
-          availableHint.push(`... and ${tenants.length - 5} more`);
-        }
-
-        const message =
-          `Tenant '${tenantQuery}' not found.` +
-          (availableHint.length > 0 ? ` Available tenants: ${availableHint.join(", ")}.` : "") +
-          ` Run 'tenants list' to see all configured tenants.`;
-        throw new CliError(message);
+        // ANSI-coloured stdout text. The hint text moves into the error
+        // message itself so it survives the JSON envelope.
+        const hint = didYouMean(
+          tenantQuery,
+          tenants.map((t) => t.name),
+          { listCommand: "pax8-cta tenants list", noun: "tenants" }
+        );
+        throw new CliError(`Tenant '${tenantQuery}' not found.\n${hint}`);
       }
 
       const fmt = resolveFormat(options);
