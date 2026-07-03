@@ -257,31 +257,39 @@ Examples:
                   .map((s) => `${s.deployedVersion || "none"} -> ${s.expectedVersion}`)
                   .join(", ");
 
+                // Suffix format: "(<level> risk -- <disposition>: <reason>)".
+                // The reason comes from assessDriftRisk (#464) so operators can
+                // see why a tenant was included or skipped without running
+                // `analyze` per-tenant.
+                const disposition = included ? "included" : "SKIPPED";
+                const suffix = `(${entry.risk} risk -- ${
+                  included && entry.risk === "low" ? "safe" : disposition
+                }: ${entry.reason})`;
+                const line = `  ${
+                  included
+                    ? entry.risk === "low"
+                      ? "✓"
+                      : entry.risk === "medium"
+                        ? "⚠"
+                        : "✗"
+                    : entry.risk === "medium"
+                      ? "⚠"
+                      : "✗"
+                } ${entry.tenantName}  ${versions}  ${suffix}`;
+
                 if (included) {
                   if (entry.risk === "low") {
-                    console.log(
-                      chalk.green(`  ✓ ${entry.tenantName}  ${versions}  (low risk -- safe)`)
-                    );
+                    console.log(chalk.green(line));
                   } else if (entry.risk === "medium") {
-                    console.log(
-                      chalk.yellow(
-                        `  ⚠ ${entry.tenantName}  ${versions}  (medium risk -- included)`
-                      )
-                    );
+                    console.log(chalk.yellow(line));
                   } else {
-                    console.log(
-                      chalk.red(`  ✗ ${entry.tenantName}  ${versions}  (high risk -- included)`)
-                    );
+                    console.log(chalk.red(line));
                   }
                 } else {
                   if (entry.risk === "medium") {
-                    console.log(
-                      chalk.yellow(`  ⚠ ${entry.tenantName}  ${versions}  (medium risk -- SKIPPED)`)
-                    );
+                    console.log(chalk.yellow(line));
                   } else {
-                    console.log(
-                      chalk.red(`  ✗ ${entry.tenantName}  ${versions}  (high risk -- SKIPPED)`)
-                    );
+                    console.log(chalk.red(line));
                   }
                 }
               }
@@ -867,7 +875,7 @@ async function runDriftFix(isDemo: boolean): Promise<void> {
 }
 
 export { buildAfterActionHint } from "./drift-analysis.js";
-export { calculateDriftRisk } from "./risk-calculator.js";
+export { calculateDriftRisk, assessDriftRisk } from "./risk-calculator.js";
 export { buildDriftFixPlan } from "./fix-planner.js";
 export type { DriftFixEntry, DriftFixResult } from "./fix-planner.js";
 export type { DriftRiskLevel } from "./risk-calculator.js";

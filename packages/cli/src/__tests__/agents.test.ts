@@ -637,6 +637,37 @@ describe("Agents Command", () => {
       }
     });
 
+    it("shows an inline reason next to each risk label (#464)", async () => {
+      const { solutionsCommand } = await import("../commands/solutions/index.js");
+      const program = new Command();
+      program.addCommand(solutionsCommand);
+
+      await program.parseAsync([
+        "node",
+        "test",
+        "solutions",
+        "drift",
+        "--fix",
+        "--dry-run",
+        "--force",
+      ]);
+
+      const output = consoleCapture.getAllOutput();
+      const cleanOutput = stripAnsi(output);
+
+      if (!containsText(cleanOutput, "Drift Fix Plan:")) return; // no drift to show
+
+      // Every risk line must include a colon-separated inline reason after the
+      // disposition. Regex matches "(<level> risk -- <disp>: <reason>)".
+      const riskLines = cleanOutput
+        .split("\n")
+        .filter((l) => /\((low|medium|high) risk --/i.test(l));
+      expect(riskLines.length).toBeGreaterThan(0);
+      for (const line of riskLines) {
+        expect(line).toMatch(/\((low|medium|high) risk -- (safe|included|SKIPPED): [^)]+\)/);
+      }
+    });
+
     it("should include medium-risk tenants with --max-risk medium", async () => {
       const { solutionsCommand } = await import("../commands/solutions/index.js");
       const program = new Command();
@@ -797,9 +828,12 @@ describe("Agents Command", () => {
 
       const plan = buildDriftFixPlan(tenantStatuses);
 
-      // Each entry should have a valid risk level
+      // Each entry should have a valid risk level, a non-empty reason (#464),
+      // and at least one outdated solution.
       for (const entry of plan) {
         expect(["low", "medium", "high"]).toContain(entry.risk);
+        expect(typeof entry.reason).toBe("string");
+        expect(entry.reason.length).toBeGreaterThan(0);
         expect(entry.outdatedSolutions.length).toBeGreaterThan(0);
       }
 
@@ -808,6 +842,79 @@ describe("Agents Command", () => {
       for (let i = 1; i < plan.length; i++) {
         expect(riskOrder[plan[i].risk]).toBeGreaterThanOrEqual(riskOrder[plan[i - 1].risk]);
       }
+    });
+
+    describe("assessDriftRisk reason (#464)", () => {
+      const solutionAt = (drift: number, uniqueName = "TestAgent") => ({
+        uniqueName,
+        friendlyName: uniqueName,
+        expectedVersion: "1.0.0.5",
+        deployedVersion: `1.0.0.${5 + drift}`,
+        isManaged: true,
+        status: "outdated" as const,
+        versionDrift: drift,
+      });
+      const wrap = (solutions: ReturnType<typeof solutionAt>[]) => ({
+        tenantId: "test",
+        tenantName: "Test",
+        environmentUrl: "https://test.crm.dynamics.com",
+        solutions,
+        overallStatus: "outdated" as const,
+        lastChecked: new Date().toISOString(),
+      });
+
+      it("names the missing solution when not-deployed drives 'high'", async () => {
+        const { assessDriftRisk } = await import("../commands/solutions/drift.js");
+        const assessment = assessDriftRisk({
+          ...wrap([]),
+          solutions: [
+            {
+              uniqueName: "SalesAssistant",
+              friendlyName: "Sales Assistant",
+              expectedVersion: "1.0.0.5",
+              deployedVersion: null,
+              isManaged: true,
+              status: "not_deployed" as const,
+              versionDrift: 0,
+            },
+          ],
+        });
+        expect(assessment.level).toBe("high");
+        expect(assessment.reason).toContain("SalesAssistant");
+        expect(assessment.reason).toContain("not deployed");
+      });
+
+      it("names the worst-drifted solution when version-drift drives 'high'", async () => {
+        const { assessDriftRisk } = await import("../commands/solutions/drift.js");
+        const assessment = assessDriftRisk(wrap([solutionAt(-3, "WorstAgent")]));
+        expect(assessment.level).toBe("high");
+        expect(assessment.reason).toContain("WorstAgent");
+        expect(assessment.reason).toContain("3");
+      });
+
+      it("reports 'multiple outdated' when count (not drift) drives 'medium'", async () => {
+        const { assessDriftRisk } = await import("../commands/solutions/drift.js");
+        const assessment = assessDriftRisk(
+          wrap([solutionAt(-1, "AgentA"), solutionAt(-1, "AgentB")])
+        );
+        expect(assessment.level).toBe("medium");
+        expect(assessment.reason).toContain("2 solutions");
+      });
+
+      it("reasons are short enough to fit inline (≤50 chars)", async () => {
+        const { buildDriftFixPlan } = await import("../commands/solutions/drift.js");
+        const { getDemoTenantVersionStatus, DEMO_TENANTS } = await import("@pax8/cta-core");
+        const enabledTenants = DEMO_TENANTS.filter((t) => t.enabled);
+        const plan = buildDriftFixPlan(
+          enabledTenants.map((t) => ({
+            tenant: t,
+            status: getDemoTenantVersionStatus(t.tenantId)!,
+          }))
+        );
+        for (const entry of plan) {
+          expect(entry.reason.length).toBeLessThanOrEqual(50);
+        }
+      });
     });
 
     it("should classify not_deployed as high risk", async () => {
