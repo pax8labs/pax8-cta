@@ -101,7 +101,7 @@ Examples:
           console.log(`  Type:     ${managed ? "Managed" : "Unmanaged"}`);
           console.log(`  Package:  ${chalk.cyan(outputPath)}`);
           console.log();
-          console.log(chalk.gray(`Use 'deploy <solution> --all' to deploy to your tenants`));
+          console.log(chalk.gray(`Next step: pax8-cta deploy ${options.solution} --all`));
         },
         async (config) => {
           spinner.succeed("Manifest loaded");
@@ -155,7 +155,7 @@ Examples:
           console.log(`  Type:     ${managed ? "Managed" : "Unmanaged"}`);
           console.log(`  Agent package:    ${chalk.cyan(outputPath)}`);
           console.log();
-          console.log(chalk.gray(`Use 'deploy <solution> --all' to deploy to your tenants`));
+          console.log(chalk.gray(`Next step: pax8-cta deploy ${options.solution} --all`));
         }
       );
     } catch (error) {
