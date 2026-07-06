@@ -20,26 +20,62 @@ import type { DriftRecommendation, TenantVersionStatus } from "@pax8/cta-core";
 /** Risk level for a tenant based on its drift state */
 export type DriftRiskLevel = "low" | "medium" | "high";
 
+/** Assessment of a tenant's drift risk — level + human-readable "why". */
+export interface DriftRiskAssessment {
+  level: DriftRiskLevel;
+  /**
+   * Short (≤40 char) explanation of what pushed this tenant into `level`.
+   * Rendered inline next to the risk label so users can see why a tenant
+   * was included / skipped without running `analyze` on each one (issue #464).
+   */
+  reason: string;
+}
+
 /**
- * Calculate the drift risk level for a tenant based on its version status.
+ * Assess a tenant's drift risk. Returns level + reason.
  *
  * - low: 1 minor version behind on all solutions
  * - medium: 2+ versions behind or multiple outdated solutions
  * - high: not deployed solutions or 3+ versions behind
  */
-export function calculateDriftRisk(status: TenantVersionStatus): DriftRiskLevel {
+export function assessDriftRisk(status: TenantVersionStatus): DriftRiskAssessment {
   const outdated = status.solutions.filter((s) => s.status === "outdated");
   const notDeployed = status.solutions.filter((s) => s.status === "not_deployed");
 
-  if (notDeployed.length > 0) return "high";
+  if (notDeployed.length > 0) {
+    if (notDeployed.length === 1) {
+      return { level: "high", reason: `${notDeployed[0].uniqueName} not deployed` };
+    }
+    return { level: "high", reason: `${notDeployed.length} solutions not deployed` };
+  }
 
-  if (outdated.length === 0) return "low";
+  if (outdated.length === 0) {
+    return { level: "low", reason: "all solutions current" };
+  }
 
   const maxDrift = Math.max(...outdated.map((s) => Math.abs(s.versionDrift)));
+  const worst = outdated.reduce((a, b) =>
+    Math.abs(b.versionDrift) > Math.abs(a.versionDrift) ? b : a
+  );
 
-  if (maxDrift >= 3) return "high";
-  if (maxDrift >= 2 || outdated.length >= 2) return "medium";
-  return "low";
+  if (maxDrift >= 3) {
+    return { level: "high", reason: `${maxDrift} versions behind on ${worst.uniqueName}` };
+  }
+  if (maxDrift >= 2) {
+    return { level: "medium", reason: `2 versions behind on ${worst.uniqueName}` };
+  }
+  if (outdated.length >= 2) {
+    return { level: "medium", reason: `${outdated.length} solutions outdated` };
+  }
+  return { level: "low", reason: `1 version behind on ${worst.uniqueName}` };
+}
+
+/**
+ * Backwards-compat wrapper — returns just the level. Prefer `assessDriftRisk`
+ * for new callers so the "why" is available.
+ */
+export function calculateDriftRisk(status: TenantVersionStatus): DriftRiskLevel {
+  return assessDriftRisk(status).level;
 }
 
 /**

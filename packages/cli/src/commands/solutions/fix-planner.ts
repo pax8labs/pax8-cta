@@ -15,13 +15,15 @@
  */
 
 import type { TenantVersionStatus } from "@pax8/cta-core";
-import { calculateDriftRisk, type DriftRiskLevel } from "./risk-calculator.js";
+import { assessDriftRisk, type DriftRiskLevel } from "./risk-calculator.js";
 
 /** A tenant's drift fix plan entry */
 export interface DriftFixEntry {
   tenantName: string;
   tenantId: string;
   risk: DriftRiskLevel;
+  /** Why this tenant landed at `risk` — short human-readable explanation (issue #464). */
+  reason: string;
   outdatedSolutions: Array<{
     uniqueName: string;
     deployedVersion: string | null;
@@ -54,10 +56,12 @@ export function buildDriftFixPlan(
 
     if (outdatedSolutions.length === 0) continue;
 
+    const assessment = assessDriftRisk(status);
     plan.push({
       tenantName: tenant.name,
       tenantId: tenant.tenantId,
-      risk: calculateDriftRisk(status),
+      risk: assessment.level,
+      reason: assessment.reason,
       outdatedSolutions: outdatedSolutions.map((s) => ({
         uniqueName: s.uniqueName,
         deployedVersion: s.deployedVersion,
