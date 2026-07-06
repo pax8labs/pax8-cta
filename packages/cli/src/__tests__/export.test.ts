@@ -135,7 +135,9 @@ describe("Export Command (pack)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      expect(containsText(output, "Use 'deploy")).toBe(true);
+      // After #474, the hint interpolates the real solution name instead of
+      // printing `<solution>` verbatim.
+      expect(containsText(output, "Next step: pax8-cta deploy TestAgent --all")).toBe(true);
     });
 
     it("should create output directory if it does not exist", async () => {
