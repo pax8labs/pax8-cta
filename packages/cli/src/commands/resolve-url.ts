@@ -150,7 +150,7 @@ export const resolveUrlCommand = new Command("resolve-url")
       console.log(`  Type:      ${managed ? "Managed" : "Unmanaged"}`);
       console.log(`  Output:    ${chalk.cyan(outputPath)}`);
       console.log();
-      console.log(chalk.gray(`Use 'deploy <solution> --all' to deploy to your tenants`));
+      console.log(chalk.gray(`Next step: pax8-cta deploy ${resolved.solution.uniquename} --all`));
     } catch (error) {
       handleCommandError(error, spinner, "URL resolution failed");
     }
