@@ -438,7 +438,7 @@ describe("Analyze Command", () => {
       expect(output).toContain('"perTenantBreakdown"');
     });
 
-    it("should show next steps hint", async () => {
+    it("should show next steps hint with the actual solution and filter interpolated (#463)", async () => {
       const { analyzeCommand } = await import("../commands/analyze.js");
       const program = new Command();
       program.addCommand(analyzeCommand);
@@ -447,11 +447,75 @@ describe("Analyze Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Should show either "deploy <solution>" or "Fix the blockers"
-      const hasNextStep =
-        containsText(output, "Next step: deploy") || containsText(output, "Fix the blockers");
+      // The old "Next step: deploy <solution> --all" literal must be gone —
+      // the hint must interpolate the real solution and filter.
+      expect(output).not.toContain("<solution>");
 
-      expect(hasNextStep).toBe(true);
+      // Ready-to-deploy path OR blocker path — both must interpolate.
+      const hasReady = containsText(output, "Next step: pax8-cta deploy ./test.zip --all");
+      const hasBlocked = containsText(output, "re-run: pax8-cta analyze ./test.zip --all");
+      expect(hasReady || hasBlocked).toBe(true);
     });
+
+    it("interpolates --tag into the next-step hint (#463)", async () => {
+      const { analyzeCommand } = await import("../commands/analyze.js");
+      const program = new Command();
+      program.addCommand(analyzeCommand);
+
+      await program.parseAsync([
+        "node",
+        "test",
+        "analyze",
+        "CustomerServiceAgent",
+        "--tag",
+        "enterprise",
+      ]);
+
+      const output = consoleCapture.getAllOutput();
+      expect(output).not.toContain("<solution>");
+      const hasReady = containsText(
+        output,
+        "Next step: pax8-cta deploy CustomerServiceAgent --tag enterprise"
+      );
+      const hasBlocked = containsText(
+        output,
+        "re-run: pax8-cta analyze CustomerServiceAgent --tag enterprise"
+      );
+      expect(hasReady || hasBlocked).toBe(true);
+    });
+  });
+});
+
+describe("formatAnalyzeFilterFlags (#463)", () => {
+  it("returns --all when neither tag nor all is set", async () => {
+    const { formatAnalyzeFilterFlags } = await import("../commands/analyze.js");
+    expect(formatAnalyzeFilterFlags({})).toBe("--all");
+  });
+
+  it("returns --all when only all is set", async () => {
+    const { formatAnalyzeFilterFlags } = await import("../commands/analyze.js");
+    expect(formatAnalyzeFilterFlags({ all: true })).toBe("--all");
+  });
+
+  it("renders a single --tag when tag is set", async () => {
+    const { formatAnalyzeFilterFlags } = await import("../commands/analyze.js");
+    expect(formatAnalyzeFilterFlags({ tag: ["enterprise"] })).toBe("--tag enterprise");
+  });
+
+  it("joins multiple --tag values", async () => {
+    const { formatAnalyzeFilterFlags } = await import("../commands/analyze.js");
+    expect(formatAnalyzeFilterFlags({ tag: ["enterprise", "smb"] })).toBe(
+      "--tag enterprise --tag smb"
+    );
+  });
+
+  it("quotes tag values containing spaces", async () => {
+    const { formatAnalyzeFilterFlags } = await import("../commands/analyze.js");
+    expect(formatAnalyzeFilterFlags({ tag: ["customer facing"] })).toBe(`--tag "customer facing"`);
+  });
+
+  it("prefers tag over all when both are set", async () => {
+    const { formatAnalyzeFilterFlags } = await import("../commands/analyze.js");
+    expect(formatAnalyzeFilterFlags({ tag: ["prod"], all: true })).toBe("--tag prod");
   });
 });

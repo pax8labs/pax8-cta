@@ -180,7 +180,10 @@ Examples:
           spinner.succeed(chalk.green("Risk analysis complete"));
           console.log();
 
-          displayAnalysis(analysis, destinations.length, jsonOutput);
+          displayAnalysis(analysis, destinations.length, jsonOutput, solutionInput, {
+            all: options.all,
+            tag: options.tag,
+          });
 
           await maybePromptPreconditionFix(analysis.preconditions.failures, jsonOutput);
 
@@ -249,7 +252,10 @@ Examples:
           spinner.succeed(chalk.green("Risk analysis complete"));
           console.log();
 
-          displayAnalysis(analysis, destinations.length, jsonOutput);
+          displayAnalysis(analysis, destinations.length, jsonOutput, agentPackagePath, {
+            all: options.all,
+            tag: options.tag,
+          });
 
           await maybePromptPreconditionFix(analysis.preconditions.failures, jsonOutput);
 
@@ -321,7 +327,29 @@ async function runDeploy(solution: string, tenantName: string, isDemo: boolean):
   });
 }
 
-function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput: boolean) {
+export interface AnalyzeFilter {
+  all?: boolean;
+  tag?: string[];
+}
+
+export function formatAnalyzeFilterFlags(filter: AnalyzeFilter): string {
+  if (filter.tag && filter.tag.length > 0) {
+    return filter.tag.map((t) => (/\s/.test(t) ? `--tag "${t}"` : `--tag ${t}`)).join(" ");
+  }
+  return "--all";
+}
+
+function quoteSolutionArg(solution: string): string {
+  return /\s/.test(solution) ? `"${solution}"` : solution;
+}
+
+function displayAnalysis(
+  analysis: RiskAnalysis,
+  tenantCount: number,
+  jsonOutput: boolean,
+  solution: string,
+  filter: AnalyzeFilter
+) {
   if (jsonOutput) {
     console.log(JSON.stringify(analysis, null, 2));
     return;
@@ -503,10 +531,16 @@ function displayAnalysis(analysis: RiskAnalysis, tenantCount: number, jsonOutput
   console.log();
 
   // Next steps
+  const solutionArg = quoteSolutionArg(solution);
+  const filterFlags = formatAnalyzeFilterFlags(filter);
   if (analysis.canProceed) {
-    console.log(chalk.gray("Next step: deploy <solution> --all"));
+    console.log(chalk.gray(`Next step: pax8-cta deploy ${solutionArg} ${filterFlags}`));
   } else {
-    console.log(chalk.gray("Fix the blockers listed above, then run 'analyze' again"));
+    console.log(
+      chalk.gray(
+        `Fix the blockers listed above, then re-run: pax8-cta analyze ${solutionArg} ${filterFlags}`
+      )
+    );
   }
   console.log();
 }
