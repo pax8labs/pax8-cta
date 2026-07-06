@@ -23,6 +23,7 @@ import { findTenant } from "./helpers.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";
 import { output, resolveFormat, type Column } from "../../lib/output.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
+import { didYouMean } from "../../lib/did-you-mean.js";
 
 // Row type for the fleet-wide health table
 interface HealthRow {
@@ -109,10 +110,12 @@ Examples:
         if (!tenant) {
           // Route through handleCommandError so --json/non-TTY callers get the
           // structured error envelope instead of bare colored stdout.
-          throw new CliError(
-            `Tenant '${tenantQuery}' not found. ` +
-              `Run 'tenants list' to see all configured tenants.`
+          const hint = didYouMean(
+            tenantQuery,
+            tenants.map((t) => t.name),
+            { listCommand: "pax8-cta tenants list", noun: "tenants" }
           );
+          throw new CliError(`Tenant '${tenantQuery}' not found.\n${hint}`);
         }
 
         const health = generateMockHealthCheck(tenant.tenantId);

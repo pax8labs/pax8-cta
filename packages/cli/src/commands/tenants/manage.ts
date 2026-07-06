@@ -22,6 +22,17 @@ import { withDemoMode } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
+import { didYouMean } from "../../lib/did-you-mean.js";
+
+function printTenantNotFound(query: string): void {
+  console.log(chalk.red(`Tenant '${query}' not found`));
+  const hint = didYouMean(
+    query,
+    DEMO_TENANTS.map((t) => t.name),
+    { listCommand: "pax8-cta tenants list", noun: "tenants" }
+  );
+  console.log(chalk.gray(hint));
+}
 
 // ============================================================================
 // tenants enable
@@ -46,7 +57,7 @@ export const enableCommand = new Command("enable")
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
           if (!tenant) {
-            console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
+            printTenantNotFound(tenantQuery);
             process.exit(1);
           }
 
@@ -110,7 +121,7 @@ export const disableCommand = new Command("disable")
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
           if (!tenant) {
-            console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
+            printTenantNotFound(tenantQuery);
             process.exit(1);
           }
 
@@ -181,7 +192,7 @@ export const tagCommand = new Command("tag")
           const tenant = findTenant(DEMO_TENANTS, tenantQuery);
 
           if (!tenant) {
-            console.log(chalk.red(`Tenant '${tenantQuery}' not found`));
+            printTenantNotFound(tenantQuery);
             process.exit(1);
           }
 

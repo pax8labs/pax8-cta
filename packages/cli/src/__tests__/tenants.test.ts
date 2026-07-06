@@ -675,6 +675,27 @@ describe("Tenants Command (fleet)", () => {
       expect(containsText(output, "not found")).toBe(true);
     });
 
+    it("shows a did-you-mean hint on tenant not found (#462)", async () => {
+      const { tenantsCommand } = await import("../commands/tenants/index.js");
+      const program = new Command();
+      program.addCommand(tenantsCommand);
+
+      // Pick a real tenant name and typo it to force the fuzzy match path.
+      const real = DEMO_TENANTS[0].name;
+      const typo = real.slice(0, -1) + "x"; // one-char substitution near the end
+
+      try {
+        await program.parseAsync(["node", "test", "tenants", "enable", typo]);
+      } catch {
+        // process.exit(1) inside the handler
+      }
+
+      const output = stripAnsi(consoleCapture.getAllOutput());
+      expect(containsText(output, "Did you mean")).toBe(true);
+      expect(containsText(output, real)).toBe(true);
+      expect(containsText(output, "pax8-cta tenants list")).toBe(true);
+    });
+
     it("should output JSON when --json flag is used", async () => {
       const { tenantsCommand } = await import("../commands/tenants/index.js");
       const program = new Command();
