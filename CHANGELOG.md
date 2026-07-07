@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-06
+
+A month's worth of merges rolled into one release: three UX findings from the Pax8 Marketplace UXR audit applied to CTA, install-time polish, telemetry improvements, and 17 dependency security clears.
+
+### Added
+
+- **`pax8-cta` now shows an install-success banner and quick-start on first invocation** (#445, #455). Fresh installs used to drop the user at a Commander help screen with no direction; now the first run explains what CTA is and shows the three commands a new partner most likely wants to try (`auth`, `tenants list`, `analyze`).
+- **`--why`-style inline reasons on `solutions drift --fix` output** (#464, #473). The fix plan used to label tenants "(high risk -- SKIPPED)" with no explanation. Every risk row now includes a short reason:
+  ```
+  ✗ Proseware  1.0.0.3 -> 1.0.0.5  (high risk -- SKIPPED: 3 versions behind on SalesAssistant)
+  ```
+  Reasons are computed from the same drift heuristic that determined the level, so operators can see _why_ a tenant was included or skipped without running `analyze` on each one. Answers "what now?" for the tenants that got skipped by the risk gate.
+- **Shared "Did you mean?" hint on tenant/solution lookups** (#462, #472). Eight sites that used to print `Tenant 'X' not found` and exit(1) with no follow-up now show fuzzy suggestions + a list-command tail:
+
+  ```
+  Tenant 'Fabricam' not found
+  Did you mean one of these?
+    - Fabrikam Inc
+
+  Run 'pax8-cta tenants list' to see all tenants.
+  ```
+
+  Applies to `tenants enable/disable/tag`, `tenants health <name>`, `tenants show`, `solutions drift -t`, `solutions remove -t`, `validate --tenant`, and `setup --tenant`. Ranker combines case-insensitive substring, per-token Levenshtein (so `Fabricam` still matches `Fabrikam Inc`), and full-string edit distance.
+
+- **`credentialed_status` property on every telemetry event** (#450, #454). Categorical setup-state classification — `demo`, `unconfigured`, `partial`, `configured` — mixed into every captured event so PostHog can show the demo → configured conversion funnel. Detects only presence/absence of the client secret env and `config/tenants.yaml`; never reads secret values or config contents. No PII posture change.
+
+### Changed
+
+- **`analyze` next-step hint interpolates the real solution + filter** (#463, #471, #474). Previously printed a literal `Next step: deploy <solution> --all` regardless of what was actually analyzed. Now shows exactly what the user should run next, honoring `--tag`, `--all`, or no filter. Same fix applied to the post-export hint in `export` and `resolve-url`.
+- **PostHog + MSAL bumped** (#461): `@azure/msal-node` 5.2.5 → 5.3.0, `posthog-node` 5.38.2 → 5.39.0.
+
+### Fixed
+
+- **17 dependabot security alerts cleared** (#453). Chain of transitive dependency bumps closing out every advisory that was open against the workspace as of 2026-06-16. No behavioral changes for CLI users; visible in `npm audit` results.
+- **CI unbroken** (#444, #451). Four independent root causes were compounding into a fully-red main branch: (1) `test-utils.ts` auto-build used the deprecated unscoped filter `pax8-cta` after the `@pax8` scope rename, silently no-op'ing the build and leaving 16 subprocess tests to spawn a missing `dist/index.js`; (2) `demoDeploymentStore.record()` lost a sub-millisecond sort race against its own seed, hiding fresh test deploys behind `demo-hist-000`; (3) `PAX8_CTA_DEFAULT_FORMAT` env leaked across vitest threads, corrupting the JSON output path in unrelated tests; (4) the Linux Test job never explicitly built `@pax8/cta`. Fixed at the source rather than by disabling the flakes.
+- **Minor-and-patch dependency wave** (#458): 13 packages across the monorepo.
+
+### Docs
+
+- **Node.js prerequisite + install troubleshooting** added to the README (#443). Broadened install paths beyond `npm install -g` to cover common non-npm setups.
+- **npm badge fixed** to point at `@pax8/cta` (previously stale from the `pax8-cta` → `@pax8/cta` rename in 0.1.4).
+- **Integrity disclosure** in README explains how to verify the SHA-256 of downloaded binaries against the GitHub Release checksums (#449).
+- **Quick-start command form** in the README updated to the single-invocation `npx @pax8/cta` shape (fixes #439, PR #440).
+
 ## [0.1.8] - 2026-06-06
 
 ### Fixed
