@@ -22,6 +22,7 @@ import {
   type TenantConfig,
 } from "@pax8/cta-core";
 import { getDemoTenants, isDemoModeEnabled } from "../commands/demo.js";
+import { identifyUser } from "./telemetry.js";
 
 /**
  * Check if demo mode is active from any source (CLI config, env var, or core).
@@ -80,6 +81,9 @@ export async function withResolvedConfig<T>(
 
   const configPath = resolve(process.cwd(), options.config ?? "./config/tenants.yaml");
   const config = await loadConfig(configPath);
+  // Attribute telemetry to the authenticated partner identity now that
+  // credentials are resolved (no-op when telemetry is disabled).
+  identifyUser({ tenantId: config.partner?.tenantId, clientId: config.partner?.clientId });
   return realHandler(config);
 }
 
@@ -97,6 +101,9 @@ export async function withResolvedDestinations<T>(
 
   const configPath = resolve(process.cwd(), options.config ?? "./config/tenants.yaml");
   const config = await loadConfig(configPath);
+  // Attribute telemetry to the authenticated partner identity now that
+  // credentials are resolved (no-op when telemetry is disabled).
+  identifyUser({ tenantId: config.partner?.tenantId, clientId: config.partner?.clientId });
   const destinations = options.all
     ? config.tenants.filter((tenant) => tenant.enabled)
     : filterTenantsByTags(config, options.tag ?? []);

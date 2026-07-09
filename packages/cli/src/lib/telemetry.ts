@@ -34,6 +34,14 @@
  * - Any personally identifiable information
  * - IP addresses (PostHog configured to anonymize)
  *
+ * How we distinguish users:
+ * - Events are attributed to a stable distinct ID derived one-way (SHA-256)
+ *   from the authenticated partner credentials the CLI operates as (Azure AD
+ *   tenant + app client IDs). The raw IDs never leave the machine — only their
+ *   digest is sent — so per-user analytics work without transmitting any
+ *   identifying config value. Runs with no resolvable identity fall back to an
+ *   anonymous, per-machine random ID persisted on first run.
+ *
  * Opt-out:
  * - Run: pax8-cta telemetry off
  * - Or set: PAX8_CTA_TELEMETRY_DISABLED=1
@@ -367,6 +375,128 @@ export async function shutdownTelemetry(): Promise<void> {
 }
 
 // ============================================================================
+// User Identity
+// ============================================================================
+
+/**
+ * The authenticated identity the CLI is operating as. Sourced from the loaded
+ * partner config (Azure AD tenant + app registration client IDs). Both are
+ * GUIDs; neither is transmitted — they are only hashed to derive a distinct ID.
+ */
+export interface AuthenticatedIdentity {
+  tenantId?: string;
+  clientId?: string;
+}
+
+/**
+ * Distinct ID resolved from an authenticated identity this process, if any.
+ * Cached because the identity can't change within a single CLI invocation.
+ */
+let resolvedDistinctId: string | null = null;
+/** Ensures at most one PostHog `identify` is emitted per process. */
+let identifySent = false;
+/** Ensures the best-effort auto-resolution runs at most once per process. */
+let autoResolveAttempted = false;
+
+/**
+ * Derive a stable, one-way distinct ID from an authenticated identity.
+ *
+ * Two runs configured as the same partner app hash to the same ID; different
+ * operators hash differently. Returns `null` when there isn't enough of an
+ * identity to attribute events to a specific user (so the caller can fall back
+ * to the anonymous machine ID).
+ */
+function deriveDistinctId(identity: AuthenticatedIdentity): string | null {
+  const clientId = identity.clientId?.trim();
+  const tenantId = identity.tenantId?.trim();
+  if (!clientId && !tenantId) return null;
+  return createHash("sha256")
+    .update(`pax8-cta-user:${tenantId ?? ""}:${clientId ?? ""}`)
+    .digest("hex")
+    .substring(0, 32);
+}
+
+/** Emit the one-time PostHog `identify` for the currently resolved user. */
+async function emitIdentify(): Promise<void> {
+  if (identifySent || !resolvedDistinctId) return;
+  const posthog = await getClient();
+  if (!posthog) return;
+  identifySent = true;
+  posthog.identify({
+    distinctId: resolvedDistinctId,
+    // Only non-identifying properties — see the privacy note at the top.
+    properties: commonProperties(),
+  });
+}
+
+/**
+ * Associate all subsequent telemetry with the authenticated user.
+ *
+ * Commands call this as soon as they have loaded the partner credentials they
+ * will operate as (see `command-wrapper`). It switches the distinct ID away
+ * from the anonymous per-machine fallback to a stable hash of the identity and
+ * emits a PostHog `identify` so the person is created/updated server-side.
+ * Without it, every execution collapses onto one machine ID and PostHog reports
+ * a single user for the whole fleet.
+ *
+ * Safe to call repeatedly, before telemetry is enabled, and with a partial
+ * identity: it no-ops when telemetry is off or no identity can be derived, and
+ * only the first successful call emits `identify`.
+ */
+export function identifyUser(identity: AuthenticatedIdentity): void {
+  if (!isTelemetryEnabled()) return;
+  const distinctId = deriveDistinctId(identity);
+  if (!distinctId) return;
+  resolvedDistinctId = distinctId;
+  void emitIdentify();
+}
+
+/**
+ * Best-effort resolution of the authenticated identity for commands that never
+ * call {@link identifyUser} explicitly. Tries the environment first (covers
+ * CI / env-configured runs), then the default config file. Runs once; on
+ * failure the anonymous machine ID remains the distinct ID.
+ */
+async function ensureIdentified(): Promise<void> {
+  if (resolvedDistinctId || autoResolveAttempted) return;
+  autoResolveAttempted = true;
+
+  // 1. Environment variables (also how loadConfig sources partner overrides).
+  if (
+    deriveDistinctId({
+      tenantId: process.env.PARTNER_TENANT_ID,
+      clientId: process.env.PARTNER_CLIENT_ID,
+    })
+  ) {
+    identifyUser({
+      tenantId: process.env.PARTNER_TENANT_ID,
+      clientId: process.env.PARTNER_CLIENT_ID,
+    });
+    await emitIdentify();
+    return;
+  }
+
+  // 2. Default config file. Best-effort: loadConfig validates and may throw for
+  //    an absent/invalid file — that just means "no identity", not an error.
+  try {
+    const { loadConfig } = await import("@pax8/cta-core");
+    const config = await loadConfig(resolve(process.cwd(), DEFAULT_CONFIG_PATH));
+    identifyUser({ tenantId: config.partner?.tenantId, clientId: config.partner?.clientId });
+    await emitIdentify();
+  } catch {
+    // No resolvable identity — fall back to the anonymous machine ID.
+  }
+}
+
+/**
+ * The distinct ID to attribute an event to: the authenticated user when known,
+ * otherwise the anonymous per-machine fallback.
+ */
+function getDistinctId(): string {
+  return resolvedDistinctId ?? getMachineId();
+}
+
+// ============================================================================
 // Event Tracking
 // ============================================================================
 
@@ -393,9 +523,10 @@ export function trackCommand(ctx: CommandContext): void {
     try {
       const posthog = await getClient();
       if (!posthog) return;
+      await ensureIdentified();
 
       posthog.capture({
-        distinctId: getMachineId(),
+        distinctId: getDistinctId(),
         event: "cli_command",
         properties: {
           ...commonProperties(),
@@ -430,10 +561,11 @@ export function trackNotFound(
     try {
       const posthog = await getClient();
       if (!posthog) return;
+      await ensureIdentified();
 
       // Don't track the actual query value for privacy - just the resource type
       posthog.capture({
-        distinctId: getMachineId(),
+        distinctId: getDistinctId(),
         event: "cli_not_found",
         properties: {
           ...commonProperties(),
@@ -457,9 +589,10 @@ export function trackError(errorType: string, command?: string): void {
     try {
       const posthog = await getClient();
       if (!posthog) return;
+      await ensureIdentified();
 
       posthog.capture({
-        distinctId: getMachineId(),
+        distinctId: getDistinctId(),
         event: "cli_error",
         properties: {
           ...commonProperties(),
@@ -483,9 +616,10 @@ export function trackFirstRun(): void {
     try {
       const posthog = await getClient();
       if (!posthog) return;
+      await ensureIdentified();
 
       posthog.capture({
-        distinctId: getMachineId(),
+        distinctId: getDistinctId(),
         event: "cli_first_run",
         properties: {
           ...commonProperties(),
