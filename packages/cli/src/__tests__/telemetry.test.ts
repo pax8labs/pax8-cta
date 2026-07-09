@@ -18,13 +18,28 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Command } from "commander";
 import { ConsoleCapture, mockEnv, stripAnsi, containsText, mockSpinner } from "./test-utils.js";
 
-// Mock PostHog to avoid actual API calls
-vi.mock("posthog-node", () => ({
-  PostHog: vi.fn().mockImplementation(() => ({
-    capture: vi.fn(),
-    shutdown: vi.fn().mockResolvedValue(undefined),
-  })),
-}));
+// Mock PostHog to avoid actual API calls. Instances are collected so tests can
+// assert on capture()/identify() calls even across vi.resetModules().
+const mockPostHogInstances: Array<{
+  capture: ReturnType<typeof vi.fn>;
+  identify: ReturnType<typeof vi.fn>;
+  shutdown: ReturnType<typeof vi.fn>;
+}> = [];
+
+// Prefixed with `mock` so it can be referenced inside vi.mock/vi.doMock
+// factories (vitest hoists those above imports and only allows `mock*` refs).
+function mockPostHogModule() {
+  return {
+    PostHog: vi.fn(function (this: Record<string, unknown>) {
+      this.capture = vi.fn();
+      this.identify = vi.fn();
+      this.shutdown = vi.fn().mockResolvedValue(undefined);
+      mockPostHogInstances.push(this as unknown as (typeof mockPostHogInstances)[number]);
+    }),
+  };
+}
+
+vi.mock("posthog-node", () => mockPostHogModule());
 
 // Mock conf to avoid writing to disk
 const mockStore: Record<string, unknown> = {
@@ -63,6 +78,7 @@ describe("Telemetry", () => {
     mockStore.telemetryEnabled = false;
     mockStore.firstRunShown = false;
     mockStore.machineId = "test-machine-id";
+    mockPostHogInstances.length = 0;
 
     // Disable telemetry in tests by default
     restoreEnv = mockEnv({
@@ -295,7 +311,74 @@ describe("Telemetry", () => {
 
       await expect(shutdownTelemetry()).resolves.not.toThrow();
 
-      vi.doUnmock("posthog-node");
+      // Restore the standard posthog-node mock (vi.doUnmock would revert to the
+      // real module) and reset the registry so later tests re-import cleanly.
+      vi.doMock("posthog-node", () => mockPostHogModule());
+      vi.resetModules();
+    });
+  });
+
+  describe("user identity attribution", () => {
+    it("does not throw when identifying with telemetry disabled", async () => {
+      const { identifyUser } = await import("../lib/telemetry.js");
+      expect(() =>
+        identifyUser({
+          tenantId: "11111111-1111-1111-1111-111111111111",
+          clientId: "22222222-2222-2222-2222-222222222222",
+        })
+      ).not.toThrow();
+    });
+
+    it("attributes events to a stable per-user hash of the partner credentials, not the machine ID", async () => {
+      const tenantId = "11111111-1111-1111-1111-111111111111";
+      const clientId = "22222222-2222-2222-2222-222222222222";
+
+      restoreEnv();
+      restoreEnv = mockEnv({
+        // CI/DO_NOT_TRACK are neutralized so telemetry is actually enabled —
+        // GitHub Actions sets CI=true, which would otherwise disable it and
+        // leave no PostHog client to assert against.
+        CI: "",
+        DO_NOT_TRACK: "",
+        DEMO_MODE: "false",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_identity",
+        PARTNER_TENANT_ID: tenantId,
+        PARTNER_CLIENT_ID: clientId,
+      });
+      mockStore.telemetryEnabled = true;
+      mockStore.machineId = "test-machine-id";
+
+      vi.resetModules();
+      const { trackCommand, shutdownTelemetry } = await import("../lib/telemetry.js");
+
+      trackCommand({ command: "deploy", success: true, durationMs: 100 });
+
+      // The event capture runs in a fire-and-forget async task (lazy client
+      // import + identity resolution), so wait for it to settle.
+      await vi.waitFor(() => {
+        expect(mockPostHogInstances.at(-1)?.capture).toHaveBeenCalled();
+      });
+
+      const instance = mockPostHogInstances.at(-1)!;
+
+      const { createHash } = await import("node:crypto");
+      const expectedId = createHash("sha256")
+        .update(`pax8-cta-user:${tenantId}:${clientId}`)
+        .digest("hex")
+        .substring(0, 32);
+
+      // identify() is emitted once with the derived per-user distinct ID.
+      expect(instance.identify).toHaveBeenCalledWith(
+        expect.objectContaining({ distinctId: expectedId })
+      );
+
+      // The captured event is attributed to that same per-user ID — NOT the
+      // per-machine fallback that previously collapsed everyone into one user.
+      const captureArg = instance.capture.mock.calls[0][0];
+      expect(captureArg.distinctId).toBe(expectedId);
+      expect(captureArg.distinctId).not.toBe("test-machine-id");
+
+      await shutdownTelemetry();
     });
   });
 
