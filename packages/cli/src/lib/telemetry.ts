@@ -452,9 +452,16 @@ function accountGroups(): { account: string } | undefined {
 /** Emit the one-time PostHog `identify` for the currently resolved user. */
 async function emitIdentify(): Promise<void> {
   if (identifySent || !resolvedDistinctId) return;
-  const posthog = await getClient();
-  if (!posthog) return;
+  // Claim the emit synchronously, before the first await. identifyUser fires
+  // this fire-and-forget while ensureIdentified also awaits it, so without an
+  // atomic guard both callers slip past the check above and double-send the
+  // identify + groupIdentify. Reset on a missing client so a later call retries.
   identifySent = true;
+  const posthog = await getClient();
+  if (!posthog) {
+    identifySent = false;
+    return;
+  }
   posthog.identify({
     distinctId: resolvedDistinctId,
     // Only non-identifying properties — see the privacy note at the top.

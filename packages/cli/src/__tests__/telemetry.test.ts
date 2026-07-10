@@ -391,6 +391,13 @@ describe("Telemetry", () => {
       );
       expect(captureArg.groups).toEqual({ account: expectedAccountKey });
 
+      // Regression guard: identify + groupIdentify must each fire exactly once.
+      // ensureIdentified() calls identifyUser() (a fire-and-forget emit) and
+      // then awaits emitIdentify() itself; a non-atomic guard let both slip
+      // through and double-sent identify/groupIdentify on every run.
+      expect(instance.identify).toHaveBeenCalledTimes(1);
+      expect(instance.groupIdentify).toHaveBeenCalledTimes(1);
+
       await shutdownTelemetry();
     });
 
