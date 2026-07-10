@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-07-10
+
+Telemetry fix so PostHog can report account-level analytics for CTA.
+
+### Fixed
+
+- **Account-group attribution on telemetry events** (#490). Every CTA event was sent with an empty `$group_0`: the `identify()` work (#489) added per-user attribution but never registered the PostHog _group_, so account-level unique counts and retention were impossible. Credentialed runs now attach an `account` group keyed on a salted, one-way hash of the partner client ID (`sha256("pax8-cta:account:v1" + clientId)` — app-scoped, so CTA accounts are distinct from other Pax8 CLIs). Uncredentialed and demo runs attach no group; only the salted hash ever leaves the machine, and the per-user distinct ID is untouched.
+
 ## [0.1.9] - 2026-07-06
 
 A month's worth of merges rolled into one release: three UX findings from the Pax8 Marketplace UXR audit applied to CTA, install-time polish, telemetry improvements, and 17 dependency security clears.
