@@ -23,6 +23,7 @@ import { ConsoleCapture, mockEnv, stripAnsi, containsText, mockSpinner } from ".
 const mockPostHogInstances: Array<{
   capture: ReturnType<typeof vi.fn>;
   identify: ReturnType<typeof vi.fn>;
+  groupIdentify: ReturnType<typeof vi.fn>;
   shutdown: ReturnType<typeof vi.fn>;
 }> = [];
 
@@ -33,6 +34,7 @@ function mockPostHogModule() {
     PostHog: vi.fn(function (this: Record<string, unknown>) {
       this.capture = vi.fn();
       this.identify = vi.fn();
+      this.groupIdentify = vi.fn();
       this.shutdown = vi.fn().mockResolvedValue(undefined);
       mockPostHogInstances.push(this as unknown as (typeof mockPostHogInstances)[number]);
     }),
@@ -377,6 +379,49 @@ describe("Telemetry", () => {
       const captureArg = instance.capture.mock.calls[0][0];
       expect(captureArg.distinctId).toBe(expectedId);
       expect(captureArg.distinctId).not.toBe("test-machine-id");
+
+      // Credentialed runs also attach a partner-account group so PostHog can
+      // count unique accounts. The key is a salted hash of the clientId alone
+      // (app-scoped salt), independent of the per-user distinct ID above.
+      const expectedAccountKey = createHash("sha256")
+        .update(`pax8-cta:account:v1${clientId}`)
+        .digest("hex");
+      expect(instance.groupIdentify).toHaveBeenCalledWith(
+        expect.objectContaining({ groupType: "account", groupKey: expectedAccountKey })
+      );
+      expect(captureArg.groups).toEqual({ account: expectedAccountKey });
+
+      await shutdownTelemetry();
+    });
+
+    it("attaches no account group for uncredentialed runs (anonymous machine ID)", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        DEMO_MODE: "false",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_anon",
+        // No PARTNER_TENANT_ID / PARTNER_CLIENT_ID — nothing to derive an
+        // identity or account from, so events stay on the anonymous machine ID.
+      });
+      mockStore.telemetryEnabled = true;
+      mockStore.machineId = "test-machine-id";
+
+      vi.resetModules();
+      const { trackCommand, shutdownTelemetry } = await import("../lib/telemetry.js");
+
+      trackCommand({ command: "deploy", success: true, durationMs: 100 });
+
+      await vi.waitFor(() => {
+        expect(mockPostHogInstances.at(-1)?.capture).toHaveBeenCalled();
+      });
+
+      const instance = mockPostHogInstances.at(-1)!;
+      const captureArg = instance.capture.mock.calls[0][0];
+      // Anonymous fallback: machine ID, and crucially NO account group.
+      expect(captureArg.distinctId).toBe("test-machine-id");
+      expect(captureArg.groups).toBeUndefined();
+      expect(instance.groupIdentify).not.toHaveBeenCalled();
 
       await shutdownTelemetry();
     });
