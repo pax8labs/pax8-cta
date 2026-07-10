@@ -393,6 +393,13 @@ export interface AuthenticatedIdentity {
  * Cached because the identity can't change within a single CLI invocation.
  */
 let resolvedDistinctId: string | null = null;
+/**
+ * Account-group key for the resolved identity, if credentialed this run (a
+ * salted hash of the partner clientId — see {@link accountGroupKey}). Null for
+ * uncredentialed/demo runs, which attach no group. Populated alongside
+ * {@link resolvedDistinctId} in {@link identifyUser}.
+ */
+let resolvedAccountKey: string | null = null;
 /** Ensures at most one PostHog `identify` is emitted per process. */
 let identifySent = false;
 /** Ensures the best-effort auto-resolution runs at most once per process. */
@@ -416,6 +423,32 @@ function deriveDistinctId(identity: AuthenticatedIdentity): string | null {
     .substring(0, 32);
 }
 
+/**
+ * Domain-separation salt for the account-group key. NOT a secret — the CLI is
+ * open source; it only stops the key from being a bare `sha256(clientId)` that
+ * an unrelated system could trivially recompute and correlate. App-scoped
+ * ("pax8-cta") so a partner is a distinct account entity here versus other
+ * Pax8 CLIs (e.g. `@pax8/cli`, which salts with "pax8-cli:account:v1").
+ */
+const ACCOUNT_GROUP_SALT = "pax8-cta:account:v1";
+
+/**
+ * Derive the PostHog `account` group key from the partner's OAuth clientId: a
+ * salted one-way hash that is identical across every machine and CI job for a
+ * given partner. This lets PostHog report account-level unique counts and
+ * retention without touching the per-user {@link resolvedDistinctId}. The salt
+ * is a public domain-separation constant, so the key is a pseudonym, not an
+ * anonymization guarantee.
+ */
+export function accountGroupKey(clientId: string): string {
+  return createHash("sha256").update(`${ACCOUNT_GROUP_SALT}${clientId}`).digest("hex");
+}
+
+/** The account group to tag events with, or undefined for uncredentialed runs. */
+function accountGroups(): { account: string } | undefined {
+  return resolvedAccountKey ? { account: resolvedAccountKey } : undefined;
+}
+
 /** Emit the one-time PostHog `identify` for the currently resolved user. */
 async function emitIdentify(): Promise<void> {
   if (identifySent || !resolvedDistinctId) return;
@@ -427,6 +460,17 @@ async function emitIdentify(): Promise<void> {
     // Only non-identifying properties — see the privacy note at the top.
     properties: commonProperties(),
   });
+  // Register the partner-account group once (if credentialed this run) so
+  // PostHog reports real account-level unique counts instead of one "user" per
+  // ephemeral install. Only the salted clientId hash leaves the machine; every
+  // captured event also carries `groups.account` via accountGroups().
+  if (resolvedAccountKey) {
+    posthog.groupIdentify({
+      groupType: "account",
+      groupKey: resolvedAccountKey,
+      properties: commonProperties(),
+    });
+  }
 }
 
 /**
@@ -448,6 +492,11 @@ export function identifyUser(identity: AuthenticatedIdentity): void {
   const distinctId = deriveDistinctId(identity);
   if (!distinctId) return;
   resolvedDistinctId = distinctId;
+  // Attribute credentialed runs to a partner-account group, keyed on the
+  // clientId alone (stable across machines). A tenant-only identity resolves a
+  // distinct ID but no account group, matching the clientId-based convention.
+  const clientId = identity.clientId?.trim();
+  resolvedAccountKey = clientId ? accountGroupKey(clientId) : null;
   void emitIdentify();
 }
 
@@ -528,6 +577,7 @@ export function trackCommand(ctx: CommandContext): void {
       posthog.capture({
         distinctId: getDistinctId(),
         event: "cli_command",
+        groups: accountGroups(),
         properties: {
           ...commonProperties(),
           command: ctx.command,
@@ -567,6 +617,7 @@ export function trackNotFound(
       posthog.capture({
         distinctId: getDistinctId(),
         event: "cli_not_found",
+        groups: accountGroups(),
         properties: {
           ...commonProperties(),
           resource_type: resource,
@@ -594,6 +645,7 @@ export function trackError(errorType: string, command?: string): void {
       posthog.capture({
         distinctId: getDistinctId(),
         event: "cli_error",
+        groups: accountGroups(),
         properties: {
           ...commonProperties(),
           error_type: errorType,
@@ -621,6 +673,7 @@ export function trackFirstRun(): void {
       posthog.capture({
         distinctId: getDistinctId(),
         event: "cli_first_run",
+        groups: accountGroups(),
         properties: {
           ...commonProperties(),
         },
