@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-07-13
+
+Telemetry reliability fix.
+
+### Fixed
+
+- **Telemetry `identify` / `groupIdentify` now emit exactly once per run** (#494). The one-shot guard in `emitIdentify()` was set only _after_ an `await`, so its two concurrent callers (`identifyUser()`'s fire-and-forget emit and `ensureIdentified()`'s awaited emit) both slipped past it and double-sent `identify()` — and, after #490, `groupIdentify()` — on every credentialed run. Shipped in 0.1.10. Idempotent server-side, so unique-user and account counts were never wrong, but the calls were redundant. The guard is now claimed synchronously before the first `await` (and reset if the client turns out unavailable), with a regression test asserting each fires exactly once.
+
 ## [0.1.10] - 2026-07-10
 
 Telemetry fix so PostHog can report account-level analytics for CTA.
