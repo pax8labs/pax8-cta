@@ -127,6 +127,55 @@ export async function confirm(prompt: string): Promise<boolean> {
   return /^(y|yes)$/i.test(answer.trim());
 }
 
+export interface ConfirmWithDetailsOptions {
+  /**
+   * Renders the full plan / details the user is about to commit to. Runs when
+   * the user answers `d`, after which the same prompt is shown again. Optional:
+   * when omitted, `confirmWithDetails` degrades to a plain `[y/N]` confirm so a
+   * single call site can be details-aware only when it has details to show.
+   */
+  showDetails?: () => void;
+}
+
+/**
+ * Confirm with an optional "view details" affordance (issue #467).
+ *
+ * Prompt is `[y/N/d]` when a `showDetails` callback is supplied, `[y/N]`
+ * otherwise. The letters mean:
+ *   y / yes — commit (returns `true`)
+ *   d / details — run `showDetails()`, then re-prompt (does NOT commit)
+ *   anything else — including blank Enter — bail (returns `false`)
+ *
+ * The `d` branch loops back to the *same* prompt so a user can inspect the
+ * plan as many times as they like before deciding. The safe default stays
+ * "no": Enter never commits, and there is no path where `d` silently proceeds.
+ *
+ * Callers must gate this behind their own interactivity / `--yes` check the
+ * same way they gate `confirm` — this helper always prompts.
+ */
+export async function confirmWithDetails(
+  message: string,
+  options: ConfirmWithDetailsOptions = {}
+): Promise<boolean> {
+  const { showDetails } = options;
+
+  // No details renderer? Behave exactly like `confirm` (label included).
+  if (!showDetails) {
+    return confirm(`${message} [y/N] `);
+  }
+
+  // Loop so repeated `d` answers keep re-showing details and re-prompting.
+  // Any answer other than y/yes/d/details falls through to the safe "no".
+  for (;;) {
+    const answer = (await question(`${message} [y/N/d] `)).trim().toLowerCase();
+    if (answer === "d" || answer === "details") {
+      showDetails();
+      continue;
+    }
+    return /^(y|yes)$/.test(answer);
+  }
+}
+
 /**
  * Quote a value for shell-friendly display (e.g. `running: deploy ...`).
  * Wraps in double quotes when the value contains whitespace.

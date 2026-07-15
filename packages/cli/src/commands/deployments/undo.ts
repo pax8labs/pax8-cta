@@ -20,7 +20,7 @@ import { type DeploymentJob, demoDeploymentStore, RollbackService } from "@pax8/
 import { createSpinner } from "../../lib/spinner.js";
 import { withDemoMode, isDemo } from "../../lib/command-wrapper.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";
-import { confirm, isInteractivePrompt } from "../../lib/picker.js";
+import { confirmWithDetails, isInteractivePrompt } from "../../lib/picker.js";
 import { getDeploymentById, resolveDeploymentFormat } from "./helpers.js";
 
 /**
@@ -173,7 +173,10 @@ async function demoUndo(id: string, options: UndoOptions): Promise<void> {
   const fmt = resolveDeploymentFormat(options);
   const verbose = fmt !== "json" && fmt !== "quiet";
 
-  if (verbose) {
+  // The full per-tenant rollback plan. Printed up-front on --dry-run, and
+  // available on demand behind the `[y/N/d]` confirm's "details" option so a
+  // user can inspect exactly what will change before committing (issue #467).
+  const showRollbackDetails = (): void => {
     console.log();
     console.log(chalk.bold("Rollback Preview"));
     console.log(`  Original deployment: ${chalk.cyan(original.id)}`);
@@ -188,6 +191,14 @@ async function demoUndo(id: string, options: UndoOptions): Promise<void> {
       console.log(`  ${chalk.gray("•")} ${t.tenantName}`);
     });
     console.log();
+  };
+
+  // When we won't reach the interactive `[y/N/d]` prompt (dry-run, `-y`, or a
+  // non-TTY caller) there's no "details" affordance to hang the plan off of,
+  // so print it up-front to preserve the previous informational preview.
+  const willPrompt = !options.dryRun && !options.yes && isInteractivePrompt(options);
+  if (verbose && !willPrompt) {
+    showRollbackDetails();
   }
 
   // Dry-run path: emit a preview-shaped envelope (or human text) and bail
@@ -215,11 +226,14 @@ async function demoUndo(id: string, options: UndoOptions): Promise<void> {
 
   // Confirmation gate: only when stdin/stdout are both real TTYs and the
   // caller didn't pass `-y`. Pipelined / scripted invocations skip this.
+  // The `[y/N/d]` prompt lets the user answer `d` to see the full per-tenant
+  // rollback plan before committing (issue #467).
   if (!options.yes && isInteractivePrompt(options)) {
-    const proceed = await confirm(
+    const proceed = await confirmWithDetails(
       chalk.bold(
-        `Roll back deployment ${original.id} (${original.solutionName} v${original.solutionVersion ?? "?"}) on ${succeededTenants.length} tenant${succeededTenants.length === 1 ? "" : "s"}? [y/N] `
-      )
+        `Roll back deployment ${original.id} (${original.solutionName} v${original.solutionVersion ?? "?"}) on ${succeededTenants.length} tenant${succeededTenants.length === 1 ? "" : "s"}?`
+      ),
+      { showDetails: showRollbackDetails }
     );
     if (!proceed) {
       if (verbose) {
@@ -332,7 +346,9 @@ async function realUndo(id: string, options: UndoOptions): Promise<void> {
     );
   }
 
-  if (verbose) {
+  // Full per-tenant snapshot plan — shown up-front on --dry-run, and behind
+  // the `[y/N/d]` confirm's "details" option otherwise (issue #467).
+  const showRollbackDetails = (): void => {
     console.log();
     console.log(chalk.bold("Rollback Preview"));
     console.log(`  Original deployment: ${chalk.cyan(id)}`);
@@ -344,6 +360,11 @@ async function realUndo(id: string, options: UndoOptions): Promise<void> {
       );
     });
     console.log();
+  };
+
+  const willPrompt = !options.dryRun && !options.yes && isInteractivePrompt(options);
+  if (verbose && !willPrompt) {
+    showRollbackDetails();
   }
 
   if (options.dryRun) {
@@ -363,10 +384,11 @@ async function realUndo(id: string, options: UndoOptions): Promise<void> {
   }
 
   if (!options.yes && isInteractivePrompt(options)) {
-    const proceed = await confirm(
+    const proceed = await confirmWithDetails(
       chalk.bold(
-        `Roll back deployment ${id} on ${snapshots.length} tenant${snapshots.length === 1 ? "" : "s"}? [y/N] `
-      )
+        `Roll back deployment ${id} on ${snapshots.length} tenant${snapshots.length === 1 ? "" : "s"}?`
+      ),
+      { showDetails: showRollbackDetails }
     );
     if (!proceed) {
       if (verbose) {
