@@ -42,6 +42,7 @@ import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { isInteractivePrompt, printRunningCommand } from "../../lib/picker.js";
 import { question } from "../../lib/input.js";
 import { resolveFormat, type OutputFormat } from "../../lib/output.js";
+import { emitEnvelope, nextAction, type NextAction } from "../../lib/envelope.js";
 import { didYouMean } from "../../lib/did-you-mean.js";
 import { type DriftRiskLevel, riskLevelValue, formatRiskLevel } from "./risk-calculator.js";
 import { buildDriftFixPlan, type DriftFixResult } from "./fix-planner.js";
@@ -131,11 +132,24 @@ function shapeFleetForOutput(
 
 function emitFleetRiskJson(fleet: FleetDriftAnalysis, riskFilter: string | true | undefined): void {
   const ordered = shapeFleetForOutput(fleet, riskFilter);
-  const envelope = {
-    tenants: buildDriftRows(ordered),
-    summary: fleet.summary,
-  };
-  console.log(JSON.stringify(envelope, null, 2));
+  // Recommend the fix action when any tenant is outdated (i.e. has a
+  // recommendation other than "current"). Structured counterpart to the
+  // human "Next:" hint from buildAfterActionHint.
+  const hasOutdated = ordered.some((a) => a.recommendation !== "current");
+  const actions: NextAction[] = hasOutdated
+    ? [
+        nextAction(
+          "Fix outdated tenants",
+          ["solutions", "drift", "--fix"],
+          "Deploy the current version to risk-eligible outdated tenants"
+        ),
+      ]
+    : [];
+  emitEnvelope(buildDriftRows(ordered), {
+    command: "solutions drift",
+    summary: fleet.summary as unknown as Record<string, unknown>,
+    nextActions: actions,
+  });
 }
 
 const driftAnalyzer = new DriftAnalyzer();
@@ -506,8 +520,21 @@ Examples:
             const customizationSummary = getDemoCustomizationSummary("CustomerServiceAgent");
 
             if (fmt === "json") {
-              console.log(
-                JSON.stringify({ ...summary, customizations: customizationSummary }, null, 2)
+              // data is the drift summary object (with customizations folded
+              // in); nextActions points at --fix when tenants are outdated.
+              const summaryActions: NextAction[] =
+                summary.outdatedTenants > 0
+                  ? [
+                      nextAction(
+                        "Fix outdated tenants",
+                        ["solutions", "drift", "--fix"],
+                        "Deploy the current version to risk-eligible outdated tenants"
+                      ),
+                    ]
+                  : [];
+              emitEnvelope(
+                { ...summary, customizations: customizationSummary },
+                { command: "solutions drift", nextActions: summaryActions }
               );
               return;
             }

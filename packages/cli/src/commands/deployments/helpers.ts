@@ -36,6 +36,7 @@ import {
   truncateId,
 } from "../../lib/formatters.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+import { emitEnvelope, nextAction, type NextAction } from "../../lib/envelope.js";
 import { isQuietMode } from "../../lib/spinner.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
 
@@ -298,22 +299,38 @@ export function parseDateFilter(value: string): Date | null {
 // Output formatting — history entries (real data)
 // ============================================================================
 
+/**
+ * Build the "fetch the next page" nextAction for a paginated list, or an empty
+ * array when the current window is the last page. Shared by both the demo
+ * (`DeploymentJob`) and real (`HistoryEntry`) list paths.
+ */
+function nextPageActions(
+  total: number,
+  limit: number,
+  offset: number,
+  count: number
+): NextAction[] {
+  if (offset + count >= total) return [];
+  return [
+    nextAction(
+      "Fetch the next page",
+      ["deployments", "list", "--offset", String(offset + limit), "--limit", String(limit)],
+      `Show results ${offset + limit + 1}-${Math.min(offset + limit * 2, total)} of ${total}`
+    ),
+  ];
+}
+
 export function outputHistoryJson(
   entries: HistoryEntry[],
   total: number,
   limit: number,
   offset: number
 ): void {
-  console.log(
-    JSON.stringify(
-      {
-        deployments: entries,
-        pagination: { total, limit, offset, hasMore: offset + entries.length < total },
-      },
-      null,
-      2
-    )
-  );
+  emitEnvelope(entries, {
+    command: "deployments list",
+    summary: { total, limit, offset, hasMore: offset + entries.length < total },
+    nextActions: nextPageActions(total, limit, offset, entries.length),
+  });
 }
 
 interface HistoryRow {
@@ -468,22 +485,23 @@ export function outputJson(
   limit: number,
   offset: number
 ): void {
-  const result = {
-    deployments: deployments.map((d) => ({
-      id: d.id,
-      solutionName: d.solutionName,
-      solutionVersion: d.solutionVersion,
-      status: d.status,
-      totalTenants: d.totalTenants,
-      completedTenants: d.completedTenants,
-      failedTenants: d.failedTenants,
-      triggeredBy: d.triggeredBy,
-      createdAt: d.createdAt,
-      completedAt: d.completedAt,
-    })),
-    pagination: { total, limit, offset, hasMore: offset + deployments.length < total },
-  };
-  console.log(JSON.stringify(result, null, 2));
+  const rows = deployments.map((d) => ({
+    id: d.id,
+    solutionName: d.solutionName,
+    solutionVersion: d.solutionVersion,
+    status: d.status,
+    totalTenants: d.totalTenants,
+    completedTenants: d.completedTenants,
+    failedTenants: d.failedTenants,
+    triggeredBy: d.triggeredBy,
+    createdAt: d.createdAt,
+    completedAt: d.completedAt,
+  }));
+  emitEnvelope(rows, {
+    command: "deployments list",
+    summary: { total, limit, offset, hasMore: offset + deployments.length < total },
+    nextActions: nextPageActions(total, limit, offset, deployments.length),
+  });
 }
 
 export function outputTable(

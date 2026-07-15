@@ -390,11 +390,16 @@ describe("Agents Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      const json = extractJson<{ totalTenants: number; solutionSummary: unknown[] }>(output);
+      // Standardized envelope (#465): drift summary object lives under data.
+      const json = extractJson<{
+        meta: { command: string };
+        data: { totalTenants: number; solutionSummary: unknown[] };
+      }>(output);
       expect(json).not.toBeNull();
-      expect(json!.totalTenants).toBeGreaterThan(0);
-      expect(json!.solutionSummary).toBeDefined();
-      expect(Array.isArray(json!.solutionSummary)).toBe(true);
+      expect(json!.meta.command).toBe("solutions drift");
+      expect(json!.data.totalTenants).toBeGreaterThan(0);
+      expect(json!.data.solutionSummary).toBeDefined();
+      expect(Array.isArray(json!.data.solutionSummary)).toBe(true);
     });
 
     it("should filter by agent name", async () => {
@@ -555,8 +560,11 @@ describe("Agents Command", () => {
       // raw FleetDriftAnalysis structure. Rows carry `score`, `risk`,
       // `recommendation`, `topFactor` so agent / pipeline callers can rely on
       // a stable shape.
+      // Standardized envelope (#465): DriftRows land under data[]; the fleet
+      // summary is surfaced under the envelope's summary key.
       const json = extractJson<{
-        tenants: Array<{
+        meta: { command: string };
+        data: Array<{
           tenantName: string;
           tenantId: string;
           score: number;
@@ -567,13 +575,14 @@ describe("Agents Command", () => {
         summary: { total: number };
       }>(output);
       expect(json).not.toBeNull();
-      expect(json!.tenants).toBeDefined();
+      expect(json!.meta.command).toBe("solutions drift");
+      expect(json!.data).toBeDefined();
       expect(json!.summary).toBeDefined();
       expect(json!.summary.total).toBeGreaterThan(0);
-      expect(json!.tenants[0].score).toBeDefined();
-      expect(json!.tenants[0].risk).toBeDefined();
-      expect(json!.tenants[0].recommendation).toBeDefined();
-      expect(json!.tenants[0].topFactor).toBeDefined();
+      expect(json!.data[0].score).toBeDefined();
+      expect(json!.data[0].risk).toBeDefined();
+      expect(json!.data[0].recommendation).toBeDefined();
+      expect(json!.data[0].topFactor).toBeDefined();
     });
   });
 

@@ -30,6 +30,7 @@ import chalk from "chalk";
 import { createSpinner, isQuietMode } from "../lib/spinner.js";
 import Table from "cli-table3";
 import { output, resolveFormat, type Column, type OutputFormat } from "../lib/output.js";
+import { emitEnvelope, nextAction, type NextAction } from "../lib/envelope.js";
 import {
   type Config,
   TenantConfig,
@@ -393,25 +394,32 @@ Examples:
 
           if (fmt === "json") {
             // Demo success envelope — distinct from the dry-run plan shape.
-            console.log(
-              JSON.stringify(
-                {
-                  demo: true,
-                  deploymentId: demoDeploymentId,
-                  package: packageLabel,
-                  solution: solutionArg,
-                  managed: !options.unmanaged,
-                  destinations: destinationRows.map((row) => ({
-                    name: row.name,
-                    tenantId: row.tenantId,
-                    environmentUrl: row.environmentUrl,
-                    tags: destinations.find((t) => t.tenantId === row.tenantId)?.tags ?? [],
-                  })),
-                  totalDestinations: destinations.length,
-                },
-                null,
-                2
-              )
+            emitEnvelope(
+              {
+                demo: true,
+                deploymentId: demoDeploymentId,
+                package: packageLabel,
+                solution: solutionArg,
+                managed: !options.unmanaged,
+                destinations: destinationRows.map((row) => ({
+                  name: row.name,
+                  tenantId: row.tenantId,
+                  environmentUrl: row.environmentUrl,
+                  tags: destinations.find((t) => t.tenantId === row.tenantId)?.tags ?? [],
+                })),
+                totalDestinations: destinations.length,
+              },
+              {
+                command: "deploy",
+                summary: { totalDestinations: destinations.length },
+                nextActions: [
+                  nextAction(
+                    "View this deployment",
+                    ["deployments", "show", demoDeploymentId],
+                    "Inspect per-tenant results for the deployment just recorded"
+                  ),
+                ],
+              }
             );
             return null;
           }
@@ -818,19 +826,32 @@ Examples:
       // (results[] + counts); --quiet stays silent; the human path keeps the
       // bold "Deployment Summary" block.
       if (fmt === "json") {
-        console.log(
-          JSON.stringify(
-            {
-              demo: false,
-              solution: solutionArg,
-              total: destinations.length,
-              success: successCount,
-              failed: failCount,
-              results: deployResults,
-            },
-            null,
-            2
-          )
+        // On any failure, point the agent at the failed-deployment listing so
+        // it can inspect which tenants need attention.
+        const actions: NextAction[] =
+          failCount > 0
+            ? [
+                nextAction(
+                  "Review failed deployments",
+                  ["deployments", "list", "--status", "failed"],
+                  "List deployments that did not complete successfully"
+                ),
+              ]
+            : [];
+        emitEnvelope(
+          {
+            demo: false,
+            solution: solutionArg,
+            total: destinations.length,
+            success: successCount,
+            failed: failCount,
+            results: deployResults,
+          },
+          {
+            command: "deploy",
+            summary: { total: destinations.length, success: successCount, failed: failCount },
+            nextActions: actions,
+          }
         );
       } else if (fmt === "table") {
         console.log();
@@ -1157,7 +1178,21 @@ async function runDryRunPreview(context: DryRunContext): Promise<void> {
   if (fmt === "quiet") {
     // No output; exit code below still reflects validation failures.
   } else if (fmt === "json") {
-    console.log(JSON.stringify(plan, null, 2));
+    const clean = plan.summary.validationFailedTenants === 0;
+    const actions: NextAction[] = clean
+      ? [
+          nextAction(
+            "Run the deployment for real",
+            ["deploy", plan.solution],
+            "Re-run without --dry-run to execute the plan"
+          ),
+        ]
+      : [];
+    emitEnvelope(plan, {
+      command: "deploy",
+      summary: plan.summary as unknown as Record<string, unknown>,
+      nextActions: actions,
+    });
   } else {
     displayDryRunPlan(plan);
   }

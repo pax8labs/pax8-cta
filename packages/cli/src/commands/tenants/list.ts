@@ -22,6 +22,7 @@ import { loadConfig, DEMO_TENANTS } from "@pax8/cta-core";
 import { withDemoMode } from "../../lib/command-wrapper.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { output, resolveFormat, type Column } from "../../lib/output.js";
+import { emitEnvelope } from "../../lib/envelope.js";
 import { isQuietMode } from "../../lib/spinner.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
 
@@ -127,18 +128,15 @@ function renderOutput(
   const fmt = resolveFormat(options);
 
   if (fmt === "json") {
-    // Keep existing JSON envelope shape for backwards compatibility
-    console.log(
-      JSON.stringify(
-        {
-          tenants: destinations,
-          total: destinations.length,
-          active: destinations.filter((t) => t.enabled).length,
-        },
-        null,
-        2
-      )
-    );
+    // Standardized envelope (#465): data[] carries the tenant rows; summary
+    // carries the fleet counts previously inlined at the top level.
+    emitEnvelope(destinations, {
+      command: "tenants list",
+      summary: {
+        total: destinations.length,
+        active: destinations.filter((t) => t.enabled).length,
+      },
+    });
     return;
   }
 

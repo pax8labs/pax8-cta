@@ -36,6 +36,7 @@ import { withResolvedDestinations } from "../lib/command-wrapper.js";
 import { CliError, handleCommandError } from "../lib/errors.js";
 import { isInteractivePrompt, pickFromList, printRunningCommand } from "../lib/picker.js";
 import { showDemoBanner } from "../lib/demo-banner.js";
+import { emitEnvelope, nextAction, type NextAction } from "../lib/envelope.js";
 
 // Risk issue severity colors
 const SEVERITY_COLORS = {
@@ -135,26 +136,29 @@ Examples:
             process.exit(1);
           }
 
-          // Display destinations
-          console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations`));
-          console.log();
+          // Display destinations. Suppressed under --json so stdout carries
+          // only the envelope (#465 / "stdout is data, stderr is chrome").
+          if (!jsonOutput) {
+            console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations`));
+            console.log();
 
-          const table = new Table({
-            head: ["Destination", "Tenant ID", "Port", "Tags"],
-            style: { head: ["cyan"] },
-          });
+            const table = new Table({
+              head: ["Destination", "Tenant ID", "Port", "Tags"],
+              style: { head: ["cyan"] },
+            });
 
-          destinations.forEach((tenant) => {
-            table.push([
-              tenant.name,
-              tenant.tenantId.slice(0, 8) + "...",
-              new URL(tenant.environmentUrl).hostname,
-              tenant.tags?.join(", ") || "-",
-            ]);
-          });
+            destinations.forEach((tenant) => {
+              table.push([
+                tenant.name,
+                tenant.tenantId.slice(0, 8) + "...",
+                new URL(tenant.environmentUrl).hostname,
+                tenant.tags?.join(", ") || "-",
+              ]);
+            });
 
-          console.log(table.toString());
-          console.log();
+            console.log(table.toString());
+            console.log();
+          }
 
           // Run risk analysis directly via core
           spinner.start("Running risk analysis...");
@@ -178,7 +182,7 @@ Examples:
 
           const analysis = await riskAnalyzer.analyze(context);
           spinner.succeed(chalk.green("Risk analysis complete"));
-          console.log();
+          if (!jsonOutput) console.log();
 
           displayAnalysis(analysis, destinations.length, jsonOutput, solutionInput, {
             all: options.all,
@@ -204,26 +208,28 @@ Examples:
             process.exit(1);
           }
 
-          // Display destinations
-          console.log();
-          console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations:`));
+          // Display destinations. Suppressed under --json (#465).
+          if (!jsonOutput) {
+            console.log();
+            console.log(chalk.bold(`📊 Analyzing Risk for ${destinations.length} Destinations:`));
 
-          const table = new Table({
-            head: ["Destination", "Tenant ID", "Port", "Tags"],
-            style: { head: ["cyan"] },
-          });
+            const table = new Table({
+              head: ["Destination", "Tenant ID", "Port", "Tags"],
+              style: { head: ["cyan"] },
+            });
 
-          destinations.forEach((tenant) => {
-            table.push([
-              tenant.name,
-              tenant.tenantId.slice(0, 8) + "...",
-              new URL(tenant.environmentUrl).hostname,
-              tenant.tags?.join(", ") || "-",
-            ]);
-          });
+            destinations.forEach((tenant) => {
+              table.push([
+                tenant.name,
+                tenant.tenantId.slice(0, 8) + "...",
+                new URL(tenant.environmentUrl).hostname,
+                tenant.tags?.join(", ") || "-",
+              ]);
+            });
 
-          console.log(table.toString());
-          console.log();
+            console.log(table.toString());
+            console.log();
+          }
 
           // Run risk analysis directly via core
           spinner.start("Running risk analysis...");
@@ -250,7 +256,7 @@ Examples:
 
           const analysis = await riskAnalyzer.analyze(context);
           spinner.succeed(chalk.green("Risk analysis complete"));
-          console.log();
+          if (!jsonOutput) console.log();
 
           displayAnalysis(analysis, destinations.length, jsonOutput, agentPackagePath, {
             all: options.all,
@@ -343,6 +349,19 @@ function quoteSolutionArg(solution: string): string {
   return /\s/.test(solution) ? `"${solution}"` : solution;
 }
 
+/**
+ * Structured argv form of the analyze filter (no binary/subcommand prefix) —
+ * `["--all"]` or `["--tag", "prod", "--tag", "eu"]`. The display counterpart
+ * is `formatAnalyzeFilterFlags`; this is the safe, tokenization-free form for
+ * `nextActions[].args`.
+ */
+export function analyzeFilterArgv(filter: AnalyzeFilter): string[] {
+  if (filter.tag && filter.tag.length > 0) {
+    return filter.tag.flatMap((t) => ["--tag", t]);
+  }
+  return ["--all"];
+}
+
 function displayAnalysis(
   analysis: RiskAnalysis,
   tenantCount: number,
@@ -351,7 +370,34 @@ function displayAnalysis(
   filter: AnalyzeFilter
 ) {
   if (jsonOutput) {
-    console.log(JSON.stringify(analysis, null, 2));
+    // Structured version of the human "Next step:" hint. When the analysis
+    // clears, point at deploy; when blocked, point back at analyze after fixes.
+    const filterArgv = analyzeFilterArgv(filter);
+    const actions: NextAction[] = analysis.canProceed
+      ? [
+          nextAction(
+            "Deploy this solution",
+            ["deploy", solution, ...filterArgv],
+            "Analysis passed — proceed with deployment"
+          ),
+        ]
+      : [
+          nextAction(
+            "Re-run analysis after fixing blockers",
+            ["analyze", solution, ...filterArgv],
+            `Resolve ${analysis.blockers.length} blocker(s), then re-analyze`
+          ),
+        ];
+    emitEnvelope(analysis, {
+      command: "analyze",
+      summary: {
+        score: analysis.score,
+        canProceed: analysis.canProceed,
+        blockers: analysis.blockers.length,
+        tenants: tenantCount,
+      },
+      nextActions: actions,
+    });
     return;
   }
 
