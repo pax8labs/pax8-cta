@@ -234,6 +234,110 @@ describe("confirm", () => {
   });
 });
 
+describe("confirmWithDetails", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("commits on 'y' without showing details", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    const showDetails = vi.fn();
+    mockQuestion.mockResolvedValueOnce("y");
+
+    const result = await confirmWithDetails("Deploy?", { showDetails });
+
+    expect(result).toBe(true);
+    expect(showDetails).not.toHaveBeenCalled();
+  });
+
+  it("bails on empty input (Enter = no)", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    const showDetails = vi.fn();
+    mockQuestion.mockResolvedValueOnce("");
+
+    const result = await confirmWithDetails("Deploy?", { showDetails });
+
+    expect(result).toBe(false);
+    expect(showDetails).not.toHaveBeenCalled();
+  });
+
+  it("bails on 'n'", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    mockQuestion.mockResolvedValueOnce("n");
+    expect(await confirmWithDetails("Deploy?", { showDetails: vi.fn() })).toBe(false);
+  });
+
+  it("runs showDetails and re-prompts on 'd', then commits", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    const showDetails = vi.fn();
+    // First answer 'd' (view details), then 'y' (commit).
+    mockQuestion.mockResolvedValueOnce("d").mockResolvedValueOnce("y");
+
+    const result = await confirmWithDetails("Deploy?", { showDetails });
+
+    expect(showDetails).toHaveBeenCalledTimes(1);
+    expect(mockQuestion).toHaveBeenCalledTimes(2);
+    expect(result).toBe(true);
+  });
+
+  it("accepts 'details' as a synonym for 'd'", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    const showDetails = vi.fn();
+    mockQuestion.mockResolvedValueOnce("details").mockResolvedValueOnce("n");
+
+    const result = await confirmWithDetails("Deploy?", { showDetails });
+
+    expect(showDetails).toHaveBeenCalledTimes(1);
+    expect(result).toBe(false);
+  });
+
+  it("loops details repeatedly until a decision is made", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    const showDetails = vi.fn();
+    mockQuestion
+      .mockResolvedValueOnce("d")
+      .mockResolvedValueOnce("d")
+      .mockResolvedValueOnce("d")
+      .mockResolvedValueOnce("y");
+
+    const result = await confirmWithDetails("Deploy?", { showDetails });
+
+    expect(showDetails).toHaveBeenCalledTimes(3);
+    expect(result).toBe(true);
+  });
+
+  it("renders [y/N/d] label when a details callback is present", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    mockQuestion.mockResolvedValueOnce("n");
+
+    await confirmWithDetails("Deploy?", { showDetails: vi.fn() });
+
+    expect(mockQuestion).toHaveBeenCalledWith(expect.stringContaining("[y/N/d]"));
+  });
+
+  it("degrades to a plain [y/N] confirm when no details callback", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    mockQuestion.mockResolvedValueOnce("y");
+
+    const result = await confirmWithDetails("Deploy?");
+
+    expect(result).toBe(true);
+    expect(mockQuestion).toHaveBeenCalledWith(expect.stringContaining("[y/N]"));
+    expect(mockQuestion).not.toHaveBeenCalledWith(expect.stringContaining("[y/N/d]"));
+  });
+
+  it("does not treat 'd' as details when no callback (bails instead)", async () => {
+    const { confirmWithDetails } = await import("../lib/picker.js");
+    // Without a showDetails callback, 'd' is just "not yes" → false, single prompt.
+    mockQuestion.mockResolvedValueOnce("d");
+
+    const result = await confirmWithDetails("Deploy?");
+
+    expect(result).toBe(false);
+    expect(mockQuestion).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("isInteractivePrompt", () => {
   let originalStdoutTTY: boolean | undefined;
   let originalStdinTTY: boolean | undefined;
