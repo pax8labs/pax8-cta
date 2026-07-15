@@ -82,6 +82,7 @@ import { setupCommand } from "./commands/setup.js";
 import { authCommand } from "./commands/auth.js";
 import { validateCommand } from "./commands/validate.js";
 import { statusCommand } from "./commands/status.js";
+import { explainCommand } from "./commands/explain.js";
 import { showBanner, showWelcome } from "./lib/banner.js";
 import { startRepl } from "./lib/repl.js";
 import {
@@ -154,6 +155,7 @@ export function createProgram(): Command {
   program.addCommand(demoCommand);
   program.addCommand(telemetryCommand);
   program.addCommand(configCommand);
+  program.addCommand(explainCommand);
 
   return program;
 }
