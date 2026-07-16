@@ -184,12 +184,14 @@ describe("Deployments Command", () => {
         await program.parseAsync(["node", "test", "deployments", "list", "--json", "--limit", "3"]);
 
         const output = consoleCapture.getAllOutput();
-        const json = extractJson(output);
+        const json = extractJson(output) as any;
 
+        // Standardized envelope (#465): data[] rows, pagination under summary.
         expect(json).toBeDefined();
-        expect(json).toHaveProperty("deployments");
-        expect(json).toHaveProperty("pagination");
-        expect((json as any).deployments).toHaveLength(3);
+        expect(json.meta.command).toBe("deployments list");
+        expect(json).toHaveProperty("data");
+        expect(json).toHaveProperty("summary");
+        expect(json.data).toHaveLength(3);
       });
 
       it("should include pagination info in JSON output", async () => {
@@ -212,10 +214,10 @@ describe("Deployments Command", () => {
         const output = consoleCapture.getAllOutput();
         const json = extractJson(output) as any;
 
-        expect(json.pagination.limit).toBe(5);
-        expect(json.pagination.offset).toBe(10);
-        expect(json.pagination).toHaveProperty("total");
-        expect(json.pagination).toHaveProperty("hasMore");
+        expect(json.summary.limit).toBe(5);
+        expect(json.summary.offset).toBe(10);
+        expect(json.summary).toHaveProperty("total");
+        expect(json.summary).toHaveProperty("hasMore");
       });
     });
   });
@@ -368,8 +370,8 @@ describe("Deployments Integration Tests", () => {
     const result = await runCliExpectSuccess(["deployments", "list", "--json", "--limit", "3"]);
 
     const json = extractJson(result.output) as any;
-    expect(json.deployments).toBeDefined();
-    expect(json.deployments.length).toBeLessThanOrEqual(3);
+    expect(json.data).toBeDefined();
+    expect(json.data.length).toBeLessThanOrEqual(3);
   });
 
   it("should show deployment details via CLI", async () => {
@@ -388,11 +390,11 @@ describe("Deployments Integration Tests", () => {
 
     const json = extractJson(result.output) as any;
     expect(json).not.toBeNull();
-    expect(json.deployments).toBeDefined();
-    expect(json.deployments.length).toBeGreaterThan(0);
-    expect(json.deployments.length).toBeLessThanOrEqual(5);
+    expect(json.data).toBeDefined();
+    expect(json.data.length).toBeGreaterThan(0);
+    expect(json.data.length).toBeLessThanOrEqual(5);
     // Verify expected keys are present in the JSON shape
-    const firstDeploy = json.deployments[0];
+    const firstDeploy = json.data[0];
     expect(firstDeploy).toHaveProperty("id");
     expect(firstDeploy).toHaveProperty("solutionName");
     expect(firstDeploy).toHaveProperty("status");

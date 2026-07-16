@@ -42,6 +42,7 @@ import { getClientSecretWithFallback } from "../../lib/credentials.js";
 import { isInteractivePrompt, printRunningCommand } from "../../lib/picker.js";
 import { question } from "../../lib/input.js";
 import { resolveFormat, type OutputFormat } from "../../lib/output.js";
+import { emitEnvelope, nextAction, type NextAction } from "../../lib/envelope.js";
 import { didYouMean } from "../../lib/did-you-mean.js";
 import { type DriftRiskLevel, riskLevelValue, formatRiskLevel } from "./risk-calculator.js";
 import { buildDriftFixPlan, type DriftFixResult } from "./fix-planner.js";
@@ -131,11 +132,26 @@ function shapeFleetForOutput(
 
 function emitFleetRiskJson(fleet: FleetDriftAnalysis, riskFilter: string | true | undefined): void {
   const ordered = shapeFleetForOutput(fleet, riskFilter);
-  const envelope = {
-    tenants: buildDriftRows(ordered),
-    summary: fleet.summary,
-  };
-  console.log(JSON.stringify(envelope, null, 2));
+  // Recommend the fix action when any tenant in the FULL fleet is outdated
+  // (i.e. has a recommendation other than "current"). Computed over the
+  // unfiltered fleet so a `--risk` filter can't hide the fix action when
+  // outdated tenants exist outside the filtered view. Structured counterpart
+  // to the human "Next:" hint from buildAfterActionHint.
+  const hasOutdated = fleet.tenants.some((a) => a.recommendation !== "current");
+  const actions: NextAction[] = hasOutdated
+    ? [
+        nextAction(
+          "Fix outdated tenants",
+          ["solutions", "drift", "--fix"],
+          "Deploy the current version to risk-eligible outdated tenants"
+        ),
+      ]
+    : [];
+  emitEnvelope(buildDriftRows(ordered), {
+    command: "solutions drift",
+    summary: fleet.summary as unknown as Record<string, unknown>,
+    nextActions: actions,
+  });
 }
 
 const driftAnalyzer = new DriftAnalyzer();
@@ -252,16 +268,36 @@ Examples:
 
               const plan = buildDriftFixPlan(tenantStatuses);
 
+              const maxRiskValue = riskLevelValue(maxRisk);
+
+              // Categorize entries (needed by both the JSON envelope and the
+              // human plan below).
+              const willFix = plan.filter((e) => riskLevelValue(e.risk) <= maxRiskValue);
+              const willSkip = plan.filter((e) => riskLevelValue(e.risk) > maxRiskValue);
+
+              // JSON mode: emit the enveloped plan and return BEFORE any human
+              // rendering so stdout stays pure JSON (covers the empty-plan case
+              // too — data.plan is just []).
+              if (fmt === "json") {
+                emitEnvelope(
+                  { plan },
+                  {
+                    command: "solutions drift",
+                    summary: {
+                      willFix: willFix.map((e) => e.tenantName),
+                      willSkip: willSkip.map((e) => ({ tenantName: e.tenantName, risk: e.risk })),
+                      maxRisk,
+                      dryRun: !!options.dryRun,
+                    },
+                  }
+                );
+                return;
+              }
+
               if (plan.length === 0) {
                 console.log(chalk.green("All tenants are up to date. Nothing to fix."));
                 return;
               }
-
-              const maxRiskValue = riskLevelValue(maxRisk);
-
-              // Categorize entries
-              const willFix = plan.filter((e) => riskLevelValue(e.risk) <= maxRiskValue);
-              const willSkip = plan.filter((e) => riskLevelValue(e.risk) > maxRiskValue);
 
               // Display the fix plan
               console.log(chalk.bold("Drift Fix Plan:"));
@@ -328,23 +364,6 @@ Examples:
                     ? ` ${willSkip.length} skipped (risk above ${maxRisk}).`
                     : "")
               );
-
-              if (fmt === "json") {
-                console.log(
-                  JSON.stringify(
-                    {
-                      plan,
-                      willFix: willFix.map((e) => e.tenantName),
-                      willSkip: willSkip.map((e) => ({ tenantName: e.tenantName, risk: e.risk })),
-                      maxRisk,
-                      dryRun: !!options.dryRun,
-                    },
-                    null,
-                    2
-                  )
-                );
-                return;
-              }
 
               if (options.dryRun) {
                 console.log(chalk.gray("\n--dry-run: No changes were made."));
@@ -453,7 +472,7 @@ Examples:
                 const analysis = driftAnalyzer.analyzeTenant(tenant, status, history);
 
                 if (fmt === "json") {
-                  console.log(JSON.stringify(analysis, null, 2));
+                  emitEnvelope(analysis, { command: "solutions drift" });
                   return;
                 }
                 if (fmt === "quiet") return;
@@ -463,8 +482,9 @@ Examples:
               }
 
               if (fmt === "json") {
-                console.log(
-                  JSON.stringify({ ...status, customizations: customizationResult }, null, 2)
+                emitEnvelope(
+                  { ...status, customizations: customizationResult },
+                  { command: "solutions drift" }
                 );
                 return;
               }
@@ -506,8 +526,21 @@ Examples:
             const customizationSummary = getDemoCustomizationSummary("CustomerServiceAgent");
 
             if (fmt === "json") {
-              console.log(
-                JSON.stringify({ ...summary, customizations: customizationSummary }, null, 2)
+              // data is the drift summary object (with customizations folded
+              // in); nextActions points at --fix when tenants are outdated.
+              const summaryActions: NextAction[] =
+                summary.outdatedTenants > 0
+                  ? [
+                      nextAction(
+                        "Fix outdated tenants",
+                        ["solutions", "drift", "--fix"],
+                        "Deploy the current version to risk-eligible outdated tenants"
+                      ),
+                    ]
+                  : [];
+              emitEnvelope(
+                { ...summary, customizations: customizationSummary },
+                { command: "solutions drift", nextActions: summaryActions }
               );
               return;
             }
@@ -689,7 +722,7 @@ Examples:
                 );
 
                 if (fmt === "json") {
-                  console.log(JSON.stringify(analysis, null, 2));
+                  emitEnvelope(analysis, { command: "solutions drift" });
                   return;
                 }
                 if (fmt === "quiet") return;
@@ -719,7 +752,7 @@ Examples:
             if (options.tenant && statuses.length === 1) {
               const status = statuses[0];
               if (fmt === "json") {
-                console.log(JSON.stringify(status, null, 2));
+                emitEnvelope(status, { command: "solutions drift" });
                 return;
               }
               if (fmt === "quiet") return;
@@ -731,7 +764,22 @@ Examples:
             const summary = buildSummary(statuses, expectedSolutions);
 
             if (fmt === "json") {
-              console.log(JSON.stringify(summary, null, 2));
+              // Mirror the demo fleet-summary envelope: data is the drift
+              // summary object; nextActions points at --fix when outdated.
+              const summaryActions: NextAction[] =
+                summary.outdatedTenants > 0
+                  ? [
+                      nextAction(
+                        "Fix outdated tenants",
+                        ["solutions", "drift", "--fix"],
+                        "Deploy the current version to risk-eligible outdated tenants"
+                      ),
+                    ]
+                  : [];
+              emitEnvelope(summary, {
+                command: "solutions drift",
+                nextActions: summaryActions,
+              });
               return;
             }
             if (fmt === "quiet") return;

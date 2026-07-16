@@ -90,11 +90,12 @@ describe("CLI Integration Tests", () => {
       const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
       expect(containsText(result.output, "DEMO MODE")).toBe(true);
-      const json = extractJson<{ tenants: unknown[]; total: number; active: number }>(
+      // Standardized envelope (#465): data[] rows, counts under summary.
+      const json = extractJson<{ data: unknown[]; summary: { total: number; active: number } }>(
         result.stdout
       );
       expect(json).not.toBeNull();
-      expect(json!.tenants.length).toBeGreaterThan(0);
+      expect(json!.data.length).toBeGreaterThan(0);
     });
 
     it("should show correct tenant count", async () => {
@@ -102,11 +103,11 @@ describe("CLI Integration Tests", () => {
       const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
       const enabledCount = DEMO_TENANTS.filter((t) => t.enabled).length;
-      const json = extractJson<{ tenants: unknown[]; total: number; active: number }>(
+      const json = extractJson<{ data: unknown[]; summary: { total: number; active: number } }>(
         result.stdout
       );
       expect(json).not.toBeNull();
-      expect(json!.active).toBe(enabledCount);
+      expect(json!.summary.active).toBe(enabledCount);
     });
 
     it("should filter by tag", async () => {
@@ -124,20 +125,18 @@ describe("CLI Integration Tests", () => {
     it("should parse CLI JSON output for tenants list", async () => {
       const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
-      const json = extractJson<{ tenants: Array<{ name: string; tags?: string[] }> }>(
-        result.stdout
-      );
+      const json = extractJson<{ data: Array<{ name: string; tags?: string[] }> }>(result.stdout);
       expect(json).not.toBeNull();
-      expect(json!.tenants.some((t) => t.name === "Contoso Corporation")).toBe(true);
-      expect(json!.tenants.some((t) => t.name === "Fabrikam Inc")).toBe(true);
+      expect(json!.data.some((t) => t.name === "Contoso Corporation")).toBe(true);
+      expect(json!.data.some((t) => t.name === "Fabrikam Inc")).toBe(true);
     });
 
     it("should extract column values from JSON output", async () => {
       const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
-      const json = extractJson<{ tenants: Array<{ name: string }> }>(result.stdout);
+      const json = extractJson<{ data: Array<{ name: string }> }>(result.stdout);
       expect(json).not.toBeNull();
-      const names = json!.tenants.map((t) => t.name);
+      const names = json!.data.map((t) => t.name);
       expect(names).toContain("Contoso Corporation");
       expect(names).toContain("Fabrikam Inc");
     });
@@ -146,10 +145,10 @@ describe("CLI Integration Tests", () => {
       const result = await runCliExpectSuccess(["tenants", "list", "--json"]);
 
       const json = extractJson<{
-        tenants: Array<{ name: string; tags?: string[] }>;
+        data: Array<{ name: string; tags?: string[] }>;
       }>(result.stdout);
       expect(json).not.toBeNull();
-      const cohoTenant = json!.tenants.find((t) => t.name.includes("Coho"));
+      const cohoTenant = json!.data.find((t) => t.name.includes("Coho"));
       expect(cohoTenant).toBeDefined();
       expect(cohoTenant!.tags).toContain("hospitality");
     });

@@ -36,6 +36,7 @@ import {
   truncateId,
 } from "../../lib/formatters.js";
 import { output, getDefaultFormat, type Column, type OutputFormat } from "../../lib/output.js";
+import { emitEnvelope, nextAction, type NextAction } from "../../lib/envelope.js";
 import { isQuietMode } from "../../lib/spinner.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
 
@@ -298,22 +299,90 @@ export function parseDateFilter(value: string): Date | null {
 // Output formatting — history entries (real data)
 // ============================================================================
 
+/**
+ * The query-scoping flags for `deployments list`. Threaded from the caller into
+ * the next-page nextAction so following it re-runs the SAME filtered query
+ * rather than paginating a different (unfiltered) result set (issue #498).
+ * Mirrors the `list` command options in `list.ts`.
+ */
+export interface ListFilters {
+  status?: string;
+  tenant?: string;
+  agent?: string;
+  since?: string;
+}
+
+/**
+ * Re-emit the active list filters as argv flags so the next-page action targets
+ * the same query. Only string-valued scoping flags are carried; pagination
+ * (`--limit`/`--offset`) is set explicitly by the caller.
+ */
+function filterArgv(filters: ListFilters): string[] {
+  const argv: string[] = [];
+  if (filters.status) argv.push("--status", filters.status);
+  if (filters.tenant) argv.push("--tenant", filters.tenant);
+  if (filters.agent) argv.push("--agent", filters.agent);
+  if (filters.since) argv.push("--since", filters.since);
+  return argv;
+}
+
+/**
+ * Build the "fetch the next page" nextAction for a paginated list, or an empty
+ * array when the current window is the last page. Shared by both the demo
+ * (`DeploymentJob`) and real (`HistoryEntry`) list paths.
+ *
+ * `total` may be an ESTIMATE (see `estimatedTotal`): in the real multi-env path
+ * it is a post-fetch capped count (each environment is queried with `limit`,
+ * then results are concatenated), so it is neither a true total nor a reliable
+ * upper bound. When the total is estimated we (a) gate `hasMore` on whether a
+ * full page was actually returned (`count === limit`) rather than on the capped
+ * total, and (b) do not advertise a bounded "of N" range — see issue #498 #5.
+ */
+function nextPageActions(
+  total: number,
+  limit: number,
+  offset: number,
+  count: number,
+  filters: ListFilters,
+  estimatedTotal = false
+): NextAction[] {
+  const hasMore = estimatedTotal ? count >= limit && limit > 0 : offset + count < total;
+  if (!hasMore) return [];
+
+  const argv = [
+    "deployments",
+    "list",
+    "--offset",
+    String(offset + limit),
+    "--limit",
+    String(limit),
+    ...filterArgv(filters),
+  ];
+  // With an estimated total we don't know the upper bound, so describe the next
+  // window open-endedly instead of claiming a precise "of N".
+  const description = estimatedTotal
+    ? `Show the next page of results (starting at ${offset + limit + 1})`
+    : `Show results ${offset + limit + 1}-${Math.min(offset + limit * 2, total)} of ${total}`;
+  return [nextAction("Fetch the next page", argv, description)];
+}
+
 export function outputHistoryJson(
   entries: HistoryEntry[],
   total: number,
   limit: number,
-  offset: number
+  offset: number,
+  filters: ListFilters = {}
 ): void {
-  console.log(
-    JSON.stringify(
-      {
-        deployments: entries,
-        pagination: { total, limit, offset, hasMore: offset + entries.length < total },
-      },
-      null,
-      2
-    )
-  );
+  // Real multi-env path: `total` is a post-fetch capped count and can't be
+  // trusted as a true total or upper bound (issue #498 #5). Derive `hasMore`
+  // from whether a full page was returned and expose the count as an estimate
+  // so consumers don't treat the range as authoritative.
+  const hasMore = entries.length >= limit && limit > 0;
+  emitEnvelope(entries, {
+    command: "deployments list",
+    summary: { total, totalIsEstimate: true, limit, offset, hasMore },
+    nextActions: nextPageActions(total, limit, offset, entries.length, filters, true),
+  });
 }
 
 interface HistoryRow {
@@ -466,24 +535,28 @@ export function outputJson(
   deployments: DeploymentJob[],
   total: number,
   limit: number,
-  offset: number
+  offset: number,
+  filters: ListFilters = {}
 ): void {
-  const result = {
-    deployments: deployments.map((d) => ({
-      id: d.id,
-      solutionName: d.solutionName,
-      solutionVersion: d.solutionVersion,
-      status: d.status,
-      totalTenants: d.totalTenants,
-      completedTenants: d.completedTenants,
-      failedTenants: d.failedTenants,
-      triggeredBy: d.triggeredBy,
-      createdAt: d.createdAt,
-      completedAt: d.completedAt,
-    })),
-    pagination: { total, limit, offset, hasMore: offset + deployments.length < total },
-  };
-  console.log(JSON.stringify(result, null, 2));
+  const rows = deployments.map((d) => ({
+    id: d.id,
+    solutionName: d.solutionName,
+    solutionVersion: d.solutionVersion,
+    status: d.status,
+    totalTenants: d.totalTenants,
+    completedTenants: d.completedTenants,
+    failedTenants: d.failedTenants,
+    triggeredBy: d.triggeredBy,
+    createdAt: d.createdAt,
+    completedAt: d.completedAt,
+  }));
+  // Demo path: `total` is the true length of the filtered list (sliced by the
+  // caller), so the range and hasMore are authoritative here.
+  emitEnvelope(rows, {
+    command: "deployments list",
+    summary: { total, limit, offset, hasMore: offset + deployments.length < total },
+    nextActions: nextPageActions(total, limit, offset, deployments.length, filters),
+  });
 }
 
 export function outputTable(
