@@ -167,6 +167,24 @@ const CASES: Array<{
     dataKind: "array",
   },
   {
+    name: "solutions drift --tenant (single)",
+    argv: ["solutions", "drift", "--tenant", "Contoso", "--json"],
+    command: "solutions drift",
+    dataKind: "object",
+  },
+  {
+    name: "solutions drift --tenant --risk (single)",
+    argv: ["solutions", "drift", "--tenant", "Contoso", "--risk", "--json"],
+    command: "solutions drift",
+    dataKind: "object",
+  },
+  {
+    name: "solutions drift --fix",
+    argv: ["solutions", "drift", "--fix", "--json", "--yes"],
+    command: "solutions drift",
+    dataKind: "object",
+  },
+  {
     name: "analyze",
     argv: ["analyze", "CustomerServiceAgent", "--all", "--json"],
     command: "analyze",

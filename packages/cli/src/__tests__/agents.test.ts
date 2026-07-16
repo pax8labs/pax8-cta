@@ -466,13 +466,16 @@ describe("Agents Command", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      const json = extractJson<{ tenantId: string; tenantName: string; solutions: unknown[] }>(
-        output
-      );
+      const json = extractJson<{
+        meta: { command: string; version: number };
+        data: { tenantId: string; tenantName: string; solutions: unknown[] };
+      }>(output);
       expect(json).not.toBeNull();
-      expect(json!.tenantId).toBeDefined();
-      expect(json!.tenantName).toBeDefined();
-      expect(json!.solutions).toBeDefined();
+      // #465 envelope: payload is under data; meta carries the contract version.
+      expect(json!.meta.version).toBeDefined();
+      expect(json!.data.tenantId).toBeDefined();
+      expect(json!.data.tenantName).toBeDefined();
+      expect(json!.data.solutions).toBeDefined();
     });
 
     it("should handle tenant not found", async () => {
@@ -788,13 +791,17 @@ describe("Agents Command", () => {
       ]);
 
       const output = consoleCapture.getAllOutput();
-      const json = extractJson<{ plan: unknown[]; willFix: string[]; maxRisk: string }>(output);
+      const json = extractJson<{
+        data: { plan: unknown[] };
+        summary: { willFix: string[]; maxRisk: string };
+      }>(output);
 
       // Might be null if all tenants are current
       if (json) {
-        expect(json.plan).toBeDefined();
-        expect(json.willFix).toBeDefined();
-        expect(json.maxRisk).toBe("high");
+        // #465 envelope: plan under data; willFix/maxRisk under summary.
+        expect(json.data.plan).toBeDefined();
+        expect(json.summary.willFix).toBeDefined();
+        expect(json.summary.maxRisk).toBe("high");
       }
     });
 

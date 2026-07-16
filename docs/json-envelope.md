@@ -67,17 +67,20 @@ This mirrors the sibling pax8-cli `nextActions` argv contract (their #562) and t
 
 ## Standardized commands
 
-| Command                                 | `data`                     | `summary`                                  | `nextActions`              |
-| --------------------------------------- | -------------------------- | ------------------------------------------ | -------------------------- |
-| `tenants list --json`                   | array of tenants           | `{ total, active }`                        | —                          |
-| `tenants health --json` (fleet)         | array of per-tenant health | `{ total, healthy, unhealthy }`            | drift, when any degraded   |
-| `tenants health <name> --json`          | health object              | —                                          | drift, when degraded       |
-| `deployments list --json`               | array of deployments       | `{ total, limit, offset, hasMore }`        | next page, when more exist |
-| `solutions drift --json` (summary)      | drift summary object       | —                                          | `--fix`, when outdated     |
-| `solutions drift --risk --json` (fleet) | array of DriftRows         | fleet risk summary                         | `--fix`, when outdated     |
-| `analyze --json`                        | RiskAnalysis object        | `{ score, canProceed, blockers, tenants }` | deploy / re-analyze        |
-| `deploy --json` (demo & live)           | deploy result object       | counts                                     | show / review failures     |
-| `deploy --dry-run --json`               | dry-run plan object        | plan summary                               | run for real, when clean   |
+| Command                                  | `data`                       | `summary`                                  | `nextActions`                |
+| ---------------------------------------- | ---------------------------- | ------------------------------------------ | ---------------------------- |
+| `tenants list --json`                    | array of tenants             | `{ total, active }`                        | —                            |
+| `tenants health --json` (fleet)          | array of per-tenant health   | `{ total, healthy, unhealthy }`            | drift, when any degraded     |
+| `tenants health <name> --json`           | health object                | —                                          | drift, when degraded         |
+| `deployments list --json`                | array of deployments         | `{ total, limit, offset, hasMore }`        | next page, when more exist   |
+| `solutions drift --json` (fleet summary) | drift summary object         | —                                          | `--fix`, when outdated       |
+| `solutions drift --risk --json` (fleet)  | array of DriftRows           | fleet risk summary                         | `--fix`, when fleet outdated |
+| `solutions drift --tenant --json`        | tenant version-status object | —                                          | —                            |
+| `solutions drift --tenant --risk --json` | tenant drift analysis object | —                                          | —                            |
+| `solutions drift --fix --json`           | `{ plan }` object            | `{ willFix, willSkip, maxRisk, dryRun }`   | —                            |
+| `analyze --json`                         | RiskAnalysis object          | `{ score, canProceed, blockers, tenants }` | deploy / re-analyze          |
+| `deploy --json` (demo & live)            | deploy result object         | counts                                     | show / review failures       |
+| `deploy --dry-run --json`                | dry-run plan object          | plan summary                               | run for real, when clean     |
 
 Commands not yet migrated (e.g. `deployments show`, `deployments undo`,
 `solutions show`, `solutions list`, `status`, `validate`, `export`, `import`)
