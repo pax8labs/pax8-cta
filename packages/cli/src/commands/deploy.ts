@@ -897,6 +897,14 @@ interface DryRunActionOptions {
   quiet?: boolean;
   skipValidation?: boolean;
   skipUrlReplace?: boolean;
+  // Tenant-selection flags the dry-run honored. Carried so the "run for real"
+  // nextAction re-emits the exact scope that was validated (issue #498): a bare
+  // `deploy <solution>` defaults to `--all`, so an agent spawning the argv would
+  // otherwise deploy to the whole fleet rather than the validated subset.
+  all?: boolean;
+  tag?: string[];
+  tenant?: string[];
+  tenants?: string[];
 }
 
 interface DryRunContext {
@@ -1164,6 +1172,35 @@ function filterDestinationsByTenantSelections(
   });
 }
 
+/**
+ * Reconstruct the tenant-selection argv for a "run for real" nextAction from
+ * the options the dry-run actually honored (issue #498). Preserves the exact
+ * scope: `--tag <t...>` if tags were used, otherwise `--all` (the default), and
+ * carries `--tenant <t...>` when present. `--dry-run` is intentionally dropped.
+ * Any shell-unsafe values are handled by the argv contract (spawn args.slice(1)).
+ */
+function buildDeployScopeArgv(solution: string, options: DryRunActionOptions): string[] {
+  const argv = ["deploy", solution];
+
+  // `--tenant`/`--tenants` are merged into `options.tenant` upstream (dedup at
+  // command entry), so only `options.tenant` needs to be re-emitted here.
+  const tags = options.tag ?? [];
+  if (tags.length > 0) {
+    argv.push("--tag", ...tags);
+  } else {
+    // No tag filter → the dry-run defaulted to the whole fleet. Emit --all
+    // explicitly so the intent is unambiguous to the agent consumer.
+    argv.push("--all");
+  }
+
+  const tenants = options.tenant ?? [];
+  if (tenants.length > 0) {
+    argv.push("--tenant", ...tenants);
+  }
+
+  return argv;
+}
+
 async function runDryRunPreview(context: DryRunContext): Promise<void> {
   const plan = await buildDryRunPlan(context);
 
@@ -1179,12 +1216,17 @@ async function runDryRunPreview(context: DryRunContext): Promise<void> {
     // No output; exit code below still reflects validation failures.
   } else if (fmt === "json") {
     const clean = plan.summary.validationFailedTenants === 0;
+    // Reconstruct the exact scope the dry-run validated so the "run for real"
+    // argv targets the same tenants (issue #498). A bare `deploy <solution>`
+    // defaults to `--all`, so we must re-emit --all/--tag/--tenant explicitly
+    // rather than let the agent re-derive (and widen) the target set.
+    const scopeArgv = buildDeployScopeArgv(plan.solution, context.options);
     const actions: NextAction[] = clean
       ? [
           nextAction(
             "Run the deployment for real",
-            ["deploy", plan.solution],
-            "Re-run without --dry-run to execute the plan"
+            scopeArgv,
+            "Re-run without --dry-run to execute the plan against the validated tenants"
           ),
         ]
       : [];
