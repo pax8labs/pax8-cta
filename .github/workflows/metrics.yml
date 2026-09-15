@@ -1,0 +1,105 @@
+name: Metrics
+
+# Daily push of npm download counts for the Pax8 CTA packages to PostHog.
+#
+# Runs at 12:00 UTC. This is CTA's own pipeline — @pax8/cli is a separate,
+# independent product with its own metrics workflow in its own repo. The two
+# share a PostHog project but are kept distinct via the `app` property and
+# separate distinct_ids, matching the convention in
+# packages/cli/src/lib/telemetry-key.ts (TELEMETRY_APP).
+#
+# Also triggerable manually via `gh workflow run Metrics` for smoke tests.
+#
+# PostHog project API keys are safe to expose — they can only write events,
+# not read data. The key below is the same one baked into telemetry-key.ts.
+# https://posthog.com/docs/product-analytics/troubleshooting#is-it-ok-for-my-api-key-to-be-exposed-and-public
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  POSTHOG_KEY: "phc_XKIa0EPGDACY1p4Cczk6IWXFa3n9E7htSxcVIg70rRp"
+  POSTHOG_HOST: "https://us.i.posthog.com"
+
+jobs:
+  push-metrics:
+    name: Push npm download counts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push npm download counts for @pax8/cta + @pax8/cta-core
+        # IMPORTANT: npm's download stats lag real time by a variable number
+        # of days — as of this writing `last-day` returns data from 4 days
+        # ago, not yesterday. So we never compute the data-day locally; we
+        # read it from npm's own `start`/`end` fields, which are
+        # authoritative for the figure returned. Computing it locally would
+        # mislabel the event and, across a multi-day lag, re-send the same
+        # day's downloads under several different date labels.
+        #
+        # The event is timestamped at the data-day's 23:59:59Z so PostHog
+        # charts it on the day the downloads actually happened.
+        #
+        # Failures are logged but don't fail the job — this is metrics, not
+        # a release gate.
+        run: |
+          set -uo pipefail
+          failed=0
+          for pkg in "@pax8/cta" "@pax8/cta-core"; do
+            echo "→ Fetching downloads for ${pkg}"
+            resp=$(curl -sS --fail-with-body \
+              "https://api.npmjs.org/downloads/point/last-day/${pkg}") || {
+                echo "  ✗ npm fetch failed for ${pkg}"; failed=1; continue; }
+
+            downloads=$(echo "$resp" | jq -r '.downloads // "null"')
+            start=$(echo "$resp"     | jq -r '.start     // "null"')
+            end=$(echo "$resp"       | jq -r '.end       // "null"')
+            if [ "$downloads" = "null" ] || [ "$end" = "null" ]; then
+              echo "  ✗ unexpected npm response for ${pkg}: $resp"
+              failed=1; continue
+            fi
+            echo "  downloads=${downloads} data-day=${end}"
+
+            body=$(jq -n \
+              --arg api_key "$POSTHOG_KEY" \
+              --arg event "npm_downloads" \
+              --arg distinct_id "pax8-cta-metrics" \
+              --arg app "pax8-cta" \
+              --arg pkg "$pkg" \
+              --arg period "last-day" \
+              --arg start "$start" \
+              --arg end "$end" \
+              --arg timestamp "${end}T23:59:59Z" \
+              --argjson downloads "$downloads" \
+              '{
+                api_key: $api_key,
+                event: $event,
+                distinct_id: $distinct_id,
+                timestamp: $timestamp,
+                properties: {
+                  app: $app,
+                  package: $pkg,
+                  downloads: $downloads,
+                  period: $period,
+                  start: $start,
+                  end: $end,
+                  date: $end
+                }
+              }')
+
+            curl -sS --fail-with-body -X POST "${POSTHOG_HOST}/capture/" \
+              -H "Content-Type: application/json" \
+              -d "$body" >/dev/null || {
+                echo "  ✗ posthog capture failed for ${pkg}"; failed=1; continue; }
+            echo "  ✓ sent"
+          done
+
+          # Surface partial failure loudly. A silent zero is indistinguishable
+          # from a broken pipeline on the dashboard, so make the run red.
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::one or more packages failed to report"
+            exit 1
+          fi
