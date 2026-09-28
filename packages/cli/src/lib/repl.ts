@@ -18,6 +18,8 @@ import chalk from "chalk";
 import type { Command } from "commander";
 import { question, closeInput } from "./input.js";
 import { setReplMode } from "./spinner.js";
+import { attachCommandTelemetry, errorCodeFor } from "./command-telemetry.js";
+import { trackCommand } from "./telemetry.js";
 
 class ReplExitIntercepted extends Error {
   constructor(public code: number) {
@@ -45,18 +47,26 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
       break;
     }
 
+    // Parse the input as commander arguments. Hoisted out of the try below so
+    // the failure-telemetry path in the catch can still name the command.
+    const args = parseCommandLine(input);
+
+    // Tolerate shell-style invocations: muscle memory from running
+    // `pax8-cta foo bar` outside the REPL shouldn't surface as an error.
+    if (args[0] === "pax8-cta") {
+      args.shift();
+    }
+
+    const commandStartedAt = Date.now();
+
     try {
-      // Parse the input as commander arguments
-      const args = parseCommandLine(input);
-
-      // Tolerate shell-style invocations: muscle memory from running
-      // `pax8-cta foo bar` outside the REPL shouldn't surface as an error.
-      if (args[0] === "pax8-cta") {
-        args.shift();
-      }
-
       // Create a fresh program instance for this command
       const program = createProgram();
+
+      // Emit `command_executed` for REPL invocations too. Until this was
+      // added the REPL registered no postAction hook at all, so an entire
+      // usage mode of the CLI was invisible in PostHog.
+      attachCommandTelemetry(program, () => commandStartedAt);
 
       // Subcommand instances are module-level singletons, so Commander's
       // parsed option/arg state from a previous REPL iteration leaks into
@@ -85,6 +95,18 @@ export async function startRepl(createProgram: () => Command): Promise<void> {
         process.exit = originalExit;
       }
     } catch (error) {
+      // The REPL is the one place a failed command is observable without
+      // tearing the process down, so it is also the one place we can reliably
+      // record it. (One-shot runs that die inside handleCommandError's
+      // process.exit() still slip through — see issue notes in telemetry.ts.)
+      trackCommand({
+        command: args[0] || "unknown",
+        success: false,
+        durationMs: Date.now() - commandStartedAt,
+        errorCode:
+          error instanceof ReplExitIntercepted ? `ERROR_EXIT_${error.code}` : errorCodeFor(error),
+      });
+
       if (error instanceof ReplExitIntercepted) {
         // Command called process.exit() — already printed its own error, just continue
         console.log();

@@ -90,10 +90,12 @@ import {
   hasShownFirstRunNotice,
   markFirstRunNoticeShown,
   getFirstRunNotice,
+  initTelemetryIdentity,
   trackCommand,
   trackFirstRun,
   shutdownTelemetry,
 } from "./lib/telemetry.js";
+import { attachCommandTelemetry, errorCodeFor } from "./lib/command-telemetry.js";
 import { isQuietMode } from "./lib/spinner.js";
 import chalk from "chalk";
 
@@ -208,6 +210,12 @@ if (args.length > 0 && !isQuietMode()) {
   }
 }
 
+// Resolve the PostHog identity once, up front, so every run — including ones
+// that never load partner credentials (demo, --help, telemetry, config, REPL)
+// — is attributed to a stable distinct ID instead of collapsing onto the
+// anonymous per-machine fallback. Fire-and-forget; flushed at shutdown.
+initTelemetryIdentity();
+
 // Graceful shutdown handling
 let isShuttingDown = false;
 
@@ -236,55 +244,29 @@ if (process.platform !== "win32") {
 // If no arguments provided, enter interactive mode
 if (args.length === 0) {
   await startRepl(createProgram);
+  // The REPL captures an event per command; flush them before exiting, the
+  // same way the one-shot branch below does. Without this the last event of a
+  // session was still in flight when the process ended.
+  await shutdownTelemetry();
 } else {
   const startTime = Date.now();
   const program = createProgram();
 
-  // Track command execution.
-  // Commander's hook callback gets two args: `thisCommand` is the command
-  // the hook was registered on (always `program` here), and `actionCommand`
-  // is the leaf command that actually ran. We must use actionCommand to get
-  // the real command/subcommand names — using thisCommand reports "pax8-cta"
-  // for everything (the program name) and no subcommand.
-  program.hook("postAction", (_thisCommand, actionCommand) => {
-    const durationMs = Date.now() - startTime;
+  // Track successful command execution (shared with the REPL entry point).
+  attachCommandTelemetry(program, () => startTime);
 
-    // For `pax8-cta deploy ...`           actionCommand.parent === program
-    //                                     → command = "deploy", no subcommand
-    // For `pax8-cta tenants list`         actionCommand.parent === tenants group
-    //                                     → command = "tenants", subcommand = "list"
-    const parentIsProgram = actionCommand.parent === program;
-    const command = parentIsProgram ? actionCommand.name() : actionCommand.parent!.name();
-    const subcommand = parentIsProgram ? undefined : actionCommand.name();
-
-    // Extract flag names (no values, for privacy)
-    const flags = Object.keys(actionCommand.opts());
-
-    trackCommand({
-      command,
-      subcommand,
-      flags,
-      success: true,
-      durationMs,
-      demoMode: process.env.DEMO_MODE === "true",
-    });
-  });
-
-  // Handle exit for telemetry tracking
-  process.on("exit", (code) => {
-    if (code !== 0 && !isShuttingDown) {
-      const durationMs = Date.now() - startTime;
-      const command = args[0] || "unknown";
-
-      trackCommand({
-        command,
-        success: false,
-        durationMs,
-        errorType: "exit_code_" + code,
-        demoMode: process.env.DEMO_MODE === "true",
-      });
+  // Commander's default behaviour for a usage error (unknown command, unknown
+  // option, missing argument) is to print and call process.exit() itself, so
+  // parseAsync never rejects and the failure never reached telemetry. Route
+  // those through the catch below instead; it re-exits with the same code.
+  // Applied to subcommands too — exitOverride does not inherit.
+  program.exitOverride();
+  for (const cmd of program.commands) {
+    cmd.exitOverride();
+    for (const sub of cmd.commands) {
+      sub.exitOverride();
     }
-  });
+  }
 
   // Handle uncaught errors gracefully
   process.on("uncaughtException", async (error) => {
@@ -294,8 +276,7 @@ if (args.length === 0) {
       command: args[0] || "unknown",
       success: false,
       durationMs: Date.now() - startTime,
-      errorType: "uncaught_exception",
-      demoMode: process.env.DEMO_MODE === "true",
+      errorCode: "ERROR_UNCAUGHT_EXCEPTION",
     });
 
     await shutdownTelemetry();
@@ -309,8 +290,7 @@ if (args.length === 0) {
       command: args[0] || "unknown",
       success: false,
       durationMs: Date.now() - startTime,
-      errorType: "unhandled_rejection",
-      demoMode: process.env.DEMO_MODE === "true",
+      errorCode: "ERROR_UNHANDLED_REJECTION",
     });
 
     await shutdownTelemetry();
@@ -321,6 +301,46 @@ if (args.length === 0) {
   // telemetry before the process exits. With program.parse() (sync), the
   // CLI would exit before posthog-node finished sending its HTTP request,
   // and events would be lost.
-  await program.parseAsync(process.argv);
+  //
+  // Failures are emitted here rather than from a `process.on("exit")` handler.
+  // That handler used to call trackCommand(), but trackCommand schedules its
+  // work on a microtask and Node runs nothing async once "exit" fires — so
+  // every failure event it produced was silently discarded, and PostHog only
+  // ever saw successes.
+  //
+  // Commander signals "I printed help/version, now exit cleanly" as a thrown
+  // error with exitCode 0. Those are successful runs, not failures.
+  const CLEAN_EXIT_CODES = new Set([
+    "commander.help",
+    "commander.helpDisplayed",
+    "commander.version",
+  ]);
+
+  let failure: unknown;
+  try {
+    await program.parseAsync(process.argv);
+  } catch (error) {
+    failure = error;
+    const code = (error as { code?: string })?.code;
+    if (!code || !CLEAN_EXIT_CODES.has(code)) {
+      // Commander prints its own usage errors; anything else reached us
+      // unhandled and would otherwise vanish now that we catch it here.
+      if (!code?.startsWith("commander.")) {
+        console.error(chalk.red("\nError:"), error instanceof Error ? error.message : error);
+      }
+      trackCommand({
+        command: args[0] || "unknown",
+        success: false,
+        durationMs: Date.now() - startTime,
+        errorCode: errorCodeFor(error),
+      });
+    }
+  }
+
   await shutdownTelemetry();
+
+  if (failure !== undefined) {
+    const exitCode = (failure as { exitCode?: number })?.exitCode;
+    process.exit(typeof exitCode === "number" ? exitCode : 1);
+  }
 }

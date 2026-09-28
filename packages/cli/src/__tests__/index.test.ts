@@ -34,6 +34,7 @@ vi.mock("../lib/telemetry.js", () => ({
   hasShownFirstRunNotice: vi.fn(() => true),
   markFirstRunNoticeShown: vi.fn(),
   getFirstRunNotice: vi.fn(() => "Test notice"),
+  initTelemetryIdentity: vi.fn(),
   trackCommand: vi.fn(),
   trackFirstRun: vi.fn(),
   shutdownTelemetry: vi.fn().mockResolvedValue(undefined),
