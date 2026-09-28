@@ -287,12 +287,15 @@ describe("Deploy Command (Real Mode - Config File)", () => {
         }
       );
 
+      // Standardized envelope (#465): the plan lives under data; the plan's
+      // summary is also surfaced at the envelope's top-level summary.
       const json = expectJson<any>(result.output);
       expect(result.exitCode).toBe(0);
-      expect(json.dryRun).toBe(true);
+      expect(json.meta.command).toBe("deploy");
+      expect(json.data.dryRun).toBe(true);
       expect(json.summary.totalTenants).toBe(2);
       expect(json.summary.totalWaves).toBeGreaterThanOrEqual(1);
-      expect(Array.isArray(json.waves)).toBe(true);
+      expect(Array.isArray(json.data.waves)).toBe(true);
     });
 
     it("should error when no tenants match tag filter", async () => {

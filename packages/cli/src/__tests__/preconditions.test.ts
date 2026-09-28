@@ -70,24 +70,27 @@ describe("analyze — preconditions (Phase 1 preflight)", () => {
       ["analyze", "CustomerServiceAgent", "--tag", "enterprise", "--json"],
       { cwd: WORKSPACE_ROOT }
     );
+    // Standardized envelope (#465): the RiskAnalysis lives under data.
     const envelope = expectJson<{
-      preconditions: {
-        manifestFound: boolean;
-        solution?: string;
-        manifestVersion?: string;
-        failures: Array<{
-          tenantId: string;
-          tenantName: string;
-          preconditionId: string;
-          failedProperty: string;
-          remediation: { kind: string; title: string };
-        }>;
+      data: {
+        preconditions: {
+          manifestFound: boolean;
+          solution?: string;
+          manifestVersion?: string;
+          failures: Array<{
+            tenantId: string;
+            tenantName: string;
+            preconditionId: string;
+            failedProperty: string;
+            remediation: { kind: string; title: string };
+          }>;
+        };
       };
     }>(result.stdout);
-    expect(envelope.preconditions.manifestFound).toBe(true);
-    expect(envelope.preconditions.solution).toBe("CustomerServiceAgent");
-    expect(envelope.preconditions.failures.length).toBeGreaterThan(0);
-    const woodgrove = envelope.preconditions.failures.find(
+    expect(envelope.data.preconditions.manifestFound).toBe(true);
+    expect(envelope.data.preconditions.solution).toBe("CustomerServiceAgent");
+    expect(envelope.data.preconditions.failures.length).toBeGreaterThan(0);
+    const woodgrove = envelope.data.preconditions.failures.find(
       (f) => f.tenantName === "Woodgrove Bank"
     );
     expect(woodgrove).toBeDefined();
@@ -101,10 +104,10 @@ describe("analyze — preconditions (Phase 1 preflight)", () => {
       { cwd: WORKSPACE_ROOT }
     );
     const envelope = expectJson<{
-      preconditions: { manifestFound: boolean; failures: unknown[] };
+      data: { preconditions: { manifestFound: boolean; failures: unknown[] } };
     }>(result.stdout);
-    expect(envelope.preconditions.manifestFound).toBe(false);
-    expect(envelope.preconditions.failures).toEqual([]);
+    expect(envelope.data.preconditions.manifestFound).toBe(false);
+    expect(envelope.data.preconditions.failures).toEqual([]);
   });
 
   it("--all surfaces failures across multiple tenants (Tailspin Toys + Coho Vineyard)", async () => {

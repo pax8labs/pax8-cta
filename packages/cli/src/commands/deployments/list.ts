@@ -28,6 +28,7 @@ import {
   outputHistoryTable,
   resolveDeploymentFormat,
   type HistoryEntry,
+  type ListFilters,
 } from "./helpers.js";
 import { handleCommandError } from "../../lib/errors.js";
 import { output } from "../../lib/output.js";
@@ -61,6 +62,15 @@ Examples:
     const spinner = createSpinner("Loading deployment history...").start();
 
     try {
+      // The active query-scoping filters, threaded into the next-page action so
+      // following it re-runs the SAME filtered query (issue #498 #2).
+      const filters: ListFilters = {
+        status: opts.status,
+        tenant: opts.tenant,
+        agent: opts.agent,
+        since: opts.since,
+      };
+
       await withDemoMode(
         async () => {
           // Demo mode — use mock data
@@ -83,7 +93,7 @@ Examples:
             // id is the deployment job ID — useful for `deployments show <id>` pipelines
             output(deployments, { format: "ids-only", columns: [], idKey: "id" });
           } else if (fmt === "json") {
-            outputJson(deployments, total, limit, offset);
+            outputJson(deployments, total, limit, offset, filters);
           } else if (fmt !== "quiet") {
             outputTable(deployments, total, limit, offset);
           }
@@ -105,7 +115,7 @@ Examples:
             // id is the msdyn_solutionhistoryid — useful for querying specific history records
             output(entries as HistoryEntry[], { format: "ids-only", columns: [], idKey: "id" });
           } else if (fmt === "json") {
-            outputHistoryJson(entries, total, limit, offset);
+            outputHistoryJson(entries, total, limit, offset, filters);
           } else if (fmt !== "quiet") {
             outputHistoryTable(entries, total, limit, offset);
           }

@@ -22,6 +22,7 @@ import { withResolvedConfig } from "../../lib/command-wrapper.js";
 import { findTenant } from "./helpers.js";
 import { CliError, handleCommandError } from "../../lib/errors.js";
 import { output, resolveFormat, type Column } from "../../lib/output.js";
+import { emitEnvelope, nextAction, type NextAction } from "../../lib/envelope.js";
 import { showDemoBanner } from "../../lib/demo-banner.js";
 import { didYouMean } from "../../lib/did-you-mean.js";
 
@@ -121,7 +122,22 @@ Examples:
         const health = generateMockHealthCheck(tenant.tenantId);
 
         if (fmt === "json") {
-          console.log(JSON.stringify({ tenant: tenant.name, ...health }, null, 2));
+          // Single-tenant health: data is the health object (with the tenant
+          // name folded in). When degraded, point the agent at drift so it can
+          // decide whether an update is the remediation.
+          const actions: NextAction[] = health.healthy
+            ? []
+            : [
+                nextAction(
+                  `Investigate drift for ${tenant.name}`,
+                  ["solutions", "drift", "--tenant", tenant.name],
+                  "Check version drift and risk for this tenant"
+                ),
+              ];
+          emitEnvelope(
+            { tenant: tenant.name, ...health },
+            { command: "tenants health", nextActions: actions }
+          );
           return;
         }
 
@@ -157,24 +173,36 @@ Examples:
       }));
 
       if (fmt === "json") {
-        console.log(
-          JSON.stringify(
-            {
-              summary: {
-                total: results.length,
-                healthy: results.filter((r) => r.health.healthy).length,
-                unhealthy: results.filter((r) => !r.health.healthy).length,
-              },
-              tenants: results.map((r) => ({
-                name: r.tenant.name,
-                tenantId: r.tenant.tenantId,
-                healthy: r.health.healthy,
-                checks: r.health.checks,
-              })),
+        const unhealthy = results.filter((r) => !r.health.healthy);
+        // Fleet-wide health: data[] is the per-tenant rows; summary carries the
+        // healthy/unhealthy counts. Surface a drift action when any tenant is
+        // degraded so agents have a structured remediation path.
+        const actions: NextAction[] =
+          unhealthy.length > 0
+            ? [
+                nextAction(
+                  "Investigate drift on degraded tenants",
+                  ["solutions", "drift", "--risk"],
+                  "Review version drift and risk across the fleet"
+                ),
+              ]
+            : [];
+        emitEnvelope(
+          results.map((r) => ({
+            name: r.tenant.name,
+            tenantId: r.tenant.tenantId,
+            healthy: r.health.healthy,
+            checks: r.health.checks,
+          })),
+          {
+            command: "tenants health",
+            summary: {
+              total: results.length,
+              healthy: results.filter((r) => r.health.healthy).length,
+              unhealthy: unhealthy.length,
             },
-            null,
-            2
-          )
+            nextActions: actions,
+          }
         );
         return;
       }

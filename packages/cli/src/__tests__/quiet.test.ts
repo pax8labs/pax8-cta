@@ -248,17 +248,20 @@ describe("tenants health command (issue #382)", () => {
 
     // The fleet envelope is the only thing on stdout; demo-mode notice goes
     // to stderr. Parse stdout directly.
+    // Standardized envelope (#465): data[] rows, counts under summary.
     const envelope = JSON.parse(result.stdout) as {
+      meta: { command: string };
       summary: { total: number; healthy: number; unhealthy: number };
-      tenants: Array<{ name: string; tenantId: string; healthy: boolean; checks: unknown[] }>;
+      data: Array<{ name: string; tenantId: string; healthy: boolean; checks: unknown[] }>;
     };
+    expect(envelope.meta.command).toBe("tenants health");
     expect(envelope.summary).toBeTruthy();
     expect(typeof envelope.summary.total).toBe("number");
     expect(envelope.summary.total).toBeGreaterThan(0);
-    expect(Array.isArray(envelope.tenants)).toBe(true);
-    expect(envelope.tenants.length).toBe(envelope.summary.total);
-    expect(envelope.tenants[0]).toHaveProperty("tenantId");
-    expect(envelope.tenants[0]).toHaveProperty("checks");
+    expect(Array.isArray(envelope.data)).toBe(true);
+    expect(envelope.data.length).toBe(envelope.summary.total);
+    expect(envelope.data[0]).toHaveProperty("tenantId");
+    expect(envelope.data[0]).toHaveProperty("checks");
   }, 60000);
 
   it("pax8-cta tenants health <name> --json emits a parseable per-tenant envelope", async () => {
@@ -269,15 +272,20 @@ describe("tenants health command (issue #382)", () => {
 
     expect(result.exitCode).toBe(0);
 
+    // Standardized envelope (#465): the per-tenant health lives under data.
     const envelope = JSON.parse(result.stdout) as {
-      tenant: string;
-      healthy: boolean;
-      checks: Array<{ name: string; passed: boolean }>;
+      meta: { command: string };
+      data: {
+        tenant: string;
+        healthy: boolean;
+        checks: Array<{ name: string; passed: boolean }>;
+      };
     };
-    expect(envelope.tenant.toLowerCase()).toContain("contoso");
-    expect(typeof envelope.healthy).toBe("boolean");
-    expect(Array.isArray(envelope.checks)).toBe(true);
-    expect(envelope.checks.length).toBeGreaterThan(0);
+    expect(envelope.meta.command).toBe("tenants health");
+    expect(envelope.data.tenant.toLowerCase()).toContain("contoso");
+    expect(typeof envelope.data.healthy).toBe("boolean");
+    expect(Array.isArray(envelope.data.checks)).toBe(true);
+    expect(envelope.data.checks.length).toBeGreaterThan(0);
   }, 60000);
 });
 
@@ -382,15 +390,20 @@ describe("solutions drift command (issue #401)", () => {
     expect(result.exitCode).toBe(0);
     // Parses as JSON — stdout contains only the envelope.
     expect(() => JSON.parse(result.stdout)).not.toThrow();
+    // Standardized envelope (#465): drift summary object lives under data.
     const envelope = JSON.parse(result.stdout) as {
-      totalTenants: number;
-      currentTenants: number;
-      outdatedTenants: number;
-      solutionSummary: unknown[];
+      meta: { command: string };
+      data: {
+        totalTenants: number;
+        currentTenants: number;
+        outdatedTenants: number;
+        solutionSummary: unknown[];
+      };
     };
-    expect(typeof envelope.totalTenants).toBe("number");
-    expect(envelope.totalTenants).toBeGreaterThan(0);
-    expect(Array.isArray(envelope.solutionSummary)).toBe(true);
+    expect(envelope.meta.command).toBe("solutions drift");
+    expect(typeof envelope.data.totalTenants).toBe("number");
+    expect(envelope.data.totalTenants).toBeGreaterThan(0);
+    expect(Array.isArray(envelope.data.solutionSummary)).toBe(true);
   }, 60000);
 
   it("pax8-cta solutions drift --risk --json emits a parseable fleet-risk envelope", async () => {
@@ -401,8 +414,10 @@ describe("solutions drift command (issue #401)", () => {
 
     expect(result.exitCode).toBe(0);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
+    // Standardized envelope (#465): DriftRows land under data[].
     const envelope = JSON.parse(result.stdout) as {
-      tenants: Array<{
+      meta: { command: string };
+      data: Array<{
         tenantName: string;
         tenantId: string;
         score: number;
@@ -419,16 +434,17 @@ describe("solutions drift command (issue #401)", () => {
         doNotUpdate: number;
       };
     };
-    expect(Array.isArray(envelope.tenants)).toBe(true);
-    expect(envelope.tenants.length).toBeGreaterThan(0);
-    expect(envelope.tenants[0]).toHaveProperty("tenantName");
-    expect(envelope.tenants[0]).toHaveProperty("score");
-    expect(envelope.tenants[0]).toHaveProperty("risk");
-    expect(envelope.tenants[0]).toHaveProperty("recommendation");
-    expect(envelope.tenants[0]).toHaveProperty("topFactor");
+    expect(envelope.meta.command).toBe("solutions drift");
+    expect(Array.isArray(envelope.data)).toBe(true);
+    expect(envelope.data.length).toBeGreaterThan(0);
+    expect(envelope.data[0]).toHaveProperty("tenantName");
+    expect(envelope.data[0]).toHaveProperty("score");
+    expect(envelope.data[0]).toHaveProperty("risk");
+    expect(envelope.data[0]).toHaveProperty("recommendation");
+    expect(envelope.data[0]).toHaveProperty("topFactor");
     expect(envelope.summary).toBeTruthy();
     expect(typeof envelope.summary.total).toBe("number");
-    expect(envelope.summary.total).toBe(envelope.tenants.length);
+    expect(envelope.summary.total).toBe(envelope.data.length);
   }, 60000);
 
   it("pax8-cta solutions drift in non-TTY defaults to JSON (matches piped stdout convention)", async () => {
@@ -441,8 +457,8 @@ describe("solutions drift command (issue #401)", () => {
 
     expect(result.exitCode).toBe(0);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
-    const envelope = JSON.parse(result.stdout) as { totalTenants: number };
-    expect(typeof envelope.totalTenants).toBe("number");
+    const envelope = JSON.parse(result.stdout) as { data: { totalTenants: number } };
+    expect(typeof envelope.data.totalTenants).toBe("number");
   }, 60000);
 
   it("pax8-cta solutions drift --risk in non-TTY defaults to JSON envelope", async () => {
@@ -454,10 +470,10 @@ describe("solutions drift command (issue #401)", () => {
     expect(result.exitCode).toBe(0);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
     const envelope = JSON.parse(result.stdout) as {
-      tenants: unknown[];
+      data: unknown[];
       summary: { total: number };
     };
-    expect(Array.isArray(envelope.tenants)).toBe(true);
+    expect(Array.isArray(envelope.data)).toBe(true);
     expect(typeof envelope.summary.total).toBe("number");
   }, 60000);
 });

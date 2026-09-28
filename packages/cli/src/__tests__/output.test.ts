@@ -312,11 +312,11 @@ describe("subprocess: pax8-cta tenants list with piped stdout", () => {
 
     expect(result.exitCode).toBe(0);
 
-    // stdout should parse as JSON (the tenants envelope)
-    const json = extractJson<{ tenants: unknown[]; total: number }>(result.stdout);
+    // stdout should parse as the standardized envelope (#465)
+    const json = extractJson<{ data: unknown[]; summary: { total: number } }>(result.stdout);
     expect(json).not.toBeNull();
-    expect(Array.isArray(json!.tenants)).toBe(true);
-    expect(typeof json!.total).toBe("number");
+    expect(Array.isArray(json!.data)).toBe(true);
+    expect(typeof json!.summary.total).toBe("number");
 
     // No box-drawing characters (table borders)
     expect(result.stdout).not.toMatch(/[┌┐└┘├┤┬┴┼─│]/);

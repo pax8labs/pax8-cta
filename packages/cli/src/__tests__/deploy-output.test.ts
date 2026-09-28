@@ -56,12 +56,14 @@ describe("deploy --json (issue #357)", () => {
     expect(result.exitCode).toBe(0);
 
     // stdout must be valid JSON in its entirety — no chrome before/after.
+    // Standardized envelope (#465): the deploy payload lives under data.
     const parsed = JSON.parse(result.stdout);
-    expect(parsed.demo).toBe(true);
-    expect(parsed.deploymentId).toMatch(/^dep-demo-/);
-    expect(parsed.solution).toBe("CustomerServiceAgent");
-    expect(Array.isArray(parsed.destinations)).toBe(true);
-    expect(parsed.totalDestinations).toBeGreaterThan(0);
+    expect(parsed.meta.command).toBe("deploy");
+    expect(parsed.data.demo).toBe(true);
+    expect(parsed.data.deploymentId).toMatch(/^dep-demo-/);
+    expect(parsed.data.solution).toBe("CustomerServiceAgent");
+    expect(Array.isArray(parsed.data.destinations)).toBe(true);
+    expect(parsed.data.totalDestinations).toBeGreaterThan(0);
   }, 60000);
 
   it("piped stdout (no --json) defaults to JSON for agent/script callers", async () => {
@@ -75,7 +77,7 @@ describe("deploy --json (issue #357)", () => {
 
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout);
-    expect(parsed.demo).toBe(true);
-    expect(parsed.deploymentId).toMatch(/^dep-demo-/);
+    expect(parsed.data.demo).toBe(true);
+    expect(parsed.data.deploymentId).toMatch(/^dep-demo-/);
   }, 60000);
 });

@@ -182,13 +182,15 @@ describe("Tenants Command (Real Mode - Config File)", () => {
         cwd: TEST_DIR,
       });
 
-      const json = extractJson<{ tenants: TenantConfig[]; total: number; active: number }>(
-        result.output
-      );
+      // Standardized envelope (#465): data[] rows, counts under summary.
+      const json = extractJson<{
+        data: TenantConfig[];
+        summary: { total: number; active: number };
+      }>(result.output);
       expect(json).not.toBeNull();
-      expect(json!.total).toBe(4);
-      expect(json!.active).toBe(3); // 3 enabled
-      expect(json!.tenants).toHaveLength(4);
+      expect(json!.summary.total).toBe(4);
+      expect(json!.summary.active).toBe(3); // 3 enabled
+      expect(json!.data).toHaveLength(4);
     });
 
     it("should combine multiple filters", async () => {

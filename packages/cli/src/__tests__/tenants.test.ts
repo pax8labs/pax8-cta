@@ -480,12 +480,18 @@ describe("Tenants Command (fleet)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Extract JSON from output (may contain demo mode warning)
-      const json = extractJson<{ summary: { total: number }; tenants: unknown[] }>(output);
+      // Standardized envelope (#465): summary counts + data[] rows.
+      const json = extractJson<{
+        meta: { command: string; version: number };
+        summary: { total: number };
+        data: unknown[];
+      }>(output);
       expect(json).not.toBeNull();
+      expect(json!.meta.command).toBe("tenants health");
+      expect(json!.meta.version).toBe(1);
       expect(json!.summary).toBeDefined();
       expect(json!.summary.total).toBeGreaterThan(0);
-      expect(json!.tenants).toBeDefined();
+      expect(Array.isArray(json!.data)).toBe(true);
     });
 
     it("should output JSON for specific tenant", async () => {
@@ -498,12 +504,16 @@ describe("Tenants Command (fleet)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Extract JSON from output (may contain demo mode warning)
-      const json = extractJson<{ tenant: string; healthy: boolean; checks: unknown[] }>(output);
+      // Standardized envelope (#465): the health object lives under data.
+      const json = extractJson<{
+        meta: { command: string };
+        data: { tenant: string; healthy: boolean; checks: unknown[] };
+      }>(output);
       expect(json).not.toBeNull();
-      expect(json!.tenant).toBe(tenant.name);
-      expect(json!.healthy).toBeDefined();
-      expect(json!.checks).toBeDefined();
+      expect(json!.meta.command).toBe("tenants health");
+      expect(json!.data.tenant).toBe(tenant.name);
+      expect(json!.data.healthy).toBeDefined();
+      expect(json!.data.checks).toBeDefined();
     });
 
     it("should handle tenant not found in health command", async () => {
@@ -590,12 +600,17 @@ describe("Tenants Command (fleet)", () => {
 
       const output = consoleCapture.getAllOutput();
 
-      // Extract JSON from output (may contain demo mode warning or loading message)
-      const json = extractJson<{ tenants: unknown[]; total: number; active: number }>(output);
+      // Standardized envelope (#465): data[] rows, counts under summary.
+      const json = extractJson<{
+        meta: { command: string; version: number };
+        data: unknown[];
+        summary: { total: number; active: number };
+      }>(output);
       expect(json).not.toBeNull();
-      expect(json!.tenants).toBeDefined();
-      expect(json!.total).toBe(DEMO_TENANTS.length);
-      expect(json!.active).toBeDefined();
+      expect(json!.meta.command).toBe("tenants list");
+      expect(Array.isArray(json!.data)).toBe(true);
+      expect(json!.summary.total).toBe(DEMO_TENANTS.length);
+      expect(json!.summary.active).toBeDefined();
     });
 
     it("should combine multiple filters", async () => {

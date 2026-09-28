@@ -38,17 +38,24 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stripAnsi } from "./test-utils.js";
 
+// Standardized `--json` envelope (#465): payload lives under `data`,
+// aggregates under `summary`. `deployments show` is not yet wrapped, so
+// DemoShowJsonEnvelope stays flat below.
 interface DemoDeployJsonEnvelope {
-  demo: boolean;
-  deploymentId: string;
-  package: string;
-  solution: string;
-  destinations: Array<{ name: string; tenantId: string }>;
+  meta: { command: string; version: number };
+  data: {
+    demo: boolean;
+    deploymentId: string;
+    package: string;
+    solution: string;
+    destinations: Array<{ name: string; tenantId: string }>;
+  };
 }
 
 interface DemoListJsonEnvelope {
-  deployments: Array<{ id: string; solutionName: string; status: string }>;
-  pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+  meta: { command: string; version: number };
+  data: Array<{ id: string; solutionName: string; status: string }>;
+  summary: { total: number; limit: number; offset: number; hasMore: boolean };
 }
 
 interface DemoShowJsonEnvelope {
@@ -196,18 +203,18 @@ describe("demo deploy → deployments list (in-process store)", () => {
     expect(envelopes.length).toBeGreaterThanOrEqual(2);
 
     const deployEnvelope = JSON.parse(envelopes[0]) as DemoDeployJsonEnvelope;
-    expect(deployEnvelope.demo).toBe(true);
-    expect(deployEnvelope.deploymentId).toMatch(/^dep-demo-/);
+    expect(deployEnvelope.data.demo).toBe(true);
+    expect(deployEnvelope.data.deploymentId).toMatch(/^dep-demo-/);
 
     const listEnvelope = JSON.parse(envelopes[1]) as DemoListJsonEnvelope;
-    expect(Array.isArray(listEnvelope.deployments)).toBe(true);
+    expect(Array.isArray(listEnvelope.data)).toBe(true);
 
-    const ids = listEnvelope.deployments.map((d) => d.id);
+    const ids = listEnvelope.data.map((d) => d.id);
     // Core regression guard: the bug had `ids` not contain the new shipment.
-    expect(ids).toContain(deployEnvelope.deploymentId);
+    expect(ids).toContain(deployEnvelope.data.deploymentId);
 
     // Newest record lands at the top so the user sees it first.
-    expect(listEnvelope.deployments[0]?.id).toBe(deployEnvelope.deploymentId);
+    expect(listEnvelope.data[0]?.id).toBe(deployEnvelope.data.deploymentId);
   }, 60000);
 
   it("the canned demo history is still surfaced alongside the new entry", async () => {
@@ -224,7 +231,7 @@ describe("demo deploy → deployments list (in-process store)", () => {
     const envelopes = extractAllJsonObjects(result.stdout);
     const listEnvelope = JSON.parse(envelopes[1]) as DemoListJsonEnvelope;
 
-    const cannedIds = listEnvelope.deployments
+    const cannedIds = listEnvelope.data
       .map((d) => d.id)
       .filter((id) => id.startsWith("demo-hist-"));
     expect(cannedIds.length).toBeGreaterThan(0);
@@ -257,7 +264,7 @@ describe("demo deploy → deployments show <id>", () => {
 
     // Recorded deploy lands at the top of the in-process store (proves
     // record() works through deploy.ts).
-    expect(listEnvelope.deployments[0]?.id).toBe(deployEnvelope.deploymentId);
+    expect(listEnvelope.data[0]?.id).toBe(deployEnvelope.data.deploymentId);
 
     // `deployments show <id>` reads from the same store. We assert against a
     // known seeded id so the test doesn't have to interpolate the

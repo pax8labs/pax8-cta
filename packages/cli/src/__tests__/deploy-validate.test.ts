@@ -60,8 +60,8 @@ describe("deploy demo-mode solution-name validation", () => {
     // Subprocess stdout is non-TTY so the deploy command emits the JSON
     // success envelope by default — easy to assert against.
     const parsed = JSON.parse(result.stdout);
-    expect(parsed.demo).toBe(true);
-    expect(parsed.solution).toBe("CustomerServiceAgent");
+    expect(parsed.data.demo).toBe(true);
+    expect(parsed.data.solution).toBe("CustomerServiceAgent");
   }, 60000);
 
   it("accepts a .zip path (skips catalog validation)", async () => {
@@ -76,7 +76,7 @@ describe("deploy demo-mode solution-name validation", () => {
 
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout);
-    expect(parsed.demo).toBe(true);
-    expect(parsed.solution).toBe("./test.zip");
+    expect(parsed.data.demo).toBe(true);
+    expect(parsed.data.solution).toBe("./test.zip");
   }, 60000);
 });
