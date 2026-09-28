@@ -79,6 +79,10 @@ For context when reading the codebase:
 
 All participants are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## License
+
+Pax8 CTA is licensed under the **Apache License 2.0** — see [LICENSE](LICENSE). Every published package (`@pax8/cta`, `@pax8/cta-core`) declares `Apache-2.0`, and source files carry the standard Apache header (`Copyright 2024 Pax8, Inc.`). Any contribution you submit is understood to be offered under the same license. Please keep the header on new source files consistent with the existing ones.
+
 ## Future Contributions
 
 We plan to accept community contributions in the future once we establish a Contributor License Agreement (CLA) and a formal review process. When that happens, this document will be updated with full contribution guidelines. Watch this repository or check back for announcements.
