@@ -624,7 +624,7 @@ Binaries are standalone and include the Bun runtime and all dependencies.
 
 ## Telemetry
 
-Pax8 CTA CLI collects anonymous usage analytics to help improve the tool. No personally identifiable information is collected.
+Pax8 CTA CLI collects anonymous usage analytics to help improve the tool. It is **enabled by default** and disclosed on first run. No personally identifiable information is collected.
 
 **What's collected:** command names, flags used, success/failure, duration, CLI version, OS type.
 
@@ -634,9 +634,12 @@ Pax8 CTA CLI collects anonymous usage analytics to help improve the tool. No per
 
 ```bash
 pax8-cta telemetry off
-# or
+# or, without running the CLI at all:
 export PAX8_CTA_TELEMETRY_DISABLED=1
+export DO_NOT_TRACK=1
 ```
+
+CI environments (`CI=true`) are excluded automatically.
 
 **Check status:**
 

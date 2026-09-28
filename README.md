@@ -598,27 +598,28 @@ sequenceDiagram
 
 ## Telemetry
 
-Pax8 CTA can collect anonymous usage telemetry to help improve the tool. Telemetry is **disabled by default** and must be explicitly opted into.
+Pax8 CTA collects anonymous usage telemetry to help improve the tool. It is **enabled by default**, disclosed on first run, and can be turned off at any time.
 
-**What's collected (when enabled):** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
+**What's collected:** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
 
 **What's never collected:** tenant IDs, solution names, file paths, environment URLs, error messages, or any personally identifiable information.
-
-**Opt in:**
-
-```bash
-pax8-cta telemetry on
-```
 
 **Opt out:**
 
 ```bash
 pax8-cta telemetry off
-# or
+# or, without running the CLI at all:
 export PAX8_CTA_TELEMETRY_DISABLED=1
+export DO_NOT_TRACK=1
 ```
 
-Telemetry is also automatically disabled in CI environments (`CI=true`) and respects the [`DO_NOT_TRACK`](https://consoledonottrack.com/) standard.
+**Opt back in:**
+
+```bash
+pax8-cta telemetry on
+```
+
+Telemetry is also automatically disabled in CI environments (`CI=true`) and respects the [`DO_NOT_TRACK`](https://consoledonottrack.com/) standard. Run `pax8-cta telemetry` to see the current status and exactly what is collected.
 
 ---
 

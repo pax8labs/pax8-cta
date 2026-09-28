@@ -42,10 +42,12 @@
  *   identifying config value. Runs with no resolvable identity fall back to an
  *   anonymous, per-machine random ID persisted on first run.
  *
- * Opt-out:
+ * Collection is on by default and disclosed on first run. Opt out with any of:
  * - Run: pax8-cta telemetry off
  * - Or set: PAX8_CTA_TELEMETRY_DISABLED=1
  * - Or set: DO_NOT_TRACK=1 (https://consoledonottrack.com)
+ *
+ * CI environments (CI=true) are excluded automatically, without opting out.
  *
  * More info: https://github.com/pax8labs/pax8-cta/tree/main/packages/cli#telemetry
  */
@@ -147,7 +149,11 @@ const config = new Conf<{
 }>({
   projectName: "pax8-cta-cli",
   defaults: {
-    telemetryEnabled: false, // Opt-in: disabled by default, enable with `pax8-cta telemetry on`
+    // Opt-out: enabled by default, disable with `pax8-cta telemetry off`.
+    // Collection is disclosed on first run (see getFirstRunNotice) and can be
+    // suppressed without ever running the CLI via PAX8_CTA_TELEMETRY_DISABLED=1
+    // or DO_NOT_TRACK=1; CI environments are excluded automatically.
+    telemetryEnabled: true,
     firstRunShown: false,
     machineId: "",
   },
@@ -334,7 +340,7 @@ async function getClient(): Promise<PostHog | null> {
     clientPromise = (async () => {
       try {
         // Lazy-load posthog-node so the dependency isn't pulled into
-        // every cold start (telemetry is opt-in; most invocations skip this).
+        // every cold start (opted-out runs never reach this point).
         const mod = await import("posthog-node");
         const PostHogCtor = mod.PostHog;
         client = new PostHogCtor(POSTHOG_KEY, {
@@ -828,7 +834,11 @@ export function trackFirstRun(): void {
  * the npm postinstall banner, so the install-time welcome doesn't fire for
  * `pnpm add` users or for users running the prebuilt standalone binaries;
  * routing the welcome through this first-run code path covers every install
- * surface) with the telemetry opt-in disclosure.
+ * surface) with the telemetry disclosure.
+ *
+ * Because collection now defaults to on, this notice is the point at which the
+ * user is told it is happening, so it states that plainly and puts the opt-out
+ * next to it rather than burying it in docs.
  */
 export function getFirstRunNotice(): string {
   return `
@@ -840,9 +850,12 @@ export function getFirstRunNotice(): string {
 │  • pax8-cta init          — initialize real config and authenticate       │
 │  • pax8-cta --help        — show all commands                             │
 │                                                                           │
-│  Pax8 CTA CLI can collect anonymous usage data to help improve the tool.  │
-│  Telemetry is disabled by default. To opt in:                             │
-│  • Run 'telemetry on'                                                     │
+│  Pax8 CTA CLI collects anonymous usage data to help improve the tool.     │
+│  Command names, success/failure, duration, CLI version and OS — never     │
+│  tenant data, file paths, config values or anything personal.             │
+│                                                                           │
+│  This is on by default. To opt out:                                       │
+│  • Run 'telemetry off', or set DO_NOT_TRACK=1                             │
 │  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli         │
 └────────────────────────────────────────────────────────────────────────────┘
 `;

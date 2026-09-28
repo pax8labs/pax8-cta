@@ -91,6 +91,7 @@ function showStatus(): void {
     console.log(chalk.gray("To disable: telemetry off"));
     console.log(chalk.gray("  Or set: PAX8_CTA_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1"));
   } else {
-    console.log(chalk.gray("To enable: telemetry on"));
+    console.log(chalk.gray("To re-enable: telemetry on"));
+    console.log(chalk.gray("  (telemetry is on by default; something turned it off)"));
   }
 }
