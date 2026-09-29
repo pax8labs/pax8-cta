@@ -16,7 +16,12 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { isTelemetryEnabled, enableTelemetry, disableTelemetry } from "../lib/telemetry.js";
+import {
+  isTelemetryEnabled,
+  enableTelemetry,
+  disableTelemetry,
+  getTelemetryDisabledSource,
+} from "../lib/telemetry.js";
 
 export const telemetryCommand = new Command("telemetry")
   .description("Manage anonymous usage telemetry")
@@ -91,7 +96,37 @@ function showStatus(): void {
     console.log(chalk.gray("To disable: telemetry off"));
     console.log(chalk.gray("  Or set: PAX8_CTA_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1"));
   } else {
-    console.log(chalk.gray("To re-enable: telemetry on"));
-    console.log(chalk.gray("  (telemetry is on by default; something turned it off)"));
+    // `telemetry on` only writes the config file, so it is the right advice
+    // for exactly one of the five disable sources. Suggesting it for an
+    // env-var or CI disable sends the user off to run a command that will
+    // appear to succeed and change nothing.
+    switch (getTelemetryDisabledSource()) {
+      case "env":
+        console.log(chalk.gray("Disabled by PAX8_CTA_TELEMETRY_DISABLED."));
+        console.log(chalk.gray("To re-enable: unset PAX8_CTA_TELEMETRY_DISABLED"));
+        break;
+      case "do-not-track":
+        console.log(chalk.gray("Disabled by DO_NOT_TRACK (https://consoledonottrack.com)."));
+        console.log(chalk.gray("To re-enable: unset DO_NOT_TRACK"));
+        break;
+      case "ci":
+        console.log(chalk.gray("Disabled automatically because CI is set."));
+        console.log(chalk.gray("Telemetry is never collected in CI environments."));
+        break;
+      case "no-key":
+        console.log(chalk.gray("No PostHog key is configured in this build."));
+        console.log(chalk.gray("Nothing will be collected regardless of this setting."));
+        break;
+      case "pending-notice":
+        console.log(chalk.gray("Paused until the telemetry notice has been shown once."));
+        console.log(chalk.gray("Run any command to see it; collection starts after that."));
+        break;
+      case "config":
+        console.log(chalk.gray("Turned off on this machine (telemetry is on by default)."));
+        console.log(chalk.gray("To re-enable: telemetry on"));
+        break;
+      default:
+        console.log(chalk.gray("To re-enable: telemetry on"));
+    }
   }
 }

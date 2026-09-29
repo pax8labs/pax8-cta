@@ -87,9 +87,10 @@ import { showBanner, showWelcome } from "./lib/banner.js";
 import { startRepl } from "./lib/repl.js";
 import {
   isTelemetryEnabled,
-  hasShownFirstRunNotice,
-  markFirstRunNoticeShown,
+  getPendingNotice,
+  markNoticeShown,
   getFirstRunNotice,
+  getDefaultChangeNotice,
   initTelemetryIdentity,
   trackCommand,
   trackFirstRun,
@@ -184,27 +185,31 @@ if (shouldShowBanner) {
   }
 }
 
-// Show first-run telemetry notice (once, unless in quiet mode or no args).
+// Show the telemetry disclosure (once per version, unless quiet or no args).
 if (args.length > 0 && !isQuietMode()) {
-  let shouldShowFirstRunNotice = false;
+  let pendingNotice: ReturnType<typeof getPendingNotice> = null;
 
   try {
-    shouldShowFirstRunNotice = !hasShownFirstRunNotice();
+    pendingNotice = getPendingNotice();
   } catch {
     // If config storage is not writable/readable, skip persistence without crashing.
-    shouldShowFirstRunNotice = false;
+    pendingNotice = null;
   }
 
-  if (shouldShowFirstRunNotice) {
+  if (pendingNotice !== null) {
     // Notice goes to stderr so it doesn't pollute stdout for JSON/script
     // callers piping output (same convention as the demo banner).
-    console.error(chalk.gray(getFirstRunNotice()));
+    console.error(
+      chalk.gray(pendingNotice === "first-run" ? getFirstRunNotice() : getDefaultChangeNotice())
+    );
     try {
-      markFirstRunNoticeShown();
+      markNoticeShown();
     } catch {
       // Non-fatal: telemetry preference persistence should never break CLI usage.
     }
-    if (isTelemetryEnabled()) {
+    // Marking above clears the pending-notice gate, so this run is measurable
+    // from here on - but only the genuinely new install reports a first run.
+    if (pendingNotice === "first-run" && isTelemetryEnabled()) {
       trackFirstRun();
     }
   }

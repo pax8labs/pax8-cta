@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Telemetry is now collected by default** (#520). Anonymous usage data — command names, success/failure, duration, CLI version, OS — previously required an explicit `pax8-cta telemetry on`. It is now on unless you opt out. What is collected is unchanged: still no tenant IDs or names, solution names, file paths, configuration values, or PII.
+
+  **Behavior change for existing installs.** If you never ran `telemetry on`, you were effectively opted out; after upgrading you are opted in. No install flips silently: the first run after upgrading prints a notice stating the change, and **that run does not itself collect** — telemetry stays off until the notice has been shown once, so opting out when you see it means nothing was ever sent. The disclosure is version-tracked (`noticeVersion` in the CLI's config store) rather than gated on the old first-run boolean, which every existing install already had set.
+
+  **To pre-disable a fleet before upgrading**, set either environment variable in the environment the CLI runs in — both are honored ahead of any stored preference, so no per-machine step is needed:
+
+  ```bash
+  export PAX8_CTA_TELEMETRY_DISABLED=1   # or
+  export DO_NOT_TRACK=1
+  ```
+
+  Per machine, `pax8-cta telemetry off` still works and persists. CI environments (`CI=true`) remain excluded automatically. `pax8-cta telemetry status` now names which of these is in effect instead of always suggesting `telemetry on`.
+
+  Note this diverges from `@pax8/cli`, which remains opt-in.
+
 ## [0.1.11] - 2026-07-13
 
 Telemetry reliability fix.

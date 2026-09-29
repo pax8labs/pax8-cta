@@ -141,10 +141,26 @@ export function resetCredentialedStatusCacheForTests(): void {
   cachedCredentialedStatus = null;
 }
 
+/**
+ * Version of the telemetry disclosure the user has been shown.
+ *
+ * Bumped whenever the disclosure materially changes, so that an existing
+ * install re-surfaces it instead of silently inheriting new behavior:
+ *
+ *   1 — original opt-in welcome notice (telemetry off until `telemetry on`)
+ *   2 — on-by-default notice (collection starts unless the user opts out)
+ *
+ * `firstRunShown` alone cannot carry this: it is a plain boolean that every
+ * pre-existing install already has set to `true`, so gating on it would mean
+ * upgrading users never see a changed disclosure. See `getPendingNotice()`.
+ */
+export const TELEMETRY_NOTICE_VERSION = 2;
+
 // Config store for telemetry preferences
 const config = new Conf<{
   telemetryEnabled: boolean;
   firstRunShown: boolean;
+  noticeVersion: number;
   machineId: string;
 }>({
   projectName: "pax8-cta-cli",
@@ -155,6 +171,9 @@ const config = new Conf<{
     // or DO_NOT_TRACK=1; CI environments are excluded automatically.
     telemetryEnabled: true,
     firstRunShown: false,
+    // 0 means "no disclosure recorded". A fresh install gets the full welcome;
+    // an install that predates version tracking gets the default-change notice.
+    noticeVersion: 0,
     machineId: "",
   },
 });
@@ -212,6 +231,14 @@ export function isTelemetryEnabled(): boolean {
     return false;
   }
 
+  // Disclosure owed but not yet shown. Collection waits one run so that no
+  // user - in particular one upgrading into the on-by-default change - starts
+  // being measured before being told. `markNoticeShown()` clears this, and
+  // index.ts marks it before any command runs, so the cost is a single run.
+  if (getPendingNotice() !== null) {
+    return false;
+  }
+
   // User preference
   try {
     return config.get("telemetryEnabled");
@@ -254,14 +281,49 @@ export function hasShownFirstRunNotice(): boolean {
 }
 
 /**
- * Mark first run notice as shown
+ * Which disclosure, if any, is owed to this user before telemetry may collect.
+ *
+ *   "first-run"      - nothing has ever been shown; show the full welcome
+ *   "default-change" - the welcome was shown under an older disclosure, so the
+ *                      user needs to hear that the default flipped to on
+ *   null             - the current disclosure has been shown
+ *
+ * Returns null on a config read failure: an unreadable store means we also
+ * cannot record that a notice was shown, and re-printing it on every run would
+ * be worse than staying quiet (`isTelemetryEnabled()` already fails closed).
  */
-export function markFirstRunNoticeShown(): void {
+export function getPendingNotice(): "first-run" | "default-change" | null {
+  try {
+    if (config.get("noticeVersion") >= TELEMETRY_NOTICE_VERSION) return null;
+    return config.get("firstRunShown") ? "default-change" : "first-run";
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Record that the current disclosure has been shown.
+ *
+ * Writes both flags so that an install upgraded from a pre-version store stops
+ * being treated as owing the first-run welcome.
+ */
+export function markNoticeShown(): void {
   try {
     config.set("firstRunShown", true);
+    config.set("noticeVersion", TELEMETRY_NOTICE_VERSION);
   } catch {
     // Non-fatal: telemetry preference persistence should not break CLI.
   }
+}
+
+/**
+ * Mark first run notice as shown
+ *
+ * @deprecated Use `markNoticeShown()`, which also records the disclosure
+ * version. Retained so external callers keep compiling.
+ */
+export function markFirstRunNoticeShown(): void {
+  markNoticeShown();
 }
 
 /**
@@ -295,7 +357,8 @@ export function getStoredTelemetryPreference(): boolean {
  *   2. DO_NOT_TRACK env var
  *   3. CI env var
  *   4. Missing PostHog key
- *   5. User preference (config file)
+ *   5. Disclosure owed but not yet shown
+ *   6. User preference (config file)
  *
  * Returns `null` when telemetry is enabled.
  */
@@ -304,6 +367,7 @@ export function getTelemetryDisabledSource():
   | "do-not-track"
   | "ci"
   | "no-key"
+  | "pending-notice"
   | "config"
   | null {
   if (
@@ -315,6 +379,7 @@ export function getTelemetryDisabledSource():
   if (process.env.DO_NOT_TRACK === "1") return "do-not-track";
   if (process.env.CI === "true" || process.env.CI === "1") return "ci";
   if (!POSTHOG_KEY) return "no-key";
+  if (getPendingNotice() !== null) return "pending-notice";
   if (!getStoredTelemetryPreference()) return "config";
   return null;
 }
@@ -855,6 +920,32 @@ export function getFirstRunNotice(): string {
 │  tenant data, file paths, config values or anything personal.             │
 │                                                                           │
 │  This is on by default. To opt out:                                       │
+│  • Run 'telemetry off', or set DO_NOT_TRACK=1                             │
+│  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli         │
+└────────────────────────────────────────────────────────────────────────────┘
+`;
+}
+
+/**
+ * Disclosure for an install that predates the on-by-default change.
+ *
+ * These users already saw the original welcome, so repeating it would bury the
+ * one thing that actually changed. This states the change, and the run that
+ * prints it does not itself collect (see `isTelemetryEnabled()`), so opting out
+ * here means nothing was ever sent.
+ */
+export function getDefaultChangeNotice(): string {
+  return `
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Pax8 CTA telemetry has changed                                           │
+│                                                                           │
+│  Anonymous usage data is now collected by default. It used to be off      │
+│  until you ran 'telemetry on'.                                            │
+│                                                                           │
+│  Collected: command names, success/failure, duration, CLI version and OS. │
+│  Never: tenant data, file paths, config values or anything personal.      │
+│                                                                           │
+│  Nothing has been sent yet. To keep it that way:                          │
 │  • Run 'telemetry off', or set DO_NOT_TRACK=1                             │
 │  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli         │
 └────────────────────────────────────────────────────────────────────────────┘

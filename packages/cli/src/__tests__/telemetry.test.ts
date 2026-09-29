@@ -50,6 +50,11 @@ vi.mock("posthog-node", () => mockPostHogModule());
 const mockStore: Record<string, unknown> = {
   telemetryEnabled: true, // Matches production default (opt-out)
   firstRunShown: false,
+  // Most tests care about steady state, not the one run that shows the notice.
+  // `noticeVersion` at the current version keeps the pending-notice gate in
+  // `isTelemetryEnabled()` out of the way; the tests that exercise the gate set
+  // it back to 0 themselves.
+  noticeVersion: 2,
   machineId: "test-machine-id",
 };
 
@@ -97,6 +102,7 @@ describe("Telemetry", () => {
     // Reset mock store
     mockStore.telemetryEnabled = false;
     mockStore.firstRunShown = false;
+    mockStore.noticeVersion = 2;
     mockStore.machineId = "test-machine-id";
     mockPostHogInstances.length = 0;
 
@@ -129,6 +135,90 @@ describe("Telemetry", () => {
       expect(containsText(cleanOutput, "Telemetry Status")).toBe(true);
       expect(containsText(cleanOutput, "What we collect")).toBe(true);
       expect(containsText(cleanOutput, "What we NEVER collect")).toBe(true);
+    });
+
+    it("status names the actual disable source instead of a hint that does nothing", async () => {
+      // `telemetry on` only writes the config file, so suggesting it for an
+      // env-var or CI disable sends the user to run a no-op. Each source must
+      // name the lever that actually controls it.
+      const cases: Array<{
+        env: Record<string, string>;
+        store?: Record<string, unknown>;
+        expected: string;
+        notExpected?: string;
+      }> = [
+        {
+          env: { PAX8_CTA_TELEMETRY_DISABLED: "1" },
+          expected: "unset PAX8_CTA_TELEMETRY_DISABLED",
+          notExpected: "To re-enable: telemetry on",
+        },
+        {
+          env: { PAX8_CTA_TELEMETRY_DISABLED: "", DO_NOT_TRACK: "1" },
+          expected: "unset DO_NOT_TRACK",
+          notExpected: "To re-enable: telemetry on",
+        },
+        {
+          env: { PAX8_CTA_TELEMETRY_DISABLED: "", DO_NOT_TRACK: "", CI: "true" },
+          expected: "never collected in CI",
+          notExpected: "To re-enable: telemetry on",
+        },
+        // The `no-key` source is deliberately absent: `resolveTelemetryKey()`
+        // falls back to the baked-in project key, so an empty
+        // PAX8_CTA_POSTHOG_KEY still resolves and the branch is unreachable
+        // from env alone. It would need the key module itself mocked out.
+        {
+          env: {
+            PAX8_CTA_TELEMETRY_DISABLED: "",
+            DO_NOT_TRACK: "",
+            CI: "",
+            PAX8_CTA_POSTHOG_KEY: "phc_test_status",
+          },
+          store: { noticeVersion: 0, firstRunShown: true },
+          expected: "Paused until the telemetry notice",
+          notExpected: "To re-enable: telemetry on",
+        },
+        {
+          env: {
+            PAX8_CTA_TELEMETRY_DISABLED: "",
+            DO_NOT_TRACK: "",
+            CI: "",
+            PAX8_CTA_POSTHOG_KEY: "phc_test_status",
+          },
+          store: { telemetryEnabled: false },
+          expected: "To re-enable: telemetry on",
+        },
+      ];
+
+      for (const c of cases) {
+        restoreEnv();
+        restoreEnv = mockEnv({ DEMO_MODE: "true", ...c.env });
+        mockStore.telemetryEnabled = false;
+        mockStore.firstRunShown = false;
+        mockStore.noticeVersion = 2;
+        Object.assign(mockStore, c.store ?? {});
+
+        consoleCapture.stop();
+        consoleCapture = new ConsoleCapture();
+        consoleCapture.start();
+
+        vi.resetModules();
+        const { telemetryCommand } = await import("../commands/telemetry.js");
+        const program = new Command();
+        program.addCommand(telemetryCommand);
+        await program.parseAsync(["node", "test", "telemetry", "status"]);
+
+        const out = stripAnsi(consoleCapture.getAllOutput());
+        expect(
+          containsText(out, c.expected),
+          `expected "${c.expected}" for ${JSON.stringify(c.env)}`
+        ).toBe(true);
+        if (c.notExpected) {
+          expect(
+            containsText(out, c.notExpected),
+            `did not expect "${c.notExpected}" for ${JSON.stringify(c.env)}`
+          ).toBe(false);
+        }
+      }
     });
 
     it("should show status by default", async () => {
@@ -279,6 +369,106 @@ describe("Telemetry", () => {
       expect(getTelemetryDisabledSource()).toBe("config");
 
       mockStore.telemetryEnabled = true;
+    });
+
+    it("an install upgrading into on-by-default owes the change notice, not the welcome", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_default",
+      });
+      // Shape of a pre-existing install: it saw the old welcome, so
+      // `firstRunShown` is set, but it predates disclosure versioning.
+      mockStore.firstRunShown = true;
+      mockStore.noticeVersion = 0;
+      delete mockStore.telemetryEnabled;
+
+      vi.resetModules();
+      const { getPendingNotice, isTelemetryEnabled, getTelemetryDisabledSource } =
+        await import("../lib/telemetry.js");
+
+      expect(getPendingNotice()).toBe("default-change");
+      // The whole point: the default flipped on, but nothing is collected until
+      // the user has actually been told.
+      expect(isTelemetryEnabled()).toBe(false);
+      expect(getTelemetryDisabledSource()).toBe("pending-notice");
+    });
+
+    it("showing the change notice records the version and lets collection start", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_default",
+      });
+      mockStore.firstRunShown = true;
+      mockStore.noticeVersion = 0;
+      delete mockStore.telemetryEnabled;
+
+      vi.resetModules();
+      const { getPendingNotice, markNoticeShown, isTelemetryEnabled, TELEMETRY_NOTICE_VERSION } =
+        await import("../lib/telemetry.js");
+
+      markNoticeShown();
+
+      expect(mockStore.noticeVersion).toBe(TELEMETRY_NOTICE_VERSION);
+      expect(getPendingNotice()).toBeNull();
+      expect(isTelemetryEnabled()).toBe(true);
+    });
+
+    it("opting out on the notice run means the default flip never collects", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_default",
+      });
+      mockStore.firstRunShown = true;
+      mockStore.noticeVersion = 0;
+      delete mockStore.telemetryEnabled;
+
+      vi.resetModules();
+      const { markNoticeShown, disableTelemetry, isTelemetryEnabled, getTelemetryDisabledSource } =
+        await import("../lib/telemetry.js");
+
+      // The run that prints the notice is itself not collected...
+      expect(isTelemetryEnabled()).toBe(false);
+      markNoticeShown();
+      // ...and a user who acts on it lands on `config`, never having been measured.
+      disableTelemetry();
+      expect(isTelemetryEnabled()).toBe(false);
+      expect(getTelemetryDisabledSource()).toBe("config");
+    });
+
+    it("a fresh install owes the first-run welcome, not the change notice", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_default",
+      });
+      mockStore.firstRunShown = false;
+      mockStore.noticeVersion = 0;
+
+      vi.resetModules();
+      const { getPendingNotice } = await import("../lib/telemetry.js");
+
+      expect(getPendingNotice()).toBe("first-run");
+    });
+
+    it("the change notice names the change and says nothing has been sent yet", async () => {
+      const { getDefaultChangeNotice } = await import("../lib/telemetry.js");
+
+      const notice = getDefaultChangeNotice();
+      expect(notice).toContain("collected by default");
+      expect(notice).toContain("Nothing has been sent yet");
+      expect(notice).toContain("telemetry off");
+      expect(notice).toContain("DO_NOT_TRACK");
     });
 
     it("should provide first run notice text with quick-start hints and telemetry disclosure", async () => {

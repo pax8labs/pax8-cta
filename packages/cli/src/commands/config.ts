@@ -76,7 +76,7 @@ interface CredentialsSection {
 
 interface TelemetrySection {
   enabled: boolean;
-  disabledSource: "env" | "do-not-track" | "ci" | "no-key" | "config" | null;
+  disabledSource: "env" | "do-not-track" | "ci" | "no-key" | "pending-notice" | "config" | null;
 }
 
 interface TenantsSection {
@@ -274,7 +274,9 @@ function describeTelemetry(t: TelemetrySection): string {
           ? "CI env"
           : reason === "no-key"
             ? "no PostHog key"
-            : "config";
+            : reason === "pending-notice"
+              ? "notice not yet shown"
+              : "config";
   return `${chalk.yellow("disabled")} (source: ${reasonText})`;
 }
 
