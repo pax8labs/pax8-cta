@@ -205,7 +205,15 @@ function getMachineId(): string {
 // ============================================================================
 
 /**
- * Check if telemetry is enabled
+ * Check if telemetry is enabled.
+ *
+ * Note the lifecycle coupling: this returns `false` while a disclosure is owed,
+ * and `index.ts` is what discharges that by showing the notice and calling
+ * `markNoticeShown()`. Any caller reached from a different entry point - a
+ * background task, an alternate binary, an embedding of this package - that
+ * runs before that path will see `false` simply because the notice has not been
+ * shown yet, not because the user opted out. Use `getTelemetryDisabledSource()`
+ * to tell the two apart; it reports `"pending-notice"` for this case.
  */
 export function isTelemetryEnabled(): boolean {
   // Environment variable override (highest priority)
@@ -231,11 +239,11 @@ export function isTelemetryEnabled(): boolean {
     return false;
   }
 
-  // Disclosure owed but not yet shown. Collection waits one run so that no
-  // user - in particular one upgrading into the on-by-default change - starts
-  // being measured before being told. `markNoticeShown()` clears this, and
-  // index.ts marks it before any command runs, so the cost is a single run.
-  if (getPendingNotice() !== null) {
+  // Disclosure owed but not yet shown, or shown moments ago in this same
+  // process. See `suppressCollectionThisRun` - persisting the notice version
+  // clears `getPendingNotice()` immediately, but the command whose disclosure
+  // just printed has not run yet, so the flag has to outlive the write.
+  if (suppressCollectionThisRun || getPendingNotice() !== null) {
     return false;
   }
 
@@ -302,12 +310,37 @@ export function getPendingNotice(): "first-run" | "default-change" | null {
 }
 
 /**
+ * Set for the remainder of the process when the default-change notice is shown.
+ *
+ * The notice tells an upgrading user "Nothing has been sent yet. To keep it
+ * that way: run 'telemetry off'". Honoring that literally takes more than the
+ * `getPendingNotice()` gate: `markNoticeShown()` persists the version and
+ * clears that gate straight after printing, while the command the user
+ * actually typed has not run yet. Commander's `postAction` hook then calls
+ * `trackCommand()`, which would find telemetry enabled and capture the very
+ * run that promised silence. This flag keeps collection off until the process
+ * exits, so acting on the notice means nothing was ever sent.
+ *
+ * Deliberately not applied to the first-run welcome: that notice discloses
+ * collection without promising none has happened, and suppressing it would
+ * lose `trackFirstRun()` for every new install.
+ */
+let suppressCollectionThisRun = false;
+
+/**
  * Record that the current disclosure has been shown.
  *
  * Writes both flags so that an install upgraded from a pre-version store stops
  * being treated as owing the first-run welcome.
+ *
+ * @param kind which notice was just displayed. `"default-change"` additionally
+ * suppresses collection for the rest of this process - see
+ * `suppressCollectionThisRun`.
  */
-export function markNoticeShown(): void {
+export function markNoticeShown(kind: "first-run" | "default-change"): void {
+  if (kind === "default-change") {
+    suppressCollectionThisRun = true;
+  }
   try {
     config.set("firstRunShown", true);
     config.set("noticeVersion", TELEMETRY_NOTICE_VERSION);
@@ -316,14 +349,20 @@ export function markNoticeShown(): void {
   }
 }
 
+/** Test-only: clear the per-process suppression flag between cases. */
+export function resetNoticeSuppressionForTests(): void {
+  suppressCollectionThisRun = false;
+}
+
 /**
  * Mark first run notice as shown
  *
- * @deprecated Use `markNoticeShown()`, which also records the disclosure
- * version. Retained so external callers keep compiling.
+ * @deprecated Use `markNoticeShown(kind)`, which also records the disclosure
+ * version and handles same-run suppression. Retained so external callers keep
+ * compiling; remove once no consumer outside this package references it.
  */
 export function markFirstRunNoticeShown(): void {
-  markNoticeShown();
+  markNoticeShown("first-run");
 }
 
 /**
@@ -379,7 +418,7 @@ export function getTelemetryDisabledSource():
   if (process.env.DO_NOT_TRACK === "1") return "do-not-track";
   if (process.env.CI === "true" || process.env.CI === "1") return "ci";
   if (!POSTHOG_KEY) return "no-key";
-  if (getPendingNotice() !== null) return "pending-notice";
+  if (suppressCollectionThisRun || getPendingNotice() !== null) return "pending-notice";
   if (!getStoredTelemetryPreference()) return "config";
   return null;
 }

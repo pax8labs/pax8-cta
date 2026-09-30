@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Note this diverges from `@pax8/cli`, which remains opt-in.
 
+  **If you parse `pax8-cta config --json`:** `telemetry.disabledSource` gained a new `pending-notice` value, alongside the existing `env`, `do-not-track`, `ci`, `no-key` and `config`. Treat the field as open-ended rather than a closed set.
+
 ## [0.1.11] - 2026-07-13
 
 Telemetry reliability fix.

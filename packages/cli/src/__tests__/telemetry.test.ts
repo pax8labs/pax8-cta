@@ -412,10 +412,91 @@ describe("Telemetry", () => {
       const { getPendingNotice, markNoticeShown, isTelemetryEnabled, TELEMETRY_NOTICE_VERSION } =
         await import("../lib/telemetry.js");
 
-      markNoticeShown();
+      // "first-run" so the assertion below is about the gate clearing, not the
+      // default-change suppression flag.
+      markNoticeShown("first-run");
 
       expect(mockStore.noticeVersion).toBe(TELEMETRY_NOTICE_VERSION);
       expect(getPendingNotice()).toBeNull();
+      expect(isTelemetryEnabled()).toBe(true);
+    });
+
+    it("the command that printed the change notice is itself never captured", async () => {
+      // Drives the real index.ts ordering: print notice -> markNoticeShown()
+      // -> command runs -> postAction hook calls trackCommand(). Asserting on
+      // markNoticeShown()/isTelemetryEnabled() alone misses this, because the
+      // persist clears the getPendingNotice() gate before the command runs.
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_default",
+      });
+      mockStore.firstRunShown = true;
+      mockStore.noticeVersion = 0;
+      delete mockStore.telemetryEnabled;
+      mockPostHogInstances.length = 0;
+
+      vi.resetModules();
+      const { getPendingNotice, markNoticeShown, trackCommand, shutdownTelemetry } =
+        await import("../lib/telemetry.js");
+
+      expect(getPendingNotice()).toBe("default-change");
+      markNoticeShown("default-change");
+
+      // The gate itself is now clear - the version was persisted...
+      expect(getPendingNotice()).toBeNull();
+
+      // ...but the run that showed the notice must still capture nothing.
+      trackCommand({ command: "tenants list", success: true, durationMs: 12 });
+      await shutdownTelemetry();
+
+      const captures = mockPostHogInstances.flatMap((i) => i.capture.mock.calls);
+      expect(captures).toHaveLength(0);
+    });
+
+    it("the run after the change notice does collect", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_default",
+      });
+      // Store as it looks on the *next* invocation: version already recorded.
+      mockStore.firstRunShown = true;
+      mockStore.noticeVersion = 2;
+      delete mockStore.telemetryEnabled;
+      mockPostHogInstances.length = 0;
+
+      vi.resetModules();
+      const { getPendingNotice, isTelemetryEnabled } = await import("../lib/telemetry.js");
+
+      expect(getPendingNotice()).toBeNull();
+      // Suppression is per-process, so a fresh module graph collects normally.
+      expect(isTelemetryEnabled()).toBe(true);
+    });
+
+    it("the first-run welcome does not suppress, so new installs still report", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        PAX8_CTA_TELEMETRY_DISABLED: "",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_default",
+      });
+      mockStore.firstRunShown = false;
+      mockStore.noticeVersion = 0;
+      delete mockStore.telemetryEnabled;
+
+      vi.resetModules();
+      const { markNoticeShown, isTelemetryEnabled } = await import("../lib/telemetry.js");
+
+      markNoticeShown("first-run");
+
+      // Unlike the upgrade path, a brand-new install is measurable immediately -
+      // otherwise trackFirstRun() would never fire for anyone.
       expect(isTelemetryEnabled()).toBe(true);
     });
 
@@ -432,14 +513,25 @@ describe("Telemetry", () => {
       delete mockStore.telemetryEnabled;
 
       vi.resetModules();
-      const { markNoticeShown, disableTelemetry, isTelemetryEnabled, getTelemetryDisabledSource } =
-        await import("../lib/telemetry.js");
+      const {
+        markNoticeShown,
+        disableTelemetry,
+        isTelemetryEnabled,
+        getTelemetryDisabledSource,
+        resetNoticeSuppressionForTests,
+      } = await import("../lib/telemetry.js");
 
       // The run that prints the notice is itself not collected...
       expect(isTelemetryEnabled()).toBe(false);
-      markNoticeShown();
-      // ...and a user who acts on it lands on `config`, never having been measured.
+      markNoticeShown("default-change");
+      expect(isTelemetryEnabled()).toBe(false);
+
+      // ...the user reads it and opts out, which in practice is a later
+      // invocation - so drop the per-process suppression to model that.
       disableTelemetry();
+      resetNoticeSuppressionForTests();
+
+      // They land on a stored opt-out, never having been measured.
       expect(isTelemetryEnabled()).toBe(false);
       expect(getTelemetryDisabledSource()).toBe("config");
     });

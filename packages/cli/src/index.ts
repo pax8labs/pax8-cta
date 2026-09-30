@@ -203,12 +203,15 @@ if (args.length > 0 && !isQuietMode()) {
       chalk.gray(pendingNotice === "first-run" ? getFirstRunNotice() : getDefaultChangeNotice())
     );
     try {
-      markNoticeShown();
+      markNoticeShown(pendingNotice);
     } catch {
       // Non-fatal: telemetry preference persistence should never break CLI usage.
     }
-    // Marking above clears the pending-notice gate, so this run is measurable
-    // from here on - but only the genuinely new install reports a first run.
+    // A new install is measurable from here: the welcome discloses collection
+    // without claiming none has happened. The default-change path is not -
+    // `markNoticeShown()` keeps collection off for the rest of this process,
+    // so `isTelemetryEnabled()` is false below and stays false through the
+    // postAction hook that would otherwise capture this very command.
     if (pendingNotice === "first-run" && isTelemetryEnabled()) {
       trackFirstRun();
     }
