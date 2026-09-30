@@ -141,44 +141,29 @@ export function resetCredentialedStatusCacheForTests(): void {
   cachedCredentialedStatus = null;
 }
 
-/**
- * Version of the telemetry disclosure the user has been shown.
- *
- * Bumped whenever the disclosure materially changes, so that an existing
- * install re-surfaces it instead of silently inheriting new behavior:
- *
- *   1 — original opt-in welcome notice (telemetry off until `telemetry on`)
- *   2 — on-by-default notice (collection starts unless the user opts out)
- *
- * `firstRunShown` alone cannot carry this: it is a plain boolean that every
- * pre-existing install already has set to `true`, so gating on it would mean
- * upgrading users never see a changed disclosure. See `getPendingNotice()`.
- */
-export const TELEMETRY_NOTICE_VERSION = 2;
-
 // Config store for telemetry preferences
 const config = new Conf<{
   telemetryEnabled: boolean;
   firstRunShown: boolean;
-  noticeVersion: number;
   machineId: string;
 }>({
   projectName: "pax8-cta-cli",
   defaults: {
-    // Opt-out: enabled by default, disable with `pax8-cta telemetry off`.
-    // Collection is disclosed on first run (see getFirstRunNotice) and can be
-    // suppressed without ever running the CLI via PAX8_CTA_TELEMETRY_DISABLED=1
-    // or DO_NOT_TRACK=1; CI environments are excluded automatically.
+    // Opt-out for a *fresh* install: enabled unless the user opts out.
+    //
+    // This does not reach an existing install. `conf` writes its `defaults`
+    // into the config file the first time the store is constructed, so any
+    // machine that ran the opt-in build already has a literal
+    // `"telemetryEnabled": false` on disk, and a stored value beats a default.
+    // That is deliberate and left alone: on disk, a user who ran
+    // `telemetry off` and a user who never chose are byte-identical, so no
+    // migration can flip the latter without silently reversing the former.
     telemetryEnabled: true,
     firstRunShown: false,
-    // 0 means "no disclosure recorded". A fresh install gets the full welcome;
-    // an install that predates version tracking gets the default-change notice.
-    noticeVersion: 0,
     machineId: "",
   },
 });
 
-// ============================================================================
 // Machine ID (anonymous)
 // ============================================================================
 
@@ -209,7 +194,7 @@ function getMachineId(): string {
  *
  * Note the lifecycle coupling: this returns `false` while a disclosure is owed,
  * and `index.ts` is what discharges that by showing the notice and calling
- * `markNoticeShown()`. Any caller reached from a different entry point - a
+ * `markFirstRunNoticeShown()`. Any caller reached from a different entry point - a
  * background task, an alternate binary, an embedding of this package - that
  * runs before that path will see `false` simply because the notice has not been
  * shown yet, not because the user opted out. Use `getTelemetryDisabledSource()`
@@ -239,11 +224,10 @@ export function isTelemetryEnabled(): boolean {
     return false;
   }
 
-  // Disclosure owed but not yet shown, or shown moments ago in this same
-  // process. See `suppressCollectionThisRun` - persisting the notice version
-  // clears `getPendingNotice()` immediately, but the command whose disclosure
-  // just printed has not run yet, so the flag has to outlive the write.
-  if (suppressCollectionThisRun || getPendingNotice() !== null) {
+  // Disclosure owed but not yet shown. A fresh install collects nothing until
+  // the first-run notice has actually been displayed, so no one is measured
+  // before being told - including someone who only ever runs with --quiet.
+  if (!hasShownFirstRunNotice()) {
     return false;
   }
 
@@ -289,80 +273,17 @@ export function hasShownFirstRunNotice(): boolean {
 }
 
 /**
- * Which disclosure, if any, is owed to this user before telemetry may collect.
+ * Mark the first-run notice as shown.
  *
- *   "first-run"      - nothing has ever been shown; show the full welcome
- *   "default-change" - the welcome was shown under an older disclosure, so the
- *                      user needs to hear that the default flipped to on
- *   null             - the current disclosure has been shown
- *
- * Returns null on a config read failure: an unreadable store means we also
- * cannot record that a notice was shown, and re-printing it on every run would
- * be worse than staying quiet (`isTelemetryEnabled()` already fails closed).
+ * Also ungates collection: `isTelemetryEnabled()` stays false until this is
+ * recorded, so a fresh install sends nothing before the user has been told.
  */
-export function getPendingNotice(): "first-run" | "default-change" | null {
-  try {
-    if (config.get("noticeVersion") >= TELEMETRY_NOTICE_VERSION) return null;
-    return config.get("firstRunShown") ? "default-change" : "first-run";
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Set for the remainder of the process when the default-change notice is shown.
- *
- * The notice tells an upgrading user "Nothing has been sent yet. To keep it
- * that way: run 'telemetry off'". Honoring that literally takes more than the
- * `getPendingNotice()` gate: `markNoticeShown()` persists the version and
- * clears that gate straight after printing, while the command the user
- * actually typed has not run yet. Commander's `postAction` hook then calls
- * `trackCommand()`, which would find telemetry enabled and capture the very
- * run that promised silence. This flag keeps collection off until the process
- * exits, so acting on the notice means nothing was ever sent.
- *
- * Deliberately not applied to the first-run welcome: that notice discloses
- * collection without promising none has happened, and suppressing it would
- * lose `trackFirstRun()` for every new install.
- */
-let suppressCollectionThisRun = false;
-
-/**
- * Record that the current disclosure has been shown.
- *
- * Writes both flags so that an install upgraded from a pre-version store stops
- * being treated as owing the first-run welcome.
- *
- * @param kind which notice was just displayed. `"default-change"` additionally
- * suppresses collection for the rest of this process - see
- * `suppressCollectionThisRun`.
- */
-export function markNoticeShown(kind: "first-run" | "default-change"): void {
-  if (kind === "default-change") {
-    suppressCollectionThisRun = true;
-  }
+export function markFirstRunNoticeShown(): void {
   try {
     config.set("firstRunShown", true);
-    config.set("noticeVersion", TELEMETRY_NOTICE_VERSION);
   } catch {
     // Non-fatal: telemetry preference persistence should not break CLI.
   }
-}
-
-/** Test-only: clear the per-process suppression flag between cases. */
-export function resetNoticeSuppressionForTests(): void {
-  suppressCollectionThisRun = false;
-}
-
-/**
- * Mark first run notice as shown
- *
- * @deprecated Use `markNoticeShown(kind)`, which also records the disclosure
- * version and handles same-run suppression. Retained so external callers keep
- * compiling; remove once no consumer outside this package references it.
- */
-export function markFirstRunNoticeShown(): void {
-  markNoticeShown("first-run");
 }
 
 /**
@@ -418,7 +339,7 @@ export function getTelemetryDisabledSource():
   if (process.env.DO_NOT_TRACK === "1") return "do-not-track";
   if (process.env.CI === "true" || process.env.CI === "1") return "ci";
   if (!POSTHOG_KEY) return "no-key";
-  if (suppressCollectionThisRun || getPendingNotice() !== null) return "pending-notice";
+  if (!hasShownFirstRunNotice()) return "pending-notice";
   if (!getStoredTelemetryPreference()) return "config";
   return null;
 }
@@ -959,32 +880,6 @@ export function getFirstRunNotice(): string {
 │  tenant data, file paths, config values or anything personal.             │
 │                                                                           │
 │  This is on by default. To opt out:                                       │
-│  • Run 'telemetry off', or set DO_NOT_TRACK=1                             │
-│  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli         │
-└────────────────────────────────────────────────────────────────────────────┘
-`;
-}
-
-/**
- * Disclosure for an install that predates the on-by-default change.
- *
- * These users already saw the original welcome, so repeating it would bury the
- * one thing that actually changed. This states the change, and the run that
- * prints it does not itself collect (see `isTelemetryEnabled()`), so opting out
- * here means nothing was ever sent.
- */
-export function getDefaultChangeNotice(): string {
-  return `
-┌────────────────────────────────────────────────────────────────────────────┐
-│  Pax8 CTA telemetry has changed                                           │
-│                                                                           │
-│  Anonymous usage data is now collected by default. It used to be off      │
-│  until you ran 'telemetry on'.                                            │
-│                                                                           │
-│  Collected: command names, success/failure, duration, CLI version and OS. │
-│  Never: tenant data, file paths, config values or anything personal.      │
-│                                                                           │
-│  Nothing has been sent yet. To keep it that way:                          │
 │  • Run 'telemetry off', or set DO_NOT_TRACK=1                             │
 │  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli         │
 └────────────────────────────────────────────────────────────────────────────┘

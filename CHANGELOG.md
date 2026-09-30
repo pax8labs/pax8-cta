@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Telemetry is now collected by default** (#520). Anonymous usage data — command names, success/failure, duration, CLI version, OS — previously required an explicit `pax8-cta telemetry on`. It is now on unless you opt out. What is collected is unchanged: still no tenant IDs or names, solution names, file paths, configuration values, or PII.
+- **Telemetry is collected by default on new installs** (#520). Anonymous usage data — command names, success/failure, duration, CLI version, OS — previously required an explicit `pax8-cta telemetry on`. A fresh install now collects unless you opt out. What is collected is unchanged: still no tenant IDs or names, solution names, file paths, configuration values, or PII.
 
-  **Behavior change for existing installs.** If you never ran `telemetry on`, you were effectively opted out; after upgrading you are opted in. No install flips silently: the first run after upgrading prints a notice stating the change, and **that run does not itself collect** — telemetry stays off until the notice has been shown once, so opting out when you see it means nothing was ever sent. The disclosure is version-tracked (`noticeVersion` in the CLI's config store) rather than gated on the old first-run boolean, which every existing install already had set.
+  **Existing installs are not changed, and this is deliberate.** `conf` writes its defaults into the config file the first time the store is constructed, so every machine that ran an earlier build already has `"telemetryEnabled": false` saved on disk, and a stored value takes precedence over the new default. On disk, someone who ran `telemetry off` and someone who simply never chose are byte-identical — so no migration can switch the second group on without silently reversing the first. We leave both alone. If you want telemetry on for an existing install, run `pax8-cta telemetry on`.
 
-  **To pre-disable a fleet before upgrading**, set either environment variable in the environment the CLI runs in — both are honored ahead of any stored preference, so no per-machine step is needed:
+  **Nothing is collected before you are told.** On a fresh install, telemetry stays off until the first-run notice has actually been displayed. The notice now also appears when you start the REPL with a bare `pax8-cta`, which previously showed nothing and — because the notice is what ungates collection — meant a REPL-only user was never disclosed to and never measured. `--quiet` still suppresses the notice, and therefore still suppresses collection, so a fresh install driven exclusively with `--quiet` collects nothing.
+
+  **To pre-disable a fleet**, set either environment variable in the environment the CLI runs in — both are honored ahead of any stored preference, so no per-machine step is needed:
 
   ```bash
   export PAX8_CTA_TELEMETRY_DISABLED=1   # or

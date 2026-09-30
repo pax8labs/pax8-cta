@@ -87,10 +87,9 @@ import { showBanner, showWelcome } from "./lib/banner.js";
 import { startRepl } from "./lib/repl.js";
 import {
   isTelemetryEnabled,
-  getPendingNotice,
-  markNoticeShown,
+  hasShownFirstRunNotice,
+  markFirstRunNoticeShown,
   getFirstRunNotice,
-  getDefaultChangeNotice,
   initTelemetryIdentity,
   trackCommand,
   trackFirstRun,
@@ -185,34 +184,37 @@ if (shouldShowBanner) {
   }
 }
 
-// Show the telemetry disclosure (once per version, unless quiet or no args).
-if (args.length > 0 && !isQuietMode()) {
-  let pendingNotice: ReturnType<typeof getPendingNotice> = null;
+// Show the first-run telemetry disclosure, once, before anything is collected.
+//
+// Deliberately not gated on `args.length > 0`: `args.length === 0` is the REPL
+// branch, and gating there meant a REPL-only user was never told telemetry
+// existed while the gate in `isTelemetryEnabled()` silently held collection off
+// for the whole session. Quiet mode is still skipped - a machine-readable run
+// must not have prose injected into it - which keeps collection off for a
+// fresh install driven exclusively with --quiet, since the notice is what
+// ungates it. That is the intended trade: no disclosure, no collection.
+if (!isQuietMode()) {
+  let owesNotice = false;
 
   try {
-    pendingNotice = getPendingNotice();
+    owesNotice = !hasShownFirstRunNotice();
   } catch {
     // If config storage is not writable/readable, skip persistence without crashing.
-    pendingNotice = null;
+    owesNotice = false;
   }
 
-  if (pendingNotice !== null) {
+  if (owesNotice) {
     // Notice goes to stderr so it doesn't pollute stdout for JSON/script
     // callers piping output (same convention as the demo banner).
-    console.error(
-      chalk.gray(pendingNotice === "first-run" ? getFirstRunNotice() : getDefaultChangeNotice())
-    );
+    console.error(chalk.gray(getFirstRunNotice()));
     try {
-      markNoticeShown(pendingNotice);
+      markFirstRunNoticeShown();
     } catch {
       // Non-fatal: telemetry preference persistence should never break CLI usage.
     }
-    // A new install is measurable from here: the welcome discloses collection
-    // without claiming none has happened. The default-change path is not -
-    // `markNoticeShown()` keeps collection off for the rest of this process,
-    // so `isTelemetryEnabled()` is false below and stays false through the
-    // postAction hook that would otherwise capture this very command.
-    if (pendingNotice === "first-run" && isTelemetryEnabled()) {
+    // Marking above ungates collection, and the notice has already printed, so
+    // the user was told before this first event is queued.
+    if (isTelemetryEnabled()) {
       trackFirstRun();
     }
   }

@@ -275,7 +275,7 @@ function describeTelemetry(t: TelemetrySection): string {
           : reason === "no-key"
             ? "no PostHog key"
             : reason === "pending-notice"
-              ? "notice not yet shown"
+              ? "first-run notice not yet shown"
               : "config";
   return `${chalk.yellow("disabled")} (source: ${reasonText})`;
 }

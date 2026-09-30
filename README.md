@@ -598,7 +598,7 @@ sequenceDiagram
 
 ## Telemetry
 
-Pax8 CTA collects anonymous usage telemetry to help improve the tool. It is **enabled by default**, disclosed on first run, and can be turned off at any time.
+Pax8 CTA collects anonymous usage telemetry to help improve the tool. On a new install it is **enabled by default**, disclosed on first run, and can be turned off at any time. An install that predates this change keeps whatever setting it already had — run `pax8-cta telemetry on` to opt in.
 
 **What's collected:** command names, flags used (names only, not values), success/failure, execution duration, CLI version, OS platform.
 

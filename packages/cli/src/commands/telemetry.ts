@@ -118,11 +118,11 @@ function showStatus(): void {
         console.log(chalk.gray("Nothing will be collected regardless of this setting."));
         break;
       case "pending-notice":
-        console.log(chalk.gray("Paused until the telemetry notice has been shown once."));
-        console.log(chalk.gray("Run any command to see it; collection starts after that."));
+        console.log(chalk.gray("Paused until the first-run notice has been shown once."));
+        console.log(chalk.gray("Run the CLI without --quiet to see it; collection starts then."));
         break;
       case "config":
-        console.log(chalk.gray("Turned off on this machine (telemetry is on by default)."));
+        console.log(chalk.gray("Turned off on this machine."));
         console.log(chalk.gray("To re-enable: telemetry on"));
         break;
       default:
