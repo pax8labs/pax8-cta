@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Update-available notice** (#500). A globally-installed `pax8-cta` could sit months out of date with no signal. The CLI now tells you when a newer `@pax8/cta` has been published.
+
+  Nothing runs on the hot path: the notice renders from a "latest version" cached by a prior run, so displaying it never touches the network, and the registry check itself runs in the background — started at startup, awaited at shutdown next to the telemetry flush. It is throttled to once per day and hard-capped at 4.5s so a slow network cannot stall exit. Every network and storage failure is swallowed; the notifier must never break the CLI.
+
+  The notice is written to **stderr** and suppressed by `--quiet`, matching the first-run telemetry notice, so piped stdout stays clean for `--json` and scripted callers. Scripts that assert on empty _stderr_ are the ones to check.
+
+  Opt out with `NO_UPDATE_NOTIFIER=1`, `PAX8_CTA_NO_UPDATE_NOTIFIER=1`, or `DO_NOT_TRACK=1`; CI environments are excluded automatically. `PAX8_CTA_REGISTRY_URL` points the check at a private registry.
+
+  Note that a failed or malformed registry response still stamps the throttle, deliberately backing off for a full day rather than retrying each run — so a transient registry outage looks like a quiet notifier until the next day, not a stuck one.
+
 ### Changed
 
 - **Telemetry is collected by default on new installs** (#520). Anonymous usage data — command names, success/failure, duration, CLI version, OS — previously required an explicit `pax8-cta telemetry on`. A fresh install now collects unless you opt out. What is collected is unchanged: still no tenant IDs or names, solution names, file paths, configuration values, or PII.
