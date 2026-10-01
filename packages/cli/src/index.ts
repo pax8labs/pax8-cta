@@ -184,18 +184,26 @@ if (shouldShowBanner) {
   }
 }
 
-// Show first-run telemetry notice (once, unless in quiet mode or no args).
-if (args.length > 0 && !isQuietMode()) {
-  let shouldShowFirstRunNotice = false;
+// Show the first-run telemetry disclosure, once, before anything is collected.
+//
+// Deliberately not gated on `args.length > 0`: `args.length === 0` is the REPL
+// branch, and gating there meant a REPL-only user was never told telemetry
+// existed while the gate in `isTelemetryEnabled()` silently held collection off
+// for the whole session. Quiet mode is still skipped - a machine-readable run
+// must not have prose injected into it - which keeps collection off for a
+// fresh install driven exclusively with --quiet, since the notice is what
+// ungates it. That is the intended trade: no disclosure, no collection.
+if (!isQuietMode()) {
+  let owesNotice = false;
 
   try {
-    shouldShowFirstRunNotice = !hasShownFirstRunNotice();
+    owesNotice = !hasShownFirstRunNotice();
   } catch {
     // If config storage is not writable/readable, skip persistence without crashing.
-    shouldShowFirstRunNotice = false;
+    owesNotice = false;
   }
 
-  if (shouldShowFirstRunNotice) {
+  if (owesNotice) {
     // Notice goes to stderr so it doesn't pollute stdout for JSON/script
     // callers piping output (same convention as the demo banner).
     console.error(chalk.gray(getFirstRunNotice()));
@@ -204,6 +212,8 @@ if (args.length > 0 && !isQuietMode()) {
     } catch {
       // Non-fatal: telemetry preference persistence should never break CLI usage.
     }
+    // Marking above ungates collection, and the notice has already printed, so
+    // the user was told before this first event is queued.
     if (isTelemetryEnabled()) {
       trackFirstRun();
     }

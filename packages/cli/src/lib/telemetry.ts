@@ -42,10 +42,12 @@
  *   identifying config value. Runs with no resolvable identity fall back to an
  *   anonymous, per-machine random ID persisted on first run.
  *
- * Opt-out:
+ * Collection is on by default and disclosed on first run. Opt out with any of:
  * - Run: pax8-cta telemetry off
  * - Or set: PAX8_CTA_TELEMETRY_DISABLED=1
  * - Or set: DO_NOT_TRACK=1 (https://consoledonottrack.com)
+ *
+ * CI environments (CI=true) are excluded automatically, without opting out.
  *
  * More info: https://github.com/pax8labs/pax8-cta/tree/main/packages/cli#telemetry
  */
@@ -147,13 +149,21 @@ const config = new Conf<{
 }>({
   projectName: "pax8-cta-cli",
   defaults: {
-    telemetryEnabled: false, // Opt-in: disabled by default, enable with `pax8-cta telemetry on`
+    // Opt-out for a *fresh* install: enabled unless the user opts out.
+    //
+    // This does not reach an existing install. `conf` writes its `defaults`
+    // into the config file the first time the store is constructed, so any
+    // machine that ran the opt-in build already has a literal
+    // `"telemetryEnabled": false` on disk, and a stored value beats a default.
+    // That is deliberate and left alone: on disk, a user who ran
+    // `telemetry off` and a user who never chose are byte-identical, so no
+    // migration can flip the latter without silently reversing the former.
+    telemetryEnabled: true,
     firstRunShown: false,
     machineId: "",
   },
 });
 
-// ============================================================================
 // Machine ID (anonymous)
 // ============================================================================
 
@@ -180,7 +190,15 @@ function getMachineId(): string {
 // ============================================================================
 
 /**
- * Check if telemetry is enabled
+ * Check if telemetry is enabled.
+ *
+ * Note the lifecycle coupling: this returns `false` while a disclosure is owed,
+ * and `index.ts` is what discharges that by showing the notice and calling
+ * `markFirstRunNoticeShown()`. Any caller reached from a different entry point - a
+ * background task, an alternate binary, an embedding of this package - that
+ * runs before that path will see `false` simply because the notice has not been
+ * shown yet, not because the user opted out. Use `getTelemetryDisabledSource()`
+ * to tell the two apart; it reports `"pending-notice"` for this case.
  */
 export function isTelemetryEnabled(): boolean {
   // Environment variable override (highest priority)
@@ -203,6 +221,13 @@ export function isTelemetryEnabled(): boolean {
 
   // No PostHog key configured
   if (!POSTHOG_KEY) {
+    return false;
+  }
+
+  // Disclosure owed but not yet shown. A fresh install collects nothing until
+  // the first-run notice has actually been displayed, so no one is measured
+  // before being told - including someone who only ever runs with --quiet.
+  if (!hasShownFirstRunNotice()) {
     return false;
   }
 
@@ -248,7 +273,10 @@ export function hasShownFirstRunNotice(): boolean {
 }
 
 /**
- * Mark first run notice as shown
+ * Mark the first-run notice as shown.
+ *
+ * Also ungates collection: `isTelemetryEnabled()` stays false until this is
+ * recorded, so a fresh install sends nothing before the user has been told.
  */
 export function markFirstRunNoticeShown(): void {
   try {
@@ -289,7 +317,8 @@ export function getStoredTelemetryPreference(): boolean {
  *   2. DO_NOT_TRACK env var
  *   3. CI env var
  *   4. Missing PostHog key
- *   5. User preference (config file)
+ *   5. Disclosure owed but not yet shown
+ *   6. User preference (config file)
  *
  * Returns `null` when telemetry is enabled.
  */
@@ -298,6 +327,7 @@ export function getTelemetryDisabledSource():
   | "do-not-track"
   | "ci"
   | "no-key"
+  | "pending-notice"
   | "config"
   | null {
   if (
@@ -309,6 +339,7 @@ export function getTelemetryDisabledSource():
   if (process.env.DO_NOT_TRACK === "1") return "do-not-track";
   if (process.env.CI === "true" || process.env.CI === "1") return "ci";
   if (!POSTHOG_KEY) return "no-key";
+  if (!hasShownFirstRunNotice()) return "pending-notice";
   if (!getStoredTelemetryPreference()) return "config";
   return null;
 }
@@ -334,7 +365,7 @@ async function getClient(): Promise<PostHog | null> {
     clientPromise = (async () => {
       try {
         // Lazy-load posthog-node so the dependency isn't pulled into
-        // every cold start (telemetry is opt-in; most invocations skip this).
+        // every cold start (opted-out runs never reach this point).
         const mod = await import("posthog-node");
         const PostHogCtor = mod.PostHog;
         client = new PostHogCtor(POSTHOG_KEY, {
@@ -828,7 +859,11 @@ export function trackFirstRun(): void {
  * the npm postinstall banner, so the install-time welcome doesn't fire for
  * `pnpm add` users or for users running the prebuilt standalone binaries;
  * routing the welcome through this first-run code path covers every install
- * surface) with the telemetry opt-in disclosure.
+ * surface) with the telemetry disclosure.
+ *
+ * Because collection now defaults to on, this notice is the point at which the
+ * user is told it is happening, so it states that plainly and puts the opt-out
+ * next to it rather than burying it in docs.
  */
 export function getFirstRunNotice(): string {
   return `
@@ -840,9 +875,12 @@ export function getFirstRunNotice(): string {
 │  • pax8-cta init          — initialize real config and authenticate       │
 │  • pax8-cta --help        — show all commands                             │
 │                                                                           │
-│  Pax8 CTA CLI can collect anonymous usage data to help improve the tool.  │
-│  Telemetry is disabled by default. To opt in:                             │
-│  • Run 'telemetry on'                                                     │
+│  Pax8 CTA CLI collects anonymous usage data to help improve the tool.     │
+│  Command names, success/failure, duration, CLI version and OS — never     │
+│  tenant data, file paths, config values or anything personal.             │
+│                                                                           │
+│  This is on by default. To opt out:                                       │
+│  • Run 'telemetry off', or set DO_NOT_TRACK=1                             │
 │  • Learn more: github.com/pax8labs/pax8-cta/tree/main/packages/cli         │
 └────────────────────────────────────────────────────────────────────────────┘
 `;

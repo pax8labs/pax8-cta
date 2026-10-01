@@ -31,9 +31,10 @@ vi.mock("ora", () => ({
 // Mock telemetry
 vi.mock("../lib/telemetry.js", () => ({
   isTelemetryEnabled: vi.fn(() => false),
-  hasShownFirstRunNotice: vi.fn(() => true),
-  markFirstRunNoticeShown: vi.fn(),
+  getPendingNotice: vi.fn(() => null),
+  markNoticeShown: vi.fn(),
   getFirstRunNotice: vi.fn(() => "Test notice"),
+  getDefaultChangeNotice: vi.fn(() => "Test change notice"),
   initTelemetryIdentity: vi.fn(),
   trackCommand: vi.fn(),
   trackFirstRun: vi.fn(),

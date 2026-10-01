@@ -26,8 +26,8 @@
  * (useful for local development, staging, or routing telemetry to a
  * private test project).
  *
- * Telemetry is opt-in regardless of whether this key resolves —
- * users must explicitly run `pax8-cta telemetry on` first.
+ * Telemetry is on by default once this key resolves; users opt out with
+ * `pax8-cta telemetry off`, PAX8_CTA_TELEMETRY_DISABLED=1 or DO_NOT_TRACK=1.
  */
 export const POSTHOG_PROJECT_KEY = "phc_XKIa0EPGDACY1p4Cczk6IWXFa3n9E7htSxcVIg70rRp";
 
