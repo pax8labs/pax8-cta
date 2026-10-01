@@ -54,8 +54,9 @@ import type { PostHog } from "posthog-node";
 import Conf from "conf";
 import { createHash } from "crypto";
 import { hostname } from "os";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import pkgJson from "../../package.json" with { type: "json" };
 import { resolveTelemetryKey, TELEMETRY_APP } from "./telemetry-key.js";
 import { isDemoModeEnabled } from "../commands/demo.js";
 
@@ -63,7 +64,11 @@ import { isDemoModeEnabled } from "../commands/demo.js";
 // Configuration
 // ============================================================================
 
-const CLI_VERSION = "0.1.0";
+// Read from package.json rather than a hand-maintained constant. The literal
+// that used to live here said "0.1.0" for every release from 0.1.1 onward, so
+// every event PostHog received claimed to come from 0.1.0 and no dashboard
+// could segment by version or spot a regression landing in a specific release.
+const CLI_VERSION = (pkgJson as { version: string }).version;
 
 // PostHog project key - safe to be public, only allows event ingestion.
 // Resolved at module-load time so process.env mutations after this point
@@ -356,7 +361,46 @@ async function getClient(): Promise<PostHog | null> {
 }
 
 /**
- * Shutdown telemetry client gracefully
+ * Captures that have been requested but have not yet reached `posthog.capture()`.
+ *
+ * Every track* function is fire-and-forget and does real async work before it
+ * can capture: a dynamic `import("posthog-node")`, then `ensureIdentified()`,
+ * which itself dynamically imports and reads the tenants config. Shutdown used
+ * to await only the *client* promise, so it regularly won — it called
+ * `client.shutdown()` and the entry point called `process.exit()` while the
+ * capture was still several awaits away, and the event was simply never sent.
+ *
+ * Successful one-shot runs mostly survived this by luck (nothing calls
+ * `process.exit()` on that path, so Node stayed alive for the in-flight HTTP
+ * request), which is why failures and REPL sessions went dark while successes
+ * kept trickling in. Registering the work here makes the flush deterministic.
+ */
+const pendingCaptures = new Set<Promise<void>>();
+
+/**
+ * Run a fire-and-forget telemetry task, tracked so {@link shutdownTelemetry}
+ * can wait for it. Never rejects — telemetry must not affect CLI behaviour.
+ */
+function schedule(task: () => Promise<void>): void {
+  const promise = task().catch(() => {
+    // Telemetry should never affect CLI functionality
+  });
+  pendingCaptures.add(promise);
+  void promise.finally(() => pendingCaptures.delete(promise));
+}
+
+/**
+ * Upper bound on how long shutdown waits for in-flight captures. Telemetry
+ * must never be the reason a CLI invocation feels slow, so a wedged import or
+ * a hung config read costs at most this much before we give up and exit.
+ */
+const SHUTDOWN_DRAIN_MS = 2000;
+
+/**
+ * Shutdown telemetry client gracefully.
+ *
+ * Drains queued captures first, then flushes the PostHog client. Callers must
+ * await this before `process.exit()`.
  */
 export async function shutdownTelemetry(): Promise<void> {
   try {
@@ -364,6 +408,22 @@ export async function shutdownTelemetry(): Promise<void> {
     if (clientPromise) {
       await clientPromise;
     }
+
+    // Let every requested capture actually reach posthog.capture() before we
+    // flush, bounded so a stuck task can't hang the CLI.
+    if (pendingCaptures.size > 0) {
+      let timer: NodeJS.Timeout | undefined;
+      await Promise.race([
+        Promise.allSettled([...pendingCaptures]),
+        new Promise((r) => {
+          timer = setTimeout(r, SHUTDOWN_DRAIN_MS);
+          // Don't hold the event loop open purely for the drain timeout.
+          timer.unref?.();
+        }),
+      ]);
+      if (timer) clearTimeout(timer);
+    }
+
     if (client) {
       await client.shutdown();
       client = null;
@@ -532,16 +592,71 @@ async function ensureIdentified(): Promise<void> {
     return;
   }
 
-  // 2. Default config file. Best-effort: loadConfig validates and may throw for
-  //    an absent/invalid file — that just means "no identity", not an error.
+  // 2. Default config file.
+  //
+  //    This deliberately does NOT go through `loadConfig`. That function
+  //    validates the *whole* config against the deploy schema, so a file with
+  //    a valid `partner:` block but a missing `source:` section (or any other
+  //    unrelated validation miss) threw — and the catch below quietly demoted
+  //    the run to the anonymous machine ID with no `identify` ever emitted.
+  //    Attribution shouldn't require the config to be deploy-ready; scrape the
+  //    two partner GUIDs directly and tolerate anything else being wrong.
   try {
-    const { loadConfig } = await import("@pax8/cta-core");
-    const config = await loadConfig(resolve(process.cwd(), DEFAULT_CONFIG_PATH));
-    identifyUser({ tenantId: config.partner?.tenantId, clientId: config.partner?.clientId });
-    await emitIdentify();
+    const identity = readPartnerIdentityFromConfig(resolve(process.cwd(), DEFAULT_CONFIG_PATH));
+    if (identity) {
+      identifyUser(identity);
+      await emitIdentify();
+    }
   } catch {
     // No resolvable identity — fall back to the anonymous machine ID.
   }
+}
+
+/**
+ * Pull `partner.tenantId` / `partner.clientId` out of the tenants config
+ * without validating the rest of the document.
+ *
+ * Intentionally a narrow line scanner rather than a YAML parse: it needs only
+ * two scalars from a known top-level block, must never throw on a malformed
+ * document, and avoids pulling a YAML parser into the telemetry path. Returns
+ * `null` when the file is absent or has no usable partner identity.
+ */
+function readPartnerIdentityFromConfig(path: string): AuthenticatedIdentity | null {
+  if (!existsSync(path)) return null;
+  const lines = readFileSync(path, "utf-8").split(/\r?\n/);
+  const identity: AuthenticatedIdentity = {};
+  let inPartner = false;
+  for (const line of lines) {
+    if (/^\S/.test(line)) {
+      // A new top-level key ends the partner block.
+      inPartner = /^partner\s*:/.test(line);
+      continue;
+    }
+    if (!inPartner) continue;
+    const match = /^\s+(tenantId|clientId)\s*:\s*(.+?)\s*$/.exec(line);
+    if (!match) continue;
+    const value = match[2]!.replace(/^["']|["']$/g, "").replace(/\s+#.*$/, "");
+    if (value) identity[match[1] as "tenantId" | "clientId"] = value;
+  }
+  return identity.tenantId || identity.clientId ? identity : null;
+}
+
+/**
+ * Resolve and register the user identity at CLI startup.
+ *
+ * Called once from the entry point before any command runs, so that PostHog
+ * receives an `identify` (and the partner `account` group) even for runs that
+ * never load partner credentials — `demo`, `--help`, `telemetry`, `config`,
+ * REPL sessions. Without this, those runs all reported the per-machine
+ * anonymous ID and PostHog's unique-user counts collapsed onto it.
+ *
+ * Fire-and-forget by design: never awaited on the hot path, never throws.
+ */
+export function initTelemetryIdentity(): void {
+  if (!isTelemetryEnabled()) return;
+  void ensureIdentified().catch(() => {
+    // Telemetry should never affect CLI functionality
+  });
 }
 
 /**
@@ -556,50 +671,73 @@ function getDistinctId(): string {
 // Event Tracking
 // ============================================================================
 
-export type TelemetryEvent = "cli_command" | "cli_error" | "cli_not_found" | "cli_first_run";
+/**
+ * `command_executed` is the canonical per-invocation event name across the Pax8
+ * CLI portfolio — `@pax8/cli` emits it too, and every shared PostHog insight,
+ * funnel and alert filters on it. CTA previously emitted `cli_command`, which
+ * meant none of those dashboards ever saw a single CTA run. Keep this string
+ * identical to `@pax8/cli`'s; the `app` property is what separates the two
+ * products, not the event name.
+ */
+export const COMMAND_EVENT = "command_executed";
+
+export type TelemetryEvent = typeof COMMAND_EVENT | "cli_error" | "cli_not_found" | "cli_first_run";
 
 export interface CommandContext {
+  /** Root command, e.g. "tenants". */
   command: string;
+  /** Full dotted command path, e.g. "tenants.list". Matches `@pax8/cli`. */
   subcommand?: string;
   flags?: string[];
   success: boolean;
   durationMs: number;
-  errorType?: string;
+  /**
+   * Machine-readable failure code, e.g. "ERROR_USAGE" / "ERROR_VALIDATION".
+   * Named to match `@pax8/cli`'s `error_code` property (CTA previously sent
+   * this as `error_type`, so cross-product failure breakdowns saw nothing).
+   * Omitted on success.
+   */
+  errorCode?: string;
   demoMode?: boolean;
 }
 
 /**
- * Track a CLI command execution
+ * Track a CLI command execution.
+ *
+ * Emits the portfolio-canonical `command_executed` event with the property set
+ * `@pax8/cli` uses: app, command, subcommand, success, error_code, duration_ms,
+ * cli_version, node_version, os, demo_mode (plus CTA's own `flags` and
+ * `credentialed_status`).
  */
 export function trackCommand(ctx: CommandContext): void {
   // Fast-path: avoid even kicking off the dynamic import if telemetry is off.
   if (!isTelemetryEnabled()) return;
 
-  void (async () => {
-    try {
-      const posthog = await getClient();
-      if (!posthog) return;
-      await ensureIdentified();
+  schedule(async () => {
+    const posthog = await getClient();
+    if (!posthog) return;
+    await ensureIdentified();
 
-      posthog.capture({
-        distinctId: getDistinctId(),
-        event: "cli_command",
-        groups: accountGroups(),
-        properties: {
-          ...commonProperties(),
-          command: ctx.command,
-          subcommand: ctx.subcommand,
-          flags: ctx.flags,
-          success: ctx.success,
-          duration_ms: ctx.durationMs,
-          error_type: ctx.errorType,
-          demo_mode: ctx.demoMode,
-        },
-      });
-    } catch {
-      // Telemetry should never affect CLI functionality
-    }
-  })();
+    posthog.capture({
+      distinctId: getDistinctId(),
+      event: COMMAND_EVENT,
+      groups: accountGroups(),
+      properties: {
+        ...commonProperties(),
+        command: ctx.command,
+        subcommand: ctx.subcommand,
+        flags: ctx.flags,
+        success: ctx.success,
+        duration_ms: ctx.durationMs,
+        // Only present on failures, matching @pax8/cli's contract.
+        error_code: ctx.errorCode,
+        // Always a boolean. This used to be `process.env.DEMO_MODE === "true"`
+        // read at the call site, which reported `false` for anyone who had
+        // turned demo on persistently via `pax8-cta demo on`.
+        demo_mode: ctx.demoMode ?? isDemoModeEnabled(),
+      },
+    });
+  });
 }
 
 /**
@@ -614,27 +752,23 @@ export function trackNotFound(
   // Hash the query synchronously so we don't hold a reference to the raw value.
   const queryHash = createHash("sha256").update(query).digest("hex").substring(0, 8);
 
-  void (async () => {
-    try {
-      const posthog = await getClient();
-      if (!posthog) return;
-      await ensureIdentified();
+  schedule(async () => {
+    const posthog = await getClient();
+    if (!posthog) return;
+    await ensureIdentified();
 
-      // Don't track the actual query value for privacy - just the resource type
-      posthog.capture({
-        distinctId: getDistinctId(),
-        event: "cli_not_found",
-        groups: accountGroups(),
-        properties: {
-          ...commonProperties(),
-          resource_type: resource,
-          query_hash: queryHash,
-        },
-      });
-    } catch {
-      // Telemetry should never affect CLI functionality
-    }
-  })();
+    // Don't track the actual query value for privacy - just the resource type
+    posthog.capture({
+      distinctId: getDistinctId(),
+      event: "cli_not_found",
+      groups: accountGroups(),
+      properties: {
+        ...commonProperties(),
+        resource_type: resource,
+        query_hash: queryHash,
+      },
+    });
+  });
 }
 
 /**
@@ -643,26 +777,22 @@ export function trackNotFound(
 export function trackError(errorType: string, command?: string): void {
   if (!isTelemetryEnabled()) return;
 
-  void (async () => {
-    try {
-      const posthog = await getClient();
-      if (!posthog) return;
-      await ensureIdentified();
+  schedule(async () => {
+    const posthog = await getClient();
+    if (!posthog) return;
+    await ensureIdentified();
 
-      posthog.capture({
-        distinctId: getDistinctId(),
-        event: "cli_error",
-        groups: accountGroups(),
-        properties: {
-          ...commonProperties(),
-          error_type: errorType,
-          command,
-        },
-      });
-    } catch {
-      // Telemetry should never affect CLI functionality
-    }
-  })();
+    posthog.capture({
+      distinctId: getDistinctId(),
+      event: "cli_error",
+      groups: accountGroups(),
+      properties: {
+        ...commonProperties(),
+        error_type: errorType,
+        command,
+      },
+    });
+  });
 }
 
 /**
@@ -671,24 +801,20 @@ export function trackError(errorType: string, command?: string): void {
 export function trackFirstRun(): void {
   if (!isTelemetryEnabled()) return;
 
-  void (async () => {
-    try {
-      const posthog = await getClient();
-      if (!posthog) return;
-      await ensureIdentified();
+  schedule(async () => {
+    const posthog = await getClient();
+    if (!posthog) return;
+    await ensureIdentified();
 
-      posthog.capture({
-        distinctId: getDistinctId(),
-        event: "cli_first_run",
-        groups: accountGroups(),
-        properties: {
-          ...commonProperties(),
-        },
-      });
-    } catch {
-      // Telemetry should never affect CLI functionality
-    }
-  })();
+    posthog.capture({
+      distinctId: getDistinctId(),
+      event: "cli_first_run",
+      groups: accountGroups(),
+      properties: {
+        ...commonProperties(),
+      },
+    });
+  });
 }
 
 // ============================================================================

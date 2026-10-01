@@ -16,6 +16,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Command } from "commander";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ConsoleCapture, mockEnv, stripAnsi, containsText, mockSpinner } from "./test-utils.js";
 
 // Mock PostHog to avoid actual API calls. Instances are collected so tests can
@@ -414,6 +417,12 @@ describe("Telemetry", () => {
       mockStore.telemetryEnabled = true;
       mockStore.machineId = "test-machine-id";
 
+      // "Uncredentialed" must also mean "no config/tenants.yaml to fall back
+      // to". The test process runs from packages/cli, which has a real one,
+      // so point cwd at an empty directory for this case.
+      const emptyCwd = mkdtempSync(join(tmpdir(), "pax8-cta-telemetry-"));
+      const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(emptyCwd);
+
       vi.resetModules();
       const { trackCommand, shutdownTelemetry } = await import("../lib/telemetry.js");
 
@@ -431,6 +440,164 @@ describe("Telemetry", () => {
       expect(instance.groupIdentify).not.toHaveBeenCalled();
 
       await shutdownTelemetry();
+      cwdSpy.mockRestore();
+      rmSync(emptyCwd, { recursive: true, force: true });
+    });
+
+    it("identifies from config/tenants.yaml even when the config is not deploy-valid", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        DEMO_MODE: "false",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_cfg",
+        // No PARTNER_* env vars — identity has to come from the config file.
+      });
+      mockStore.telemetryEnabled = true;
+
+      // A partner block with real GUIDs, but the rest of the document is
+      // missing `source:` and would fail loadConfig's schema. Identity
+      // resolution must not depend on the config being deploy-ready — that
+      // regression silently demoted these runs to the anonymous machine ID
+      // and emitted no `identify` at all.
+      const cwd = mkdtempSync(join(tmpdir(), "pax8-cta-telemetry-"));
+      mkdirSync(join(cwd, "config"));
+      writeFileSync(
+        join(cwd, "config", "tenants.yaml"),
+        [
+          "partner:",
+          "  tenantId: 11111111-2222-3333-4444-555555555555",
+          "  clientId: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+          "tenants: []",
+        ].join("\n")
+      );
+      const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(cwd);
+
+      vi.resetModules();
+      const { trackCommand, shutdownTelemetry, accountGroupKey } =
+        await import("../lib/telemetry.js");
+
+      trackCommand({ command: "deploy", success: true, durationMs: 100 });
+
+      await vi.waitFor(() => {
+        expect(mockPostHogInstances.at(-1)?.capture).toHaveBeenCalled();
+      });
+
+      const instance = mockPostHogInstances.at(-1)!;
+      const captureArg = instance.capture.mock.calls[0][0];
+      const expectedAccountKey = accountGroupKey("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+      expect(captureArg.distinctId).not.toBe("test-machine-id");
+      expect(captureArg.groups).toEqual({ account: expectedAccountKey });
+      expect(instance.identify).toHaveBeenCalledTimes(1);
+
+      await shutdownTelemetry();
+      cwdSpy.mockRestore();
+      rmSync(cwd, { recursive: true, force: true });
+    });
+  });
+
+  describe("command_executed schema (parity with @pax8/cli)", () => {
+    async function captureOne(
+      ctx: Parameters<Awaited<typeof import("../lib/telemetry.js")>["trackCommand"]>[0]
+    ) {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        DEMO_MODE: "false",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_schema",
+        PARTNER_TENANT_ID: "11111111-1111-1111-1111-111111111111",
+        PARTNER_CLIENT_ID: "22222222-2222-2222-2222-222222222222",
+      });
+      mockStore.telemetryEnabled = true;
+
+      vi.resetModules();
+      const { trackCommand, shutdownTelemetry } = await import("../lib/telemetry.js");
+      trackCommand(ctx);
+      await vi.waitFor(() => {
+        expect(mockPostHogInstances.at(-1)?.capture).toHaveBeenCalled();
+      });
+      const call = mockPostHogInstances.at(-1)!.capture.mock.calls[0][0];
+      await shutdownTelemetry();
+      return call;
+    }
+
+    it("emits `command_executed`, the name @pax8/cli and every shared dashboard uses", async () => {
+      const call = await captureOne({ command: "deploy", success: true, durationMs: 100 });
+      // Regression guard for the rename away from `cli_command`, which no
+      // shared PostHog insight ever matched.
+      expect(call.event).toBe("command_executed");
+    });
+
+    it("carries the full @pax8/cli property set", async () => {
+      const call = await captureOne({
+        command: "tenants",
+        subcommand: "tenants.list",
+        success: false,
+        durationMs: 42,
+        errorCode: "ERROR_USAGE",
+      });
+
+      expect(call.properties).toMatchObject({
+        app: "pax8-cta",
+        command: "tenants",
+        subcommand: "tenants.list",
+        success: false,
+        error_code: "ERROR_USAGE",
+        duration_ms: 42,
+        node_version: process.version,
+        os: process.platform,
+        demo_mode: false,
+      });
+      // cli_version must track package.json, not a hand-maintained literal —
+      // it read "0.1.0" for every release from 0.1.1 onward.
+      expect(call.properties.cli_version).toMatch(/^\d+\.\d+\.\d+/);
+      expect(call.properties.cli_version).not.toBe("0.1.0");
+      // `error_type` was CTA's old spelling; @pax8/cli breaks failures down by
+      // `error_code` and would never have matched it.
+      expect(call.properties).not.toHaveProperty("error_type");
+    });
+
+    it("omits error_code on success", async () => {
+      const call = await captureOne({ command: "deploy", success: true, durationMs: 5 });
+      expect(call.properties.error_code).toBeUndefined();
+      expect(call.properties.success).toBe(true);
+    });
+  });
+
+  describe("shutdown drains in-flight captures", () => {
+    it("delivers an event whose capture is still pending when shutdown starts", async () => {
+      restoreEnv();
+      restoreEnv = mockEnv({
+        CI: "",
+        DO_NOT_TRACK: "",
+        DEMO_MODE: "false",
+        PAX8_CTA_POSTHOG_KEY: "phc_test_drain",
+        PARTNER_TENANT_ID: "11111111-1111-1111-1111-111111111111",
+        PARTNER_CLIENT_ID: "22222222-2222-2222-2222-222222222222",
+      });
+      mockStore.telemetryEnabled = true;
+
+      vi.resetModules();
+      const { trackCommand, shutdownTelemetry } = await import("../lib/telemetry.js");
+
+      // No waitFor here: shut down immediately, exactly as the entry point
+      // does after parseAsync resolves. trackCommand is fire-and-forget and
+      // does several awaits (dynamic import, identity resolution) before it
+      // reaches capture(); shutdown used to win that race, call
+      // client.shutdown() and let the caller process.exit() with the event
+      // never sent. That is why failures and REPL sessions went dark.
+      trackCommand({ command: "deploy", success: false, durationMs: 1, errorCode: "ERROR_CLI" });
+      await shutdownTelemetry();
+
+      const instance = mockPostHogInstances.at(-1)!;
+      expect(instance.capture).toHaveBeenCalledTimes(1);
+      expect(instance.capture.mock.calls[0][0].event).toBe("command_executed");
+      // The drain must happen before the flush, not after it.
+      expect(instance.capture.mock.invocationCallOrder[0]).toBeLessThan(
+        instance.shutdown.mock.invocationCallOrder[0]
+      );
     });
   });
 
