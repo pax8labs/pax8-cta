@@ -97,6 +97,7 @@ import {
 } from "./lib/telemetry.js";
 import { attachCommandTelemetry, errorCodeFor } from "./lib/command-telemetry.js";
 import { isQuietMode } from "./lib/spinner.js";
+import { getUpdateNotice, startUpdateCheck, finishUpdateCheck } from "./lib/update-notifier.js";
 import chalk from "chalk";
 
 // Import package.json statically (not via runtime fs read) so the version
@@ -226,6 +227,19 @@ if (!isQuietMode()) {
 // anonymous per-machine fallback. Fire-and-forget; flushed at shutdown.
 initTelemetryIdentity();
 
+// Surface an "update available" notice if a newer version was seen on a prior
+// run, and kick off this run's throttled background check (issue #500). The
+// notice goes to stderr and is quiet-aware so it never pollutes piped stdout;
+// this runs for both command and REPL invocations. The check is fire-and-forget
+// here and flushed at shutdown so it never delays the command.
+if (!isQuietMode()) {
+  const updateNotice = getUpdateNotice(VERSION);
+  if (updateNotice) {
+    console.error(chalk.yellow(updateNotice));
+  }
+  startUpdateCheck();
+}
+
 // Graceful shutdown handling
 let isShuttingDown = false;
 
@@ -236,8 +250,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
   console.log(chalk.gray(`\n${signal} received. Shutting down gracefully...`));
 
   try {
-    // Flush telemetry before exit
+    // Flush telemetry and persist any in-flight update check before exit
     await shutdownTelemetry();
+    await finishUpdateCheck();
   } catch {
     // Ignore errors during shutdown
   }
@@ -258,6 +273,7 @@ if (args.length === 0) {
   // same way the one-shot branch below does. Without this the last event of a
   // session was still in flight when the process ended.
   await shutdownTelemetry();
+  await finishUpdateCheck();
 } else {
   const startTime = Date.now();
   const program = createProgram();
@@ -348,6 +364,7 @@ if (args.length === 0) {
   }
 
   await shutdownTelemetry();
+  await finishUpdateCheck();
 
   if (failure !== undefined) {
     const exitCode = (failure as { exitCode?: number })?.exitCode;
