@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-10-01
+
+Telemetry on by default for new installs, telemetry event fixes, and an update-available notice. 0.1.11 was version-bumped but never published to npm, so its fix (#494) ships here too.
+
 ### Added
 
 - **Update-available notice** (#500). A globally-installed `pax8-cta` could sit months out of date with no signal. The CLI now tells you when a newer `@pax8/cta` has been published.
@@ -39,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Note this diverges from `@pax8/cli`, which remains opt-in.
 
   **If you parse `pax8-cta config --json`:** `telemetry.disabledSource` gained a new `pending-notice` value, alongside the existing `env`, `do-not-track`, `ci`, `no-key` and `config`. Treat the field as open-ended rather than a closed set.
+
+### Fixed
+
+- **Telemetry now records `command_executed` and failed runs** (#519). Failure events were emitted from a `process.on("exit")` handler, where Node runs no further async work, so every failure was silently dropped and PostHog only ever saw successes. Commander usage errors (unknown command or option, missing argument) exited before reaching telemetry at all. Failures are now tracked after `parseAsync` settles — help and version output still count as success — and the REPL flushes its events before exiting.
 
 ## [0.1.11] - 2026-07-13
 
